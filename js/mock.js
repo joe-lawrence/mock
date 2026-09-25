@@ -3623,6 +3623,18 @@ function checkNounsPlurals() {
 let ttsSpeakGen = 0;
 let ttsSpeakTimer = null;
 
+/** iOS/iPadOS Safari clips utterance onsets if speak() follows cancel() too quickly. */
+function isAppleTouchTTS() {
+  const ua = navigator.userAgent || "";
+  if (/iPhone|iPad|iPod/i.test(ua)) return true;
+  // iPadOS 13+ can report as Mac; treat touch Macs as Apple mobile TTS.
+  return (
+    navigator.platform === "MacIntel" &&
+    typeof navigator.maxTouchPoints === "number" &&
+    navigator.maxTouchPoints > 1
+  );
+}
+
 function stopSpeech({ keepAdvance = false } = {}) {
   ttsSpeakGen += 1;
   if (ttsSpeakTimer) {
@@ -3631,11 +3643,14 @@ function stopSpeech({ keepAdvance = false } = {}) {
   }
   if (window.speechSynthesis) {
     window.speechSynthesis.cancel();
-    // Chrome can stick in a paused/speaking-true state after cancel.
-    try {
-      window.speechSynthesis.resume();
-    } catch (_) {
-      /* ignore */
+    // Chrome can stick in paused/speaking-true after cancel; resume() can
+    // re-clip the next onset on iOS — skip it there.
+    if (!isAppleTouchTTS()) {
+      try {
+        window.speechSynthesis.resume();
+      } catch (_) {
+        /* ignore */
+      }
     }
   }
   if (state.karaokeTimer) {
@@ -3672,6 +3687,48 @@ function assignEnglishVoice(utterance) {
   if (en) utterance.voice = en;
 }
 
+/**
+ * Queue speak after cancel has fully settled. Desktop needs ~120ms; Apple
+ * WebKit often still clips the first phoneme unless we wait for idle + ~300ms.
+ */
+function scheduleSpeak(speakFn, gen) {
+  if (ttsSpeakTimer) clearTimeout(ttsSpeakTimer);
+
+  const apple = isAppleTouchTTS();
+  const settleMs = apple ? 300 : 120;
+  const started = performance.now();
+
+  const run = () => {
+    ttsSpeakTimer = null;
+    if (gen !== ttsSpeakGen) return;
+
+    const synth = window.speechSynthesis;
+    const busy = synth.speaking || synth.pending;
+    // Wait out a lingering cancel on WebKit (cap so we never hang).
+    if (busy && performance.now() - started < 600) {
+      ttsSpeakTimer = setTimeout(run, 40);
+      return;
+    }
+
+    const kick = () => {
+      if (gen !== ttsSpeakGen) return;
+      if (synth.getVoices().length) speakFn();
+      else
+        synth.addEventListener("voiceschanged", speakFn, {
+          once: true,
+        });
+    };
+
+    ttsSpeakTimer = setTimeout(() => {
+      ttsSpeakTimer = null;
+      kick();
+    }, settleMs);
+  };
+
+  // Yield one frame so cancel() can apply before we poll speaking/pending.
+  ttsSpeakTimer = setTimeout(run, apple ? 32 : 0);
+}
+
 function withUtterance(
   text,
   { rate = 0.9, lang = "de-DE", onStart, onEnd, onError } = {}
@@ -3695,26 +3752,17 @@ function withUtterance(
     if (gen !== ttsSpeakGen) return;
     if (lang.toLowerCase().startsWith("de")) assignGermanVoice(u);
     else assignEnglishVoice(u);
-    try {
-      window.speechSynthesis.resume();
-    } catch (_) {
-      /* ignore */
+    if (!isAppleTouchTTS()) {
+      try {
+        window.speechSynthesis.resume();
+      } catch (_) {
+        /* ignore */
+      }
     }
     window.speechSynthesis.speak(u);
   };
 
-  // speak() in the same turn as cancel() often drops/clips the onset (Chrome/Firefox).
-  if (ttsSpeakTimer) clearTimeout(ttsSpeakTimer);
-  ttsSpeakTimer = setTimeout(() => {
-    ttsSpeakTimer = null;
-    if (gen !== ttsSpeakGen) return;
-    if (window.speechSynthesis.getVoices().length) speak();
-    else
-      window.speechSynthesis.addEventListener("voiceschanged", speak, {
-        once: true,
-      });
-  }, 120);
-
+  scheduleSpeak(speak, gen);
   return u;
 }
 
