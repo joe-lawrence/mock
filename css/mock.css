@@ -111,6 +111,8 @@ button {
 }
 
 .topbar {
+  position: relative;
+  z-index: 20;
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
@@ -204,7 +206,7 @@ span.territory-menu-btn {
   position: absolute;
   top: calc(100% + 0.25rem);
   left: 0;
-  z-index: 40;
+  z-index: 1;
   min-width: 11.5rem;
   padding: 0.35rem;
   border: 1px solid var(--line-strong);
@@ -248,6 +250,42 @@ span.territory-menu-btn {
   background: color-mix(in srgb, var(--signal) 12%, white);
   color: var(--masc-ink);
   font-weight: 650;
+}
+
+/* Mutually exclusive difficulty: check-mark radio row */
+.menu-panel > button.menu-check {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 550;
+  background: transparent;
+  color: var(--ink);
+}
+
+.menu-panel > button.menu-check .menu-check-mark {
+  flex: 0 0 1.15rem;
+  width: 1.15rem;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.menu-panel > button.menu-check .menu-check-label {
+  flex: 1;
+  text-align: left;
+}
+
+.menu-panel > button.menu-check:hover,
+.menu-panel > button.menu-check:focus-visible {
+  background: var(--surface-2);
+}
+
+.menu-panel > button.menu-check.is-on {
+  background: transparent;
+  color: var(--ink);
+  font-weight: 550;
 }
 
 .menu-sep {
@@ -1152,7 +1190,7 @@ button.syl:disabled,
   font-weight: 600;
 }
 
-/* Bottom sheet for hint / reference */
+/* Bottom sheet for hint / reference — z bumped in JS so last-opened wins */
 .sheet {
   position: fixed;
   inset: 0;

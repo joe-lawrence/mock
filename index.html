@@ -50,12 +50,38 @@
             <button type="button" role="menuitem" data-show-briefing="numbers">
               Briefing
             </button>
-            <button type="button" role="menuitem" data-open-numbers-chart>
+            <button type="button" role="menuitem" data-open-chart="numbers">
               Reference Chart
             </button>
             <hr class="menu-sep" />
-            <button type="button" role="menuitem" data-start-practice="numbers">
-              Practice
+            <button
+              type="button"
+              role="menuitem"
+              class="is-on"
+              data-numbers-mode="construction"
+            >
+              Construction
+            </button>
+            <hr class="menu-sep" />
+            <button
+              type="button"
+              role="menuitemradio"
+              class="menu-check"
+              aria-checked="true"
+              data-numbers-difficulty="assisted"
+            >
+              <span class="menu-check-mark" aria-hidden="true">✓</span>
+              <span class="menu-check-label">Assisted</span>
+            </button>
+            <button
+              type="button"
+              role="menuitemradio"
+              class="menu-check"
+              aria-checked="false"
+              data-numbers-difficulty="core"
+            >
+              <span class="menu-check-mark" aria-hidden="true"></span>
+              <span class="menu-check-label">Core</span>
             </button>
           </div>
         </div>
@@ -70,6 +96,13 @@
             Nouns
           </button>
           <div class="menu-panel" role="menu" hidden>
+            <button type="button" role="menuitem" data-show-briefing="nouns">
+              Briefing
+            </button>
+            <button type="button" role="menuitem" data-open-chart="nouns">
+              Reference Chart
+            </button>
+            <hr class="menu-sep" />
             <button
               type="button"
               role="menuitem"
@@ -90,14 +123,23 @@
             <hr class="menu-sep" />
             <button
               type="button"
-              role="menuitem"
-              class="is-on"
+              role="menuitemradio"
+              class="menu-check"
+              aria-checked="true"
               data-nouns-difficulty="assisted"
             >
-              Assisted
+              <span class="menu-check-mark" aria-hidden="true">✓</span>
+              <span class="menu-check-label">Assisted</span>
             </button>
-            <button type="button" role="menuitem" data-nouns-difficulty="core">
-              Core
+            <button
+              type="button"
+              role="menuitemradio"
+              class="menu-check"
+              aria-checked="false"
+              data-nouns-difficulty="core"
+            >
+              <span class="menu-check-mark" aria-hidden="true"></span>
+              <span class="menu-check-label">Core</span>
             </button>
           </div>
         </div>
@@ -112,6 +154,13 @@
             Sounds
           </button>
           <div class="menu-panel" role="menu" hidden>
+            <button type="button" role="menuitem" data-show-briefing="sounds">
+              Briefing
+            </button>
+            <button type="button" role="menuitem" data-open-chart="sounds">
+              Reference Chart
+            </button>
+            <hr class="menu-sep" />
             <button
               type="button"
               role="menuitem"
@@ -126,6 +175,27 @@
               data-sounds-mode="discriminate"
             >
               Discriminate
+            </button>
+            <hr class="menu-sep" />
+            <button
+              type="button"
+              role="menuitemradio"
+              class="menu-check"
+              aria-checked="true"
+              data-sounds-difficulty="assisted"
+            >
+              <span class="menu-check-mark" aria-hidden="true">✓</span>
+              <span class="menu-check-label">Assisted</span>
+            </button>
+            <button
+              type="button"
+              role="menuitemradio"
+              class="menu-check"
+              aria-checked="false"
+              data-sounds-difficulty="core"
+            >
+              <span class="menu-check-mark" aria-hidden="true"></span>
+              <span class="menu-check-label">Core</span>
             </button>
           </div>
         </div>

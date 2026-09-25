@@ -888,31 +888,16 @@ const numberDemoMeta = [
   },
 ];
 
-const numberItems = numberDemoMeta.map((meta) => {
-  const ex = createNumberConstructionExercise(meta.value, {
-    grain: meta.grain,
-    english: meta.english,
-    mode: "assisted",
-    answerParts: meta.answerParts,
-  });
-  return {
-    value: meta.value,
-    english: meta.english,
-    grain: meta.grain,
-    parts: ex.materials.parts,
-    distractors: ex.materials.distractors,
-    hint: ex.materials.hint,
-    form: ex.resolution.form,
-    answerParts: meta.answerParts,
-  };
-});
+function currentNumberMeta() {
+  return numberDemoMeta[state.numbersIndex % numberDemoMeta.length];
+}
 
 function currentNumberExercise() {
-  const meta = numberDemoMeta[state.numbersIndex % numberDemoMeta.length];
+  const meta = currentNumberMeta();
   return createNumberConstructionExercise(meta.value, {
     grain: meta.grain,
     english: meta.english,
-    mode: "assisted",
+    mode: state.numbersDifficulty,
     answerParts: meta.answerParts,
   });
 }
@@ -2121,8 +2106,11 @@ const state = {
   nounsFilled: [],
   nounsArticle: null,
   soundsMode: "karaoke",
+  numbersMode: "construction",
   nounsMode: "articles",
+  numbersDifficulty: "assisted",
   nounsDifficulty: "assisted",
+  soundsDifficulty: "assisted",
   /** Rolling accuracy per suffix family id (Association mode). */
   nounFamilyStats: {},
   currentExercise: null,
@@ -2402,6 +2390,63 @@ function renderBriefing(territoryId) {
   `;
 }
 
+function syncTerritoryMenu(territoryId) {
+  const menu = document.querySelector(
+    `.territory-menu[data-territory="${territoryId}"]`
+  );
+  if (!menu) return;
+
+  const phase = state.phase[territoryId] || "practice";
+  const modeKey =
+    territoryId === "numbers"
+      ? state.numbersMode
+      : territoryId === "nouns"
+        ? state.nounsMode
+        : state.soundsMode;
+  const difficulty =
+    territoryId === "numbers"
+      ? state.numbersDifficulty
+      : territoryId === "nouns"
+        ? state.nounsDifficulty
+        : state.soundsDifficulty;
+
+  menu.querySelectorAll("[data-show-briefing]").forEach((btn) => {
+    const on = phase === "briefing";
+    btn.classList.toggle("is-on", on);
+  });
+  menu.querySelectorAll("[data-open-chart]").forEach((btn) => {
+    const on = phase === "chart";
+    btn.classList.toggle("is-on", on);
+  });
+
+  const modeAttr =
+    territoryId === "numbers"
+      ? "numbersMode"
+      : territoryId === "nouns"
+        ? "nounsMode"
+        : "soundsMode";
+  menu.querySelectorAll(`[data-${territoryId}-mode]`).forEach((btn) => {
+    const on = phase === "practice" && btn.dataset[modeAttr] === modeKey;
+    btn.classList.toggle("is-on", on);
+    btn.setAttribute("aria-pressed", String(on));
+  });
+
+  const diffAttr =
+    territoryId === "numbers"
+      ? "numbersDifficulty"
+      : territoryId === "nouns"
+        ? "nounsDifficulty"
+        : "soundsDifficulty";
+  menu.querySelectorAll(`[data-${territoryId}-difficulty]`).forEach((btn) => {
+    const on = btn.dataset[diffAttr] === difficulty;
+    btn.classList.remove("is-on");
+    btn.setAttribute("aria-checked", String(on));
+    btn.removeAttribute("aria-pressed");
+    const mark = btn.querySelector(".menu-check-mark");
+    if (mark) mark.textContent = on ? "✓" : "";
+  });
+}
+
 function showTerritoryPhase(territoryId) {
   const phase = state.phase[territoryId] || "briefing";
   const briefing = document.getElementById(`${territoryId}-briefing`);
@@ -2413,6 +2458,8 @@ function showTerritoryPhase(territoryId) {
   if (soundsChartEl) soundsChartEl.hidden = true;
   if (numbersChartEl) numbersChartEl.hidden = true;
   if (nounsChartEl) nounsChartEl.hidden = true;
+
+  syncTerritoryMenu(territoryId);
 
   if (phase === "briefing") {
     if (briefing) briefing.hidden = false;
@@ -2724,21 +2771,33 @@ function wireSlot(slot, acceptFn, opts = {}) {
 function renderNumbers() {
   clearNumbersAdvance();
   stopSpeech();
-  const item = numberItems[state.numbersIndex % numberItems.length];
-  state.numbersFilled = Array(item.parts.length).fill(null);
+  const exercise = currentNumberExercise();
+  const meta = currentNumberMeta();
+  state.currentExercise = exercise;
+  const parts = exercise.materials.parts;
+  const distractors = exercise.materials.distractors;
+  state.numbersFilled = Array(parts.length).fill(null);
   state.numbersChecked = false;
 
+  const en = exercise.prompt.english
+    ? `<span class="en">${exercise.prompt.english}</span>`
+    : "";
   document.getElementById("numbers-prompt").innerHTML = `
-    <strong>${item.value}</strong>
+    <strong>${meta.value}</strong>${en}
   `;
 
   clearAnswerReveal("numbers");
   const back = document.getElementById("numbers-back");
   if (back) back.disabled = state.numbersIndex <= 0;
 
+  const hintBtn = document.getElementById("numbers-hint");
+  const refBtn = document.getElementById("numbers-ref-btn");
+  if (hintBtn) hintBtn.hidden = !exercise.scaffolding.showHintButton;
+  if (refBtn) refBtn.hidden = !exercise.scaffolding.showReferenceButton;
+
   const slots = document.getElementById("numbers-slots");
   slots.innerHTML = "";
-  item.parts.forEach((_, i) => {
+  parts.forEach((_, i) => {
     const slot = document.createElement("div");
     slot.className = "slot";
     slot.dataset.index = String(i);
@@ -2768,9 +2827,7 @@ function renderNumbers() {
   const tray = document.getElementById("numbers-tray");
   tray.innerHTML = "";
   // Unique chip labels — reusable (same form can fill more than one slot).
-  const labels = [
-    ...new Set([...item.parts, ...item.distractors]),
-  ];
+  const labels = [...new Set([...parts, ...distractors])];
   shuffle(labels).forEach((text, i) => {
     const piece = document.createElement("button");
     piece.type = "button";
@@ -2791,6 +2848,8 @@ function renderNumbers() {
     enableDrag(piece, () => {});
     tray.appendChild(piece);
   });
+
+  syncTerritoryMenu("numbers");
 }
 
 function placeNumberText(text, slotIndex) {
@@ -2835,8 +2894,8 @@ function clearNumberSlot(slotIndex) {
 
 function clearNumbers() {
   if (state.numbersChecked) return;
-  const item = numberItems[state.numbersIndex % numberItems.length];
-  state.numbersFilled = Array(item.parts.length).fill(null);
+  const exercise = currentNumberExercise();
+  state.numbersFilled = Array(exercise.materials.parts.length).fill(null);
   document.querySelectorAll("#numbers-slots .slot").forEach((s, i) => {
     s.classList.remove("is-filled", "is-ok", "is-bad");
     s.textContent = `Part ${i + 1}`;
@@ -2864,7 +2923,8 @@ function scheduleNumbersAdvance(delayMs = 1500) {
 function checkNumbers() {
   if (state.numbersChecked) return;
   const exercise = currentNumberExercise();
-  const item = numberItems[state.numbersIndex % numberItems.length];
+  const meta = currentNumberMeta();
+  const parts = exercise.materials.parts;
   if (state.numbersFilled.some((x) => !x)) return;
 
   state.numbersChecked = true;
@@ -2880,19 +2940,19 @@ function checkNumbers() {
     const good =
       evaluation.slotMatch != null
         ? evaluation.slotMatch[i]
-        : built[i] === item.parts[i];
+        : built[i] === parts[i];
     slot.classList.toggle("is-ok", !!good);
     slot.classList.toggle("is-bad", !good);
   });
 
-  const word = evaluation.canonicalAnswers[0] || item.form || item.parts.join("");
-  const parts =
-    item.answerParts ||
-    item.parts.map((t) => ({ text: t, guide: t }));
+  const word =
+    evaluation.canonicalAnswers[0] || exercise.resolution.form || parts.join("");
+  const answerParts =
+    meta.answerParts || parts.map((t) => ({ text: t, guide: t }));
   const nodes = fillAnswerReveal("numbers", {
     word,
-    parts,
-    en: item.english || "",
+    parts: answerParts,
+    en: meta.english || "",
     ok: accepted,
   });
 
@@ -2901,7 +2961,7 @@ function checkNumbers() {
     afterPlay();
     return;
   }
-  playKaraokeFlow(word, parts, nodes, {
+  playKaraokeFlow(word, answerParts, nodes, {
     keepAdvance: true,
     onEnd: afterPlay,
     onError: afterPlay,
@@ -2966,16 +3026,7 @@ function renderNouns() {
   stopSpeech();
   clearAnswerReveal("nouns");
 
-  document.querySelectorAll("[data-nouns-mode]").forEach((btn) => {
-    const on = btn.dataset.nounsMode === state.nounsMode;
-    btn.classList.toggle("is-on", on);
-    btn.setAttribute("aria-pressed", String(on));
-  });
-  document.querySelectorAll("[data-nouns-difficulty]").forEach((btn) => {
-    const on = btn.dataset.nounsDifficulty === state.nounsDifficulty;
-    btn.classList.toggle("is-on", on);
-    btn.setAttribute("aria-pressed", String(on));
-  });
+  syncTerritoryMenu("nouns");
 
   const help = document.getElementById("nouns-help");
   const translationEl = document.getElementById("nouns-translation");
@@ -3707,16 +3758,13 @@ function setSoundsMode(mode) {
   state.soundsMode = mode;
   state.soundsIndex = 0;
   state.soundsChoice = null;
-  document.querySelectorAll("[data-sounds-mode]").forEach((btn) => {
-    const on = btn.dataset.soundsMode === mode;
-    btn.classList.toggle("is-on", on);
-    btn.setAttribute("aria-pressed", String(on));
-  });
-  const meta = {
-    discriminate: "Listen · discriminate",
-    karaoke: "Syllables · stress",
-  };
-  document.getElementById("sounds-meta").textContent = meta[mode];
+  syncTerritoryMenu("sounds");
+  if (state.phase.sounds === "practice") renderSounds();
+}
+
+function setSoundsDifficulty(difficulty) {
+  state.soundsDifficulty = difficulty;
+  syncTerritoryMenu("sounds");
   if (state.phase.sounds === "practice") renderSounds();
 }
 
@@ -3732,11 +3780,14 @@ function openSheet(title, html) {
   document.getElementById("sheet-title").textContent = title;
   document.getElementById("sheet-body").innerHTML = html;
   sheet.hidden = false;
+  bringOverlayFront(sheet);
   document.getElementById("sheet-close").focus();
 }
 
 function closeSheet() {
-  document.getElementById("app-sheet").hidden = true;
+  const sheet = document.getElementById("app-sheet");
+  sheet.hidden = true;
+  sheet.style.zIndex = "";
 }
 
 function showSoundsHint() {
@@ -3792,6 +3843,7 @@ function renderSounds() {
   state.soundsChoice = null;
   state.soundsChecked = false;
   closeSheet();
+  syncTerritoryMenu("sounds");
 
   const prompt = document.getElementById("sounds-prompt");
   const help = document.getElementById("sounds-help");
@@ -3801,6 +3853,7 @@ function renderSounds() {
   const karaoke = document.getElementById("sounds-karaoke");
   const choices = document.getElementById("sounds-choices");
   const actions = document.getElementById("sounds-actions");
+  const assisted = state.soundsDifficulty === "assisted";
 
   reps.hidden = true;
   playRow.hidden = true;
@@ -3815,7 +3868,9 @@ function renderSounds() {
   help.hidden = true;
   help.textContent = "";
   help.className = "help-line";
-  document.getElementById("sounds-stage").dataset.mode = state.soundsMode;
+  const stage = document.getElementById("sounds-stage");
+  stage.dataset.mode = state.soundsMode;
+  stage.dataset.difficulty = state.soundsDifficulty;
 
   const backBtn = actionBtn("Back", soundsBack, "btn", "sounds-back", false, "chevronLeft");
   backBtn.disabled = state.soundsIndex <= 0;
@@ -3838,7 +3893,9 @@ function renderSounds() {
       btn.className = "choice";
       btn.dataset.id = c.id;
       btn.setAttribute("aria-pressed", "false");
-      btn.innerHTML = `${c.label}<span class="choice-sub">${c.sub}</span>`;
+      btn.innerHTML = assisted
+        ? `${c.label}<span class="choice-sub">${c.sub}</span>`
+        : c.label;
       btn.addEventListener("click", () => {
         if (state.soundsChecked) return;
         state.soundsChoice = c.id;
@@ -3847,12 +3904,11 @@ function renderSounds() {
       choices.appendChild(btn);
     });
 
-    actions.appendChild(
-      soundsNavRow(backBtn, skipBtn, [
-        actionBtn("Hint", showSoundsHint, "btn", null, false, "lightbulb"),
-        actionBtn("Reference", showSoundsReference, "btn", null, false, "book"),
-      ])
-    );
+    const mid = [
+      actionBtn("Hint", showSoundsHint, "btn", null, false, "lightbulb"),
+      actionBtn("Reference", showSoundsReference, "btn", null, false, "book"),
+    ];
+    actions.appendChild(soundsNavRow(backBtn, skipBtn, mid));
     return;
   }
 
@@ -3868,23 +3924,25 @@ function renderSounds() {
 
     karaoke.hidden = false;
     item.syllables.forEach((s) => {
-      karaoke.appendChild(
-        makeSylButton({
-          ortho: s.text,
-          guide: s.guide,
-          stress: s.stress,
-          say: s.text,
-          ariaLabel: `Play syllable ${s.text}`,
-        })
-      );
+      const chip = makeSylButton({
+        ortho: s.text,
+        guide: s.guide,
+        stress: s.stress,
+        say: s.text,
+        ariaLabel: `Play syllable ${s.text}`,
+      });
+      if (!assisted) {
+        const guide = chip.querySelector(".syl-guide");
+        if (guide) guide.hidden = true;
+      }
+      karaoke.appendChild(chip);
     });
 
-    actions.appendChild(
-      soundsNavRow(backBtn, nextBtn, [
-        actionBtn("Hint", showSoundsHint, "btn", null, false, "lightbulb"),
-        actionBtn("Reference", showSoundsReference, "btn", null, false, "book"),
-      ])
-    );
+    const mid = [
+      actionBtn("Hint", showSoundsHint, "btn", null, false, "lightbulb"),
+      actionBtn("Reference", showSoundsReference, "btn", null, false, "book"),
+    ];
+    actions.appendChild(soundsNavRow(backBtn, nextBtn, mid));
   }
 }
 
@@ -4026,7 +4084,28 @@ function playKaraokeFlow(tts, syllables, nodes, opts = {}) {
   });
 }
 
-/* —— Menus —— */
+/* —— Menus / overlay stacking —— */
+
+/** Last-opened overlay (menu chrome or sheet) gets the highest z-index. */
+let overlaySeq = 40;
+
+function nextOverlayZ() {
+  overlaySeq += 1;
+  return overlaySeq;
+}
+
+function bringOverlayFront(el) {
+  if (!el) return;
+  el.style.zIndex = String(nextOverlayZ());
+}
+
+function topbarEl() {
+  return document.querySelector(".topbar");
+}
+
+function anyMenuOpen() {
+  return [...document.querySelectorAll(".menu-panel")].some((p) => !p.hidden);
+}
 
 function closeAllMenus() {
   document.querySelectorAll(".menu-panel").forEach((panel) => {
@@ -4035,6 +4114,18 @@ function closeAllMenus() {
   document.querySelectorAll(".brand-menu-btn, .territory-menu-btn").forEach((btn) => {
     btn.setAttribute("aria-expanded", "false");
   });
+  const topbar = topbarEl();
+  if (topbar && !anyMenuOpen()) {
+    topbar.style.zIndex = "";
+  }
+}
+
+function openMenuPanel(panel, btn) {
+  closeAllMenus();
+  panel.hidden = false;
+  btn.setAttribute("aria-expanded", "true");
+  // Raise whole topbar so dropdowns beat session panels + any open sheet (iOS).
+  bringOverlayFront(topbarEl());
 }
 
 function wireMenus() {
@@ -4045,12 +4136,9 @@ function wireMenus() {
     if (!panel) return;
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      const open = panel.hidden;
-      closeAllMenus();
-      if (open) {
-        panel.hidden = false;
-        btn.setAttribute("aria-expanded", "true");
-      }
+      const willOpen = panel.hidden;
+      if (willOpen) openMenuPanel(panel, btn);
+      else closeAllMenus();
     });
   });
 
@@ -4093,8 +4181,8 @@ function bind() {
   });
 
   document.getElementById("numbers-hint").addEventListener("click", () => {
-    const item = numberItems[state.numbersIndex % numberItems.length];
-    openSheet("Hint", `<p>${item.hint}</p>`);
+    const ex = state.currentExercise || currentNumberExercise();
+    openSheet("Hint", `<p>${ex.materials.hint}</p>`);
   });
   document.getElementById("numbers-ref-btn").addEventListener("click", () => {
     openSheet(
@@ -4207,6 +4295,28 @@ function bind() {
     renderNouns();
   });
 
+  document.querySelectorAll("[data-numbers-mode]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      closeAllMenus();
+      clearNumbersAdvance();
+      stopSpeech();
+      state.numbersMode = btn.dataset.numbersMode;
+      state.phase.numbers = "practice";
+      showTerritoryPhase("numbers");
+    });
+  });
+
+  document.querySelectorAll("[data-numbers-difficulty]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      closeAllMenus();
+      clearNumbersAdvance();
+      stopSpeech();
+      state.numbersDifficulty = btn.dataset.numbersDifficulty;
+      state.phase.numbers = "practice";
+      showTerritoryPhase("numbers");
+    });
+  });
+
   document.querySelectorAll("[data-nouns-mode]").forEach((btn) => {
     btn.addEventListener("click", () => {
       closeAllMenus();
@@ -4238,6 +4348,15 @@ function bind() {
     });
   });
 
+  document.querySelectorAll("[data-sounds-difficulty]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      closeAllMenus();
+      setSoundsDifficulty(btn.dataset.soundsDifficulty);
+      state.phase.sounds = "practice";
+      showTerritoryPhase("sounds");
+    });
+  });
+
   document.querySelectorAll("[data-show-briefing]").forEach((btn) => {
     btn.addEventListener("click", () => {
       closeAllMenus();
@@ -4251,49 +4370,16 @@ function bind() {
     });
   });
 
-  document.querySelectorAll("[data-start-practice]").forEach((btn) => {
+  document.querySelectorAll("[data-open-chart]").forEach((btn) => {
     btn.addEventListener("click", () => {
       closeAllMenus();
-      const id = btn.dataset.startPractice;
-      state.phase[id] = "practice";
+      const id = btn.dataset.openChart;
+      if (state.phase[id] === "practice") {
+        state.preservePractice[id] = true;
+      }
+      state.phase[id] = "chart";
       if (state.view !== id) navigate(id, { keepPhase: true });
       else showTerritoryPhase(id);
-    });
-  });
-
-  document.querySelectorAll("[data-open-numbers-chart]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      closeAllMenus();
-      if (state.phase.numbers === "practice") {
-        state.preservePractice.numbers = true;
-      }
-      state.phase.numbers = "chart";
-      if (state.view !== "numbers") navigate("numbers", { keepPhase: true });
-      else showTerritoryPhase("numbers");
-    });
-  });
-
-  document.querySelectorAll("[data-open-sounds-chart]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      closeAllMenus();
-      if (state.phase.sounds === "practice") {
-        state.preservePractice.sounds = true;
-      }
-      state.phase.sounds = "chart";
-      if (state.view !== "sounds") navigate("sounds", { keepPhase: true });
-      else showTerritoryPhase("sounds");
-    });
-  });
-
-  document.querySelectorAll("[data-open-nouns-chart]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      closeAllMenus();
-      if (state.phase.nouns === "practice") {
-        state.preservePractice.nouns = true;
-      }
-      state.phase.nouns = "chart";
-      if (state.view !== "nouns") navigate("nouns", { keepPhase: true });
-      else showTerritoryPhase("nouns");
     });
   });
 
