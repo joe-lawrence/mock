@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Schnapp</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Sora:wght@500;600&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./css/mock.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="menu brand-menu">
+          <button
+            type="button"
+            class="brand-menu-btn"
+            id="brand-menu-btn"
+            aria-expanded="false"
+            aria-haspopup="true"
+            aria-controls="brand-menu-panel"
+          >
+            <span class="brand-mark"
+              >Schn<span class="brand-a">a</span><span class="brand-p1">p</span
+              ><span class="brand-p2">p</span></span
+            >
+          </button>
+          <div class="menu-panel" id="brand-menu-panel" role="menu" hidden>
+            <button type="button" role="menuitem" data-nav="hub">Main menu</button>
+            <button type="button" role="menuitem" id="btn-switch-user">
+              Switch user
+            </button>
+          </div>
+        </div>
+
+        <div class="menu territory-menu" data-territory="numbers" hidden>
+          <button
+            type="button"
+            class="territory-menu-btn"
+            aria-expanded="false"
+            aria-haspopup="true"
+          >
+            Numbers
+          </button>
+          <div class="menu-panel" role="menu" hidden>
+            <button type="button" role="menuitem" data-show-briefing="numbers">
+              Briefing
+            </button>
+            <button type="button" role="menuitem" data-open-numbers-chart>
+              Reference Chart
+            </button>
+            <hr class="menu-sep" />
+            <button type="button" role="menuitem" data-start-practice="numbers">
+              Practice
+            </button>
+          </div>
+        </div>
+
+        <div class="menu territory-menu" data-territory="nouns" hidden>
+          <button
+            type="button"
+            class="territory-menu-btn"
+            aria-expanded="false"
+            aria-haspopup="true"
+          >
+            Nouns
+          </button>
+          <div class="menu-panel" role="menu" hidden>
+            <button
+              type="button"
+              role="menuitem"
+              class="is-on"
+              data-nouns-mode="articles"
+            >
+              Articles
+            </button>
+            <button type="button" role="menuitem" data-nouns-mode="association">
+              Association
+            </button>
+            <button type="button" role="menuitem" data-nouns-mode="wugs">
+              Wugs
+            </button>
+            <button type="button" role="menuitem" data-nouns-mode="plurals">
+              Plurals
+            </button>
+            <hr class="menu-sep" />
+            <button
+              type="button"
+              role="menuitem"
+              class="is-on"
+              data-nouns-difficulty="assisted"
+            >
+              Assisted
+            </button>
+            <button type="button" role="menuitem" data-nouns-difficulty="core">
+              Core
+            </button>
+          </div>
+        </div>
+
+        <div class="menu territory-menu" data-territory="sounds" hidden>
+          <button
+            type="button"
+            class="territory-menu-btn"
+            aria-expanded="false"
+            aria-haspopup="true"
+          >
+            Sounds
+          </button>
+          <div class="menu-panel" role="menu" hidden>
+            <button
+              type="button"
+              role="menuitem"
+              class="is-on"
+              data-sounds-mode="karaoke"
+            >
+              Syllables
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              data-sounds-mode="discriminate"
+            >
+              Discriminate
+            </button>
+          </div>
+        </div>
+
+        <span class="territory-menu-btn coming-title" id="coming-title" hidden>
+          Coming soon
+        </span>
+      </header>
+
+      <main>
+        <!-- HUB -->
+        <section id="view-hub" class="view is-active" aria-label="Hub">
+          <div class="hub-hero">
+            <h1>Where do you want to work?</h1>
+            <p class="hub-lede">
+              Open any territory. The Dealer suggests a next step — it doesn’t
+              lock the path.
+            </p>
+            <div class="dealer-strip">
+              <span class="dealer-badge">Suggested</span>
+              <p class="dealer-copy">
+                <strong>Numbers</strong> — a calm warm-up before gender and
+                case.
+              </p>
+            </div>
+          </div>
+
+          <h2 class="sr-only">Territories</h2>
+          <ul class="territory-grid" id="territory-grid"></ul>
+        </section>
+
+        <!-- NUMBERS -->
+        <section
+          id="view-numbers"
+          class="view view-session"
+          aria-label="Numbers territory"
+          hidden
+        >
+          <div class="briefing" id="numbers-briefing"></div>
+          <div class="sound-chart" id="numbers-chart" hidden></div>
+          <div class="stage stage-fill" id="numbers-stage" hidden>
+            <p class="prompt" id="numbers-prompt"></p>
+            <div
+              class="slot-row"
+              id="numbers-slots"
+              aria-label="Answer slots"
+            ></div>
+            <div class="tray" id="numbers-tray" aria-label="Number pieces"></div>
+            <div class="answer-reveal" id="numbers-reveal" hidden>
+              <div class="answer-reveal-box">
+                <p class="answer-reveal-de" id="numbers-reveal-word"></p>
+                <p
+                  class="answer-reveal-phonetic"
+                  id="numbers-reveal-phonetic"
+                  aria-live="polite"
+                ></p>
+              </div>
+              <p class="answer-reveal-en" id="numbers-reveal-en" hidden></p>
+            </div>
+            <div class="actions actions-nav" id="numbers-actions">
+              <button
+                type="button"
+                class="btn btn-icon"
+                id="numbers-back"
+                data-icon="chevronLeft"
+                aria-label="Back"
+                title="Back"
+              ></button>
+              <div class="actions-mid">
+                <button
+                  type="button"
+                  class="btn btn-icon"
+                  id="numbers-hint"
+                  data-icon="lightbulb"
+                  aria-label="Hint"
+                  title="Hint"
+                ></button>
+                <button
+                  type="button"
+                  class="btn btn-icon"
+                  id="numbers-ref-btn"
+                  data-icon="book"
+                  aria-label="Reference"
+                  title="Reference"
+                ></button>
+              </div>
+              <button
+                type="button"
+                class="btn btn-icon"
+                id="numbers-skip"
+                data-icon="chevronRight"
+                aria-label="Skip"
+                title="Skip"
+              ></button>
+            </div>
+          </div>
+        </section>
+
+        <!-- NOUNS -->
+        <section
+          id="view-nouns"
+          class="view view-session"
+          aria-label="Nouns territory"
+          hidden
+        >
+          <div class="briefing" id="nouns-briefing"></div>
+          <div class="sound-chart" id="nouns-chart" hidden></div>
+          <div class="stage stage-fill" id="nouns-stage" hidden>
+            <p class="legend legend-text" id="nouns-legend" aria-label="Gender key">
+              <span class="nom-scope">Nominative singular</span>
+              <span class="g-key g-masc">der</span>
+              <span class="g-key g-fem">die</span>
+              <span class="g-key g-neut">das</span>
+            </p>
+            <p class="family-progress" id="nouns-family-progress" hidden></p>
+            <p class="prompt" id="nouns-prompt"></p>
+            <p class="help-line" id="nouns-help" hidden></p>
+            <p class="help-line" id="nouns-translation" hidden></p>
+            <div class="slot-row" id="nouns-slots" aria-label="Phrase slots">
+              <div
+                class="slot"
+                data-slot="article"
+                data-accept="article"
+                tabindex="0"
+              >
+                Article
+              </div>
+              <div
+                class="slot is-filled noun-unit"
+                id="nouns-noun-slot"
+                aria-live="polite"
+              ></div>
+            </div>
+            <div class="tray" id="nouns-tray" aria-label="Answer pieces"></div>
+            <div class="answer-reveal" id="nouns-reveal" hidden>
+              <div class="answer-reveal-box">
+                <p class="answer-reveal-de" id="nouns-reveal-word"></p>
+                <p
+                  class="answer-reveal-phonetic"
+                  id="nouns-reveal-phonetic"
+                  aria-live="polite"
+                ></p>
+              </div>
+              <p class="answer-reveal-en" id="nouns-reveal-en" hidden></p>
+            </div>
+            <div class="actions actions-nav" id="nouns-actions">
+              <button
+                type="button"
+                class="btn btn-icon"
+                id="nouns-back"
+                data-icon="chevronLeft"
+                aria-label="Back"
+                title="Back"
+              ></button>
+              <div class="actions-mid">
+                <button
+                  type="button"
+                  class="btn btn-icon"
+                  id="nouns-hint"
+                  data-icon="lightbulb"
+                  aria-label="Hint"
+                  title="Hint"
+                ></button>
+                <button
+                  type="button"
+                  class="btn btn-icon"
+                  id="nouns-ref-btn"
+                  data-icon="book"
+                  aria-label="Reference"
+                  title="Reference"
+                ></button>
+              </div>
+              <button
+                type="button"
+                class="btn btn-icon"
+                id="nouns-skip"
+                data-icon="chevronRight"
+                aria-label="Skip"
+                title="Skip"
+              ></button>
+            </div>
+          </div>
+        </section>
+
+        <!-- SOUNDS -->
+        <section
+          id="view-sounds"
+          class="view view-session"
+          aria-label="Sounds territory"
+          hidden
+        >
+          <div class="briefing" id="sounds-briefing"></div>
+          <div class="sound-chart" id="sounds-chart" hidden></div>
+          <div class="stage stage-fill" id="sounds-stage" hidden>
+            <p class="prompt" id="sounds-prompt"></p>
+            <p class="help-line" id="sounds-help"></p>
+
+            <div class="sound-reps" id="sounds-reps" hidden>
+              <div class="rep">
+                <span class="rep-label">Learner</span>
+                <span class="rep-value" id="sounds-learner"></span>
+              </div>
+              <div class="rep">
+                <span class="rep-label">Linguistic</span>
+                <span class="rep-value mono" id="sounds-ipa"></span>
+              </div>
+              <div class="rep">
+                <span class="rep-label">Spoken (TTS)</span>
+                <span class="rep-value mono" id="sounds-tts"></span>
+              </div>
+            </div>
+
+            <div class="play-row" id="sounds-play-row" hidden></div>
+            <div class="karaoke" id="sounds-karaoke" hidden aria-live="polite"></div>
+            <div class="choice-grid" id="sounds-choices" hidden></div>
+
+            <div class="answer-reveal" id="sounds-reveal" hidden>
+              <div class="answer-reveal-box">
+                <p class="answer-reveal-de" id="sounds-reveal-word"></p>
+                <p
+                  class="answer-reveal-phonetic"
+                  id="sounds-reveal-phonetic"
+                  aria-live="polite"
+                ></p>
+              </div>
+              <p class="answer-reveal-en" id="sounds-reveal-en" hidden></p>
+            </div>
+
+            <div class="actions actions-nav" id="sounds-actions"></div>
+          </div>
+        </section>
+
+        <!-- COMING SOON -->
+        <section
+          id="view-coming"
+          class="view view-session"
+          aria-label="Coming soon"
+          hidden
+        >
+          <div class="stage stage-fill coming-stage">
+            <p id="coming-body"></p>
+            <p class="help-line">
+              On the map so navigation stays honest before each door is built.
+            </p>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="sheet" id="app-sheet" hidden>
+      <div class="sheet-backdrop" id="sheet-backdrop"></div>
+      <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+        <div class="sheet-head">
+          <h3 id="sheet-title">Reference</h3>
+          <button type="button" class="chip" id="sheet-close">Close</button>
+        </div>
+        <div class="sheet-body" id="sheet-body"></div>
+      </div>
+    </div>
+
+    <script type="module" src="./js/mock.js"></script>
+  </body>
+</html>
