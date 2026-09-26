@@ -374,7 +374,7 @@ const briefings = {
       {
         heading: "How practice works",
         html: `<ul>
-          <li>Snap pieces into slots (tap a piece, then a slot — or drag)</li>
+          <li>Snap pieces into slots — drag to place/remove, or tap a chip to add (tap again to undo the last field)</li>
           <li>Hint / Reference are scaffolding — not failures</li>
         </ul>`,
       },
@@ -2701,7 +2701,15 @@ function renderHub() {
   });
 }
 
-/* —— shared snap helpers —— */
+/* —— Magnetic Snap (pointer drag + tap) ——
+ * - Tap tray chip → add to next empty field; tap again → remove from last field if it matches
+ * - Tap filled field → snap out
+ * - Drag tray chip onto a field → snap in
+ * - Drag filled field away (or onto tray) → snap out; onto another field → move
+ * HTML5 DnD is not used — it fails on iOS Safari.
+ */
+
+const SNAP_DRAG_THRESHOLD = 10;
 
 function clearSelection() {
   state.selectedPiece = null;
@@ -2709,12 +2717,6 @@ function clearSelection() {
     p.classList.remove("is-selected");
     p.style.outline = "";
   });
-}
-
-function markSelected(pieceEl) {
-  clearSelection();
-  state.selectedPiece = pieceEl;
-  pieceEl.classList.add("is-selected");
 }
 
 function shuffle(arr) {
@@ -2726,44 +2728,241 @@ function shuffle(arr) {
   return a;
 }
 
-function enableDrag(piece, onDrop) {
-  piece.draggable = true;
-  piece.addEventListener("dragstart", (e) => {
-    piece.classList.add("is-dragging");
-    e.dataTransfer.setData("text/plain", piece.dataset.id);
-    e.dataTransfer.effectAllowed = "move";
-  });
-  piece.addEventListener("dragend", () => {
-    piece.classList.remove("is-dragging");
-  });
-  piece._onDrop = onDrop;
+function pulseSnap(el, kind) {
+  if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    return;
+  }
+  el.classList.remove("is-snap-in", "is-snap-out");
+  // reflow so repeated pulses restart
+  void el.offsetWidth;
+  el.classList.add(kind === "out" ? "is-snap-out" : "is-snap-in");
+  window.setTimeout(() => {
+    el.classList.remove("is-snap-in", "is-snap-out");
+  }, 220);
 }
 
-function wireSlot(slot, acceptFn, opts = {}) {
-  slot.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    slot.classList.add("is-hot");
-  });
-  slot.addEventListener("dragleave", () => slot.classList.remove("is-hot"));
-  slot.addEventListener("drop", (e) => {
-    e.preventDefault();
-    slot.classList.remove("is-hot");
-    const id = e.dataTransfer.getData("text/plain");
-    acceptFn(id, slot);
-  });
-  if (!opts.noClick) {
-    slot.addEventListener("click", () => {
-      if (!state.selectedPiece) return;
-      acceptFn(state.selectedPiece.dataset.id, slot);
-      clearSelection();
-    });
+function slotFromPoint(clientX, clientY, slotsRoot) {
+  const el = document.elementFromPoint(clientX, clientY);
+  if (!el || !slotsRoot) return null;
+  const slot = el.closest(".slot");
+  if (!slot || !slotsRoot.contains(slot)) return null;
+  if (slot.classList.contains("noun-unit") || slot.classList.contains("slot-given")) {
+    return null;
   }
-  slot.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      slot.click();
-    }
+  return slot;
+}
+
+function overTray(clientX, clientY, trayRoot) {
+  if (!trayRoot) return false;
+  const el = document.elementFromPoint(clientX, clientY);
+  return !!(el && trayRoot.contains(el));
+}
+
+function setHotSlot(slot) {
+  document.querySelectorAll(".slot.is-hot").forEach((s) => {
+    if (s !== slot) s.classList.remove("is-hot");
   });
+  if (slot) slot.classList.add("is-hot");
+}
+
+function makeSnapGhost(sourceEl, label) {
+  const ghost = document.createElement("div");
+  ghost.className = "snap-ghost piece";
+  ghost.textContent = label;
+  ghost.setAttribute("aria-hidden", "true");
+  // Copy gender channel classes when present
+  ["g-masc", "g-fem", "g-neut", "piece-insufficient"].forEach((c) => {
+    if (sourceEl.classList.contains(c)) ghost.classList.add(c);
+  });
+  document.body.appendChild(ghost);
+  return ghost;
+}
+
+function moveSnapGhost(ghost, clientX, clientY) {
+  if (!ghost) return;
+  ghost.style.transform = `translate(${clientX}px, ${clientY}px) translate(-50%, -50%)`;
+}
+
+/**
+ * @param {object} cfg
+ * @param {() => boolean} cfg.locked
+ * @param {() => (string|null)[]} cfg.getFilled
+ * @param {(token: string, index: number) => void} cfg.placeAt
+ * @param {(index: number) => void} cfg.clearAt
+ * @param {HTMLElement} cfg.slotsRoot
+ * @param {HTMLElement} cfg.trayRoot
+ * @param {(slot: HTMLElement) => number} cfg.indexOfSlot
+ */
+function tapTrayToken(token, cfg) {
+  if (cfg.locked()) return;
+  const filled = cfg.getFilled();
+  let last = -1;
+  for (let i = filled.length - 1; i >= 0; i--) {
+    if (filled[i]) {
+      last = i;
+      break;
+    }
+  }
+  // Second tap on the same chip removes it from the last-filled field.
+  if (last >= 0 && filled[last] === token) {
+    cfg.clearAt(last);
+    const slot = cfg.slotsRoot.querySelector(`[data-index="${last}"]`) ||
+      cfg.slotsRoot.querySelector(".slot");
+    pulseSnap(slot, "out");
+    return;
+  }
+  const next = filled.findIndex((x) => !x);
+  if (next < 0) return;
+  cfg.placeAt(token, next);
+  const slot =
+    cfg.slotsRoot.querySelector(`[data-index="${next}"]`) ||
+    cfg.slotsRoot.querySelector(".slot");
+  pulseSnap(slot, "in");
+}
+
+function bindSnapTrayPiece(piece, token, cfg) {
+  piece.addEventListener("pointerdown", (e) => {
+    if (cfg.locked() || e.button !== 0) return;
+    if (piece.disabled) return;
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let dragging = false;
+    let ghost = null;
+    const pointerId = e.pointerId;
+
+    const onMove = (ev) => {
+      if (ev.pointerId !== pointerId) return;
+      const dist = Math.hypot(ev.clientX - startX, ev.clientY - startY);
+      if (!dragging && dist < SNAP_DRAG_THRESHOLD) return;
+      if (!dragging) {
+        dragging = true;
+        document.body.classList.add("is-snapping");
+        ghost = makeSnapGhost(piece, piece.textContent.trim());
+        moveSnapGhost(ghost, ev.clientX, ev.clientY);
+        try {
+          piece.setPointerCapture(pointerId);
+        } catch (_) {
+          /* ignore */
+        }
+      }
+      moveSnapGhost(ghost, ev.clientX, ev.clientY);
+      setHotSlot(slotFromPoint(ev.clientX, ev.clientY, cfg.slotsRoot));
+    };
+
+    const cleanup = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      setHotSlot(null);
+      if (ghost) ghost.remove();
+      document.body.classList.remove("is-snapping");
+    };
+
+    const onUp = (ev) => {
+      if (ev.pointerId !== pointerId) return;
+      cleanup();
+      if (dragging) {
+        const slot = slotFromPoint(ev.clientX, ev.clientY, cfg.slotsRoot);
+        if (slot) {
+          const idx = cfg.indexOfSlot(slot);
+          if (idx >= 0) {
+            cfg.placeAt(token, idx);
+            pulseSnap(slot, "in");
+          }
+        }
+        return;
+      }
+      tapTrayToken(token, cfg);
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  });
+}
+
+function bindSnapSlot(slot, index, cfg) {
+  slot.addEventListener("pointerdown", (e) => {
+    if (cfg.locked() || e.button !== 0) return;
+    const filled = cfg.getFilled();
+    if (!filled[index]) return;
+
+    const token = filled[index];
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let dragging = false;
+    let ghost = null;
+    const pointerId = e.pointerId;
+    // Don't steal clicks from buttons inside slot (none today).
+
+    const onMove = (ev) => {
+      if (ev.pointerId !== pointerId) return;
+      const dist = Math.hypot(ev.clientX - startX, ev.clientY - startY);
+      if (!dragging && dist < SNAP_DRAG_THRESHOLD) return;
+      if (!dragging) {
+        dragging = true;
+        document.body.classList.add("is-snapping");
+        slot.classList.add("is-dragging-out");
+        ghost = makeSnapGhost(slot, String(token === "insufficient" ? "?" : token));
+        moveSnapGhost(ghost, ev.clientX, ev.clientY);
+        try {
+          slot.setPointerCapture(pointerId);
+        } catch (_) {
+          /* ignore */
+        }
+      }
+      moveSnapGhost(ghost, ev.clientX, ev.clientY);
+      const over = slotFromPoint(ev.clientX, ev.clientY, cfg.slotsRoot);
+      setHotSlot(over && cfg.indexOfSlot(over) !== index ? over : null);
+    };
+
+    const cleanup = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      setHotSlot(null);
+      slot.classList.remove("is-dragging-out");
+      if (ghost) ghost.remove();
+      document.body.classList.remove("is-snapping");
+    };
+
+    const onUp = (ev) => {
+      if (ev.pointerId !== pointerId) return;
+      cleanup();
+      if (!dragging) {
+        cfg.clearAt(index);
+        pulseSnap(slot, "out");
+        return;
+      }
+      const target = slotFromPoint(ev.clientX, ev.clientY, cfg.slotsRoot);
+      const toIdx = target ? cfg.indexOfSlot(target) : -1;
+      if (toIdx >= 0 && toIdx !== index) {
+        const displaced = cfg.getFilled()[toIdx];
+        cfg.placeAt(token, toIdx);
+        if (displaced) cfg.placeAt(displaced, index);
+        else cfg.clearAt(index);
+        pulseSnap(target, "in");
+        return;
+      }
+      // Away from fields (including over tray) → snap out
+      if (!target || overTray(ev.clientX, ev.clientY, cfg.trayRoot)) {
+        cfg.clearAt(index);
+        pulseSnap(slot, "out");
+      }
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  });
+}
+
+function indexFromSlotEl(slot) {
+  if (!slot) return -1;
+  if (slot.dataset.index != null) return Number(slot.dataset.index);
+  if (slot.dataset.slot === "article") return 0;
+  return -1;
 }
 
 /* —— Numbers —— */
@@ -2797,35 +2996,35 @@ function renderNumbers() {
 
   const slots = document.getElementById("numbers-slots");
   slots.innerHTML = "";
+  const tray = document.getElementById("numbers-tray");
+  tray.innerHTML = "";
+
+  const snapCfg = {
+    locked: () => state.numbersChecked,
+    getFilled: () => state.numbersFilled,
+    placeAt: (text, index) => placeNumberText(text, index),
+    clearAt: (index) => clearNumberSlot(index),
+    slotsRoot: slots,
+    trayRoot: tray,
+    indexOfSlot: indexFromSlotEl,
+  };
+
   parts.forEach((_, i) => {
     const slot = document.createElement("div");
     slot.className = "slot";
     slot.dataset.index = String(i);
     slot.tabIndex = 0;
     slot.textContent = `Part ${i + 1}`;
-    wireSlot(
-      slot,
-      (id) => {
-        const piece = document.querySelector(`#numbers-tray [data-id="${id}"]`);
-        if (!piece) return;
-        placeNumberText(piece.dataset.text, i);
-      },
-      { noClick: true }
-    );
-    slot.addEventListener("click", () => {
-      if (state.numbersChecked) return;
-      if (state.selectedPiece) {
-        placeNumberText(state.selectedPiece.dataset.text, i);
-        clearSelection();
-        return;
+    slot.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        if (state.numbersFilled[i]) clearNumberSlot(i);
       }
-      if (state.numbersFilled[i]) clearNumberSlot(i);
     });
+    bindSnapSlot(slot, i, snapCfg);
     slots.appendChild(slot);
   });
 
-  const tray = document.getElementById("numbers-tray");
-  tray.innerHTML = "";
   // Unique chip labels — reusable (same form can fill more than one slot).
   const labels = [...new Set([...parts, ...distractors])];
   shuffle(labels).forEach((text, i) => {
@@ -2835,17 +3034,7 @@ function renderNumbers() {
     piece.dataset.id = `n${i}`;
     piece.dataset.text = text;
     piece.textContent = text;
-    piece.addEventListener("click", () => {
-      if (state.numbersChecked) return;
-      const next = state.numbersFilled.findIndex((x) => !x);
-      if (next >= 0) {
-        placeNumberText(text, next);
-        clearSelection();
-      } else {
-        markSelected(piece);
-      }
-    });
-    enableDrag(piece, () => {});
+    bindSnapTrayPiece(piece, text, snapCfg);
     tray.appendChild(piece);
   });
 
@@ -3124,12 +3313,22 @@ function renderNounArticleLike(exercise, { familyLine = "" } = {}) {
 
   const slotsRow = document.getElementById("nouns-slots");
   slotsRow.innerHTML = "";
+  const tray = document.getElementById("nouns-tray");
+  tray.innerHTML = "";
+
   const articleSlot = document.createElement("div");
   articleSlot.className = "slot";
   articleSlot.dataset.slot = "article";
+  articleSlot.dataset.index = "0";
   articleSlot.dataset.accept = "article";
   articleSlot.tabIndex = 0;
   articleSlot.textContent = "Article";
+  articleSlot.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (state.nounsArticle) clearArticleSlot();
+    }
+  });
   slotsRow.appendChild(articleSlot);
 
   const nounSlot = document.createElement("div");
@@ -3139,8 +3338,17 @@ function renderNounArticleLike(exercise, { familyLine = "" } = {}) {
   slotsRow.appendChild(nounSlot);
   paintNounArticleLemma(exercise);
 
-  const tray = document.getElementById("nouns-tray");
-  tray.innerHTML = "";
+  const snapCfg = {
+    locked: () => state.nounsChecked,
+    getFilled: () => [state.nounsArticle],
+    placeAt: (token) => placeArticle(token),
+    clearAt: () => clearArticleSlot(),
+    slotsRoot: slotsRow,
+    trayRoot: tray,
+    indexOfSlot: indexFromSlotEl,
+  };
+  bindSnapSlot(articleSlot, 0, snapCfg);
+
   const choiceMeta = [
     { id: "der", text: "der", gender: "masculine" },
     { id: "die", text: "die", gender: "feminine" },
@@ -3167,18 +3375,8 @@ function renderNounArticleLike(exercise, { familyLine = "" } = {}) {
       piece.dataset.text = a.text;
     }
     piece.dataset.id = a.id;
-    piece.addEventListener("click", () => {
-      if (piece.disabled) return;
-      placeArticle(a.id);
-    });
-    enableDrag(piece, () => {});
+    bindSnapTrayPiece(piece, a.id, snapCfg);
     tray.appendChild(piece);
-  });
-
-  wireSlot(articleSlot, (id) => {
-    const piece = document.querySelector(`#nouns-tray [data-id="${id}"]`);
-    if (!piece || piece.disabled) return;
-    placeArticle(id);
   });
 }
 
@@ -3239,6 +3437,8 @@ function renderNounsPlurals() {
 
   const slots = document.getElementById("nouns-slots");
   slots.innerHTML = "";
+  const tray = document.getElementById("nouns-tray");
+  tray.innerHTML = "";
 
   const given = document.createElement("span");
   given.className = "slot-given";
@@ -3247,35 +3447,32 @@ function renderNounsPlurals() {
   given.setAttribute("aria-label", "die, given");
   slots.appendChild(given);
 
+  const snapCfg = {
+    locked: () => state.nounsChecked,
+    getFilled: () => state.nounsFilled,
+    placeAt: (text, index) => placeNounPluralText(text, index),
+    clearAt: (index) => clearNounPluralSlot(index),
+    slotsRoot: slots,
+    trayRoot: tray,
+    indexOfSlot: indexFromSlotEl,
+  };
+
   buildParts.forEach((_, i) => {
     const slot = document.createElement("div");
     slot.className = "slot";
     slot.dataset.index = String(i);
     slot.tabIndex = 0;
     slot.textContent = i === buildParts.length - 1 ? "Ending" : "Stem";
-    wireSlot(
-      slot,
-      (id) => {
-        const piece = document.querySelector(`#nouns-tray [data-id="${id}"]`);
-        if (!piece) return;
-        placeNounPluralText(piece.dataset.text, i);
-      },
-      { noClick: true }
-    );
-    slot.addEventListener("click", () => {
-      if (state.nounsChecked) return;
-      if (state.selectedPiece) {
-        placeNounPluralText(state.selectedPiece.dataset.text, i);
-        clearSelection();
-        return;
+    slot.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        if (state.nounsFilled[i]) clearNounPluralSlot(i);
       }
-      if (state.nounsFilled[i]) clearNounPluralSlot(i);
     });
+    bindSnapSlot(slot, i, snapCfg);
     slots.appendChild(slot);
   });
 
-  const tray = document.getElementById("nouns-tray");
-  tray.innerHTML = "";
   orderPluralTrayLabels(buildParts, item.distractors).forEach((text, i) => {
     const piece = document.createElement("button");
     piece.type = "button";
@@ -3288,17 +3485,7 @@ function renderNounsPlurals() {
       piece.title = "No ending (plural same as singular)";
       piece.setAttribute("aria-label", "No ending — plural same as singular");
     }
-    piece.addEventListener("click", () => {
-      if (state.nounsChecked) return;
-      const next = state.nounsFilled.findIndex((x) => !x);
-      if (next >= 0) {
-        placeNounPluralText(text, next);
-        clearSelection();
-      } else {
-        markSelected(piece);
-      }
-    });
-    enableDrag(piece, () => {});
+    bindSnapTrayPiece(piece, text, snapCfg);
     tray.appendChild(piece);
   });
 }
@@ -3346,6 +3533,21 @@ function placeArticle(id) {
   slot.textContent = slotText;
   clearSelection();
   checkNounsArticles();
+}
+
+function clearArticleSlot() {
+  if (state.nounsChecked || !isNounArticleLikeMode()) return;
+  if (!state.nounsArticle) return;
+  state.nounsArticle = null;
+  document.querySelectorAll("#nouns-tray .piece").forEach((p) => {
+    if (!p.disabled) p.classList.remove("is-placed");
+  });
+  const slot = document.querySelector('#nouns-slots [data-slot="article"]');
+  if (slot) {
+    slot.classList.remove("is-filled", "g-masc", "g-fem", "g-neut");
+    slot.textContent = "Article";
+  }
+  clearSelection();
 }
 
 function placeNounPluralText(text, slotIndex) {

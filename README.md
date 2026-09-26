@@ -23,13 +23,12 @@ node --test ../engine/numbers/test/cardinal.test.js
 
 ## What’s in the mock
 
-- **Hub** — named territories; Dealer “Suggested” badge; free navigation
-- Hub opens a **Briefing** (cheat sheet) before practice; reopen anytime
-- **Sounds** — discriminate + syllable karaoke (TTS supportive only)
-- **Numbers** — Assisted Magnetic Snap; parts/eval from deterministic engine
-- **Nouns** — Articles/Plurals via exercise layer; **Assisted / Core** difficulty (same truth, less scaffolding)
-- **Tap-only** toggle — disables drag; tap piece → tap slot
-- Other territories open a honest “coming soon” panel
+- **Hub** — named territories; Dealer “Suggested” badge; free navigation; opens straight to practice
+- **Territory menu** — Briefing · Reference Chart · quiz topic(s) · Assisted/Core
+- **Sounds** — Syllables + Discriminate (TTS supportive only)
+- **Numbers** — Construction quiz; parts/eval from deterministic engine
+- **Nouns** — Articles / Association / Wugs / Plurals via exercise layer
+- Other territories open an honest “coming soon” panel
 
 ## Brand note
 

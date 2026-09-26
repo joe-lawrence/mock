@@ -1627,6 +1627,68 @@ button.syl:disabled,
   opacity: 0.5;
 }
 
+body.is-snapping {
+  cursor: grabbing;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body.is-snapping .piece,
+body.is-snapping .slot {
+  cursor: grabbing;
+}
+
+.snap-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 300;
+  pointer-events: none;
+  margin: 0;
+  opacity: 0.95;
+  box-shadow: 0 8px 24px rgba(28, 36, 48, 0.18);
+  transform: translate(-50%, -50%);
+  will-change: transform;
+}
+
+.slot.is-hot {
+  border-color: var(--signal);
+  background: var(--signal-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal) 35%, transparent);
+}
+
+.slot.is-dragging-out {
+  opacity: 0.35;
+}
+
+.slot.is-snap-in {
+  animation: snap-in 0.2s ease;
+}
+
+.slot.is-snap-out {
+  animation: snap-out 0.18s ease;
+}
+
+@keyframes snap-in {
+  from {
+    transform: scale(1.06);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes snap-out {
+  from {
+    transform: scale(0.96);
+    opacity: 0.7;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
 /* Gender channels — quiet but redundant */
 
 .g-masc {
