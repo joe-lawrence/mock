@@ -15,6 +15,7 @@ import {
   associationLemmas,
   wugForms,
 } from "../engine/nouns/index.js";
+import { cardinalForm } from "../engine/numbers/index.js";
 
 /** Bootstrap Icons (outline) — https://icons.getbootstrap.com */
 const BI_PATHS = {
@@ -40,6 +41,159 @@ function hydrateIconButtons(root = document) {
     btn.classList.add("btn-icon");
     btn.innerHTML = biIcon(name);
   });
+}
+
+/* —— Theme (Light / Dark / System) —— */
+
+const THEME_KEY = "schnapp-theme";
+
+function readThemePref() {
+  try {
+    const v = localStorage.getItem(THEME_KEY);
+    if (v === "light" || v === "dark" || v === "system") return v;
+  } catch (_) {
+    /* ignore */
+  }
+  return "system";
+}
+
+function systemPrefersDark() {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+function resolvedTheme(pref = readThemePref()) {
+  if (pref === "dark") return "dark";
+  if (pref === "light") return "light";
+  return systemPrefersDark() ? "dark" : "light";
+}
+
+function applyTheme(pref = readThemePref()) {
+  const resolved = resolvedTheme(pref);
+  if (resolved === "dark") {
+    document.documentElement.setAttribute("data-theme", "dark");
+  } else {
+    document.documentElement.removeAttribute("data-theme");
+  }
+  document.documentElement.style.colorScheme = resolved;
+  syncThemeMenu(pref);
+}
+
+function syncThemeMenu(pref = readThemePref()) {
+  document.querySelectorAll("[data-theme-choice]").forEach((btn) => {
+    const on = btn.dataset.themeChoice === pref;
+    btn.setAttribute("aria-checked", String(on));
+    const mark = btn.querySelector(".menu-check-mark");
+    if (mark) mark.textContent = on ? "✓" : "";
+  });
+}
+
+function setThemePref(pref) {
+  try {
+    localStorage.setItem(THEME_KEY, pref);
+  } catch (_) {
+    /* ignore */
+  }
+  applyTheme(pref);
+}
+
+function initTheme() {
+  applyTheme(readThemePref());
+  const mq = window.matchMedia("(prefers-color-scheme: dark)");
+  const onChange = () => {
+    if (readThemePref() === "system") applyTheme("system");
+  };
+  if (typeof mq.addEventListener === "function") {
+    mq.addEventListener("change", onChange);
+  } else if (typeof mq.addListener === "function") {
+    mq.addListener(onChange);
+  }
+}
+
+/* —— Soft answer feedback tones (Web Audio; no asset files) —— */
+
+const SFX_KEY = "schnapp-sfx";
+let feedbackAudioCtx = null;
+
+function readSfxEnabled() {
+  try {
+    const v = localStorage.getItem(SFX_KEY);
+    if (v === "0" || v === "off" || v === "false") return false;
+  } catch (_) {
+    /* ignore */
+  }
+  return true;
+}
+
+function setSfxEnabled(on) {
+  try {
+    localStorage.setItem(SFX_KEY, on ? "1" : "0");
+  } catch (_) {
+    /* ignore */
+  }
+  syncSfxMenu(on);
+}
+
+function syncSfxMenu(on = readSfxEnabled()) {
+  document.querySelectorAll("[data-sfx-toggle]").forEach((btn) => {
+    btn.setAttribute("aria-checked", String(on));
+    const mark = btn.querySelector(".menu-check-mark");
+    if (mark) mark.textContent = on ? "✓" : "";
+  });
+}
+
+function getFeedbackAudio() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  if (!feedbackAudioCtx) feedbackAudioCtx = new AC();
+  if (feedbackAudioCtx.state === "suspended") {
+    feedbackAudioCtx.resume().catch(() => {});
+  }
+  return feedbackAudioCtx;
+}
+
+/**
+ * Short UI chimes — positive ascending, soft miss / retry.
+ * @param {"ok"|"bad"|"retry"} kind
+ */
+function playFeedbackSound(kind) {
+  if (!readSfxEnabled()) return;
+  const ctx = getFeedbackAudio();
+  if (!ctx) return;
+
+  const now = ctx.currentTime;
+  const master = ctx.createGain();
+  master.gain.value = 0.065;
+  master.connect(ctx.destination);
+
+  const tone = (freq, t0, dur, type = "sine") => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(1, t0 + 0.014);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(gain);
+    gain.connect(master);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.03);
+  };
+
+  if (kind === "ok") {
+    // Soft major third lift
+    tone(523.25, now, 0.11);
+    tone(659.25, now + 0.085, 0.15);
+  } else if (kind === "retry") {
+    tone(349.23, now, 0.09, "triangle");
+  } else {
+    // Gentle descending pair — not harsh
+    tone(277.18, now, 0.1, "triangle");
+    tone(220.0, now + 0.09, 0.14, "triangle");
+  }
+}
+
+function initSfx() {
+  syncSfxMenu();
 }
 const territories = [
   {
@@ -366,15 +520,16 @@ const briefings = {
       {
         heading: "What you’ll use in practice",
         html: `<ul>
-          <li>Compounds 21–99: <strong>ones + und + tens</strong> as one word</li>
-          <li>Example: 24 → vier + und + zwanzig → <strong>vierundzwanzig</strong></li>
-          <li>Exceptions (elf, zwölf, zwanzig, dreißig, sech-/sieb- forms) live in the chart</li>
+          <li><strong>Teens</strong> — 13–19 as base + zehn (sech-/sieb- shortenings)</li>
+          <li><strong>Tens</strong> — 20–90 as stem + zig/ßig (zwanzig, dreißig…)</li>
+          <li><strong>Compounds</strong> — 21–99 as ones + und + tens in one word</li>
+          <li><strong>Listen</strong> — hear a German number (TTS), then identify the value (1-digit / 2-digit / both) — recognition, not production</li>
         </ul>`,
       },
       {
         heading: "How practice works",
         html: `<ul>
-          <li>Snap pieces into slots — drag to place/remove, or tap a chip to add (tap again to undo the last field)</li>
+          <li>Tap a chip to fill the next slot; tap a filled slot to clear it</li>
           <li>Hint / Reference are scaffolding — not failures</li>
         </ul>`,
       },
@@ -839,67 +994,308 @@ const numbersChart = {
   ],
 };
 
-/** Demo prompts — forms/parts/distractors from the Numbers engine. */
-const numberDemoMeta = [
-  {
-    value: 24,
-    english: "twenty-four",
-    grain: "construction",
-    answerParts: [
-      { text: "vier", guide: "FEER", stress: true },
-      { text: "und", guide: "oont" },
-      { text: "zwan", guide: "TSVAN", stress: true },
-      { text: "zig", guide: "tsikh" },
-    ],
-  },
-  {
-    value: 37,
-    english: "thirty-seven",
-    grain: "construction",
-    answerParts: [
-      { text: "sie", guide: "ZEE", stress: true },
-      { text: "ben", guide: "ben" },
-      { text: "und", guide: "oont" },
-      { text: "drei", guide: "DRY", stress: true },
-      { text: "ßig", guide: "sikh" },
-    ],
-  },
-  {
-    value: 42,
-    english: "forty-two",
-    grain: "construction",
-    answerParts: [
-      { text: "zwei", guide: "TSVAI", stress: true },
-      { text: "und", guide: "oont" },
-      { text: "vier", guide: "FEER", stress: true },
-      { text: "zig", guide: "tsikh" },
-    ],
-  },
-  {
-    value: 99,
-    english: "ninety-nine",
-    grain: "morph",
-    answerParts: [
-      { text: "neun", guide: "NOIN", stress: true },
-      { text: "und", guide: "oont" },
-      { text: "neun", guide: "NOIN", stress: true },
-      { text: "zig", guide: "tsikh" },
-    ],
-  },
+/** Look up an exact Numbers chart row (guides + stress). */
+function numbersChartParts(n) {
+  for (const key of ["teens", "tens", "compounds", "base"]) {
+    const row = (numbersChart[key] || []).find((r) => Number(r.n) === n);
+    if (row?.parts?.length) return row.parts;
+  }
+  return null;
+}
+
+/** Compound ones stem with chart-style CAPS guide (eins → ein). */
+function compoundOnesGuidePart(onesDigit) {
+  if (onesDigit === 1) return { text: "ein", guide: "INE", stress: true };
+  const base = numbersChartParts(onesDigit);
+  if (!base?.length) return null;
+  if (base.length === 1) {
+    return {
+      text: base[0].text,
+      guide: String(base[0].guide || base[0].text).toUpperCase(),
+      stress: true,
+    };
+  }
+  // e.g. sieben → one morph token matching engine segments
+  return {
+    text: base.map((p) => p.text).join(""),
+    guide: base.map((p) => p.guide || p.text).join(""),
+    stress: true,
+  };
+}
+
+/**
+ * Phonetic answer-key beats for any 0–99 (morph split).
+ * Composes chart rows so Listen/compounds aren’t stuck without guides.
+ */
+function synthesizeMorphGuides(n) {
+  const exact = numbersChartParts(n);
+  if (exact) return exact;
+  if (!Number.isInteger(n) || n < 0 || n > 99) return null;
+
+  const tensDigit = Math.floor(n / 10);
+  const onesDigit = n % 10;
+  const tensParts = numbersChartParts(tensDigit * 10);
+  if (!tensParts) return null;
+  if (onesDigit === 0) return tensParts;
+
+  const onesPart = compoundOnesGuidePart(onesDigit);
+  if (!onesPart) return null;
+  return [onesPart, { text: "und", guide: "oont" }, ...tensParts];
+}
+
+/**
+ * Karaoke guides from the Numbers chart when the grain matches the chart split.
+ * Listen / morph: always synthesize so every 0–99 has phonetic beats.
+ */
+function numberAnswerParts(n, grain) {
+  if (grain === "morph" || grain === "listen") {
+    return synthesizeMorphGuides(n);
+  }
+  // Construction: teens share morph split; other grains only exact chart rows.
+  if (n >= 13 && n <= 19) return numbersChartParts(n);
+  return null;
+}
+
+/** English glosses for Assisted scaffolding only — not German linguistic truth. */
+const EN_ONES = [
+  "zero",
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+  "eleven",
+  "twelve",
+  "thirteen",
+  "fourteen",
+  "fifteen",
+  "sixteen",
+  "seventeen",
+  "eighteen",
+  "nineteen",
+];
+const EN_TENS = [
+  null,
+  null,
+  "twenty",
+  "thirty",
+  "forty",
+  "fifty",
+  "sixty",
+  "seventy",
+  "eighty",
+  "ninety",
 ];
 
+function englishCardinal(n) {
+  if (n < 20) return EN_ONES[n];
+  const tens = Math.floor(n / 10);
+  const ones = n % 10;
+  if (ones === 0) return EN_TENS[tens];
+  return `${EN_TENS[tens]}-${EN_ONES[ones]}`;
+}
+
+/**
+ * Quiz pools by mode — generated from the deterministic range.
+ * Teens/Tens/Compounds mirror the reference chart tabs.
+ */
+const numberPools = {
+  teens: Array.from({ length: 7 }, (_, i) => {
+    const value = 13 + i;
+    return {
+      value,
+      english: englishCardinal(value),
+      grain: "construction",
+    };
+  }),
+  // Morph grain: build stem + zig/ßig (not the fused tens word alone).
+  tens: [20, 30, 40, 50, 60, 70, 80, 90].map((value) => ({
+    value,
+    english: englishCardinal(value),
+    grain: "morph",
+  })),
+  // All 21–99 except round tens (those live in Tens).
+  compounds: Array.from({ length: 79 }, (_, i) => 21 + i)
+    .filter((n) => n % 10 !== 0)
+    .map((value) => ({
+      value,
+      english: englishCardinal(value),
+      grain: "construction",
+    })),
+  // Recognition: spoken German form → numeric value (0–99).
+  // Order is randomized per session via state.numbersListenDeck — not this array order.
+  listen: Array.from({ length: 100 }, (_, value) => ({
+    value,
+    english: englishCardinal(value),
+    grain: "construction",
+  })),
+};
+
+/** Values allowed in Listen for the current digit filter. */
+function listenValuePool() {
+  const digits = state.numbersListenDigits;
+  if (digits === 1) return Array.from({ length: 10 }, (_, value) => value);
+  if (digits === 2) {
+    return Array.from({ length: 90 }, (_, i) => i + 10);
+  }
+  return Array.from({ length: 100 }, (_, value) => value);
+}
+
+function listenDigitAllowed(n) {
+  const digits = state.numbersListenDigits;
+  if (digits === 1) return n >= 0 && n <= 9;
+  if (digits === 2) return n >= 10 && n <= 99;
+  return n >= 0 && n <= 99;
+}
+
+function reshuffleListenDeck() {
+  state.numbersListenDeck = shuffle(listenValuePool());
+  state.numbersListenCursor = 0;
+}
+
+function ensureListenDeck() {
+  const expected = listenValuePool().length;
+  if (
+    !Array.isArray(state.numbersListenDeck) ||
+    state.numbersListenDeck.length !== expected
+  ) {
+    reshuffleListenDeck();
+  }
+}
+
+function currentNumberPool() {
+  return numberPools[state.numbersMode] || numberPools.compounds;
+}
+
 function currentNumberMeta() {
-  return numberDemoMeta[state.numbersIndex % numberDemoMeta.length];
+  if (state.numbersMode === "listen") {
+    ensureListenDeck();
+    const value =
+      state.numbersListenDeck[
+        state.numbersListenCursor % state.numbersListenDeck.length
+      ];
+    return {
+      value,
+      english: englishCardinal(value),
+      grain: "construction",
+      answerParts: numberAnswerParts(value, "listen"),
+    };
+  }
+  const pool = currentNumberPool();
+  const meta = pool[state.numbersIndex % pool.length];
+  return {
+    ...meta,
+    answerParts: numberAnswerParts(meta.value, meta.grain),
+  };
 }
 
 function currentNumberExercise() {
   const meta = currentNumberMeta();
+  if (state.numbersMode === "listen") {
+    const form = cardinalForm(meta.value);
+    return {
+      id: `ex.numbers.listen.${meta.value}.${state.numbersDifficulty}`,
+      templateId: "numbers.listen.value",
+      territoryId: "numbers",
+      mode: state.numbersDifficulty,
+      target: { value: meta.value },
+      scaffolding: {
+        mode: state.numbersDifficulty,
+        showEnglish: false,
+        showHintButton: true,
+        showReferenceButton: true,
+        allowRetryWrongChoice: true,
+      },
+      prompt: {
+        kind: "listen-value",
+        value: meta.value,
+        form,
+      },
+      materials: {
+        form,
+        choices: listenChoices(meta.value),
+        answerParts: numberAnswerParts(meta.value, "listen"),
+        hint:
+          state.numbersDifficulty === "assisted"
+            ? "Replay if needed. Choices are nearby / look-alike values — TTS is a helper, not the linguistic authority."
+            : "Replay if needed, then type the digit. TTS is a helper, not the linguistic authority.",
+      },
+      resolution: {
+        value: meta.value,
+        form,
+        english: meta.english,
+      },
+    };
+  }
   return createNumberConstructionExercise(meta.value, {
     grain: meta.grain,
     english: meta.english,
     mode: state.numbersDifficulty,
     answerParts: meta.answerParts,
   });
+}
+
+/**
+ * Assisted Listen distractors — prefer confusable neighbors for 2-digit values:
+ * same tens / same ones / digit swap / teen↔tens traps.
+ */
+function listenChoices(value) {
+  const candidates = [];
+  const add = (n) => {
+    if (!Number.isInteger(n) || n === value || !listenDigitAllowed(n)) return;
+    candidates.push(n);
+  };
+
+  if (value < 10) {
+    for (const d of [-3, -2, -1, 1, 2, 3]) add(value + d);
+    add(value + 10);
+    add(value + 11);
+    add(10 + value); // e.g. 3 → 13
+  } else {
+    const tens = Math.floor(value / 10);
+    const ones = value % 10;
+
+    // Same tens digit, nearby ones (42 → 41, 43, 40…)
+    for (const o of [ones - 2, ones - 1, ones + 1, ones + 2, ones + 3, ones - 3]) {
+      if (o >= 0 && o <= 9) add(tens * 10 + o);
+    }
+
+    // Same ones digit, nearby tens (42 → 32, 52, 22…)
+    for (const t of [tens - 1, tens + 1, tens - 2, tens + 2]) {
+      if (t >= 1 && t <= 9) add(t * 10 + ones);
+    }
+
+    // Digit transposition when both digits are meaningful (42 → 24)
+    if (ones >= 1 && ones !== tens) add(ones * 10 + tens);
+
+    // Teen ↔ tens traps (16 ↔ 60, 17 ↔ 70; 30 ↔ 13)
+    if (value >= 13 && value <= 19) {
+      add((value - 10) * 10);
+      add((value - 10) * 10 + (value - 10));
+    }
+    if (ones === 0 && tens >= 2) {
+      add(10 + tens);
+      add(tens);
+    }
+
+    // ±1 overall as mild near-miss
+    add(value - 1);
+    add(value + 1);
+  }
+
+  const unique = shuffle([...new Set(candidates)]);
+  const picks = unique.slice(0, 3);
+  const pool = listenValuePool();
+  while (picks.length < 3 && picks.length < pool.length - 1) {
+    const n = pool[Math.floor(Math.random() * pool.length)];
+    if (n !== value && !picks.includes(n)) picks.push(n);
+  }
+  return shuffle([value, ...picks]);
 }
 
 /** Demo article items — karaoke guides stay mock-side; truth/mode from exercise layer. */
@@ -1998,17 +2394,88 @@ function setStageAnswerMode(prefix, on) {
   if (stage) stage.classList.toggle("is-answer", !!on);
 }
 
-function fillAnswerReveal(prefix, { word, wordHtml, parts, en, ok }) {
+function setVerdict(prefix, ok, label) {
+  const el = document.getElementById(`${prefix}-verdict`);
+  if (!el) return;
+  el.classList.remove("is-ok", "is-bad");
+  if (ok === true) {
+    el.classList.add("is-ok");
+    el.textContent = label || "Correct";
+  } else if (ok === false) {
+    el.classList.add("is-bad");
+    el.textContent = label || "Not quite";
+  } else {
+    el.textContent = "";
+  }
+}
+
+function showAttemptFeedback(prefix, message = "Try again", opts = {}) {
+  const el = document.getElementById(`${prefix}-attempt-feedback`);
+  if (!el) return;
+  el.hidden = false;
+  el.textContent = message;
+  // Retrigger enter animation if already visible
+  el.classList.remove("is-flash");
+  void el.offsetWidth;
+  el.classList.add("is-flash");
+  if (opts.sound !== false) playFeedbackSound("retry");
+}
+
+function clearAttemptFeedback(prefix) {
+  const el = document.getElementById(`${prefix}-attempt-feedback`);
+  if (!el) return;
+  el.hidden = true;
+  el.textContent = "";
+  el.classList.remove("is-flash");
+}
+
+/** Brief pause so the correct chip/slot can blink before the answer key. */
+let correctFlashTimer = null;
+const CORRECT_FLASH_MS = 1150;
+
+function clearCorrectFlashTimer() {
+  if (correctFlashTimer) {
+    clearTimeout(correctFlashTimer);
+    correctFlashTimer = null;
+  }
+}
+
+function applyCorrectFlash(el) {
+  if (!el) return;
+  el.classList.remove("is-bad", "is-ok");
+  // Spotlight only — do not reuse .is-ok (that shares the answer-key scale).
+  el.classList.add("is-correct-flash");
+}
+
+function flashCorrectThen(done, delayMs = CORRECT_FLASH_MS) {
+  clearCorrectFlashTimer();
+  const reduced =
+    typeof matchMedia === "function" &&
+    matchMedia("(prefers-reduced-motion: reduce)").matches;
+  correctFlashTimer = window.setTimeout(() => {
+    correctFlashTimer = null;
+    done();
+  }, reduced ? 280 : delayMs);
+}
+
+function fillAnswerReveal(prefix, { word, wordHtml, parts, en, ok, verdictLabel }) {
   const root = document.getElementById(`${prefix}-reveal`);
   const wordEl = document.getElementById(`${prefix}-reveal-word`);
   const phonEl = document.getElementById(`${prefix}-reveal-phonetic`);
   const enEl = document.getElementById(`${prefix}-reveal-en`);
   if (!root || !wordEl || !phonEl) return [];
 
+  clearAttemptFeedback(prefix);
   setStageAnswerMode(prefix, true);
   root.hidden = false;
+  root.classList.remove("is-ok", "is-bad");
+  // Retrigger wash/motion when reusing the same reveal node
+  void root.offsetWidth;
   root.classList.toggle("is-ok", ok === true);
   root.classList.toggle("is-bad", ok === false);
+  setVerdict(prefix, ok, verdictLabel);
+  if (ok === true) playFeedbackSound("ok");
+  else if (ok === false) playFeedbackSound("bad");
   if (wordHtml) wordEl.innerHTML = wordHtml;
   else wordEl.textContent = word || "";
   phonEl.innerHTML = "";
@@ -2075,11 +2542,14 @@ function nounPluralAnswerWordHtml(parts) {
 }
 
 function clearAnswerReveal(prefix) {
+  clearCorrectFlashTimer();
   setStageAnswerMode(prefix, false);
+  clearAttemptFeedback(prefix);
   const root = document.getElementById(`${prefix}-reveal`);
   if (!root) return;
   root.hidden = true;
   root.classList.remove("is-ok", "is-bad");
+  setVerdict(prefix, null);
   const wordEl = document.getElementById(`${prefix}-reveal-word`);
   const phonEl = document.getElementById(`${prefix}-reveal-phonetic`);
   const enEl = document.getElementById(`${prefix}-reveal-en`);
@@ -2098,6 +2568,11 @@ const state = {
   view: "hub",
   selectedPiece: null,
   numbersIndex: 0,
+  /** Shuffled 0–99 order for Listen; cursor walks the deck. */
+  numbersListenDeck: null,
+  numbersListenCursor: 0,
+  /** Listen pool filter: 1 | 2 | "all" (0–9 / 10–99 / 0–99). */
+  numbersListenDigits: "all",
   nounsIndex: 0,
   nounsPluralIndex: 0,
   nounsAssociationIndex: 0,
@@ -2105,8 +2580,11 @@ const state = {
   numbersFilled: [],
   nounsFilled: [],
   nounsArticle: null,
+  numbersListenChoice: null,
+  /** Listen Assisted: one retry after a wrong pick, then reveal. */
+  numbersListenRetryUsed: false,
   soundsMode: "karaoke",
-  numbersMode: "construction",
+  numbersMode: "compounds",
   nounsMode: "articles",
   numbersDifficulty: "assisted",
   nounsDifficulty: "assisted",
@@ -2445,6 +2923,17 @@ function syncTerritoryMenu(territoryId) {
     const mark = btn.querySelector(".menu-check-mark");
     if (mark) mark.textContent = on ? "✓" : "";
   });
+
+  if (territoryId === "numbers") {
+    const digits = String(state.numbersListenDigits);
+    menu.querySelectorAll("[data-listen-digits]").forEach((btn) => {
+      const on = btn.dataset.listenDigits === digits;
+      btn.classList.remove("is-on");
+      btn.setAttribute("aria-checked", String(on));
+      const mark = btn.querySelector(".menu-check-mark");
+      if (mark) mark.textContent = on ? "✓" : "";
+    });
+  }
 }
 
 function showTerritoryPhase(territoryId) {
@@ -2701,15 +3190,7 @@ function renderHub() {
   });
 }
 
-/* —— Magnetic Snap (pointer drag + tap) ——
- * - Tap tray chip → add to next empty field; tap again → remove from last field if it matches
- * - Tap filled field → snap out
- * - Drag tray chip onto a field → snap in
- * - Drag filled field away (or onto tray) → snap out; onto another field → move
- * HTML5 DnD is not used — it fails on iOS Safari.
- */
-
-const SNAP_DRAG_THRESHOLD = 10;
+/* —— Construction helpers (tap only; drag/snap deferred) —— */
 
 function clearSelection() {
   state.selectedPiece = null;
@@ -2728,246 +3209,17 @@ function shuffle(arr) {
   return a;
 }
 
-function pulseSnap(el, kind) {
-  if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    return;
-  }
-  el.classList.remove("is-snap-in", "is-snap-out");
-  // reflow so repeated pulses restart
-  void el.offsetWidth;
-  el.classList.add(kind === "out" ? "is-snap-out" : "is-snap-in");
-  window.setTimeout(() => {
-    el.classList.remove("is-snap-in", "is-snap-out");
-  }, 220);
-}
-
-function slotFromPoint(clientX, clientY, slotsRoot) {
-  const el = document.elementFromPoint(clientX, clientY);
-  if (!el || !slotsRoot) return null;
-  const slot = el.closest(".slot");
-  if (!slot || !slotsRoot.contains(slot)) return null;
-  if (slot.classList.contains("noun-unit") || slot.classList.contains("slot-given")) {
-    return null;
-  }
-  return slot;
-}
-
-function overTray(clientX, clientY, trayRoot) {
-  if (!trayRoot) return false;
-  const el = document.elementFromPoint(clientX, clientY);
-  return !!(el && trayRoot.contains(el));
-}
-
-function setHotSlot(slot) {
-  document.querySelectorAll(".slot.is-hot").forEach((s) => {
-    if (s !== slot) s.classList.remove("is-hot");
-  });
-  if (slot) slot.classList.add("is-hot");
-}
-
-function makeSnapGhost(sourceEl, label) {
-  const ghost = document.createElement("div");
-  ghost.className = "snap-ghost piece";
-  ghost.textContent = label;
-  ghost.setAttribute("aria-hidden", "true");
-  // Copy gender channel classes when present
-  ["g-masc", "g-fem", "g-neut", "piece-insufficient"].forEach((c) => {
-    if (sourceEl.classList.contains(c)) ghost.classList.add(c);
-  });
-  document.body.appendChild(ghost);
-  return ghost;
-}
-
-function moveSnapGhost(ghost, clientX, clientY) {
-  if (!ghost) return;
-  ghost.style.transform = `translate(${clientX}px, ${clientY}px) translate(-50%, -50%)`;
-}
-
-/**
- * @param {object} cfg
- * @param {() => boolean} cfg.locked
- * @param {() => (string|null)[]} cfg.getFilled
- * @param {(token: string, index: number) => void} cfg.placeAt
- * @param {(index: number) => void} cfg.clearAt
- * @param {HTMLElement} cfg.slotsRoot
- * @param {HTMLElement} cfg.trayRoot
- * @param {(slot: HTMLElement) => number} cfg.indexOfSlot
- */
-function tapTrayToken(token, cfg) {
-  if (cfg.locked()) return;
-  const filled = cfg.getFilled();
-  let last = -1;
-  for (let i = filled.length - 1; i >= 0; i--) {
-    if (filled[i]) {
-      last = i;
-      break;
-    }
-  }
-  // Second tap on the same chip removes it from the last-filled field.
-  if (last >= 0 && filled[last] === token) {
-    cfg.clearAt(last);
-    const slot = cfg.slotsRoot.querySelector(`[data-index="${last}"]`) ||
-      cfg.slotsRoot.querySelector(".slot");
-    pulseSnap(slot, "out");
-    return;
-  }
-  const next = filled.findIndex((x) => !x);
-  if (next < 0) return;
-  cfg.placeAt(token, next);
-  const slot =
-    cfg.slotsRoot.querySelector(`[data-index="${next}"]`) ||
-    cfg.slotsRoot.querySelector(".slot");
-  pulseSnap(slot, "in");
-}
-
-function bindSnapTrayPiece(piece, token, cfg) {
-  piece.addEventListener("pointerdown", (e) => {
-    if (cfg.locked() || e.button !== 0) return;
-    if (piece.disabled) return;
-
-    const startX = e.clientX;
-    const startY = e.clientY;
-    let dragging = false;
-    let ghost = null;
-    const pointerId = e.pointerId;
-
-    const onMove = (ev) => {
-      if (ev.pointerId !== pointerId) return;
-      const dist = Math.hypot(ev.clientX - startX, ev.clientY - startY);
-      if (!dragging && dist < SNAP_DRAG_THRESHOLD) return;
-      if (!dragging) {
-        dragging = true;
-        document.body.classList.add("is-snapping");
-        ghost = makeSnapGhost(piece, piece.textContent.trim());
-        moveSnapGhost(ghost, ev.clientX, ev.clientY);
-        try {
-          piece.setPointerCapture(pointerId);
-        } catch (_) {
-          /* ignore */
-        }
-      }
-      moveSnapGhost(ghost, ev.clientX, ev.clientY);
-      setHotSlot(slotFromPoint(ev.clientX, ev.clientY, cfg.slotsRoot));
-    };
-
-    const cleanup = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
-      setHotSlot(null);
-      if (ghost) ghost.remove();
-      document.body.classList.remove("is-snapping");
-    };
-
-    const onUp = (ev) => {
-      if (ev.pointerId !== pointerId) return;
-      cleanup();
-      if (dragging) {
-        const slot = slotFromPoint(ev.clientX, ev.clientY, cfg.slotsRoot);
-        if (slot) {
-          const idx = cfg.indexOfSlot(slot);
-          if (idx >= 0) {
-            cfg.placeAt(token, idx);
-            pulseSnap(slot, "in");
-          }
-        }
-        return;
-      }
-      tapTrayToken(token, cfg);
-    };
-
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
-  });
-}
-
-function bindSnapSlot(slot, index, cfg) {
-  slot.addEventListener("pointerdown", (e) => {
-    if (cfg.locked() || e.button !== 0) return;
-    const filled = cfg.getFilled();
-    if (!filled[index]) return;
-
-    const token = filled[index];
-    const startX = e.clientX;
-    const startY = e.clientY;
-    let dragging = false;
-    let ghost = null;
-    const pointerId = e.pointerId;
-    // Don't steal clicks from buttons inside slot (none today).
-
-    const onMove = (ev) => {
-      if (ev.pointerId !== pointerId) return;
-      const dist = Math.hypot(ev.clientX - startX, ev.clientY - startY);
-      if (!dragging && dist < SNAP_DRAG_THRESHOLD) return;
-      if (!dragging) {
-        dragging = true;
-        document.body.classList.add("is-snapping");
-        slot.classList.add("is-dragging-out");
-        ghost = makeSnapGhost(slot, String(token === "insufficient" ? "?" : token));
-        moveSnapGhost(ghost, ev.clientX, ev.clientY);
-        try {
-          slot.setPointerCapture(pointerId);
-        } catch (_) {
-          /* ignore */
-        }
-      }
-      moveSnapGhost(ghost, ev.clientX, ev.clientY);
-      const over = slotFromPoint(ev.clientX, ev.clientY, cfg.slotsRoot);
-      setHotSlot(over && cfg.indexOfSlot(over) !== index ? over : null);
-    };
-
-    const cleanup = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
-      setHotSlot(null);
-      slot.classList.remove("is-dragging-out");
-      if (ghost) ghost.remove();
-      document.body.classList.remove("is-snapping");
-    };
-
-    const onUp = (ev) => {
-      if (ev.pointerId !== pointerId) return;
-      cleanup();
-      if (!dragging) {
-        cfg.clearAt(index);
-        pulseSnap(slot, "out");
-        return;
-      }
-      const target = slotFromPoint(ev.clientX, ev.clientY, cfg.slotsRoot);
-      const toIdx = target ? cfg.indexOfSlot(target) : -1;
-      if (toIdx >= 0 && toIdx !== index) {
-        const displaced = cfg.getFilled()[toIdx];
-        cfg.placeAt(token, toIdx);
-        if (displaced) cfg.placeAt(displaced, index);
-        else cfg.clearAt(index);
-        pulseSnap(target, "in");
-        return;
-      }
-      // Away from fields (including over tray) → snap out
-      if (!target || overTray(ev.clientX, ev.clientY, cfg.trayRoot)) {
-        cfg.clearAt(index);
-        pulseSnap(slot, "out");
-      }
-    };
-
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
-  });
-}
-
-function indexFromSlotEl(slot) {
-  if (!slot) return -1;
-  if (slot.dataset.index != null) return Number(slot.dataset.index);
-  if (slot.dataset.slot === "article") return 0;
-  return -1;
-}
-
 /* —— Numbers —— */
 
 function renderNumbers() {
+  if (state.numbersMode === "listen") {
+    renderNumbersListen();
+    return;
+  }
+  renderNumbersBuild();
+}
+
+function renderNumbersBuild() {
   clearNumbersAdvance();
   stopSpeech();
   const exercise = currentNumberExercise();
@@ -2977,6 +3229,10 @@ function renderNumbers() {
   const distractors = exercise.materials.distractors;
   state.numbersFilled = Array(parts.length).fill(null);
   state.numbersChecked = false;
+  state.numbersListenChoice = null;
+
+  const stage = document.getElementById("numbers-stage");
+  if (stage) stage.dataset.mode = "build";
 
   const en = exercise.prompt.english
     ? `<span class="en">${exercise.prompt.english}</span>`
@@ -2995,36 +3251,30 @@ function renderNumbers() {
   if (refBtn) refBtn.hidden = !exercise.scaffolding.showReferenceButton;
 
   const slots = document.getElementById("numbers-slots");
+  slots.className = "slot-row";
   slots.innerHTML = "";
-  const tray = document.getElementById("numbers-tray");
-  tray.innerHTML = "";
-
-  const snapCfg = {
-    locked: () => state.numbersChecked,
-    getFilled: () => state.numbersFilled,
-    placeAt: (text, index) => placeNumberText(text, index),
-    clearAt: (index) => clearNumberSlot(index),
-    slotsRoot: slots,
-    trayRoot: tray,
-    indexOfSlot: indexFromSlotEl,
-  };
-
   parts.forEach((_, i) => {
     const slot = document.createElement("div");
     slot.className = "slot";
     slot.dataset.index = String(i);
     slot.tabIndex = 0;
     slot.textContent = `Part ${i + 1}`;
+    slot.addEventListener("click", () => {
+      if (state.numbersChecked) return;
+      if (state.numbersFilled[i]) clearNumberSlot(i);
+    });
     slot.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
-        if (state.numbersFilled[i]) clearNumberSlot(i);
+        slot.click();
       }
     });
-    bindSnapSlot(slot, i, snapCfg);
     slots.appendChild(slot);
   });
 
+  const tray = document.getElementById("numbers-tray");
+  tray.className = "tray";
+  tray.innerHTML = "";
   // Unique chip labels — reusable (same form can fill more than one slot).
   const labels = [...new Set([...parts, ...distractors])];
   shuffle(labels).forEach((text, i) => {
@@ -3034,11 +3284,246 @@ function renderNumbers() {
     piece.dataset.id = `n${i}`;
     piece.dataset.text = text;
     piece.textContent = text;
-    bindSnapTrayPiece(piece, text, snapCfg);
+    piece.addEventListener("click", () => {
+      if (state.numbersChecked) return;
+      const next = state.numbersFilled.findIndex((x) => !x);
+      if (next >= 0) placeNumberText(text, next);
+    });
     tray.appendChild(piece);
   });
 
   syncTerritoryMenu("numbers");
+}
+
+function renderNumbersListen() {
+  clearNumbersAdvance();
+  stopSpeech();
+  const exercise = currentNumberExercise();
+  const meta = currentNumberMeta();
+  state.currentExercise = exercise;
+  state.numbersFilled = [];
+  state.numbersChecked = false;
+  state.numbersListenChoice = null;
+  state.numbersListenRetryUsed = false;
+
+  const stage = document.getElementById("numbers-stage");
+  if (stage) stage.dataset.mode = "listen";
+
+  document.getElementById("numbers-prompt").innerHTML = `
+    What number did you hear?
+  `;
+
+  clearAnswerReveal("numbers");
+  const back = document.getElementById("numbers-back");
+  if (back) {
+    back.disabled =
+      state.numbersMode === "listen"
+        ? state.numbersListenCursor <= 0
+        : state.numbersIndex <= 0;
+  }
+
+  const hintBtn = document.getElementById("numbers-hint");
+  const refBtn = document.getElementById("numbers-ref-btn");
+  if (hintBtn) hintBtn.hidden = !exercise.scaffolding.showHintButton;
+  if (refBtn) refBtn.hidden = !exercise.scaffolding.showReferenceButton;
+
+  const slots = document.getElementById("numbers-slots");
+  slots.className = "numbers-listen-play";
+  slots.innerHTML = "";
+  const playBtn = document.createElement("button");
+  playBtn.type = "button";
+  playBtn.className = "btn btn-primary play-btn";
+  playBtn.id = "numbers-listen-play";
+  playBtn.textContent = "Play";
+  playBtn.addEventListener("click", () => {
+    if (state.numbersChecked) return;
+    playNumbersListen();
+  });
+  slots.appendChild(playBtn);
+
+  const tray = document.getElementById("numbers-tray");
+  tray.innerHTML = "";
+
+  if (state.numbersDifficulty === "assisted") {
+    tray.className = "choice-grid";
+    tray.setAttribute("aria-label", "Number choices");
+    exercise.materials.choices.forEach((n) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "choice";
+      btn.dataset.value = String(n);
+      btn.textContent = String(n);
+      btn.addEventListener("click", () => {
+        if (state.numbersChecked) return;
+        state.numbersListenChoice = n;
+        checkNumbersListen(n);
+      });
+      tray.appendChild(btn);
+    });
+  } else {
+    tray.className = "numbers-listen-entry";
+    tray.setAttribute("aria-label", "Enter the number");
+    const input = document.createElement("input");
+    input.type = "text";
+    input.id = "numbers-listen-input";
+    input.className = "numbers-listen-input";
+    input.inputMode = "numeric";
+    input.pattern = "[0-9]*";
+    input.maxLength = state.numbersListenDigits === 1 ? 1 : 2;
+    input.autocomplete = "off";
+    input.placeholder = "";
+    input.setAttribute(
+      "aria-label",
+      state.numbersListenDigits === 1
+        ? "Number 0 to 9"
+        : state.numbersListenDigits === 2
+          ? "Number 10 to 99"
+          : "Number 0 to 99"
+    );
+    const checkBtn = document.createElement("button");
+    checkBtn.type = "button";
+    checkBtn.className = "btn btn-primary";
+    checkBtn.id = "numbers-listen-check";
+    checkBtn.textContent = "Check";
+    const submit = () => {
+      if (state.numbersChecked) return;
+      const raw = input.value.trim();
+      if (!/^\d{1,2}$/.test(raw)) {
+        input.classList.add("is-bad");
+        return;
+      }
+      const n = Number(raw);
+      if (!listenDigitAllowed(n)) {
+        input.classList.add("is-bad");
+        return;
+      }
+      checkNumbersListen(n);
+    };
+    checkBtn.addEventListener("click", submit);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        submit();
+      }
+    });
+    input.addEventListener("input", () => input.classList.remove("is-bad"));
+    tray.append(input, checkBtn);
+    queueMicrotask(() => input.focus());
+  }
+
+  syncTerritoryMenu("numbers");
+  // Auto-play when possible; iOS may require the Play tap after a cold start.
+  queueMicrotask(() => playNumbersListen());
+}
+
+function playNumbersListen() {
+  const exercise = state.currentExercise || currentNumberExercise();
+  const form = exercise.resolution?.form || exercise.materials?.form;
+  if (!form) return;
+  speakGerman(form);
+}
+
+function checkNumbersListen(answer) {
+  if (state.numbersChecked) return;
+  const exercise = state.currentExercise || currentNumberExercise();
+  const meta = currentNumberMeta();
+  const target = exercise.resolution.value;
+  const ok = Number(answer) === target;
+
+  state.attemptLog.push({
+    territoryId: "numbers",
+    templateId: "numbers.listen.value",
+    mode: exercise.mode,
+    target: { value: target, form: exercise.resolution.form },
+    rawInput: { value: answer },
+    evaluation: {
+      status: ok ? "correct" : "incorrect",
+      canonicalAnswers: [String(target)],
+    },
+    appVersion: "mock",
+  });
+
+  // One second chance (Assisted choices or Core typed entry).
+  if (!ok && exercise.scaffolding.allowRetryWrongChoice && !state.numbersListenRetryUsed) {
+    state.numbersListenRetryUsed = true;
+    state.numbersListenChoice = null;
+    if (state.numbersDifficulty === "assisted") {
+      document.querySelectorAll("#numbers-tray .choice").forEach((el) => {
+        if (Number(el.dataset.value) === Number(answer)) {
+          el.classList.remove("is-bad");
+          void el.offsetWidth;
+          el.classList.add("is-bad");
+          el.disabled = true;
+        }
+      });
+    } else {
+      const input = document.getElementById("numbers-listen-input");
+      if (input) {
+        input.classList.remove("is-bad");
+        void input.offsetWidth;
+        input.classList.add("is-bad");
+        window.setTimeout(() => {
+          if (state.numbersChecked) return;
+          input.value = "";
+          input.classList.remove("is-bad");
+          input.focus();
+        }, 450);
+      }
+    }
+    showAttemptFeedback("numbers", "Try again");
+    return;
+  }
+
+  state.numbersChecked = true;
+
+  const playBtn = document.getElementById("numbers-listen-play");
+  if (playBtn) playBtn.disabled = true;
+
+  if (state.numbersDifficulty === "assisted") {
+    document.querySelectorAll("#numbers-tray .choice").forEach((el) => {
+      el.disabled = true;
+      const v = Number(el.dataset.value);
+      if (v === Number(answer) && !ok) el.classList.add("is-bad");
+      if (v === target) applyCorrectFlash(el);
+    });
+  } else {
+    const input = document.getElementById("numbers-listen-input");
+    const checkBtn = document.getElementById("numbers-listen-check");
+    if (checkBtn) checkBtn.disabled = true;
+    if (input) {
+      input.disabled = true;
+      input.classList.remove("is-ok", "is-bad");
+      input.value = String(target);
+      applyCorrectFlash(input);
+    }
+  }
+
+  const form = exercise.resolution.form;
+  const parts =
+    exercise.materials.answerParts ||
+    numberAnswerParts(target, "listen") ||
+    [{ text: form, guide: form }];
+  const english = meta.english || englishCardinal(target);
+
+  flashCorrectThen(() => {
+    const nodes = fillAnswerReveal("numbers", {
+      word: form,
+      parts,
+      en: `${english} (${target})`,
+      ok,
+    });
+
+    const afterPlay = () => scheduleNumbersAdvance(1500);
+    if (!window.speechSynthesis || !nodes.length) {
+      afterPlay();
+      return;
+    }
+    playKaraokeFlow(form, parts, nodes, {
+      keepAdvance: true,
+      onEnd: afterPlay,
+      onError: afterPlay,
+    });
+  });
 }
 
 function placeNumberText(text, slotIndex) {
@@ -3083,6 +3568,10 @@ function clearNumberSlot(slotIndex) {
 
 function clearNumbers() {
   if (state.numbersChecked) return;
+  if (state.numbersMode === "listen") {
+    renderNumbersListen();
+    return;
+  }
   const exercise = currentNumberExercise();
   state.numbersFilled = Array(exercise.materials.parts.length).fill(null);
   document.querySelectorAll("#numbers-slots .slot").forEach((s, i) => {
@@ -3098,15 +3587,39 @@ function clearNumbersAdvance() {
     clearTimeout(state.numbersAdvanceTimer);
     state.numbersAdvanceTimer = null;
   }
+  clearCorrectFlashTimer();
 }
 
 function scheduleNumbersAdvance(delayMs = 1500) {
   clearNumbersAdvance();
   state.numbersAdvanceTimer = setTimeout(() => {
     state.numbersAdvanceTimer = null;
-    state.numbersIndex += 1;
+    advanceNumbersItem();
     renderNumbers();
   }, delayMs);
+}
+
+function advanceNumbersItem() {
+  if (state.numbersMode === "listen") {
+    ensureListenDeck();
+    state.numbersListenCursor += 1;
+    if (state.numbersListenCursor >= state.numbersListenDeck.length) {
+      reshuffleListenDeck();
+    }
+    return;
+  }
+  state.numbersIndex += 1;
+}
+
+function retreatNumbersItem() {
+  if (state.numbersMode === "listen") {
+    if (state.numbersListenCursor <= 0) return false;
+    state.numbersListenCursor -= 1;
+    return true;
+  }
+  if (state.numbersIndex <= 0) return false;
+  state.numbersIndex -= 1;
+  return true;
 }
 
 function checkNumbers() {
@@ -3134,26 +3647,45 @@ function checkNumbers() {
     slot.classList.toggle("is-bad", !good);
   });
 
+  // Show the canonical fill blinking in slots + matching tray chips.
+  parts.forEach((text, i) => {
+    const slot = document.querySelector(
+      `#numbers-slots [data-index="${i}"]`
+    );
+    if (!slot) return;
+    slot.classList.remove("is-bad");
+    slot.classList.add("is-filled");
+    slot.textContent = text;
+    applyCorrectFlash(slot);
+  });
+  document.querySelectorAll("#numbers-tray .piece").forEach((p) => {
+    p.disabled = true;
+    if (parts.includes(p.dataset.text)) applyCorrectFlash(p);
+  });
+
   const word =
     evaluation.canonicalAnswers[0] || exercise.resolution.form || parts.join("");
   const answerParts =
     meta.answerParts || parts.map((t) => ({ text: t, guide: t }));
-  const nodes = fillAnswerReveal("numbers", {
-    word,
-    parts: answerParts,
-    en: meta.english || "",
-    ok: accepted,
-  });
 
-  const afterPlay = () => scheduleNumbersAdvance(1500);
-  if (!window.speechSynthesis || !nodes.length) {
-    afterPlay();
-    return;
-  }
-  playKaraokeFlow(word, answerParts, nodes, {
-    keepAdvance: true,
-    onEnd: afterPlay,
-    onError: afterPlay,
+  flashCorrectThen(() => {
+    const nodes = fillAnswerReveal("numbers", {
+      word,
+      parts: answerParts,
+      en: meta.english || "",
+      ok: accepted,
+    });
+
+    const afterPlay = () => scheduleNumbersAdvance(1500);
+    if (!window.speechSynthesis || !nodes.length) {
+      afterPlay();
+      return;
+    }
+    playKaraokeFlow(word, answerParts, nodes, {
+      keepAdvance: true,
+      onEnd: afterPlay,
+      onError: afterPlay,
+    });
   });
 }
 
@@ -3313,22 +3845,12 @@ function renderNounArticleLike(exercise, { familyLine = "" } = {}) {
 
   const slotsRow = document.getElementById("nouns-slots");
   slotsRow.innerHTML = "";
-  const tray = document.getElementById("nouns-tray");
-  tray.innerHTML = "";
-
   const articleSlot = document.createElement("div");
   articleSlot.className = "slot";
   articleSlot.dataset.slot = "article";
-  articleSlot.dataset.index = "0";
   articleSlot.dataset.accept = "article";
   articleSlot.tabIndex = 0;
   articleSlot.textContent = "Article";
-  articleSlot.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      if (state.nounsArticle) clearArticleSlot();
-    }
-  });
   slotsRow.appendChild(articleSlot);
 
   const nounSlot = document.createElement("div");
@@ -3338,17 +3860,8 @@ function renderNounArticleLike(exercise, { familyLine = "" } = {}) {
   slotsRow.appendChild(nounSlot);
   paintNounArticleLemma(exercise);
 
-  const snapCfg = {
-    locked: () => state.nounsChecked,
-    getFilled: () => [state.nounsArticle],
-    placeAt: (token) => placeArticle(token),
-    clearAt: () => clearArticleSlot(),
-    slotsRoot: slotsRow,
-    trayRoot: tray,
-    indexOfSlot: indexFromSlotEl,
-  };
-  bindSnapSlot(articleSlot, 0, snapCfg);
-
+  const tray = document.getElementById("nouns-tray");
+  tray.innerHTML = "";
   const choiceMeta = [
     { id: "der", text: "der", gender: "masculine" },
     { id: "die", text: "die", gender: "feminine" },
@@ -3375,7 +3888,10 @@ function renderNounArticleLike(exercise, { familyLine = "" } = {}) {
       piece.dataset.text = a.text;
     }
     piece.dataset.id = a.id;
-    bindSnapTrayPiece(piece, a.id, snapCfg);
+    piece.addEventListener("click", () => {
+      if (piece.disabled) return;
+      placeArticle(a.id);
+    });
     tray.appendChild(piece);
   });
 }
@@ -3437,8 +3953,6 @@ function renderNounsPlurals() {
 
   const slots = document.getElementById("nouns-slots");
   slots.innerHTML = "";
-  const tray = document.getElementById("nouns-tray");
-  tray.innerHTML = "";
 
   const given = document.createElement("span");
   given.className = "slot-given";
@@ -3447,32 +3961,27 @@ function renderNounsPlurals() {
   given.setAttribute("aria-label", "die, given");
   slots.appendChild(given);
 
-  const snapCfg = {
-    locked: () => state.nounsChecked,
-    getFilled: () => state.nounsFilled,
-    placeAt: (text, index) => placeNounPluralText(text, index),
-    clearAt: (index) => clearNounPluralSlot(index),
-    slotsRoot: slots,
-    trayRoot: tray,
-    indexOfSlot: indexFromSlotEl,
-  };
-
   buildParts.forEach((_, i) => {
     const slot = document.createElement("div");
     slot.className = "slot";
     slot.dataset.index = String(i);
     slot.tabIndex = 0;
     slot.textContent = i === buildParts.length - 1 ? "Ending" : "Stem";
+    slot.addEventListener("click", () => {
+      if (state.nounsChecked) return;
+      if (state.nounsFilled[i]) clearNounPluralSlot(i);
+    });
     slot.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
-        if (state.nounsFilled[i]) clearNounPluralSlot(i);
+        slot.click();
       }
     });
-    bindSnapSlot(slot, i, snapCfg);
     slots.appendChild(slot);
   });
 
+  const tray = document.getElementById("nouns-tray");
+  tray.innerHTML = "";
   orderPluralTrayLabels(buildParts, item.distractors).forEach((text, i) => {
     const piece = document.createElement("button");
     piece.type = "button";
@@ -3485,7 +3994,11 @@ function renderNounsPlurals() {
       piece.title = "No ending (plural same as singular)";
       piece.setAttribute("aria-label", "No ending — plural same as singular");
     }
-    bindSnapTrayPiece(piece, text, snapCfg);
+    piece.addEventListener("click", () => {
+      if (state.nounsChecked) return;
+      const next = state.nounsFilled.findIndex((x) => !x);
+      if (next >= 0) placeNounPluralText(text, next);
+    });
     tray.appendChild(piece);
   });
 }
@@ -3533,21 +4046,6 @@ function placeArticle(id) {
   slot.textContent = slotText;
   clearSelection();
   checkNounsArticles();
-}
-
-function clearArticleSlot() {
-  if (state.nounsChecked || !isNounArticleLikeMode()) return;
-  if (!state.nounsArticle) return;
-  state.nounsArticle = null;
-  document.querySelectorAll("#nouns-tray .piece").forEach((p) => {
-    if (!p.disabled) p.classList.remove("is-placed");
-  });
-  const slot = document.querySelector('#nouns-slots [data-slot="article"]');
-  if (slot) {
-    slot.classList.remove("is-filled", "g-masc", "g-fem", "g-neut");
-    slot.textContent = "Article";
-  }
-  clearSelection();
 }
 
 function placeNounPluralText(text, slotIndex) {
@@ -3616,6 +4114,7 @@ function clearNounsAdvance() {
     clearTimeout(state.nounsAdvanceTimer);
     state.nounsAdvanceTimer = null;
   }
+  clearCorrectFlashTimer();
 }
 
 function scheduleNounsAdvance(delayMs = 1500) {
@@ -3655,6 +4154,7 @@ function revealNounAnswer(exercise) {
       parts: [],
       en: note,
       ok: true,
+      verdictLabel: "Right call",
     });
     scheduleNounsAdvance(1600);
     return;
@@ -3684,6 +4184,7 @@ function revealNounAnswer(exercise) {
     parts,
     en: exercise.resolution.translation || "",
     ok: true,
+    verdictLabel: isInsufficient ? "Right call" : "Correct",
   });
   const afterPlay = () => scheduleNounsAdvance(1500);
 
@@ -3727,6 +4228,8 @@ function checkNounsArticles() {
 
   if (!accepted) {
     if (chosen) {
+      chosen.classList.remove("is-bad");
+      void chosen.offsetWidth;
       chosen.classList.add("is-bad");
       chosen.disabled = true;
       chosen.classList.remove("is-placed");
@@ -3735,15 +4238,29 @@ function checkNounsArticles() {
     const slot = document.querySelector('#nouns-slots [data-slot="article"]');
     slot.classList.remove("is-filled", "g-masc", "g-fem", "g-neut");
     slot.textContent = "Article";
-    if (!complete && exercise.scaffolding.allowRetryWrongChoice) return;
+    if (!complete && exercise.scaffolding.allowRetryWrongChoice) {
+      showAttemptFeedback("nouns", "Try again");
+      return;
+    }
   }
 
   state.nounsChecked = true;
+  clearAttemptFeedback("nouns");
+  const correctId = exercise.resolution.article;
   document.querySelectorAll("#nouns-tray .piece").forEach((p) => {
     p.disabled = true;
-    if (p.dataset.id === exercise.resolution.article) p.classList.add("is-ok");
+    if (correctId && p.dataset.id === correctId) applyCorrectFlash(p);
   });
-  revealNounAnswer(exercise);
+  if (correctId && correctId !== "insufficient") {
+    const slot = document.querySelector('#nouns-slots [data-slot="article"]');
+    if (slot) {
+      slot.textContent = correctId;
+      slot.classList.add("is-filled");
+      applyChipGender(slot, correctId, true);
+      applyCorrectFlash(slot);
+    }
+  }
+  flashCorrectThen(() => revealNounAnswer(exercise));
 }
 
 function checkNounsPlurals() {
@@ -3778,14 +4295,35 @@ function checkNounsPlurals() {
     !state.nounsPluralRetryUsed
   ) {
     state.nounsPluralRetryUsed = true;
+    showAttemptFeedback("nouns", "Try again — rebuild the plural");
     window.setTimeout(() => {
       if (state.nounsChecked) return;
       clearNouns();
+      showAttemptFeedback("nouns", "Try again — rebuild the plural", {
+        sound: false,
+      });
     }, 650);
     return;
   }
 
   state.nounsChecked = true;
+  clearAttemptFeedback("nouns");
+
+  const expected = exercise.materials.parts;
+  document.querySelectorAll("#nouns-slots .slot").forEach((slot, i) => {
+    const text = expected[i + 1];
+    if (!text) return;
+    slot.classList.remove("is-bad");
+    slot.classList.add("is-filled");
+    slot.textContent = text;
+    applyCorrectFlash(slot);
+  });
+  document.querySelectorAll("#nouns-tray .piece").forEach((p) => {
+    p.disabled = true;
+    if (expected.slice(1).includes(p.dataset.text || p.dataset.id)) {
+      applyCorrectFlash(p);
+    }
+  });
 
   const phrase =
     evaluation.canonicalAnswers[0] ||
@@ -3799,23 +4337,26 @@ function checkNounsPlurals() {
   ];
   const construction =
     exercise.resolution.parts || exercise.materials.parts;
-  const nodes = fillAnswerReveal("nouns", {
-    word: phrase,
-    wordHtml: nounPluralAnswerWordHtml(construction),
-    parts,
-    en: exercise.resolution.translation || "",
-    ok: accepted,
-  });
 
-  const afterPlay = () => scheduleNounsAdvance(1500);
-  if (!window.speechSynthesis || !nodes.length) {
-    afterPlay();
-    return;
-  }
-  playKaraokeFlow(phrase, parts, nodes, {
-    keepAdvance: true,
-    onEnd: afterPlay,
-    onError: afterPlay,
+  flashCorrectThen(() => {
+    const nodes = fillAnswerReveal("nouns", {
+      word: phrase,
+      wordHtml: nounPluralAnswerWordHtml(construction),
+      parts,
+      en: exercise.resolution.translation || "",
+      ok: accepted,
+    });
+
+    const afterPlay = () => scheduleNounsAdvance(1500);
+    if (!window.speechSynthesis || !nodes.length) {
+      afterPlay();
+      return;
+    }
+    playKaraokeFlow(phrase, parts, nodes, {
+      keepAdvance: true,
+      onEnd: afterPlay,
+      onError: afterPlay,
+    });
   });
 }
 
@@ -3982,6 +4523,7 @@ function clearSoundsAdvance() {
     clearTimeout(state.soundsAdvanceTimer);
     state.soundsAdvanceTimer = null;
   }
+  clearCorrectFlashTimer();
 }
 
 function scheduleSoundsAdvance(delayMs = 1400) {
@@ -4225,8 +4767,8 @@ function checkSoundsDiscriminate(item) {
     el.disabled = true;
     const id = el.dataset.id;
     el.setAttribute("aria-pressed", String(id === state.soundsChoice));
-    if (id === item.answer) el.classList.add("is-ok");
     if (id === state.soundsChoice && !ok) el.classList.add("is-bad");
+    if (id === item.answer) applyCorrectFlash(el);
   });
 
   const playBtn = document.querySelector("#sounds-play-row button");
@@ -4234,24 +4776,27 @@ function checkSoundsDiscriminate(item) {
 
   const parts = item.parts || [{ text: item.play, guide: item.play }];
   const gloss = item.en || glossForDe(item.play);
-  const nodes = fillAnswerReveal("sounds", {
-    word: item.play,
-    parts,
-    en: gloss,
-    ok,
-  });
 
-  const afterPlay = () => scheduleSoundsAdvance(1500);
+  flashCorrectThen(() => {
+    const nodes = fillAnswerReveal("sounds", {
+      word: item.play,
+      parts,
+      en: gloss,
+      ok,
+    });
 
-  if (!window.speechSynthesis || !nodes.length) {
-    afterPlay();
-    return;
-  }
+    const afterPlay = () => scheduleSoundsAdvance(1500);
 
-  playKaraokeFlow(item.play, parts, nodes, {
-    keepAdvance: true,
-    onEnd: afterPlay,
-    onError: afterPlay,
+    if (!window.speechSynthesis || !nodes.length) {
+      afterPlay();
+      return;
+    }
+
+    playKaraokeFlow(item.play, parts, nodes, {
+      keepAdvance: true,
+      onEnd: afterPlay,
+      onError: afterPlay,
+    });
   });
 }
 
@@ -4418,6 +4963,21 @@ function bind() {
 
   wireMenus();
 
+  document.querySelectorAll("[data-theme-choice]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      closeAllMenus();
+      setThemePref(btn.dataset.themeChoice);
+    });
+  });
+
+  document.querySelectorAll("[data-sfx-toggle]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const next = !readSfxEnabled();
+      setSfxEnabled(next);
+      if (next) playFeedbackSound("ok");
+    });
+  });
+
   document.getElementById("btn-switch-user")?.addEventListener("click", () => {
     closeAllMenus();
     openSheet(
@@ -4435,24 +4995,43 @@ function bind() {
     openSheet("Hint", `<p>${ex.materials.hint}</p>`);
   });
   document.getElementById("numbers-ref-btn").addEventListener("click", () => {
-    openSheet(
-      "Reference",
-      `<ul>
+    const blurb =
+      state.numbersMode === "teens"
+        ? `<ul>
+        <li>13–19: base + <em>zehn</em> (dreizehn, vierzehn…)</li>
+        <li>Shortenings: sechs → <em>sech</em>zehn, sieben → <em>sieb</em>zehn</li>
+        <li>11 and 12 are unique words (elf, zwölf) — not in this quiz</li>
+      </ul>`
+        : state.numbersMode === "tens"
+          ? `<ul>
+        <li>20–90: stem + <em>zig</em> (zwanzig, vierzig…)</li>
+        <li>dreißig uses <em>ßig</em>; sechzig / siebzig drop -s / -en</li>
+        <li>Build the split — don’t drop in the whole tens word as one chip</li>
+      </ul>`
+          : state.numbersMode === "listen"
+            ? `<ul>
+        <li>Hear the German form (TTS), then give the digit</li>
+        <li><strong>Assisted</strong> — multiple choice; <strong>Core</strong> — type the number</li>
+        <li>Digits filter in the Numbers menu: 1 / 2 / 1–2</li>
+        <li>Answer key shows orthography + phonetic beats</li>
+        <li>Recognition practice — not the same mastery as building compounds</li>
+        <li>TTS is a helper; replay freely if audio is unclear</li>
+      </ul>`
+            : `<ul>
         <li>20–90 tens: zwanzig, dreißig, vierzig…</li>
         <li>Compound: ones + <em>und</em> + tens → vierundzwanzig</li>
-        <li>Chips stay available — reuse a form when the number needs it twice</li>
-      </ul>`
-    );
+        <li>eins → <em>ein</em> in compounds; chips stay reusable</li>
+      </ul>`;
+    openSheet("Reference", blurb);
   });
   document.getElementById("numbers-back").addEventListener("click", () => {
     clearNumbersAdvance();
-    if (state.numbersIndex <= 0) return;
-    state.numbersIndex -= 1;
+    if (!retreatNumbersItem()) return;
     renderNumbers();
   });
   document.getElementById("numbers-skip").addEventListener("click", () => {
     clearNumbersAdvance();
-    state.numbersIndex += 1;
+    advanceNumbersItem();
     renderNumbers();
   });
 
@@ -4550,7 +5129,12 @@ function bind() {
       closeAllMenus();
       clearNumbersAdvance();
       stopSpeech();
-      state.numbersMode = btn.dataset.numbersMode;
+      const mode = btn.dataset.numbersMode;
+      if (mode !== state.numbersMode) {
+        state.numbersMode = mode;
+        state.numbersIndex = 0;
+        if (mode === "listen") reshuffleListenDeck();
+      }
       state.phase.numbers = "practice";
       showTerritoryPhase("numbers");
     });
@@ -4562,6 +5146,23 @@ function bind() {
       clearNumbersAdvance();
       stopSpeech();
       state.numbersDifficulty = btn.dataset.numbersDifficulty;
+      state.phase.numbers = "practice";
+      showTerritoryPhase("numbers");
+    });
+  });
+
+  document.querySelectorAll("[data-listen-digits]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      closeAllMenus();
+      clearNumbersAdvance();
+      stopSpeech();
+      const raw = btn.dataset.listenDigits;
+      const next = raw === "1" || raw === "2" ? Number(raw) : "all";
+      if (next !== state.numbersListenDigits) {
+        state.numbersListenDigits = next;
+        reshuffleListenDeck();
+      }
+      state.numbersMode = "listen";
       state.phase.numbers = "practice";
       showTerritoryPhase("numbers");
     });
@@ -4645,6 +5246,8 @@ function bind() {
   });
 }
 
+initTheme();
+initSfx();
 renderHub();
 bind();
 hydrateIconButtons();

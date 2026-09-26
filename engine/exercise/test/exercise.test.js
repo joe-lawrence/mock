@@ -106,6 +106,50 @@ describe("createNumberConstructionExercise", () => {
     assert.equal(ex.prompt.english, null);
     assert.equal(ex.resolution.form, "zweiundvierzig");
   });
+
+  it("Assisted shows English for numbers", () => {
+    const ex = createNumberConstructionExercise(16, {
+      mode: "assisted",
+      english: "sixteen",
+    });
+    assert.equal(ex.prompt.english, "sixteen");
+    assert.deepEqual(ex.materials.parts, ["sech", "zehn"]);
+  });
+
+  it("teens / tens morph / compounds grains", () => {
+    const teen = createNumberConstructionExercise(17, {
+      mode: "assisted",
+      grain: "construction",
+    });
+    assert.deepEqual(teen.materials.parts, ["sieb", "zehn"]);
+
+    const tens = createNumberConstructionExercise(30, {
+      mode: "assisted",
+      grain: "morph",
+    });
+    assert.deepEqual(tens.materials.parts, ["drei", "ßig"]);
+    assert.equal(tens.materials.grain, "morph");
+
+    const compound = createNumberConstructionExercise(21, {
+      mode: "core",
+      grain: "construction",
+      english: "twenty-one",
+    });
+    assert.deepEqual(compound.materials.parts, ["ein", "und", "zwanzig"]);
+    assert.equal(compound.prompt.english, null);
+  });
+
+  it("submit accepts morph tens build", () => {
+    const ex = createNumberConstructionExercise(70, {
+      mode: "assisted",
+      grain: "morph",
+    });
+    const { accepted, evaluation } = submitExerciseAttempt(ex, {
+      parts: ["sieb", "zig"],
+    });
+    assert.equal(accepted, true);
+    assert.equal(evaluation.status, "correct");
+  });
 });
 
 describe("association and wugs", () => {

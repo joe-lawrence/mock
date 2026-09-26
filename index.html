@@ -4,6 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Schnapp</title>
+    <script>
+      (function () {
+        try {
+          var pref = localStorage.getItem("schnapp-theme") || "system";
+          var dark =
+            pref === "dark" ||
+            (pref !== "light" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) document.documentElement.setAttribute("data-theme", "dark");
+          else document.documentElement.removeAttribute("data-theme");
+        } catch (_) {}
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -34,6 +47,48 @@
             <button type="button" role="menuitem" id="btn-switch-user">
               Switch user
             </button>
+            <hr class="menu-sep" />
+            <button
+              type="button"
+              role="menuitemradio"
+              class="menu-check"
+              aria-checked="false"
+              data-theme-choice="light"
+            >
+              <span class="menu-check-mark" aria-hidden="true"></span>
+              <span class="menu-check-label">Light</span>
+            </button>
+            <button
+              type="button"
+              role="menuitemradio"
+              class="menu-check"
+              aria-checked="false"
+              data-theme-choice="dark"
+            >
+              <span class="menu-check-mark" aria-hidden="true"></span>
+              <span class="menu-check-label">Dark</span>
+            </button>
+            <button
+              type="button"
+              role="menuitemradio"
+              class="menu-check"
+              aria-checked="true"
+              data-theme-choice="system"
+            >
+              <span class="menu-check-mark" aria-hidden="true">✓</span>
+              <span class="menu-check-label">System</span>
+            </button>
+            <hr class="menu-sep" />
+            <button
+              type="button"
+              role="menuitemcheckbox"
+              class="menu-check"
+              aria-checked="true"
+              data-sfx-toggle
+            >
+              <span class="menu-check-mark" aria-hidden="true">✓</span>
+              <span class="menu-check-label">Answer sounds</span>
+            </button>
           </div>
         </div>
 
@@ -57,10 +112,66 @@
             <button
               type="button"
               role="menuitem"
-              class="is-on"
-              data-numbers-mode="construction"
+              data-numbers-mode="teens"
             >
-              Construction
+              Teens
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              data-numbers-mode="tens"
+            >
+              Tens
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              class="is-on"
+              data-numbers-mode="compounds"
+            >
+              Compounds
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              data-numbers-mode="listen"
+            >
+              Listen
+            </button>
+            <hr class="menu-sep" />
+            <p class="menu-group-label" id="listen-digits-label">Listen digits</p>
+            <button
+              type="button"
+              role="menuitemradio"
+              class="menu-check"
+              aria-checked="false"
+              aria-describedby="listen-digits-label"
+              data-listen-digits="1"
+            >
+              <span class="menu-check-mark" aria-hidden="true"></span>
+              <span class="menu-check-label">1 digit (0–9)</span>
+            </button>
+            <button
+              type="button"
+              role="menuitemradio"
+              class="menu-check"
+              aria-checked="false"
+              aria-describedby="listen-digits-label"
+              data-listen-digits="2"
+            >
+              <span class="menu-check-mark" aria-hidden="true"></span>
+              <span class="menu-check-label">2 digits (10–99)</span>
+            </button>
+            <button
+              type="button"
+              role="menuitemradio"
+              class="menu-check"
+              aria-checked="true"
+              aria-describedby="listen-digits-label"
+              data-listen-digits="all"
+            >
+              <span class="menu-check-mark" aria-hidden="true">✓</span>
+              <span class="menu-check-label">1–2 digits (0–99)</span>
             </button>
             <hr class="menu-sep" />
             <button
@@ -244,7 +355,14 @@
               aria-label="Answer slots"
             ></div>
             <div class="tray" id="numbers-tray" aria-label="Number pieces"></div>
+            <p
+              class="attempt-feedback"
+              id="numbers-attempt-feedback"
+              hidden
+              aria-live="polite"
+            ></p>
             <div class="answer-reveal" id="numbers-reveal" hidden>
+              <p class="verdict" id="numbers-verdict" aria-live="polite"></p>
               <div class="answer-reveal-box">
                 <p class="answer-reveal-de" id="numbers-reveal-word"></p>
                 <p
@@ -330,7 +448,14 @@
               ></div>
             </div>
             <div class="tray" id="nouns-tray" aria-label="Answer pieces"></div>
+            <p
+              class="attempt-feedback"
+              id="nouns-attempt-feedback"
+              hidden
+              aria-live="polite"
+            ></p>
             <div class="answer-reveal" id="nouns-reveal" hidden>
+              <p class="verdict" id="nouns-verdict" aria-live="polite"></p>
               <div class="answer-reveal-box">
                 <p class="answer-reveal-de" id="nouns-reveal-word"></p>
                 <p
@@ -412,7 +537,14 @@
             <div class="karaoke" id="sounds-karaoke" hidden aria-live="polite"></div>
             <div class="choice-grid" id="sounds-choices" hidden></div>
 
+            <p
+              class="attempt-feedback"
+              id="sounds-attempt-feedback"
+              hidden
+              aria-live="polite"
+            ></p>
             <div class="answer-reveal" id="sounds-reveal" hidden>
+              <p class="verdict" id="sounds-verdict" aria-live="polite"></p>
               <div class="answer-reveal-box">
                 <p class="answer-reveal-de" id="sounds-reveal-word"></p>
                 <p

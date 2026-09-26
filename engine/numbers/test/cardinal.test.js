@@ -11,6 +11,7 @@ import {
   ENGINE_VERSION,
   DATA_VERSION,
 } from "../index.js";
+import { TENS, TENS_MORPH, TEEN_PREFIX, COMPOUND_ONES } from "../data.js";
 import { CARDINAL_FORMS_0_99 } from "./fixtures-0-99.js";
 
 describe("cardinalForm 0–99", () => {
@@ -49,6 +50,27 @@ describe("cardinalAnalysis segments", () => {
     assert.equal(cardinalForm(17), "siebzehn");
   });
 
+  it("every teen 13–19 is prefix + zehn", () => {
+    for (let n = 13; n <= 19; n++) {
+      const a = cardinalAnalysis(n);
+      assert.equal(a.kind, "teen");
+      assert.deepEqual(a.segments.construction, [TEEN_PREFIX[n], "zehn"]);
+      assert.deepEqual(a.segments.morph, a.segments.construction);
+      assert.equal(a.form, `${TEEN_PREFIX[n]}zehn`);
+    }
+  });
+
+  it("every tens word 20–90 has morph stem + zig/ßig", () => {
+    for (let d = 2; d <= 9; d++) {
+      const n = d * 10;
+      const a = cardinalAnalysis(n);
+      assert.equal(a.kind, "tens", `n=${n}`);
+      assert.deepEqual(a.segments.construction, [TENS[d]]);
+      assert.deepEqual(a.segments.morph, [...TENS_MORPH[d]]);
+      assert.equal(a.segments.morph.join(""), TENS[d]);
+    }
+  });
+
   it("morph grain splits tens stem + zig/ßig", () => {
     assert.deepEqual(constructionParts(99, { grain: "morph" }), [
       "neun",
@@ -57,12 +79,49 @@ describe("cardinalAnalysis segments", () => {
       "zig",
     ]);
     assert.deepEqual(constructionParts(30, { grain: "morph" }), ["drei", "ßig"]);
+    assert.deepEqual(constructionParts(20, { grain: "morph" }), ["zwan", "zig"]);
+    assert.deepEqual(constructionParts(60, { grain: "morph" }), ["sech", "zig"]);
+    assert.deepEqual(constructionParts(70, { grain: "morph" }), ["sieb", "zig"]);
   });
 
-  it("construction parts join to form", () => {
-    for (const n of [0, 11, 16, 20, 24, 30, 42, 99]) {
-      assert.equal(constructionParts(n).join(""), cardinalForm(n));
-      assert.equal(constructionParts(n, { grain: "morph" }).join(""), cardinalForm(n));
+  it("compound morph splits ones + und + tens morph", () => {
+    assert.deepEqual(constructionParts(24, { grain: "morph" }), [
+      "vier",
+      "und",
+      "zwan",
+      "zig",
+    ]);
+    assert.deepEqual(constructionParts(35, { grain: "morph" }), [
+      "fünf",
+      "und",
+      "drei",
+      "ßig",
+    ]);
+  });
+
+  it("construction parts join to form for every 0–99", () => {
+    for (let n = 0; n <= 99; n++) {
+      assert.equal(
+        constructionParts(n).join(""),
+        cardinalForm(n),
+        `construction n=${n}`
+      );
+      assert.equal(
+        constructionParts(n, { grain: "morph" }).join(""),
+        cardinalForm(n),
+        `morph n=${n}`
+      );
+    }
+  });
+
+  it("compound ones table covers 21–29", () => {
+    for (let ones = 1; ones <= 9; ones++) {
+      const n = 20 + ones;
+      assert.deepEqual(constructionParts(n), [
+        COMPOUND_ONES[ones],
+        "und",
+        "zwanzig",
+      ]);
     }
   });
 });
@@ -77,11 +136,22 @@ describe("parseCardinalForm", () => {
   it("tolerates case and spaces", () => {
     assert.equal(parseCardinalForm("Vier und zwanzig"), 24);
     assert.equal(parseCardinalForm("DREIßIG"), 30);
+    assert.equal(parseCardinalForm("sech zehn"), 16);
+  });
+
+  it("parses teens and morph-joined tens", () => {
+    assert.equal(parseCardinalForm("dreizehn"), 13);
+    assert.equal(parseCardinalForm("sechzehn"), 16);
+    assert.equal(parseCardinalForm("siebzehn"), 17);
+    assert.equal(parseCardinalForm("zwanzig"), 20);
+    assert.equal(parseCardinalForm("dreißig"), 30);
+    assert.equal(parseCardinalForm("einundzwanzig"), 21);
   });
 
   it("returns null for garbage", () => {
     assert.equal(parseCardinalForm("twenty"), null);
     assert.equal(parseCardinalForm(""), null);
+    assert.equal(parseCardinalForm("undzwanzig"), null);
   });
 });
 
@@ -93,6 +163,7 @@ describe("evaluateCardinalConstruction", () => {
     });
     assert.equal(r.status, "correct");
     assert.deepEqual(r.canonicalAnswers, ["vierundzwanzig"]);
+    assert.deepEqual(r.slotMatch, [true, true, true]);
   });
 
   it("accepts same orthography with different chips", () => {
@@ -128,6 +199,105 @@ describe("evaluateCardinalConstruction", () => {
     });
     assert.equal(r.status, "correct");
   });
+
+  it("teens: exact prefix + zehn", () => {
+    for (const n of [13, 16, 17, 19]) {
+      const parts = constructionParts(n);
+      const r = evaluateCardinalConstruction({ value: n, parts });
+      assert.equal(r.status, "correct", `teen ${n}`);
+    }
+  });
+
+  it("teens: wrong prefix is valid-but-unintended or incorrect", () => {
+    const r = evaluateCardinalConstruction({
+      value: 16,
+      parts: ["sieben", "zehn"],
+    });
+    assert.ok(
+      r.status === "incorrect" || r.status === "valid-but-unintended",
+      r.status
+    );
+  });
+
+  it("tens morph: every 20–90 exact split is correct", () => {
+    for (let d = 2; d <= 9; d++) {
+      const n = d * 10;
+      const parts = constructionParts(n, { grain: "morph" });
+      const r = evaluateCardinalConstruction({
+        value: n,
+        parts,
+        grain: "morph",
+      });
+      assert.equal(r.status, "correct", `tens morph ${n}`);
+    }
+  });
+
+  it("tens morph: fused word is accepted-alternative", () => {
+    const r = evaluateCardinalConstruction({
+      value: 40,
+      parts: ["vierzig"],
+      grain: "morph",
+    });
+    assert.equal(r.status, "accepted-alternative");
+  });
+
+  it("tens construction grain expects fused word", () => {
+    const fused = evaluateCardinalConstruction({
+      value: 50,
+      parts: ["fünfzig"],
+      grain: "construction",
+    });
+    assert.equal(fused.status, "correct");
+    const split = evaluateCardinalConstruction({
+      value: 50,
+      parts: ["fünf", "zig"],
+      grain: "construction",
+    });
+    assert.equal(split.status, "accepted-alternative");
+  });
+
+  it("compounds: einundzwanzig and siebenunddreißig", () => {
+    assert.equal(
+      evaluateCardinalConstruction({
+        value: 21,
+        parts: ["ein", "und", "zwanzig"],
+      }).status,
+      "correct"
+    );
+    assert.equal(
+      evaluateCardinalConstruction({
+        value: 37,
+        parts: ["sieben", "und", "dreißig"],
+      }).status,
+      "correct"
+    );
+  });
+
+  it("compounds morph grain for 24", () => {
+    const r = evaluateCardinalConstruction({
+      value: 24,
+      parts: ["vier", "und", "zwan", "zig"],
+      grain: "morph",
+    });
+    assert.equal(r.status, "correct");
+  });
+
+  it("normalizes case on chips", () => {
+    const r = evaluateCardinalConstruction({
+      value: 13,
+      parts: ["Drei", "Zehn"],
+    });
+    assert.equal(r.status, "correct");
+  });
+
+  it("slotMatch flags the wrong chip", () => {
+    const r = evaluateCardinalConstruction({
+      value: 24,
+      parts: ["vier", "und", "dreißig"],
+    });
+    assert.equal(r.status, "valid-but-unintended");
+    assert.deepEqual(r.slotMatch, [true, true, false]);
+  });
 });
 
 describe("recordNumberAttempt", () => {
@@ -157,5 +327,32 @@ describe("constructionExercise", () => {
     assert.equal(ex.form, "vierundzwanzig");
     assert.deepEqual(ex.parts, ["vier", "und", "zwanzig"]);
     assert.ok(ex.distractors.every((d) => !ex.parts.includes(d)));
+  });
+
+  it("teens pool shells", () => {
+    for (const n of [13, 16, 17]) {
+      const ex = constructionExercise(n);
+      assert.equal(ex.kind, "teen");
+      assert.deepEqual(ex.parts, constructionParts(n));
+      assert.ok(ex.distractors.every((d) => !ex.parts.includes(d)));
+    }
+  });
+
+  it("tens morph pool shells", () => {
+    for (const n of [20, 30, 70, 90]) {
+      const ex = constructionExercise(n, { grain: "morph" });
+      assert.equal(ex.kind, "tens");
+      assert.equal(ex.grain, "morph");
+      assert.deepEqual(ex.parts, constructionParts(n, { grain: "morph" }));
+      assert.ok(ex.distractors.every((d) => !ex.parts.includes(d)));
+      assert.ok(!ex.distractors.includes(ex.form));
+    }
+  });
+
+  it("compound shells keep fused tens in construction grain", () => {
+    const ex = constructionExercise(99);
+    assert.deepEqual(ex.parts, ["neun", "und", "neunzig"]);
+    const morph = constructionExercise(99, { grain: "morph" });
+    assert.deepEqual(morph.parts, ["neun", "und", "neun", "zig"]);
   });
 });
