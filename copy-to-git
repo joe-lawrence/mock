@@ -1,0 +1,4 @@
+rm -rf ~/src/mock/* 
+cp -r * ~/src/mock/
+rm ~/src/mock/engine
+cp -r ../engine ~/src/mock/

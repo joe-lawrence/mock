@@ -1,0 +1,670 @@
+/* Nav carousel — Learn|Play hub (standalone page or embedded in mock) */
+
+/* Tokens only when this sheet is the page chrome (standalone).
+   Embedded mode must not override the main mock’s body/layout. */
+body.nc-standalone {
+  --ink: #1c2430;
+  --muted: #5f6b7a;
+  --faint: #8b95a3;
+  --line: rgba(28, 36, 48, 0.1);
+  --line-strong: rgba(28, 36, 48, 0.16);
+  --wash: #eef2f6;
+  --surface: #ffffff;
+  --surface-2: #e8edf2;
+  --signal: #2f6fed;
+  --signal-soft: rgba(47, 111, 237, 0.12);
+  --ok: #0f7a6e;
+  --ok-soft: rgba(15, 122, 110, 0.14);
+  --de-black: #111111;
+  --de-red: #dd0000;
+  --de-gold: #ffcc00;
+  --font-display: "Sora", system-ui, sans-serif;
+  --font-body: "Source Sans 3", system-ui, sans-serif;
+  --shadow: 0 1px 2px rgba(28, 36, 48, 0.04), 0 10px 28px rgba(28, 36, 48, 0.06);
+  --shadow-card: 0 4px 20px rgba(28, 36, 48, 0.08);
+
+  margin: 0;
+  min-height: 100%;
+  min-height: 100dvh;
+  font-family: var(--font-body);
+  color: var(--ink);
+  background:
+    radial-gradient(900px 480px at 12% -10%, rgba(47, 111, 237, 0.09), transparent 55%),
+    radial-gradient(700px 420px at 100% 0%, rgba(15, 122, 110, 0.07), transparent 50%),
+    var(--wash);
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+}
+
+html[data-theme="dark"] body.nc-standalone {
+  --ink: #e8ecf1;
+  --muted: #9aa3b2;
+  --faint: #6f7886;
+  --line: rgba(232, 236, 241, 0.1);
+  --line-strong: rgba(232, 236, 241, 0.18);
+  --wash: #12151a;
+  --surface: #1a1f27;
+  --surface-2: #242b35;
+  --signal: #5b8fff;
+  --signal-soft: rgba(91, 143, 255, 0.16);
+  --ok: #2ec4a8;
+  --ok-soft: rgba(46, 196, 168, 0.16);
+  --de-black: #f2f2f2;
+  --de-red: #ff4d4d;
+  --de-gold: #ffd54a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 10px 28px rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.35);
+}
+
+body.nc-standalone,
+body.nc-standalone * ,
+body.nc-standalone *::before,
+body.nc-standalone *::after {
+  box-sizing: border-box;
+}
+
+.nc-phone {
+  --ink: #1c2430;
+  --muted: #5f6b7a;
+  --faint: #8b95a3;
+  --line: rgba(28, 36, 48, 0.1);
+  --line-strong: rgba(28, 36, 48, 0.16);
+  --wash: #eef2f6;
+  --surface: #ffffff;
+  --surface-2: #e8edf2;
+  --signal: #2f6fed;
+  --signal-soft: rgba(47, 111, 237, 0.12);
+  --ok: #0f7a6e;
+  --ok-soft: rgba(15, 122, 110, 0.14);
+  --de-black: #111111;
+  --de-red: #dd0000;
+  --de-gold: #ffcc00;
+  --radius: 14px;
+  --radius-lg: 22px;
+  --radius-sm: 10px;
+  --font-display: "Sora", system-ui, sans-serif;
+  --font-body: "Source Sans 3", system-ui, sans-serif;
+  --ease: 180ms ease;
+  --ease-slide: 480ms cubic-bezier(0.4, 0, 0.2, 1);
+  --shadow: 0 1px 2px rgba(28, 36, 48, 0.04), 0 10px 28px rgba(28, 36, 48, 0.06);
+  --shadow-card: 0 4px 20px rgba(28, 36, 48, 0.08);
+
+  position: relative;
+  width: 100%;
+  max-width: 26rem;
+  min-height: 100dvh;
+  max-height: 100dvh;
+  background: var(--wash);
+  color: var(--ink);
+  font-family: var(--font-body);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+html[data-theme="dark"] .nc-phone {
+  --ink: #e8ecf1;
+  --muted: #9aa3b2;
+  --faint: #6f7886;
+  --line: rgba(232, 236, 241, 0.1);
+  --line-strong: rgba(232, 236, 241, 0.18);
+  --wash: #12151a;
+  --surface: #1a1f27;
+  --surface-2: #242b35;
+  --signal: #5b8fff;
+  --signal-soft: rgba(91, 143, 255, 0.16);
+  --ok: #2ec4a8;
+  --ok-soft: rgba(46, 196, 168, 0.16);
+  --de-black: #f2f2f2;
+  --de-red: #ff4d4d;
+  --de-gold: #ffd54a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 10px 28px rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.35);
+}
+
+@media (min-width: 480px) {
+  body.nc-standalone {
+    padding: 1.25rem;
+    align-items: center;
+  }
+
+  body.nc-standalone .nc-phone:not(.is-embedded) {
+    min-height: min(900px, calc(100dvh - 2.5rem));
+    max-height: min(900px, calc(100dvh - 2.5rem));
+    border-radius: 1.75rem;
+    border: 1px solid var(--line-strong);
+    box-shadow: var(--shadow);
+  }
+}
+
+.nc-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  transition: transform var(--ease-slide);
+  background: var(--wash);
+}
+
+.nc-screen[hidden] {
+  display: none !important;
+}
+
+.nc-screen-mode.is-leaving {
+  transform: translateX(-100%);
+  pointer-events: none;
+}
+
+.nc-screen-nav {
+  transform: translateX(100%);
+}
+
+.nc-screen-nav.is-active {
+  transform: translateX(0);
+}
+
+.nc-screen-nav.is-active[hidden] {
+  display: flex !important;
+}
+
+/* —— Screen 1 —— */
+.nc-topbar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.85rem;
+  margin: 0 1.15rem 0.35rem;
+  padding: 0.85rem 0 0.75rem;
+  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+
+.nc-brand-mark {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.15rem;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.nc-brand-a {
+  color: var(--de-black);
+}
+
+.nc-brand-p1 {
+  color: var(--de-red);
+}
+
+.nc-brand-p2 {
+  color: var(--de-gold);
+}
+
+.nc-mode-title {
+  margin: 0.75rem 1.25rem 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 6vw, 2.15rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.nc-mode-lede {
+  margin: 0.4rem 1.25rem 1.25rem;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.nc-mode-stack {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 0 1.15rem 1.5rem;
+  min-height: 0;
+}
+
+.nc-mode-card {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  min-height: 9rem;
+  border: none;
+  border-radius: var(--radius-lg);
+  background: var(--signal);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  transition: transform var(--ease), filter var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nc-mode-card:active {
+  transform: scale(0.98);
+}
+
+.nc-mode-card.nc-mode-play {
+  background: var(--ok);
+}
+
+.nc-mode-icon {
+  display: grid;
+  place-items: center;
+  opacity: 0.95;
+}
+
+.nc-mode-label {
+  font-family: var(--font-display);
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+/* Parent crumb — single one-line bubble */
+.nc-nest {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-start;
+  padding: 0 1.25rem 0.45rem;
+}
+
+.nc-nest[hidden] {
+  display: none !important;
+}
+
+.nc-mini {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.65rem;
+  padding: 0.45rem 0.85rem 0.45rem 0.55rem;
+  border-radius: 14px;
+  border: 1.5px solid var(--line-strong);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms ease, background var(--ease), border-color var(--ease);
+}
+
+.nc-mini:hover,
+.nc-mini:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--signal) 40%, var(--line));
+}
+
+.nc-mini:active {
+  transform: scale(0.98);
+}
+
+.nc-mini.is-none {
+  background: var(--surface);
+  border-color: var(--line-strong);
+}
+
+.nc-mini.is-some {
+  background: var(--signal-soft);
+  border-color: color-mix(in srgb, var(--signal) 45%, var(--line));
+}
+
+.nc-mini.is-all {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #fff;
+}
+
+.nc-mini-badge {
+  flex: 0 0 auto;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--line-strong);
+  background: var(--surface-2);
+  display: grid;
+  place-items: center;
+}
+
+.nc-mini.is-some .nc-mini-badge {
+  border-color: var(--signal);
+  background: var(--surface);
+}
+
+.nc-mini.is-all .nc-mini-badge {
+  border-color: #fff;
+  background: #fff;
+  color: var(--ok);
+}
+
+.nc-mini-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--signal);
+}
+
+.nc-mini-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.nc-carousel-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.65rem;
+  min-height: 0;
+  /* Room above/below for card glow (overflow-x scroll otherwise clips Y shadows). */
+  padding: 0.85rem 0 5.5rem;
+}
+
+.nc-carousel {
+  display: flex;
+  gap: 0.85rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  /* Pad ≥ glow blur (28px) so .nc-card.is-all box-shadow isn’t clipped. */
+  padding: 1.75rem 1.75rem 2rem;
+  touch-action: pan-x;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.nc-carousel::after {
+  content: "";
+  flex: 0 0 1.75rem;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.nc-card {
+  flex: 0 0 auto;
+  scroll-snap-align: center;
+  width: min(15.5rem, 72vw);
+  height: min(22rem, 52dvh);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1.15rem 1.15rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1.5px solid var(--line-strong);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  position: relative;
+  transition:
+    background var(--ease),
+    border-color var(--ease),
+    color var(--ease),
+    transform 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nc-card.is-none {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.nc-card.is-some {
+  background: var(--signal-soft);
+  border-color: color-mix(in srgb, var(--signal) 45%, var(--line));
+  color: var(--ink);
+}
+
+.nc-card.is-all {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #fff;
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--ok) 35%, transparent);
+}
+
+.nc-card-badge {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--line-strong);
+  background: var(--surface-2);
+  display: grid;
+  place-items: center;
+}
+
+.nc-card.is-some .nc-card-badge {
+  border-color: var(--signal);
+  background: var(--surface);
+}
+
+.nc-card.is-all .nc-card-badge {
+  border-color: #fff;
+  background: #fff;
+  color: var(--ok);
+}
+
+.nc-card-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--signal);
+}
+
+.nc-card-title {
+  margin: 0 0 1.75rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.55rem, 5.5vw, 1.95rem);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+}
+
+.nc-card-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.nc-card.is-all .nc-card-hint {
+  color: color-mix(in srgb, #fff 70%, transparent);
+}
+
+.nc-card-hint svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+/* Bottom bar */
+.nc-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.75rem 0.85rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border-top: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 -8px 24px rgba(28, 36, 48, 0.06);
+  z-index: 5;
+}
+
+.nc-start {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-height: 3.15rem;
+  padding: 0.55rem 0.85rem;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--signal);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: opacity var(--ease), filter var(--ease), transform var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nc-start:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.nc-start:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+.nc-start-icon {
+  display: grid;
+  place-items: center;
+}
+
+.nc-start-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.15;
+}
+
+.nc-start-label {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.nc-start-meta {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.nc-bar-caps {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.nc-cap {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--faint);
+  cursor: pointer;
+  transition: background var(--ease), color var(--ease), border-color var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nc-cap[aria-pressed="true"] {
+  background: var(--ok-soft);
+  border-color: color-mix(in srgb, var(--ok) 50%, transparent);
+  color: var(--ok);
+}
+
+.nc-cap.is-off,
+.nc-cap[aria-pressed="false"] {
+  opacity: 0.65;
+}
+
+.nc-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 5.5rem;
+  transform: translateX(-50%);
+  max-width: calc(100% - 2rem);
+  padding: 0.7rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 0.85rem;
+  font-weight: 550;
+  line-height: 1.35;
+  box-shadow: var(--shadow);
+  z-index: 20;
+}
+
+.nc-toast[hidden] {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nc-screen,
+  .nc-card,
+  .nc-mode-card,
+  .nc-start {
+    transition: none;
+  }
+}
+
+
+/* Embedded in main mock hub — absolute screens need a real height (min-height alone
+   collapses to 0 on some iOS flex contexts, leaving only the app Schnapp header). */
+.nc-hub {
+  --nc-embed-h: calc(100vh - 5.5rem);
+  --nc-embed-h: calc(100svh - 5.5rem);
+  padding: 0;
+}
+
+.nc-hub #nav-carousel-root {
+  height: var(--nc-embed-h);
+  min-height: 28rem;
+  position: relative;
+}
+
+.nc-phone.is-embedded {
+  max-width: none;
+  width: 100%;
+  height: var(--nc-embed-h);
+  min-height: 28rem;
+  max-height: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.nc-card.is-soon {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (min-width: 480px) {
+  .nc-hub {
+    --nc-embed-h: calc(100vh - 6rem);
+    --nc-embed-h: calc(100svh - 6rem);
+  }
+}

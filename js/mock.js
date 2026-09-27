@@ -38,7 +38,7 @@ import {
   mixableSteps,
 } from "./numbers-curriculum.js?v=20260927-nav1";
 import { DECIMAL_POOLS } from "./decimals-pools.js?v=20260927-nav1";
-import { mountNavCarousel } from "./nav-carousel.js?v=20260927-nc9";
+import { mountNavCarousel } from "./nav-carousel.js?v=20260927-nc12";
 
 /** Bootstrap Icons (outline) — https://icons.getbootstrap.com */
 const BI_PATHS = {
