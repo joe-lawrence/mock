@@ -7,6 +7,29 @@ export {
   constructionParts,
 } from "./cardinal.js";
 
-export { evaluateCardinalConstruction } from "./evaluate.js";
+export {
+  decimalDigitForm,
+  decimalWritten,
+  decimalEnglishWritten,
+  decimalAnalysis,
+  decimalForm,
+  decimalParts,
+  parseDecimalForm,
+  parseDecimalWritten,
+  moneyAnalysis,
+  moneyForm,
+  moneyParts,
+  parseMoneyForm,
+} from "./decimal.js";
+
+export {
+  evaluateCardinalConstruction,
+  evaluateDecimalConstruction,
+  evaluateMoneyConstruction,
+} from "./evaluate.js";
 export { recordNumberAttempt } from "./attempt.js";
-export { constructionExercise } from "./exercise.js";
+export {
+  constructionExercise,
+  decimalExercise,
+  moneyExercise,
+} from "./exercise.js";

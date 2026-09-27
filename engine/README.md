@@ -4,7 +4,8 @@ Deterministic transforms and evaluation. Presentation (the mock) asks this layer
 
 ## Numbers
 
-Cardinal German **0–99** — see `numbers/`.
+- Cardinal German **0–1000** — `numbers/cardinal.js`
+- Decimals (Komma) + money (€) — `numbers/decimal.js`
 
 ## Nouns
 

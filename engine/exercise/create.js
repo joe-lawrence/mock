@@ -8,7 +8,7 @@ import {
   pluralExercise,
   wugExercise,
 } from "../nouns/index.js";
-import { constructionExercise } from "../numbers/index.js";
+import { constructionExercise, decimalExercise, moneyExercise } from "../numbers/index.js";
 
 function splitCue(lemma, cue) {
   const ending = String(cue || "").replace(/^-/, "");
@@ -282,6 +282,117 @@ export function createNumberConstructionExercise(value, opts = {}) {
 }
 
 /**
+ * @param {number} whole
+ * @param {number[]} fracDigits
+ * @param {{ mode?: import("./modes.js").DifficultyMode, grain?: string, english?: string, answerParts?: object[] }} [opts]
+ */
+export function createDecimalConstructionExercise(whole, fracDigits, opts = {}) {
+  const mode = opts.mode || "assisted";
+  const grain = opts.grain === "spoken" ? "spoken" : "construction";
+  const truth = decimalExercise(whole, fracDigits, {
+    grain,
+    english: opts.english,
+  });
+  const templateId = TEMPLATES.NUMBER_DECIMAL_CONSTRUCTION;
+  const scaffolding = scaffoldingFor(templateId, mode);
+
+  return {
+    id: `ex.${templateId}.${truth.written}.${grain}.${mode}`,
+    templateId,
+    territoryId: "numbers",
+    mode,
+    layerVersion: EXERCISE_LAYER_VERSION,
+    target: {
+      kind: "decimal",
+      whole,
+      fracDigits: [...fracDigits],
+      grain,
+    },
+    scaffolding,
+    prompt: {
+      kind: "build-decimal",
+      written: truth.written,
+      english: scaffolding.showEnglish
+        ? opts.english || truth.english
+        : null,
+    },
+    materials: {
+      parts: truth.parts,
+      distractors: scaffolding.chipTray ? truth.distractors : [],
+      form: truth.form,
+      written: truth.written,
+      hint: truth.hint,
+      grain,
+      answerParts: opts.answerParts || null,
+    },
+    resolution: {
+      parts: truth.parts,
+      form: truth.form,
+      written: truth.written,
+      whole,
+      fracDigits: [...fracDigits],
+      grain,
+      english: opts.english || truth.english,
+      rules: truth.rules,
+    },
+  };
+}
+
+/**
+ * @param {number} euros
+ * @param {number} cents
+ * @param {{ mode?: import("./modes.js").DifficultyMode, grain?: string, english?: string, answerParts?: object[] }} [opts]
+ */
+export function createMoneyConstructionExercise(euros, cents, opts = {}) {
+  const mode = opts.mode || "assisted";
+  const grain = opts.grain === "spoken" ? "spoken" : "construction";
+  const truth = moneyExercise(euros, cents, { grain, english: opts.english });
+  const templateId = TEMPLATES.NUMBER_MONEY_CONSTRUCTION;
+  const scaffolding = scaffoldingFor(templateId, mode);
+
+  return {
+    id: `ex.${templateId}.${euros}.${cents}.${grain}.${mode}`,
+    templateId,
+    territoryId: "numbers",
+    mode,
+    layerVersion: EXERCISE_LAYER_VERSION,
+    target: {
+      kind: "money",
+      euros,
+      cents,
+      grain,
+    },
+    scaffolding,
+    prompt: {
+      kind: "build-money",
+      written: truth.written,
+      english: scaffolding.showEnglish
+        ? opts.english || truth.english
+        : null,
+    },
+    materials: {
+      parts: truth.parts,
+      distractors: scaffolding.chipTray ? truth.distractors : [],
+      form: truth.form,
+      written: truth.written,
+      hint: truth.hint,
+      grain,
+      answerParts: opts.answerParts || null,
+    },
+    resolution: {
+      parts: truth.parts,
+      form: truth.form,
+      written: truth.written,
+      euros,
+      cents,
+      grain,
+      english: opts.english || truth.english,
+      rules: truth.rules,
+    },
+  };
+}
+
+/**
  * @param {{ templateId: string, target: object, mode?: string, extras?: object }} spec
  */
 export function createExercise(spec) {
@@ -311,6 +422,28 @@ export function createExercise(spec) {
         english: spec.extras?.english,
         answerParts: spec.extras?.answerParts,
       });
+    case TEMPLATES.NUMBER_DECIMAL_CONSTRUCTION:
+      return createDecimalConstructionExercise(
+        spec.target.whole,
+        spec.target.fracDigits,
+        {
+          mode,
+          grain: spec.target.grain,
+          english: spec.extras?.english,
+          answerParts: spec.extras?.answerParts,
+        }
+      );
+    case TEMPLATES.NUMBER_MONEY_CONSTRUCTION:
+      return createMoneyConstructionExercise(
+        spec.target.euros,
+        spec.target.cents,
+        {
+          mode,
+          grain: spec.target.grain,
+          english: spec.extras?.english,
+          answerParts: spec.extras?.answerParts,
+        }
+      );
     default:
       throw new Error(`Unknown templateId: ${spec.templateId}`);
   }

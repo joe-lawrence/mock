@@ -31,7 +31,9 @@ export function scaffoldingFor(templateId, mode = "assisted") {
   if (mode === "assisted") {
     const showEnglish =
       templateId === "nouns.plural.construction" ||
-      templateId === "numbers.cardinal.construction";
+      templateId === "numbers.cardinal.construction" ||
+      templateId === "numbers.decimal.construction" ||
+      templateId === "numbers.money.construction";
     return { ...base, mode, templateId, showEnglish };
   }
 
@@ -76,4 +78,6 @@ export const TEMPLATES = Object.freeze({
   NOUN_WUG_CHOICE: "nouns.wug.choice",
   NOUN_PLURAL_CONSTRUCTION: "nouns.plural.construction",
   NUMBER_CARDINAL_CONSTRUCTION: "numbers.cardinal.construction",
+  NUMBER_DECIMAL_CONSTRUCTION: "numbers.decimal.construction",
+  NUMBER_MONEY_CONSTRUCTION: "numbers.money.construction",
 });

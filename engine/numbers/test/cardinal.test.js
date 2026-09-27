@@ -24,7 +24,7 @@ describe("cardinalForm 0–99", () => {
 
   it("rejects out of range", () => {
     assert.throws(() => cardinalForm(-1), RangeError);
-    assert.throws(() => cardinalForm(100), RangeError);
+    assert.throws(() => cardinalForm(1001), RangeError);
     assert.throws(() => cardinalForm(3.5), RangeError);
   });
 });
@@ -129,6 +129,30 @@ describe("cardinalAnalysis segments", () => {
 describe("parseCardinalForm", () => {
   it("round-trips 0–99", () => {
     for (let n = 0; n <= 99; n++) {
+      assert.equal(parseCardinalForm(cardinalForm(n)), n);
+    }
+  });
+
+  it("forms hundreds and thousand", () => {
+    assert.equal(cardinalForm(100), "einhundert");
+    assert.equal(cardinalForm(200), "zweihundert");
+    assert.equal(cardinalForm(101), "einhunderteins");
+    assert.equal(cardinalForm(221), "zweihunderteinundzwanzig");
+    assert.equal(cardinalForm(342), "dreihundertzweiundvierzig");
+    assert.equal(cardinalForm(1000), "eintausend");
+    assert.deepEqual(constructionParts(100), ["ein", "hundert"]);
+    assert.deepEqual(constructionParts(221), [
+      "zwei",
+      "hundert",
+      "ein",
+      "und",
+      "zwanzig",
+    ]);
+    assert.deepEqual(constructionParts(1000), ["ein", "tausend"]);
+  });
+
+  it("round-trips sample hundreds", () => {
+    for (const n of [100, 101, 221, 342, 999, 1000]) {
       assert.equal(parseCardinalForm(cardinalForm(n)), n);
     }
   });

@@ -23,7 +23,25 @@
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Sora:wght@500;600&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,500&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./css/mock.css" />
+    <link rel="stylesheet" href="./css/mock.css?v=20260927-dec2" />
+    <script type="importmap">
+      {
+        "imports": {
+          "/engine/numbers/decimal.js": "/engine/numbers/decimal.js?v=20260927-dec2",
+          "/engine/numbers/cardinal.js": "/engine/numbers/cardinal.js?v=20260927-dec2",
+          "/engine/numbers/data.js": "/engine/numbers/data.js?v=20260927-dec2",
+          "/engine/numbers/exercise.js": "/engine/numbers/exercise.js?v=20260927-dec2",
+          "/engine/numbers/evaluate.js": "/engine/numbers/evaluate.js?v=20260927-dec2",
+          "/engine/numbers/attempt.js": "/engine/numbers/attempt.js?v=20260927-dec2",
+          "/engine/numbers/index.js": "/engine/numbers/index.js?v=20260927-dec2",
+          "/engine/exercise/index.js": "/engine/exercise/index.js?v=20260927-dec2",
+          "/engine/exercise/create.js": "/engine/exercise/create.js?v=20260927-dec2",
+          "/engine/exercise/modes.js": "/engine/exercise/modes.js?v=20260927-dec2",
+          "/engine/exercise/submit.js": "/engine/exercise/submit.js?v=20260927-dec2",
+          "/engine/nouns/index.js": "/engine/nouns/index.js?v=20260927-dec2"
+        }
+      }
+    </script>
   </head>
   <body>
     <div class="app">
@@ -102,6 +120,9 @@
             Numbers
           </button>
           <div class="menu-panel" role="menu" hidden>
+            <button type="button" role="menuitem" data-numbers-hub>
+              Numbers home
+            </button>
             <button type="button" role="menuitem" data-show-briefing="numbers">
               Briefing
             </button>
@@ -112,68 +133,22 @@
             <button
               type="button"
               role="menuitem"
-              data-numbers-mode="teens"
+              data-numbers-change-focus
+              hidden
             >
-              Teens
+              Change focus…
             </button>
             <button
               type="button"
               role="menuitem"
-              data-numbers-mode="tens"
+              data-numbers-resume
+              hidden
             >
-              Tens
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              class="is-on"
-              data-numbers-mode="compounds"
-            >
-              Compounds
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              data-numbers-mode="listen"
-            >
-              Listen
+              Back to practice
             </button>
             <hr class="menu-sep" />
-            <p class="menu-group-label" id="listen-digits-label">Listen digits</p>
-            <button
-              type="button"
-              role="menuitemradio"
-              class="menu-check"
-              aria-checked="false"
-              aria-describedby="listen-digits-label"
-              data-listen-digits="1"
-            >
-              <span class="menu-check-mark" aria-hidden="true"></span>
-              <span class="menu-check-label">1 digit (0–9)</span>
-            </button>
-            <button
-              type="button"
-              role="menuitemradio"
-              class="menu-check"
-              aria-checked="false"
-              aria-describedby="listen-digits-label"
-              data-listen-digits="2"
-            >
-              <span class="menu-check-mark" aria-hidden="true"></span>
-              <span class="menu-check-label">2 digits (10–99)</span>
-            </button>
-            <button
-              type="button"
-              role="menuitemradio"
-              class="menu-check"
-              aria-checked="true"
-              aria-describedby="listen-digits-label"
-              data-listen-digits="all"
-            >
-              <span class="menu-check-mark" aria-hidden="true">✓</span>
-              <span class="menu-check-label">1–2 digits (0–99)</span>
-            </button>
-            <hr class="menu-sep" />
+            <div id="numbers-menu-body" hidden></div>
+            <hr class="menu-sep" id="numbers-menu-diff-sep" />
             <button
               type="button"
               role="menuitemradio"
@@ -345,7 +320,8 @@
           aria-label="Numbers territory"
           hidden
         >
-          <div class="briefing" id="numbers-briefing"></div>
+          <div class="numbers-hub" id="numbers-hub" hidden></div>
+          <div class="briefing" id="numbers-briefing" hidden></div>
           <div class="sound-chart" id="numbers-chart" hidden></div>
           <div class="stage stage-fill" id="numbers-stage" hidden>
             <p class="prompt" id="numbers-prompt"></p>
@@ -364,7 +340,7 @@
             <div class="answer-reveal" id="numbers-reveal" hidden>
               <p class="verdict" id="numbers-verdict" aria-live="polite"></p>
               <div class="answer-reveal-box">
-                <p class="answer-reveal-de" id="numbers-reveal-word"></p>
+                <p class="answer-reveal-de" id="numbers-reveal-word" lang="de"></p>
                 <p
                   class="answer-reveal-phonetic"
                   id="numbers-reveal-phonetic"
@@ -457,7 +433,7 @@
             <div class="answer-reveal" id="nouns-reveal" hidden>
               <p class="verdict" id="nouns-verdict" aria-live="polite"></p>
               <div class="answer-reveal-box">
-                <p class="answer-reveal-de" id="nouns-reveal-word"></p>
+                <p class="answer-reveal-de" id="nouns-reveal-word" lang="de"></p>
                 <p
                   class="answer-reveal-phonetic"
                   id="nouns-reveal-phonetic"
@@ -546,7 +522,7 @@
             <div class="answer-reveal" id="sounds-reveal" hidden>
               <p class="verdict" id="sounds-verdict" aria-live="polite"></p>
               <div class="answer-reveal-box">
-                <p class="answer-reveal-de" id="sounds-reveal-word"></p>
+                <p class="answer-reveal-de" id="sounds-reveal-word" lang="de"></p>
                 <p
                   class="answer-reveal-phonetic"
                   id="sounds-reveal-phonetic"
@@ -588,6 +564,6 @@
       </div>
     </div>
 
-    <script type="module" src="./js/mock.js"></script>
+    <script type="module" src="./js/mock.js?v=20260927-dec2"></script>
   </body>
 </html>

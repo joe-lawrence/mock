@@ -1,5 +1,5 @@
 /**
- * Deterministic German cardinal forms 0–99.
+ * Deterministic German cardinal forms 0–1000 (hundreds + eintausend).
  */
 
 import {
@@ -11,12 +11,12 @@ import {
   DATA_VERSION,
 } from "./data.js";
 
-export const ENGINE_VERSION = "0.1.0";
+export const ENGINE_VERSION = "0.2.0";
 export { DATA_VERSION };
 
 function assertInt(n) {
-  if (!Number.isInteger(n) || n < 0 || n > 99) {
-    throw new RangeError(`cardinal out of range 0–99: ${n}`);
+  if (!Number.isInteger(n) || n < 0 || n > 1000) {
+    throw new RangeError(`cardinal out of range 0–1000: ${n}`);
   }
 }
 
@@ -34,6 +34,49 @@ export function cardinalForm(n) {
  */
 export function cardinalAnalysis(n) {
   assertInt(n);
+
+  if (n === 1000) {
+    return {
+      n,
+      form: "eintausend",
+      kind: "thousand",
+      segments: {
+        construction: ["ein", "tausend"],
+        morph: ["ein", "tausend"],
+      },
+      rules: ["thousand.1000"],
+    };
+  }
+
+  if (n >= 100) {
+    const h = Math.floor(n / 100);
+    const rem = n % 100;
+    const hStem = h === 1 ? "ein" : ATOMIC[h];
+    const head = [hStem, "hundert"];
+    if (rem === 0) {
+      return {
+        n,
+        form: head.join(""),
+        kind: "hundred",
+        segments: {
+          construction: [...head],
+          morph: [...head],
+        },
+        rules: [`hundreds.${h}00`],
+      };
+    }
+    const remA = cardinalAnalysis(rem);
+    return {
+      n,
+      form: head.join("") + remA.form,
+      kind: "hundred+rem",
+      segments: {
+        construction: [...head, ...remA.segments.construction],
+        morph: [...head, ...remA.segments.morph],
+      },
+      rules: [`hundreds.${h}00`, ...remA.rules],
+    };
+  }
 
   if (n <= 12) {
     const form = ATOMIC[n];
@@ -60,7 +103,11 @@ export function cardinalAnalysis(n) {
         construction: [prefix, "zehn"],
         morph: [prefix, "zehn"],
       },
-      rules: [`teen.${n}`, n === 16 ? "shorten.sechs→sech" : null, n === 17 ? "shorten.sieben→sieb" : null].filter(Boolean),
+      rules: [
+        `teen.${n}`,
+        n === 16 ? "shorten.sechs→sech" : null,
+        n === 17 ? "shorten.sieben→sieb" : null,
+      ].filter(Boolean),
     };
   }
 
@@ -101,7 +148,7 @@ export function cardinalAnalysis(n) {
 }
 
 /**
- * Parse a written cardinal (0–99) back to an integer.
+ * Parse a written cardinal (0–1000) back to an integer.
  * Accepts optional spaces; case-insensitive.
  * @param {string} raw
  * @returns {number | null}
@@ -111,7 +158,7 @@ export function parseCardinalForm(raw) {
   const s = String(raw).trim().toLowerCase().replace(/\s+/g, "");
   if (!s) return null;
 
-  for (let n = 0; n <= 99; n++) {
+  for (let n = 0; n <= 1000; n++) {
     if (cardinalForm(n) === s) return n;
   }
   return null;

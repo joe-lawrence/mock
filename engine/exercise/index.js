@@ -11,6 +11,8 @@ export {
   createNounWugExercise,
   createNounPluralExercise,
   createNumberConstructionExercise,
+  createDecimalConstructionExercise,
+  createMoneyConstructionExercise,
 } from "./create.js";
 
 export { submitExerciseAttempt } from "./submit.js";

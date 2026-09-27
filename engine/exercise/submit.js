@@ -11,6 +11,8 @@ import {
 } from "../nouns/index.js";
 import {
   evaluateCardinalConstruction,
+  evaluateDecimalConstruction,
+  evaluateMoneyConstruction,
   recordNumberAttempt,
 } from "../numbers/index.js";
 
@@ -19,7 +21,9 @@ function isAcceptable(status, templateId) {
   if (
     status === "accepted-alternative" &&
     (templateId === TEMPLATES.NOUN_PLURAL_CONSTRUCTION ||
-      templateId === TEMPLATES.NUMBER_CARDINAL_CONSTRUCTION)
+      templateId === TEMPLATES.NUMBER_CARDINAL_CONSTRUCTION ||
+      templateId === TEMPLATES.NUMBER_DECIMAL_CONSTRUCTION ||
+      templateId === TEMPLATES.NUMBER_MONEY_CONSTRUCTION)
   ) {
     return true;
   }
@@ -97,6 +101,40 @@ export function submitExerciseAttempt(exercise, rawInput, opts = {}) {
     case TEMPLATES.NUMBER_CARDINAL_CONSTRUCTION: {
       evaluation = evaluateCardinalConstruction({
         value: exercise.target.value,
+        parts: rawInput.parts,
+        grain: exercise.target.grain || "construction",
+      });
+      attempt = recordNumberAttempt({
+        exerciseId: exercise.id,
+        prompt: exercise.target,
+        rawInput,
+        evaluation,
+        scaffolding: scaffoldingMeta,
+        appVersion,
+      });
+      break;
+    }
+    case TEMPLATES.NUMBER_DECIMAL_CONSTRUCTION: {
+      evaluation = evaluateDecimalConstruction({
+        whole: exercise.target.whole,
+        fracDigits: exercise.target.fracDigits,
+        parts: rawInput.parts,
+        grain: exercise.target.grain || "construction",
+      });
+      attempt = recordNumberAttempt({
+        exerciseId: exercise.id,
+        prompt: exercise.target,
+        rawInput,
+        evaluation,
+        scaffolding: scaffoldingMeta,
+        appVersion,
+      });
+      break;
+    }
+    case TEMPLATES.NUMBER_MONEY_CONSTRUCTION: {
+      evaluation = evaluateMoneyConstruction({
+        euros: exercise.target.euros,
+        cents: exercise.target.cents,
         parts: rawInput.parts,
         grain: exercise.target.grain || "construction",
       });

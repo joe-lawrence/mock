@@ -9,13 +9,35 @@ import {
   createNounWugExercise,
   createNounPluralExercise,
   createNumberConstructionExercise,
+  createDecimalConstructionExercise,
+  createMoneyConstructionExercise,
   submitExerciseAttempt,
-} from "../engine/exercise/index.js";
+} from "../engine/exercise/index.js?v=20260927-dec2";
 import {
   associationLemmas,
   wugForms,
-} from "../engine/nouns/index.js";
-import { cardinalForm } from "../engine/numbers/index.js";
+} from "../engine/nouns/index.js?v=20260927-dec2";
+import {
+  cardinalForm,
+  parseCardinalForm,
+  constructionParts,
+  decimalAnalysis,
+  parseDecimalForm,
+  parseDecimalWritten,
+  parseMoneyForm,
+} from "../engine/numbers/index.js?v=20260927-dec2";
+import {
+  NUMBERS_TOPICS,
+  getNumbersTopic,
+  getNumbersStep,
+  getNumbersMode,
+  modesForStep,
+  isNumbersCellPlayable,
+  suggestNumbersFocus,
+  formatNumbersFocusLabel,
+  mixableSteps,
+} from "./numbers-curriculum.js?v=20260927-dec2";
+import { DECIMAL_POOLS } from "./decimals-pools.js?v=20260927-dec2";
 
 /** Bootstrap Icons (outline) — https://icons.getbootstrap.com */
 const BI_PATHS = {
@@ -520,10 +542,11 @@ const briefings = {
       {
         heading: "What you’ll use in practice",
         html: `<ul>
-          <li><strong>Teens</strong> — 13–19 as base + zehn (sech-/sieb- shortenings)</li>
-          <li><strong>Tens</strong> — 20–90 as stem + zig/ßig (zwanzig, dreißig…)</li>
-          <li><strong>Compounds</strong> — 21–99 as ones + und + tens in one word</li>
-          <li><strong>Listen</strong> — hear a German number (TTS), then identify the value (1-digit / 2-digit / both) — recognition, not production</li>
+          <li><strong>Topics</strong> — Cardinals and Decimals (Komma → money); Fractions, Time, Dates, Measurement, Ordinals next</li>
+          <li><strong>Cardinals steps</strong> — 0–12, Teens, Tens, Compounds, Hundreds+</li>
+          <li><strong>Decimals steps</strong> — Komma reading, place value, write-komma, Euro / Euro+Cent</li>
+          <li><strong>Modes</strong> — Build, Listen, Convert (per step)</li>
+          <li>Assisted / Core change support, not the German truth</li>
         </ul>`,
       },
       {
@@ -803,6 +826,97 @@ const numbersChart = {
       label: "21–99",
       blurb: "Read backward: ones + und + tens as one word (vierundzwanzig = four-and-twenty).",
     },
+    {
+      id: "hundreds",
+      label: "100+",
+      blurb: "ein/zwei/… + hundert, then the 0–99 tail. 1000 = eintausend.",
+    },
+    {
+      id: "komma",
+      label: "Komma",
+      blurb: "Written 3,14 — spoken drei Komma eins vier. Digits after Komma are one-by-one (not “vierzehn”).",
+    },
+    {
+      id: "money",
+      label: "Euro",
+      blurb: "… Euro; with cents: … Euro fünfzig (cents as a cardinal, not digit-by-digit).",
+    },
+  ],
+  komma: [
+    {
+      n: "3,14",
+      parts: [
+        { text: "drei", guide: "DRY", stress: true },
+        { text: "Komma", guide: "kaw-mah" },
+        { text: "eins", guide: "ines" },
+        { text: "vier", guide: "feer" },
+      ],
+      note: "Komma, not Punkt",
+    },
+    {
+      n: "0,5",
+      parts: [
+        { text: "null", guide: "nool" },
+        { text: "Komma", guide: "kaw-mah" },
+        { text: "fünf", guide: "fuenf", stress: true },
+      ],
+      note: "",
+    },
+    {
+      n: "12,05",
+      parts: [
+        { text: "zwölf", guide: "TSVUELF", stress: true },
+        { text: "Komma", guide: "kaw-mah" },
+        { text: "null", guide: "nool" },
+        { text: "fünf", guide: "fuenf" },
+      ],
+      note: "",
+    },
+    {
+      n: "2,50",
+      parts: [
+        { text: "zwei", guide: "TSVAI", stress: true },
+        { text: "Komma", guide: "kaw-mah" },
+        { text: "fünf", guide: "fuenf" },
+        { text: "null", guide: "nool" },
+      ],
+      note: "≠ zwei Komma fünfzig",
+    },
+  ],
+  money: [
+    {
+      n: "1,00 €",
+      parts: [
+        { text: "ein", guide: "INE", stress: true },
+        { text: "Euro", guide: "oy-roh" },
+      ],
+      note: "ein, not eins",
+    },
+    {
+      n: "12,00 €",
+      parts: [
+        { text: "zwölf", guide: "TSVUELF", stress: true },
+        { text: "Euro", guide: "oy-roh" },
+      ],
+      note: "",
+    },
+    {
+      n: "12,50 €",
+      parts: [
+        { text: "zwölf", guide: "TSVUELF", stress: true },
+        { text: "Euro", guide: "oy-roh" },
+        { text: "fünfzig", guide: "FUENF-tsikh", stress: true },
+      ],
+      note: "cents as a cardinal",
+    },
+    {
+      n: "0,50 €",
+      parts: [
+        { text: "fünfzig", guide: "FUENF-tsikh", stress: true },
+        { text: "Cent", guide: "tsent" },
+      ],
+      note: "cents only",
+    },
   ],
   base: [
     { n: "0", parts: [{ text: "null", guide: "nool" }], note: "" },
@@ -992,12 +1106,62 @@ const numbersChart = {
       note: "nine-and-ninety",
     },
   ],
+  hundreds: [
+    {
+      n: "100",
+      parts: [
+        { text: "ein", guide: "INE", stress: true },
+        { text: "hundert", guide: "hoon-dert" },
+      ],
+      note: "ein + hundert",
+    },
+    {
+      n: "200",
+      parts: [
+        { text: "zwei", guide: "TSVAI", stress: true },
+        { text: "hundert", guide: "hoon-dert" },
+      ],
+      note: "",
+    },
+    {
+      n: "221",
+      parts: [
+        { text: "zwei", guide: "TSVAI", stress: true },
+        { text: "hundert", guide: "hoon-dert" },
+        { text: "ein", guide: "INE", stress: true },
+        { text: "und", guide: "oont" },
+        { text: "zwan", guide: "TSVAN", stress: true },
+        { text: "zig", guide: "tsikh" },
+      ],
+      note: "hundreds first, then ones+und+tens",
+    },
+    {
+      n: "342",
+      parts: [
+        { text: "drei", guide: "DRY", stress: true },
+        { text: "hundert", guide: "hoon-dert" },
+        { text: "zwei", guide: "TSVAI", stress: true },
+        { text: "und", guide: "oont" },
+        { text: "vier", guide: "FEER", stress: true },
+        { text: "zig", guide: "tsikh" },
+      ],
+      note: "",
+    },
+    {
+      n: "1000",
+      parts: [
+        { text: "ein", guide: "INE", stress: true },
+        { text: "tausend", guide: "tow-zent" },
+      ],
+      note: "ein + tausend",
+    },
+  ],
 };
 
 /** Look up an exact Numbers chart row (guides + stress). */
 function numbersChartParts(n) {
-  for (const key of ["teens", "tens", "compounds", "base"]) {
-    const row = (numbersChart[key] || []).find((r) => Number(r.n) === n);
+  for (const key of ["hundreds", "teens", "tens", "compounds", "base", "komma", "money"]) {
+    const row = (numbersChart[key] || []).find((r) => Number(r.n) === n || String(r.n) === String(n));
     if (row?.parts?.length) return row.parts;
   }
   return null;
@@ -1024,13 +1188,41 @@ function compoundOnesGuidePart(onesDigit) {
 }
 
 /**
- * Phonetic answer-key beats for any 0–99 (morph split).
+ * Phonetic answer-key beats (morph split).
  * Composes chart rows so Listen/compounds aren’t stuck without guides.
  */
 function synthesizeMorphGuides(n) {
   const exact = numbersChartParts(n);
   if (exact) return exact;
-  if (!Number.isInteger(n) || n < 0 || n > 99) return null;
+  if (!Number.isInteger(n) || n < 0 || n > 1000) return null;
+
+  if (n === 1000) {
+    return [
+      { text: "ein", guide: "ine" },
+      { text: "tausend", guide: "TOW-zent", stress: true },
+    ];
+  }
+
+  if (n >= 100) {
+    const h = Math.floor(n / 100);
+    const rem = n % 100;
+    const hStem =
+      h === 1
+        ? { text: "ein", guide: "ine" }
+        : numbersChartParts(h)?.[0] || {
+            text: String(h),
+            guide: String(h),
+          };
+    const head = [
+      { ...hStem, text: h === 1 ? "ein" : hStem.text },
+      { text: "hundert", guide: "HOON-dert", stress: true },
+    ];
+    if (rem === 0) return head;
+    const remParts = synthesizeMorphGuides(rem);
+    return remParts ? [...head, ...remParts] : head;
+  }
+
+  if (n > 99) return null;
 
   const tensDigit = Math.floor(n / 10);
   const onesDigit = n % 10;
@@ -1045,7 +1237,7 @@ function synthesizeMorphGuides(n) {
 
 /**
  * Karaoke guides from the Numbers chart when the grain matches the chart split.
- * Listen / morph: always synthesize so every 0–99 has phonetic beats.
+ * Listen / morph: always synthesize so every pool value has phonetic beats.
  */
 function numberAnswerParts(n, grain) {
   if (grain === "morph" || grain === "listen") {
@@ -1094,109 +1286,306 @@ const EN_TENS = [
 
 function englishCardinal(n) {
   if (n < 20) return EN_ONES[n];
-  const tens = Math.floor(n / 10);
-  const ones = n % 10;
-  if (ones === 0) return EN_TENS[tens];
-  return `${EN_TENS[tens]}-${EN_ONES[ones]}`;
+  if (n < 100) {
+    const tens = Math.floor(n / 10);
+    const ones = n % 10;
+    if (ones === 0) return EN_TENS[tens];
+    return `${EN_TENS[tens]}-${EN_ONES[ones]}`;
+  }
+  if (n === 1000) return "one thousand";
+  if (n < 1000) {
+    const h = Math.floor(n / 100);
+    const rem = n % 100;
+    const hWord = `${EN_ONES[h]} hundred`;
+    if (rem === 0) return hWord;
+    return `${hWord} ${englishCardinal(rem)}`;
+  }
+  return String(n);
 }
 
 /**
- * Quiz pools by mode — generated from the deterministic range.
- * Teens/Tens/Compounds mirror the reference chart tabs.
+ * Full value sets per Cardinals step pool key — single source for Build / Listen / Convert / Mix.
  */
-const numberPools = {
-  teens: Array.from({ length: 7 }, (_, i) => {
-    const value = 13 + i;
-    return {
-      value,
-      english: englishCardinal(value),
-      grain: "construction",
-    };
-  }),
-  // Morph grain: build stem + zig/ßig (not the fused tens word alone).
-  tens: [20, 30, 40, 50, 60, 70, 80, 90].map((value) => ({
-    value,
-    english: englishCardinal(value),
-    grain: "morph",
-  })),
-  // All 21–99 except round tens (those live in Tens).
-  compounds: Array.from({ length: 79 }, (_, i) => 21 + i)
-    .filter((n) => n % 10 !== 0)
-    .map((value) => ({
-      value,
-      english: englishCardinal(value),
-      grain: "construction",
-    })),
-  // Recognition: spoken German form → numeric value (0–99).
-  // Order is randomized per session via state.numbersListenDeck — not this array order.
-  listen: Array.from({ length: 100 }, (_, value) => ({
-    value,
-    english: englishCardinal(value),
-    grain: "construction",
-  })),
-};
-
-/** Values allowed in Listen for the current digit filter. */
-function listenValuePool() {
-  const digits = state.numbersListenDigits;
-  if (digits === 1) return Array.from({ length: 10 }, (_, value) => value);
-  if (digits === 2) {
-    return Array.from({ length: 90 }, (_, i) => i + 10);
+function cardinalStepValues(poolKey) {
+  if (poolKey === "base") return Array.from({ length: 13 }, (_, value) => value);
+  if (poolKey === "teens") {
+    return Array.from({ length: 7 }, (_, i) => 13 + i);
+  }
+  if (poolKey === "tens") return [20, 30, 40, 50, 60, 70, 80, 90];
+  if (poolKey === "compounds") {
+    return Array.from({ length: 79 }, (_, i) => 21 + i).filter(
+      (n) => n % 10 !== 0
+    );
+  }
+  if (poolKey === "hundreds") {
+    // Full Hundreds+: every integer 100–1000 (engine range).
+    return Array.from({ length: 901 }, (_, i) => 100 + i);
   }
   return Array.from({ length: 100 }, (_, value) => value);
 }
 
+function cardinalStepGrain(poolKey) {
+  return poolKey === "tens" ? "morph" : "construction";
+}
+
+function metaFromValue(value, poolKey) {
+  return {
+    value,
+    english: englishCardinal(value),
+    grain: cardinalStepGrain(poolKey),
+  };
+}
+
+/**
+ * Quiz pools by Cardinals step — full deterministic ranges, shared by every quiz mode.
+ */
+const numberPools = Object.fromEntries(
+  ["base", "teens", "tens", "compounds", "hundreds"].map((key) => [
+    key,
+    cardinalStepValues(key).map((value) => metaFromValue(value, key)),
+  ])
+);
+
+Object.assign(numberPools, DECIMAL_POOLS);
+
+/** Values allowed in Listen for the current Cardinals step or mix (cardinal digits only). */
+function listenValuePool() {
+  if (state.numbersSessionKind === "mix") {
+    return mixListenValues(state.numbersMixTopic || "cardinals", state.numbersMixSteps);
+  }
+  if (state.numbersTopic !== "cardinals") return [];
+  const step = getNumbersStep(state.numbersTopic, state.numbersStep);
+  return cardinalStepValues(step?.pool || "compounds");
+}
+
+function mixListenValues(topicId, stepIds) {
+  const set = new Set();
+  for (const stepId of stepIds) {
+    const step = getNumbersStep(topicId, stepId);
+    const key = step?.pool;
+    if (!key) continue;
+    if (topicId === "cardinals") {
+      for (const v of cardinalStepValues(key)) set.add(v);
+    }
+  }
+  return [...set];
+}
+
+function buildMixDeck(topicId, stepIds, modeId) {
+  const items = [];
+  const wantBuild = modeId === "build" || modeId === "either";
+  const wantListen = modeId === "listen" || modeId === "either";
+  const wantConvert = modeId === "convert" || modeId === "either";
+
+  for (const stepId of stepIds) {
+    const modes = modesForStep(topicId, stepId);
+    const pool = numberPools[stepId] || numberPools[getNumbersStep(topicId, stepId)?.pool];
+    if (!pool) continue;
+    if (wantBuild && modes.some((m) => m.id === "build")) {
+      for (const meta of pool) {
+        items.push({ ...meta, stepId, mode: "build", topicId });
+      }
+    }
+    if (wantListen && modes.some((m) => m.id === "listen")) {
+      if (topicId === "cardinals") {
+        for (const value of mixListenValues(topicId, [stepId])) {
+          items.push({
+            kind: "cardinal",
+            value,
+            english: englishCardinal(value),
+            grain: "construction",
+            stepId,
+            mode: "listen",
+            topicId,
+          });
+        }
+      } else {
+        for (const meta of pool) {
+          items.push({ ...meta, stepId, mode: "listen", topicId });
+        }
+      }
+    }
+    if (wantConvert && modes.some((m) => m.id === "convert")) {
+      for (const meta of pool) {
+        items.push({ ...meta, stepId, mode: "convert", topicId });
+      }
+    }
+  }
+  return shuffle(items);
+}
+
+function ensureMixDeck() {
+  const mode = state.numbersMixMode;
+  const topicId = state.numbersMixTopic || "cardinals";
+  const key = `${topicId}:${mode}:${[...state.numbersMixSteps].sort().join(",")}`;
+  if (
+    state.numbersMixDeckKey !== key ||
+    !Array.isArray(state.numbersMixDeck) ||
+    !state.numbersMixDeck.length
+  ) {
+    state.numbersMixDeckKey = key;
+    state.numbersMixDeck = buildMixDeck(topicId, state.numbersMixSteps, mode);
+    state.numbersMixCursor = 0;
+  }
+  syncMixItemFocus();
+}
+
+function syncMixItemFocus() {
+  if (state.numbersSessionKind !== "mix") return;
+  const deck = state.numbersMixDeck;
+  if (!deck?.length) return;
+  const item = deck[state.numbersMixCursor % deck.length];
+  if (!item) return;
+  if (item.mode) state.numbersQuizMode = item.mode;
+  if (item.stepId) state.numbersStep = item.stepId;
+  state.numbersTopic = item.topicId || state.numbersMixTopic || "cardinals";
+}
+
 function listenDigitAllowed(n) {
-  const digits = state.numbersListenDigits;
-  if (digits === 1) return n >= 0 && n <= 9;
-  if (digits === 2) return n >= 10 && n <= 99;
-  return n >= 0 && n <= 99;
+  return listenValuePool().includes(n);
 }
 
 function reshuffleListenDeck() {
-  state.numbersListenDeck = shuffle(listenValuePool());
+  if (
+    state.numbersTopic !== "cardinals" ||
+    (state.numbersSessionKind === "mix" &&
+      state.numbersMixTopic &&
+      state.numbersMixTopic !== "cardinals")
+  ) {
+    const pool =
+      state.numbersSessionKind === "mix"
+        ? (state.numbersMixDeck || []).filter((m) => m.mode === "listen")
+        : currentNumberPool();
+    state.numbersListenDeck = shuffle(
+      pool.length ? [...pool] : [...currentNumberPool()]
+    );
+  } else {
+    state.numbersListenDeck = shuffle(listenValuePool());
+  }
   state.numbersListenCursor = 0;
 }
 
 function ensureListenDeck() {
-  const expected = listenValuePool().length;
+  const key =
+    state.numbersSessionKind === "mix"
+      ? `mix:${state.numbersMixDeckKey || ""}`
+      : `${state.numbersTopic}:${state.numbersStep}`;
+  const decimalish =
+    state.numbersTopic !== "cardinals" ||
+    (state.numbersSessionKind === "mix" &&
+      state.numbersMixTopic &&
+      state.numbersMixTopic !== "cardinals");
+  const expected = decimalish
+    ? currentNumberPool().length
+    : listenValuePool().length;
   if (
+    state.numbersListenPoolKey !== key ||
     !Array.isArray(state.numbersListenDeck) ||
     state.numbersListenDeck.length !== expected
   ) {
+    state.numbersListenPoolKey = key;
     reshuffleListenDeck();
   }
 }
 
+/** Shuffled Build/Convert deck for the current focus step (full pool, one pass then reshuffle). */
+function reshuffleStepDeck() {
+  const pool = currentNumberPool();
+  state.numbersStepDeck = shuffle([...pool]);
+  state.numbersIndex = 0;
+  state.numbersStepDeckKey = `${state.numbersTopic}:${state.numbersStep}`;
+}
+
+function ensureStepDeck() {
+  const key = `${state.numbersTopic}:${state.numbersStep}`;
+  const expected = currentNumberPool().length;
+  if (
+    state.numbersStepDeckKey !== key ||
+    !Array.isArray(state.numbersStepDeck) ||
+    state.numbersStepDeck.length !== expected
+  ) {
+    reshuffleStepDeck();
+  }
+}
+
 function currentNumberPool() {
-  return numberPools[state.numbersMode] || numberPools.compounds;
+  const step = getNumbersStep(state.numbersTopic, state.numbersStep);
+  const key = step?.pool;
+  if (key && numberPools[key]) return numberPools[key];
+  return numberPools.compounds;
+}
+
+function enrichNumberMeta(meta) {
+  if (!meta) return meta;
+  if (meta.kind === "decimal" || meta.kind === "money") {
+    const parts = meta.parts || [];
+    return {
+      ...meta,
+      answerParts: parts.map((t) =>
+        typeof t === "string" ? { text: t, guide: t } : t
+      ),
+    };
+  }
+  const value = meta.value;
+  return {
+    ...meta,
+    kind: meta.kind || "cardinal",
+    english: meta.english || (value != null ? englishCardinal(value) : ""),
+    answerParts:
+      meta.answerParts ||
+      (value != null
+        ? numberAnswerParts(value, meta.grain || "construction")
+        : []),
+  };
 }
 
 function currentNumberMeta() {
-  if (state.numbersMode === "listen") {
+  if (state.numbersQuizMode === "listen") {
+    if (state.numbersSessionKind === "mix") {
+      ensureMixDeck();
+      const deck = state.numbersMixDeck;
+      const item = deck[state.numbersMixCursor % Math.max(1, deck.length)];
+      return enrichNumberMeta(item);
+    }
     ensureListenDeck();
-    const value =
+    const entry =
       state.numbersListenDeck[
         state.numbersListenCursor % state.numbersListenDeck.length
       ];
-    return {
-      value,
-      english: englishCardinal(value),
+    if (entry != null && typeof entry === "object") {
+      return enrichNumberMeta(entry);
+    }
+    return enrichNumberMeta({
+      kind: "cardinal",
+      value: entry,
+      english: englishCardinal(entry),
       grain: "construction",
-      answerParts: numberAnswerParts(value, "listen"),
-    };
+    });
   }
-  const pool = currentNumberPool();
-  const meta = pool[state.numbersIndex % pool.length];
-  return {
-    ...meta,
-    answerParts: numberAnswerParts(meta.value, meta.grain),
-  };
+  if (state.numbersSessionKind === "mix") {
+    ensureMixDeck();
+    const deck = state.numbersMixDeck;
+    const meta = deck[state.numbersMixCursor % Math.max(1, deck.length)];
+    return enrichNumberMeta(meta);
+  }
+  ensureStepDeck();
+  const deck = state.numbersStepDeck;
+  const meta = deck[state.numbersIndex % Math.max(1, deck.length)];
+  return enrichNumberMeta(meta);
+}
+
+function decimalAnswerParts(meta) {
+  return (meta.parts || meta.answerParts || []).map((t) =>
+    typeof t === "string" ? { text: t, guide: t } : t
+  );
 }
 
 function currentNumberExercise() {
   const meta = currentNumberMeta();
-  if (state.numbersMode === "listen") {
+  if (meta.kind === "decimal" || meta.kind === "money") {
+    return currentDecimalishExercise(meta);
+  }
+  if (state.numbersQuizMode === "listen") {
     const form = cardinalForm(meta.value);
     return {
       id: `ex.numbers.listen.${meta.value}.${state.numbersDifficulty}`,
@@ -1232,12 +1621,201 @@ function currentNumberExercise() {
       },
     };
   }
+  if (state.numbersQuizMode === "convert") {
+    const form = cardinalForm(meta.value);
+    return {
+      id: `ex.numbers.convert.${meta.value}.${state.numbersDifficulty}`,
+      templateId: "numbers.convert.form",
+      territoryId: "numbers",
+      mode: state.numbersDifficulty,
+      target: { value: meta.value },
+      scaffolding: {
+        mode: state.numbersDifficulty,
+        showEnglish: state.numbersDifficulty === "assisted",
+        showHintButton: true,
+        showReferenceButton: true,
+        allowRetryWrongChoice: true,
+      },
+      prompt: {
+        kind: "convert-digit",
+        value: meta.value,
+        english: meta.english,
+      },
+      materials: {
+        form,
+        answerParts: numberAnswerParts(meta.value, "listen"),
+        hint:
+          state.numbersDifficulty === "assisted"
+            ? "Type the German form. Assisted checks as you type — keep going while it stays green."
+            : "Type the full German form, then Check.",
+      },
+      resolution: {
+        value: meta.value,
+        form,
+        english: meta.english,
+      },
+    };
+  }
   return createNumberConstructionExercise(meta.value, {
     grain: meta.grain,
     english: meta.english,
     mode: state.numbersDifficulty,
     answerParts: meta.answerParts,
   });
+}
+
+/** Listen / Convert / Build for decimal & money metas. */
+function currentDecimalishExercise(meta) {
+  const form = meta.form;
+  const written = meta.written;
+  const parts = decimalAnswerParts(meta);
+  const writeKomma = state.numbersStep === "write-komma";
+
+  if (state.numbersQuizMode === "listen") {
+    return {
+      id: `ex.numbers.listen.${written}.${state.numbersDifficulty}`,
+      templateId: "numbers.listen.written",
+      territoryId: "numbers",
+      mode: state.numbersDifficulty,
+      target: { kind: meta.kind, written, form },
+      scaffolding: {
+        mode: state.numbersDifficulty,
+        showEnglish: false,
+        showHintButton: true,
+        showReferenceButton: true,
+        allowRetryWrongChoice: true,
+      },
+      prompt: { kind: "listen-written", form, written },
+      materials: {
+        form,
+        written,
+        choices: listenWrittenChoices(meta),
+        answerParts: parts,
+        hint:
+          state.numbersDifficulty === "assisted"
+            ? "Replay if needed. Pick the written form (Komma, not Punkt)."
+            : "Replay if needed, then type the written form (use Komma).",
+      },
+      resolution: {
+        kind: meta.kind,
+        written,
+        form,
+        english: meta.english,
+        whole: meta.whole,
+        fracDigits: meta.fracDigits,
+        euros: meta.euros,
+        cents: meta.cents,
+      },
+    };
+  }
+
+  if (state.numbersQuizMode === "convert") {
+    if (writeKomma) {
+      return {
+        id: `ex.numbers.convert.write.${written}.${state.numbersDifficulty}`,
+        templateId: "numbers.convert.written",
+        territoryId: "numbers",
+        mode: state.numbersDifficulty,
+        target: { kind: meta.kind, written },
+        scaffolding: {
+          mode: state.numbersDifficulty,
+          showEnglish: true,
+          showHintButton: true,
+          showReferenceButton: true,
+          allowRetryWrongChoice: true,
+        },
+        prompt: {
+          kind: "convert-write-komma",
+          english: meta.english,
+          written,
+        },
+        materials: {
+          form: written,
+          spoken: form,
+          answerParts: parts,
+          hint:
+            state.numbersDifficulty === "assisted"
+              ? "Type the German written form with Komma (e.g. 3,14)."
+              : "Type the written decimal with Komma, then Check.",
+        },
+        resolution: {
+          kind: meta.kind,
+          written,
+          form: written,
+          spoken: form,
+          english: meta.english,
+        },
+      };
+    }
+    return {
+      id: `ex.numbers.convert.${written}.${state.numbersDifficulty}`,
+      templateId: "numbers.convert.form",
+      territoryId: "numbers",
+      mode: state.numbersDifficulty,
+      target: { kind: meta.kind, written, form },
+      scaffolding: {
+        mode: state.numbersDifficulty,
+        showEnglish: state.numbersDifficulty === "assisted",
+        showHintButton: true,
+        showReferenceButton: true,
+        allowRetryWrongChoice: true,
+      },
+      prompt: {
+        kind: "convert-written",
+        written,
+        english: meta.english,
+      },
+      materials: {
+        form,
+        written,
+        answerParts: parts,
+        hint:
+          state.numbersDifficulty === "assisted"
+            ? "Type the German reading. Assisted checks as you type."
+            : "Type the full German reading, then Check.",
+      },
+      resolution: {
+        kind: meta.kind,
+        written,
+        form,
+        english: meta.english,
+        whole: meta.whole,
+        fracDigits: meta.fracDigits,
+        euros: meta.euros,
+        cents: meta.cents,
+      },
+    };
+  }
+
+  if (meta.kind === "money") {
+    return createMoneyConstructionExercise(meta.euros, meta.cents, {
+      mode: state.numbersDifficulty,
+      english: meta.english,
+      answerParts: parts,
+    });
+  }
+  return createDecimalConstructionExercise(meta.whole, meta.fracDigits, {
+    mode: state.numbersDifficulty,
+    english: meta.english,
+    answerParts: parts,
+  });
+}
+
+function listenWrittenChoices(meta) {
+  const pool = currentNumberPool();
+  const correct = meta.written;
+  const picks = new Set([correct]);
+  const candidates = shuffle(
+    pool.map((m) => m.written).filter((w) => w && w !== correct)
+  );
+  for (const w of candidates) {
+    if (picks.size >= 4) break;
+    picks.add(w);
+  }
+  if (meta.kind === "decimal" && String(meta.written).includes(",")) {
+    picks.add(String(meta.written).replace(",", "."));
+  }
+  return shuffle([...picks]).slice(0, 4);
 }
 
 /**
@@ -1256,6 +1834,25 @@ function listenChoices(value) {
     add(value + 10);
     add(value + 11);
     add(10 + value); // e.g. 3 → 13
+  } else if (value >= 100) {
+    const h = Math.floor(value / 100);
+    const rem = value % 100;
+    add(value - 1);
+    add(value + 1);
+    add(h * 100);
+    if (rem) add(rem);
+    for (const dh of [-1, 1, -2, 2]) {
+      const nh = h + dh;
+      if (nh >= 1 && nh <= 9) add(nh * 100 + rem);
+      if (nh >= 1 && nh <= 9) add(nh * 100);
+    }
+    if (value === 1000) {
+      add(100);
+      add(900);
+      add(999);
+    } else if (value >= 900) {
+      add(1000);
+    }
   } else {
     const tens = Math.floor(value / 10);
     const ones = value % 10;
@@ -1443,7 +2040,93 @@ function familyProgressText(patternId, suffix) {
 }
 
 function joinNounPluralParts(parts) {
-  return parts.map((t) => (t === "—" ? "" : t)).join("");
+  return parts
+    .map((t) => (t === "—" ? "" : t))
+    .filter(Boolean)
+    .join("\u00AD");
+}
+
+/** Soft hyphen (U+00AD) — invisible unless the line wraps at that join. */
+const SOFT_HYPHEN = "\u00AD";
+
+/**
+ * Insert soft hyphens between orthographic segments, preserving `word` casing.
+ * @param {string} word
+ * @param {string[]} segs
+ */
+function joinWithSoftHyphens(word, segs) {
+  const w = String(word || "");
+  if (!w || !segs?.length) return w;
+  let i = 0;
+  const out = [];
+  for (let s = 0; s < segs.length; s++) {
+    const len = String(segs[s]).length;
+    out.push(w.slice(i, i + len));
+    i += len;
+    if (s < segs.length - 1) out.push(SOFT_HYPHEN);
+  }
+  return out.join("");
+}
+
+/**
+ * Soft-hyphenate a German token using segment texts that concatenate to it.
+ * @param {string} word
+ * @param {Array<string|{text?: string}>} [parts]
+ */
+function softHyphenateToken(word, parts) {
+  const w = String(word || "").replaceAll(SOFT_HYPHEN, "");
+  if (!w) return "";
+  const segs = (parts || [])
+    .map((p) => (typeof p === "string" ? p : p?.text || ""))
+    .map((t) => String(t).replaceAll(SOFT_HYPHEN, ""))
+    .filter((t) => t && !/\s/.test(t));
+  const target = w.toLowerCase();
+
+  const trySegs = (list) => {
+    if (!list || list.length < 2) return null;
+    if (list.join("").toLowerCase() !== target) return null;
+    return joinWithSoftHyphens(w, list);
+  };
+
+  let hit = trySegs(segs);
+  if (hit) return hit;
+  // Contiguous subsequence (e.g. article beat + lemma syllables in one parts list).
+  for (let i = 0; i < segs.length; i++) {
+    for (let j = i + 2; j <= segs.length; j++) {
+      hit = trySegs(segs.slice(i, j));
+      if (hit) return hit;
+    }
+  }
+  return w;
+}
+
+/**
+ * Soft-hyphenate German display text for wrap-friendly answer/pronunciation lines.
+ * Prefers authored/engine segments; falls back to cardinal morph joins; else plain
+ * (CSS `hyphens: auto` on lang=de can still break open compounds).
+ */
+function softHyphenateGerman(word, parts) {
+  const raw = String(word || "");
+  if (!raw) return "";
+  // Preserve whitespace tokens (sentences / "die Zeitung").
+  if (/\s/.test(raw)) {
+    return raw
+      .split(/(\s+)/)
+      .map((tok) => (/^\s+$/.test(tok) ? tok : softHyphenateToken(tok, parts)))
+      .join("");
+  }
+  const fromParts = softHyphenateToken(raw, parts);
+  if (fromParts.includes(SOFT_HYPHEN)) return fromParts;
+
+  const n = parseCardinalForm(raw.replaceAll(SOFT_HYPHEN, ""));
+  if (n != null) {
+    const morph = constructionParts(n, { grain: "morph" });
+    const fromMorph = softHyphenateToken(raw, morph);
+    if (fromMorph.includes(SOFT_HYPHEN)) return fromMorph;
+    const constr = constructionParts(n);
+    return softHyphenateToken(raw, constr);
+  }
+  return fromParts;
 }
 
 /** Discriminate set — chart-aligned contrasts. Choice captions never name `play`. */
@@ -2429,7 +3112,7 @@ function clearAttemptFeedback(prefix) {
   el.classList.remove("is-flash");
 }
 
-/** Brief pause so the correct chip/slot can blink before the answer key. */
+/** Brief pause so the correct answer can blink before karaoke / advance. */
 let correctFlashTimer = null;
 const CORRECT_FLASH_MS = 1150;
 
@@ -2442,9 +3125,14 @@ function clearCorrectFlashTimer() {
 
 function applyCorrectFlash(el) {
   if (!el) return;
-  el.classList.remove("is-bad", "is-ok");
-  // Spotlight only — do not reuse .is-ok (that shares the answer-key scale).
-  el.classList.add("is-correct-flash");
+  el.classList.remove("is-bad", "is-wrong-flash");
+  el.classList.add("is-ok", "is-correct-flash");
+}
+
+function applyWrongFlash(el) {
+  if (!el) return;
+  el.classList.remove("is-ok", "is-correct-flash");
+  el.classList.add("is-bad", "is-wrong-flash");
 }
 
 function flashCorrectThen(done, delayMs = CORRECT_FLASH_MS) {
@@ -2456,6 +3144,36 @@ function flashCorrectThen(done, delayMs = CORRECT_FLASH_MS) {
     correctFlashTimer = null;
     done();
   }, reduced ? 280 : delayMs);
+}
+
+/**
+ * Correct-answer spotlight policy (all quiz types):
+ * - Flash the answer field(s) (PART slots / typed input) — not the answer+pronunciation box.
+ * - Wrong answer fields use the red flash variant (wrongEls).
+ * - Choice/tray chips may get a static green/red border (caller sets is-ok / is-bad);
+ *   they are not passed here to flash.
+ * - If there is no separate answer field (MC only), flash the correct choice(s).
+ * - After the flash, optionally open the answer+pronunciation reveal (no second flash).
+ */
+function presentCorrectAnswer({
+  prefix,
+  reveal = null,
+  answerEls = [],
+  wrongEls = [],
+  choiceEls = [],
+  then,
+}) {
+  for (const el of answerEls) applyCorrectFlash(el);
+  for (const el of wrongEls) applyWrongFlash(el);
+  if (!answerEls.length && !wrongEls.length) {
+    for (const el of choiceEls) applyCorrectFlash(el);
+  }
+
+  flashCorrectThen(() => {
+    let nodes = [];
+    if (reveal) nodes = fillAnswerReveal(prefix, reveal);
+    then?.(nodes);
+  });
 }
 
 function fillAnswerReveal(prefix, { word, wordHtml, parts, en, ok, verdictLabel }) {
@@ -2476,9 +3194,12 @@ function fillAnswerReveal(prefix, { word, wordHtml, parts, en, ok, verdictLabel 
   setVerdict(prefix, ok, verdictLabel);
   if (ok === true) playFeedbackSound("ok");
   else if (ok === false) playFeedbackSound("bad");
+  wordEl.classList.remove("is-correct-flash");
+  wordEl.setAttribute("lang", "de");
   if (wordHtml) wordEl.innerHTML = wordHtml;
-  else wordEl.textContent = word || "";
+  else wordEl.textContent = softHyphenateGerman(word, parts);
   phonEl.innerHTML = "";
+  phonEl.setAttribute("lang", "de");
 
   const nodes = [];
   (parts || []).forEach((p, i) => {
@@ -2526,7 +3247,8 @@ function nounAnswerWordHtml(article, lemma, gender, opts = {}) {
     : article;
   let lemmaHtml = lemma;
   if (stem && ending) {
-    const join = assisted ? "-" : "";
+    // Assisted: visible pedagogical hyphen. Core: soft hyphen for wrap only.
+    const join = assisted ? "-" : SOFT_HYPHEN;
     lemmaHtml = `<span class="answer-lemma"><span class="answer-stem">${stem}</span>${join}<span class="answer-suf ${tint}">${ending}</span></span>`;
   }
   return `${art} ${lemmaHtml}`;
@@ -2568,11 +3290,16 @@ const state = {
   view: "hub",
   selectedPiece: null,
   numbersIndex: 0,
-  /** Shuffled 0–99 order for Listen; cursor walks the deck. */
+  /** Shuffled Build/Convert order for the current step; reshuffles after a full pass. */
+  numbersStepDeck: null,
+  numbersStepDeckKey: "",
+  /** Shuffled order for Listen; cursor walks the deck. */
   numbersListenDeck: null,
   numbersListenCursor: 0,
-  /** Listen pool filter: 1 | 2 | "all" (0–9 / 10–99 / 0–99). */
-  numbersListenDigits: "all",
+  numbersListenPoolKey: "",
+  numbersTopic: "cardinals",
+  numbersStep: "compounds",
+  numbersQuizMode: "build",
   nounsIndex: 0,
   nounsPluralIndex: 0,
   nounsAssociationIndex: 0,
@@ -2583,8 +3310,8 @@ const state = {
   numbersListenChoice: null,
   /** Listen Assisted: one retry after a wrong pick, then reveal. */
   numbersListenRetryUsed: false,
+  numbersConvertRetryUsed: false,
   soundsMode: "karaoke",
-  numbersMode: "compounds",
   nounsMode: "articles",
   numbersDifficulty: "assisted",
   nounsDifficulty: "assisted",
@@ -2608,10 +3335,10 @@ const state = {
   /** In-memory attempt log (mock stand-in for persistence). */
   attemptLog: [],
 
-  /** briefing | chart | practice */
+  /** briefing | chart | practice | hub (Numbers) */
   phase: {
     sounds: "briefing",
-    numbers: "briefing",
+    numbers: "hub",
     nouns: "briefing",
   },
   /**
@@ -2623,6 +3350,21 @@ const state = {
     numbers: false,
     nouns: false,
   },
+  /** Hub browse: which topic accordion is open ("" = all closed). */
+  numbersHubTopic: "cardinals",
+  /** Focus lock: practice stays on this topic+step until Change focus. */
+  numbersFocusLocked: true,
+  /** "step" = single focus; "mix" = shuffled multi-step deck. */
+  numbersSessionKind: "step",
+  /** Custom mix: step ids added via + Mix (Cardinals for now). */
+  numbersMixSteps: [],
+  numbersMixTopic: "cardinals",
+  numbersMixMode: "build",
+  numbersMixDeck: null,
+  numbersMixDeckKey: "",
+  numbersMixCursor: 0,
+  /** Hub: `${topic}:${step}` while Practice mode picker is open. */
+  numbersHubPracticePick: "",
   soundsChartTab: "vowels",
   numbersChartTab: "base",
   nounsChartTab: "feminine",
@@ -2656,7 +3398,7 @@ function navigate(view, opts = {}) {
 
   if (view === "numbers" || view === "nouns" || view === "sounds") {
     if (!opts.keepPhase) {
-      state.phase[view] = "practice";
+      state.phase[view] = view === "numbers" ? "hub" : "practice";
       state.preservePractice[view] = false;
     }
     showTerritoryPhase(view);
@@ -2877,7 +3619,7 @@ function syncTerritoryMenu(territoryId) {
   const phase = state.phase[territoryId] || "practice";
   const modeKey =
     territoryId === "numbers"
-      ? state.numbersMode
+      ? null
       : territoryId === "nouns"
         ? state.nounsMode
         : state.soundsMode;
@@ -2897,17 +3639,17 @@ function syncTerritoryMenu(territoryId) {
     btn.classList.toggle("is-on", on);
   });
 
-  const modeAttr =
-    territoryId === "numbers"
-      ? "numbersMode"
-      : territoryId === "nouns"
-        ? "nounsMode"
-        : "soundsMode";
-  menu.querySelectorAll(`[data-${territoryId}-mode]`).forEach((btn) => {
-    const on = phase === "practice" && btn.dataset[modeAttr] === modeKey;
-    btn.classList.toggle("is-on", on);
-    btn.setAttribute("aria-pressed", String(on));
-  });
+  if (territoryId === "numbers") {
+    syncNumbersCurriculumMenu(menu, phase);
+  } else {
+    const modeAttr =
+      territoryId === "nouns" ? "nounsMode" : "soundsMode";
+    menu.querySelectorAll(`[data-${territoryId}-mode]`).forEach((btn) => {
+      const on = phase === "practice" && btn.dataset[modeAttr] === modeKey;
+      btn.classList.toggle("is-on", on);
+      btn.setAttribute("aria-pressed", String(on));
+    });
+  }
 
   const diffAttr =
     territoryId === "numbers"
@@ -2923,23 +3665,337 @@ function syncTerritoryMenu(territoryId) {
     const mark = btn.querySelector(".menu-check-mark");
     if (mark) mark.textContent = on ? "✓" : "";
   });
+}
 
-  if (territoryId === "numbers") {
-    const digits = String(state.numbersListenDigits);
-    menu.querySelectorAll("[data-listen-digits]").forEach((btn) => {
-      const on = btn.dataset.listenDigits === digits;
-      btn.classList.remove("is-on");
-      btn.setAttribute("aria-checked", String(on));
-      const mark = btn.querySelector(".menu-check-mark");
-      if (mark) mark.textContent = on ? "✓" : "";
-    });
+function syncNumbersCurriculumMenu(menu, phase) {
+  const changeFocus = menu.querySelector("[data-numbers-change-focus]");
+  const resume = menu.querySelector("[data-numbers-resume]");
+  const hubHome = menu.querySelector("[data-numbers-hub]");
+  const body = menu.querySelector("#numbers-menu-body");
+  if (changeFocus) changeFocus.hidden = phase !== "practice";
+  if (resume) {
+    resume.hidden = !(
+      state.preservePractice.numbers &&
+      (phase === "briefing" || phase === "chart")
+    );
   }
+  if (hubHome) {
+    hubHome.classList.toggle("is-on", phase === "hub");
+  }
+  if (body) {
+    // Quick topic jumps — playable topics only (Decimals included).
+    const playable = NUMBERS_TOPICS.filter((t) => t.playable);
+    body.hidden = false;
+    body.innerHTML = playable
+      .map((t) => {
+        const on = state.numbersTopic === t.id || state.numbersHubTopic === t.id;
+        return `<button type="button" role="menuitem" class="numbers-menu-topic${
+          on ? " is-on" : ""
+        }" data-numbers-open-topic="${t.id}">${t.label}</button>`;
+      })
+      .join("");
+  }
+}
+
+function applyNumbersFocus({ topicId, stepId, modeId, difficulty, lock = true }) {
+  const topic = getNumbersTopic(topicId);
+  const step = getNumbersStep(topicId, stepId);
+  if (!topic || !step) return false;
+
+  let mode = modeId;
+  const allowed = modesForStep(topicId, stepId);
+  if (!allowed.some((m) => m.id === mode)) {
+    mode = allowed[0]?.id || "build";
+  }
+  if (!isNumbersCellPlayable(topicId, stepId, mode)) return false;
+
+  state.numbersSessionKind = "step";
+  state.numbersTopic = topicId;
+  state.numbersStep = stepId;
+  state.numbersQuizMode = mode;
+  state.numbersFocusLocked = !!lock;
+  if (difficulty) state.numbersDifficulty = difficulty;
+  state.numbersIndex = 0;
+  state.numbersStepDeck = null;
+  state.numbersStepDeckKey = "";
+  state.numbersHubPracticePick = "";
+  if (mode === "listen") reshuffleListenDeck();
+  else reshuffleStepDeck();
+  return true;
+}
+
+function startNumbersPractice(focus) {
+  if (!applyNumbersFocus(focus)) return;
+  state.phase.numbers = "practice";
+  state.preservePractice.numbers = false;
+  showTerritoryPhase("numbers");
+}
+
+function startNumbersMix() {
+  const mode = state.numbersMixMode;
+  const topicId = state.numbersMixTopic || state.numbersHubTopic || "cardinals";
+  const eligible = mixableSteps(topicId, mode);
+  const selected = state.numbersMixSteps.filter((id) =>
+    eligible.some((s) => s.id === id)
+  );
+  if (!selected.length) return;
+
+  state.numbersMixSteps = selected;
+  state.numbersMixTopic = topicId;
+  state.numbersSessionKind = "mix";
+  state.numbersFocusLocked = false;
+  state.numbersTopic = topicId;
+  state.numbersStep = selected[0];
+  state.numbersMixDeckKey = "";
+  state.numbersMixDeck = null;
+  state.numbersMixCursor = 0;
+  state.numbersHubPracticePick = "";
+  ensureMixDeck();
+  if (!state.numbersMixDeck?.length) return;
+
+  state.phase.numbers = "practice";
+  state.preservePractice.numbers = false;
+  showTerritoryPhase("numbers");
+}
+
+function openNumbersStepLearn(topicId, stepId) {
+  const step = getNumbersStep(topicId, stepId);
+  if (!step) return;
+
+  if (step.chartTab && numbersChart[step.chartTab]) {
+    state.numbersChartTab = step.chartTab;
+    state.phase.numbers = "chart";
+    state.preservePractice.numbers = false;
+    showTerritoryPhase("numbers");
+    return;
+  }
+
+  const cue = softAfterLabel(topicId, step);
+  openSheet(
+    step.label,
+    `<p>${step.blurb || "Reference for this step."}</p>
+     ${cue ? `<p class="sheet-cue">${cue}</p>` : ""}
+     <p>A dedicated chart for this step lands later. Use the Reference Chart for Cardinals forms that already have tabs.</p>`
+  );
+}
+
+function goNumbersHub() {
+  clearNumbersAdvance();
+  stopSpeech();
+  state.phase.numbers = "hub";
+  state.numbersHubTopic = "cardinals";
+  state.numbersHubPracticePick = "";
+  state.preservePractice.numbers = false;
+  showTerritoryPhase("numbers");
+}
+
+function softAfterLabel(topicId, step) {
+  if (!step?.softAfter) return "";
+  const prior = getNumbersStep(topicId, step.softAfter);
+  if (!prior) return "";
+  return `Usually after ${prior.label}`;
+}
+
+function numbersSessionLabel() {
+  if (state.numbersSessionKind === "mix") {
+    const n = state.numbersMixSteps.length;
+    const mode =
+      state.numbersMixMode === "either"
+        ? "Either"
+        : getNumbersMode(state.numbersMixMode)?.label || state.numbersMixMode;
+    return `Custom mix · ${n} step${n === 1 ? "" : "s"} · ${mode}`;
+  }
+  return formatNumbersFocusLabel({
+    topicId: state.numbersTopic,
+    stepId: state.numbersStep,
+    modeId: state.numbersQuizMode,
+    difficulty: state.numbersDifficulty,
+  });
+}
+
+function renderNumbersHub() {
+  const root = document.getElementById("numbers-hub");
+  if (!root) return;
+
+  const suggestion = suggestNumbersFocus({
+    topicId: state.numbersTopic,
+    stepId: state.numbersStep,
+    modeId: state.numbersQuizMode,
+    difficulty: state.numbersDifficulty,
+  });
+  const suggestLabel = formatNumbersFocusLabel(suggestion);
+  const openId = state.numbersHubTopic;
+  const pickKey = state.numbersHubPracticePick;
+  const mixMode = state.numbersMixMode;
+  const mixTopic = state.numbersHubTopic || "cardinals";
+  const mixEligibleIds = new Set(
+    mixableSteps(mixTopic, mixMode).map((s) => s.id)
+  );
+  const mixSelected = state.numbersMixSteps.filter((id) =>
+    mixEligibleIds.has(id)
+  );
+  const mixCount = mixSelected.length;
+
+  const topicBlocks = NUMBERS_TOPICS.map((t) => {
+    const open = t.id === openId;
+    const soon = !t.playable;
+    const stepRows = (t.steps || [])
+      .map((s) => {
+        const cue = softAfterLabel(t.id, s);
+        const modes = modesForStep(t.id, s.id);
+        const rowKey = `${t.id}:${s.id}`;
+        const picking = pickKey === rowKey;
+        const canMix = t.id === mixTopic && mixEligibleIds.has(s.id);
+        const inMix = canMix && state.numbersMixSteps.includes(s.id);
+
+        if (!s.playable) {
+          return `<li class="numbers-step-row is-preview">
+            <div class="numbers-step-copy">
+              <strong>${s.label}</strong>
+              <span class="numbers-step-cue">Coming soon${cue ? ` · ${cue}` : ""}</span>
+              ${s.blurb ? `<span class="numbers-step-blurb">${s.blurb}</span>` : ""}
+            </div>
+            <div class="numbers-step-actions">
+              <button type="button" class="btn" disabled>Learn</button>
+              <button type="button" class="btn btn-primary" disabled>Practice</button>
+            </div>
+          </li>`;
+        }
+
+        let practiceActions;
+        if (picking && modes.length > 1) {
+          practiceActions = modes
+            .map(
+              (m) =>
+                `<button type="button" class="chip" data-hub-start data-topic="${t.id}" data-step="${s.id}" data-mode="${m.id}">${m.label}</button>`
+            )
+            .join("");
+        } else {
+          practiceActions = `<button type="button" class="btn btn-primary" data-hub-practice data-topic="${t.id}" data-step="${s.id}">Practice</button>`;
+        }
+
+        const mixBtn = canMix
+          ? `<button type="button" class="btn numbers-step-mix${
+              inMix ? " is-on" : ""
+            }" data-mix-toggle data-topic="${t.id}" data-step="${s.id}" aria-pressed="${inMix}" title="${
+              inMix ? "Remove from custom mix" : "Add to custom mix"
+            }">Mix</button>`
+          : "";
+
+        return `<li class="numbers-step-row">
+          <div class="numbers-step-copy">
+            <strong>${s.label}</strong>
+            ${cue ? `<span class="numbers-step-cue">${cue}</span>` : ""}
+            ${s.blurb ? `<span class="numbers-step-blurb">${s.blurb}</span>` : ""}
+          </div>
+          <div class="numbers-step-actions">
+            <div class="numbers-step-actions-main">
+              <button type="button" class="btn" data-hub-learn data-topic="${t.id}" data-step="${s.id}">Learn</button>
+              ${practiceActions}
+            </div>
+            ${mixBtn}
+          </div>
+        </li>`;
+      })
+      .join("");
+
+    return `<div class="numbers-topic-block${open ? " is-open" : ""}${soon ? " is-preview" : ""}" data-topic-block="${t.id}">
+      <button type="button" class="numbers-topic-card${open ? " is-on" : ""}" data-hub-topic="${t.id}" aria-expanded="${open}">
+        <span class="numbers-topic-card-main">
+          <span class="numbers-topic-name">${t.label}</span>
+          <span class="numbers-topic-meta">${soon ? "Coming soon" : t.blurb || ""}</span>
+        </span>
+        <span class="numbers-topic-chevron" aria-hidden="true"></span>
+      </button>
+      <div class="numbers-topic-steps" ${open ? "" : "hidden"}>
+        ${
+          open
+            ? `<p class="numbers-step-note">${
+                soon
+                  ? "Preview only — not playable yet."
+                  : "Learn opens the step’s reference. Practice drills that step. Use Mix to build a custom mix."
+              }</p>
+        <ul class="numbers-step-list">${stepRows}</ul>`
+            : ""
+        }
+      </div>
+    </div>`;
+  }).join("");
+
+  const mixModesHtml = [
+    { id: "build", label: "Build" },
+    { id: "listen", label: "Listen" },
+    { id: "convert", label: "Convert" },
+    { id: "either", label: "Either" },
+  ]
+    .map(
+      (m) =>
+        `<button type="button" class="numbers-mix-toggle${
+          mixMode === m.id ? " is-on" : ""
+        }" data-mix-mode="${m.id}" aria-pressed="${mixMode === m.id}">${m.label}</button>`
+    )
+    .join("");
+
+  const mixSummary =
+    mixCount === 0
+      ? `<p class="numbers-mix-empty">Tap <strong>Mix</strong> on steps in Browse to add them here.</p>`
+      : `<p class="numbers-mix-summary">${mixSelected
+          .map((id) => getNumbersStep(mixTopic, id)?.label || id)
+          .join(" · ")}</p>`;
+
+  root.innerHTML = `
+    <header class="numbers-hub-hero">
+      <h1>Numbers</h1>
+      <p class="numbers-hub-lede">Guided practice, drill one step, or build a custom mix — you can skip ahead anytime.</p>
+    </header>
+
+    <section class="numbers-guided" aria-label="Guided practice">
+      <div class="numbers-path-head">
+        <span class="dealer-badge">Guided practice</span>
+        <span class="numbers-path-hint">App chooses</span>
+      </div>
+      <p class="dealer-copy"><strong>${suggestLabel}</strong> — ${suggestion.reason}</p>
+      <button type="button" class="btn btn-primary" id="numbers-hub-go"
+        data-topic-id="${suggestion.topicId}"
+        data-step-id="${suggestion.stepId}"
+        data-mode-id="${suggestion.modeId}"
+        data-difficulty="${suggestion.difficulty}">Start guided</button>
+    </section>
+
+    <section class="numbers-browse" aria-label="Browse topics">
+      <h2 class="numbers-browse-title">Browse</h2>
+      <div class="numbers-topic-accordion">${topicBlocks}</div>
+    </section>
+
+    <section class="numbers-mix" aria-label="Custom mix">
+      <div class="numbers-path-head">
+        <h2 class="numbers-browse-title">Custom mix</h2>
+        <span class="numbers-path-hint">You choose</span>
+      </div>
+      <p class="numbers-mix-lede">Steps you mark with Mix shuffle into one session.</p>
+      ${mixSummary}
+      <div class="numbers-mix-block">
+        <p class="numbers-mix-label" id="numbers-mix-mode-label">Mode</p>
+        <div class="numbers-mix-modes" role="radiogroup" aria-labelledby="numbers-mix-mode-label">${mixModesHtml}</div>
+      </div>
+      <button type="button" class="btn btn-primary numbers-mix-start" id="numbers-mix-start" ${
+        mixCount ? "" : "disabled"
+      }>Start custom mix${mixCount ? ` · ${mixCount}` : ""}</button>
+    </section>
+  `;
+}
+
+function listenInputMaxLength() {
+  const pool = listenValuePool();
+  const max = pool.length ? Math.max(...pool) : 99;
+  return String(max).length;
 }
 
 function showTerritoryPhase(territoryId) {
   const phase = state.phase[territoryId] || "briefing";
   const briefing = document.getElementById(`${territoryId}-briefing`);
   const stage = document.getElementById(`${territoryId}-stage`);
+  const hub = document.getElementById(`${territoryId}-hub`);
   const soundsChartEl = document.getElementById("sounds-chart");
   const numbersChartEl = document.getElementById("numbers-chart");
   const nounsChartEl = document.getElementById("nouns-chart");
@@ -2947,8 +4003,20 @@ function showTerritoryPhase(territoryId) {
   if (soundsChartEl) soundsChartEl.hidden = true;
   if (numbersChartEl) numbersChartEl.hidden = true;
   if (nounsChartEl) nounsChartEl.hidden = true;
+  if (hub) hub.hidden = true;
 
   syncTerritoryMenu(territoryId);
+
+  if (territoryId === "numbers" && phase === "hub") {
+    if (briefing) briefing.hidden = true;
+    if (stage) stage.hidden = true;
+    if (hub) {
+      hub.hidden = false;
+      renderNumbersHub();
+    }
+    stopSpeech();
+    return;
+  }
 
   if (phase === "briefing") {
     if (briefing) briefing.hidden = false;
@@ -3212,11 +4280,36 @@ function shuffle(arr) {
 /* —— Numbers —— */
 
 function renderNumbers() {
-  if (state.numbersMode === "listen") {
+  if (state.numbersSessionKind === "mix") syncMixItemFocus();
+  if (state.numbersQuizMode === "listen") {
     renderNumbersListen();
     return;
   }
+  if (state.numbersQuizMode === "convert") {
+    renderNumbersConvert();
+    return;
+  }
   renderNumbersBuild();
+}
+
+function numbersBackDisabled() {
+  if (state.numbersSessionKind === "mix") return state.numbersMixCursor <= 0;
+  if (state.numbersQuizMode === "listen") return state.numbersListenCursor <= 0;
+  return state.numbersIndex <= 0;
+}
+
+function ensureSessionChip() {
+  const stage = document.getElementById("numbers-stage");
+  if (!stage) return;
+  let chip = stage.querySelector(".numbers-session-chip");
+  if (!chip) {
+    chip = document.createElement("p");
+    chip.className = "numbers-session-chip";
+    const prompt = document.getElementById("numbers-prompt");
+    if (prompt) stage.insertBefore(chip, prompt);
+    else stage.prepend(chip);
+  }
+  chip.textContent = numbersSessionLabel();
 }
 
 function renderNumbersBuild() {
@@ -3234,16 +4327,21 @@ function renderNumbersBuild() {
   const stage = document.getElementById("numbers-stage");
   if (stage) stage.dataset.mode = "build";
 
+  ensureSessionChip();
+
   const en = exercise.prompt.english
     ? `<span class="en">${exercise.prompt.english}</span>`
     : "";
+  const promptLead =
+    meta.written ||
+    (meta.value != null ? String(meta.value) : exercise.materials?.written || "");
   document.getElementById("numbers-prompt").innerHTML = `
-    <strong>${meta.value}</strong>${en}
+    <strong lang="de">${promptLead}</strong>${en}
   `;
 
   clearAnswerReveal("numbers");
   const back = document.getElementById("numbers-back");
-  if (back) back.disabled = state.numbersIndex <= 0;
+  if (back) back.disabled = numbersBackDisabled();
 
   const hintBtn = document.getElementById("numbers-hint");
   const refBtn = document.getElementById("numbers-ref-btn");
@@ -3251,6 +4349,7 @@ function renderNumbersBuild() {
   if (refBtn) refBtn.hidden = !exercise.scaffolding.showReferenceButton;
 
   const slots = document.getElementById("numbers-slots");
+  slots.hidden = false;
   slots.className = "slot-row";
   slots.innerHTML = "";
   parts.forEach((_, i) => {
@@ -3309,18 +4408,16 @@ function renderNumbersListen() {
   const stage = document.getElementById("numbers-stage");
   if (stage) stage.dataset.mode = "listen";
 
-  document.getElementById("numbers-prompt").innerHTML = `
-    What number did you hear?
-  `;
+  ensureSessionChip();
+
+  const listenWritten = exercise.templateId === "numbers.listen.written";
+  document.getElementById("numbers-prompt").innerHTML = listenWritten
+    ? `What did you hear?`
+    : `What number did you hear?`;
 
   clearAnswerReveal("numbers");
   const back = document.getElementById("numbers-back");
-  if (back) {
-    back.disabled =
-      state.numbersMode === "listen"
-        ? state.numbersListenCursor <= 0
-        : state.numbersIndex <= 0;
-  }
+  if (back) back.disabled = numbersBackDisabled();
 
   const hintBtn = document.getElementById("numbers-hint");
   const refBtn = document.getElementById("numbers-ref-btn");
@@ -3328,6 +4425,7 @@ function renderNumbersListen() {
   if (refBtn) refBtn.hidden = !exercise.scaffolding.showReferenceButton;
 
   const slots = document.getElementById("numbers-slots");
+  slots.hidden = false;
   slots.className = "numbers-listen-play";
   slots.innerHTML = "";
   const playBtn = document.createElement("button");
@@ -3346,7 +4444,7 @@ function renderNumbersListen() {
 
   if (state.numbersDifficulty === "assisted") {
     tray.className = "choice-grid";
-    tray.setAttribute("aria-label", "Number choices");
+    tray.setAttribute("aria-label", listenWritten ? "Written form choices" : "Number choices");
     exercise.materials.choices.forEach((n) => {
       const btn = document.createElement("button");
       btn.type = "button";
@@ -3362,24 +4460,22 @@ function renderNumbersListen() {
     });
   } else {
     tray.className = "numbers-listen-entry";
-    tray.setAttribute("aria-label", "Enter the number");
+    tray.setAttribute("aria-label", listenWritten ? "Enter the written form" : "Enter the number");
     const input = document.createElement("input");
     input.type = "text";
     input.id = "numbers-listen-input";
     input.className = "numbers-listen-input";
-    input.inputMode = "numeric";
-    input.pattern = "[0-9]*";
-    input.maxLength = state.numbersListenDigits === 1 ? 1 : 2;
+    if (!listenWritten) {
+      input.inputMode = "numeric";
+      input.pattern = "[0-9]*";
+      input.maxLength = listenInputMaxLength();
+    } else {
+      input.inputMode = "decimal";
+      input.maxLength = 16;
+    }
     input.autocomplete = "off";
-    input.placeholder = "";
-    input.setAttribute(
-      "aria-label",
-      state.numbersListenDigits === 1
-        ? "Number 0 to 9"
-        : state.numbersListenDigits === 2
-          ? "Number 10 to 99"
-          : "Number 0 to 99"
-    );
+    input.placeholder = listenWritten ? "e.g. 3,14" : "";
+    input.setAttribute("aria-label", listenWritten ? "Written form you heard" : "Number you heard");
     const checkBtn = document.createElement("button");
     checkBtn.type = "button";
     checkBtn.className = "btn btn-primary";
@@ -3388,7 +4484,17 @@ function renderNumbersListen() {
     const submit = () => {
       if (state.numbersChecked) return;
       const raw = input.value.trim();
-      if (!/^\d{1,2}$/.test(raw)) {
+      if (listenWritten) {
+        if (!raw) {
+          input.classList.add("is-bad");
+          return;
+        }
+        checkNumbersListen(raw);
+        return;
+      }
+      const pool = listenValuePool();
+      const maxDigits = String(Math.max(0, ...pool)).length || 1;
+      if (!new RegExp(`^\d{1,${maxDigits}}$`).test(raw)) {
         input.classList.add("is-bad");
         return;
       }
@@ -3423,18 +4529,301 @@ function playNumbersListen() {
   speakGerman(form);
 }
 
+function normalizeConvertInput(raw) {
+  return String(raw || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/ß/g, "ss") // allow ss for ß while typing
+    .replace(/\./g, ","); // accept Punkt when target uses Komma
+}
+
+function convertTargetForm(exercise) {
+  return String(exercise?.resolution?.form || exercise?.materials?.form || "")
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/\./g, ",");
+}
+
+/** Assisted: live prefix check. Core: only used on submit. */
+function convertInputMatches(typed, targetForm) {
+  const t = normalizeConvertInput(typed);
+  // Accept ß or ss against canonical ß forms.
+  const variants = [targetForm];
+  if (targetForm.includes("ß")) {
+    variants.push(targetForm.replace(/ß/g, "ss"));
+  }
+  return {
+    typed: t,
+    isPrefix: t.length > 0 && variants.some((v) => v.startsWith(t)),
+    isComplete: variants.some((v) => v === t),
+  };
+}
+
+function renderNumbersConvert() {
+  clearNumbersAdvance();
+  stopSpeech();
+  const exercise = currentNumberExercise();
+  const meta = currentNumberMeta();
+  state.currentExercise = exercise;
+  state.numbersFilled = [];
+  state.numbersChecked = false;
+  state.numbersConvertRetryUsed = false;
+
+  const stage = document.getElementById("numbers-stage");
+  if (stage) stage.dataset.mode = "convert";
+
+  ensureSessionChip();
+
+  const en =
+    exercise.scaffolding.showEnglish && meta.english
+      ? `<span class="en">${meta.english}</span>`
+      : "";
+  const convertLead =
+    exercise.prompt?.kind === "convert-write-komma"
+      ? meta.english || exercise.prompt.english || ""
+      : meta.written ||
+        (meta.value != null ? String(meta.value) : "");
+  const convertAsk =
+    exercise.prompt?.kind === "convert-write-komma"
+      ? "Type the written form (Komma)"
+      : meta.kind === "decimal" || meta.kind === "money"
+        ? "Type the German reading"
+        : "Type the German form";
+  document.getElementById("numbers-prompt").innerHTML = `
+    <strong lang="de">${convertLead}</strong>${
+      exercise.prompt?.kind === "convert-write-komma" ? "" : en
+    }
+    <span class="convert-ask">${convertAsk}</span>
+  `;
+
+  clearAnswerReveal("numbers");
+  const back = document.getElementById("numbers-back");
+  if (back) back.disabled = numbersBackDisabled();
+
+  const hintBtn = document.getElementById("numbers-hint");
+  const refBtn = document.getElementById("numbers-ref-btn");
+  if (hintBtn) hintBtn.hidden = !exercise.scaffolding.showHintButton;
+  if (refBtn) refBtn.hidden = !exercise.scaffolding.showReferenceButton;
+
+  const slots = document.getElementById("numbers-slots");
+  slots.hidden = true;
+  slots.className = "";
+  slots.innerHTML = "";
+
+  const tray = document.getElementById("numbers-tray");
+  tray.className = "numbers-convert-entry";
+  tray.innerHTML = "";
+
+  const assisted = state.numbersDifficulty === "assisted";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.id = "numbers-convert-input";
+  input.className = "numbers-convert-input";
+  input.autocomplete = "off";
+  input.autocapitalize = "off";
+  input.spellcheck = false;
+  input.setAttribute("aria-label", "German number form");
+  input.placeholder = assisted ? "start typing…" : "German form";
+
+  const finishIfComplete = () => {
+    if (state.numbersChecked) return;
+    const target = convertTargetForm(exercise);
+    const { isComplete } = convertInputMatches(input.value, target);
+    if (isComplete) checkNumbersConvert(input.value, { fromLive: true });
+  };
+
+  input.addEventListener("input", () => {
+    if (state.numbersChecked) return;
+    if (!assisted) {
+      input.classList.remove("is-ok", "is-bad", "is-prefix-ok");
+      return;
+    }
+    const target = convertTargetForm(exercise);
+    const { typed, isPrefix, isComplete } = convertInputMatches(
+      input.value,
+      target
+    );
+    input.classList.remove("is-ok", "is-bad", "is-prefix-ok");
+    if (!typed) return;
+    if (isComplete) {
+      input.classList.add("is-ok");
+      finishIfComplete();
+      return;
+    }
+    if (isPrefix) input.classList.add("is-prefix-ok");
+    else input.classList.add("is-bad");
+  });
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (assisted) finishIfComplete();
+      else checkNumbersConvert(input.value);
+    }
+  });
+
+  tray.appendChild(input);
+
+  if (!assisted) {
+    const checkBtn = document.createElement("button");
+    checkBtn.type = "button";
+    checkBtn.className = "btn btn-primary";
+    checkBtn.id = "numbers-convert-check";
+    checkBtn.textContent = "Check";
+    checkBtn.addEventListener("click", () => checkNumbersConvert(input.value));
+    tray.appendChild(checkBtn);
+  }
+
+  syncTerritoryMenu("numbers");
+  queueMicrotask(() => input.focus());
+}
+
+function checkNumbersConvert(raw, opts = {}) {
+  if (state.numbersChecked) return;
+  const exercise = state.currentExercise || currentNumberExercise();
+  const meta = currentNumberMeta();
+  const form = convertTargetForm(exercise);
+  const typed = normalizeConvertInput(raw);
+  if (!typed) return;
+
+  const { isComplete } = convertInputMatches(typed, form);
+  // Also accept any spelling that parses to the same value (Core typos / ss↔ß).
+  const parsed = parseCardinalForm(typed);
+  let ok = isComplete || parsed === exercise.resolution.value;
+  if (!ok && exercise.resolution.kind === "decimal") {
+    const spaced = String(raw || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+    const p = parseDecimalForm(spaced);
+    ok =
+      !!p &&
+      p.whole === exercise.resolution.whole &&
+      String(p.fracDigits) === String(exercise.resolution.fracDigits);
+  }
+  if (!ok && exercise.resolution.kind === "money") {
+    const spaced = String(raw || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+    const p = parseMoneyForm(spaced);
+    ok =
+      !!p &&
+      p.euros === exercise.resolution.euros &&
+      p.cents === exercise.resolution.cents;
+  }
+  if (!ok && exercise.templateId === "numbers.convert.written") {
+    const p = parseDecimalWritten(raw);
+    ok =
+      !!p &&
+      normalizeConvertInput(decimalAnalysis(p.whole, p.fracDigits).written) ===
+        normalizeConvertInput(exercise.resolution.written);
+  }
+
+  state.attemptLog.push({
+    territoryId: "numbers",
+    templateId: "numbers.convert.form",
+    mode: exercise.mode,
+    target: { value: exercise.resolution.value, form: exercise.resolution.form },
+    rawInput: { text: raw },
+    evaluation: {
+      status: ok ? "correct" : "incorrect",
+      canonicalAnswers: [exercise.resolution.form],
+    },
+    appVersion: "mock",
+  });
+
+  const input = document.getElementById("numbers-convert-input");
+  const checkBtn = document.getElementById("numbers-convert-check");
+
+  if (!ok && exercise.scaffolding.allowRetryWrongChoice && !state.numbersConvertRetryUsed) {
+    state.numbersConvertRetryUsed = true;
+    if (input) {
+      input.classList.remove("is-ok", "is-prefix-ok");
+      void input.offsetWidth;
+      input.classList.add("is-bad");
+      if (!opts.fromLive) {
+        window.setTimeout(() => {
+          if (state.numbersChecked) return;
+          input.value = "";
+          input.classList.remove("is-bad");
+          input.focus();
+        }, 450);
+      }
+    }
+    showAttemptFeedback("numbers", "Try again");
+    return;
+  }
+
+  state.numbersChecked = true;
+  if (checkBtn) checkBtn.disabled = true;
+  if (input) {
+    input.disabled = true;
+    input.classList.remove("is-bad", "is-prefix-ok");
+    input.value = exercise.resolution.form;
+  }
+
+  const parts =
+    exercise.materials.answerParts ||
+    (exercise.resolution.value != null
+      ? numberAnswerParts(exercise.resolution.value, "listen")
+      : null) ||
+    [{ text: exercise.resolution.form, guide: exercise.resolution.form }];
+
+  const revealWord =
+    exercise.materials.spoken || exercise.resolution.spoken || exercise.resolution.form;
+  const revealEn = meta.written
+    ? `${meta.english || ""} (${meta.written})`
+    : `${meta.english || englishCardinal(exercise.resolution.value)} (${exercise.resolution.value})`;
+
+  presentCorrectAnswer({
+    prefix: "numbers",
+    answerEls: input ? [input] : [],
+    wrongEls: [],
+    reveal: {
+      word: revealWord,
+      parts,
+      en: revealEn,
+      ok,
+    },
+    then: (nodes) => {
+      const afterPlay = () => scheduleNumbersAdvance(1500);
+      const tts = exercise.materials.spoken || exercise.resolution.form;
+      if (!window.speechSynthesis || !nodes?.length) {
+        afterPlay();
+        return;
+      }
+      playKaraokeFlow(tts, parts, nodes, {
+        keepAdvance: true,
+        onEnd: afterPlay,
+        onError: afterPlay,
+      });
+    },
+  });
+}
+
 function checkNumbersListen(answer) {
   if (state.numbersChecked) return;
   const exercise = state.currentExercise || currentNumberExercise();
   const meta = currentNumberMeta();
-  const target = exercise.resolution.value;
-  const ok = Number(answer) === target;
+  const writtenMode = exercise.templateId === "numbers.listen.written";
+  const target = writtenMode
+    ? exercise.resolution.written
+    : exercise.resolution.value;
+  const ok = writtenMode
+    ? normalizeConvertInput(answer) === normalizeConvertInput(target)
+    : Number(answer) === Number(target);
 
   state.attemptLog.push({
     territoryId: "numbers",
-    templateId: "numbers.listen.value",
+    templateId: exercise.templateId,
     mode: exercise.mode,
-    target: { value: target, form: exercise.resolution.form },
+    target: {
+      value: target,
+      form: exercise.resolution.form,
+      written: exercise.resolution.written,
+    },
     rawInput: { value: answer },
     evaluation: {
       status: ok ? "correct" : "incorrect",
@@ -3449,7 +4838,10 @@ function checkNumbersListen(answer) {
     state.numbersListenChoice = null;
     if (state.numbersDifficulty === "assisted") {
       document.querySelectorAll("#numbers-tray .choice").forEach((el) => {
-        if (Number(el.dataset.value) === Number(answer)) {
+        const same = writtenMode
+          ? String(el.dataset.value) === String(answer)
+          : Number(el.dataset.value) === Number(answer);
+        if (same) {
           el.classList.remove("is-bad");
           void el.offsetWidth;
           el.classList.add("is-bad");
@@ -3479,12 +4871,19 @@ function checkNumbersListen(answer) {
   const playBtn = document.getElementById("numbers-listen-play");
   if (playBtn) playBtn.disabled = true;
 
+  const answerEls = [];
+  const choiceEls = [];
   if (state.numbersDifficulty === "assisted") {
     document.querySelectorAll("#numbers-tray .choice").forEach((el) => {
       el.disabled = true;
-      const v = Number(el.dataset.value);
-      if (v === Number(answer) && !ok) el.classList.add("is-bad");
-      if (v === target) applyCorrectFlash(el);
+      const sameAns = writtenMode
+        ? String(el.dataset.value) === String(answer)
+        : Number(el.dataset.value) === Number(answer);
+      const sameTarget = writtenMode
+        ? String(el.dataset.value) === String(target)
+        : Number(el.dataset.value) === Number(target);
+      if (sameAns && !ok) el.classList.add("is-bad");
+      if (sameTarget) choiceEls.push(el);
     });
   } else {
     const input = document.getElementById("numbers-listen-input");
@@ -3494,35 +4893,43 @@ function checkNumbersListen(answer) {
       input.disabled = true;
       input.classList.remove("is-ok", "is-bad");
       input.value = String(target);
-      applyCorrectFlash(input);
+      answerEls.push(input);
     }
   }
 
   const form = exercise.resolution.form;
   const parts =
     exercise.materials.answerParts ||
-    numberAnswerParts(target, "listen") ||
+    (writtenMode
+      ? null
+      : numberAnswerParts(target, "listen")) ||
     [{ text: form, guide: form }];
-  const english = meta.english || englishCardinal(target);
+  const english = meta.english || (writtenMode ? "" : englishCardinal(target));
 
-  flashCorrectThen(() => {
-    const nodes = fillAnswerReveal("numbers", {
+  presentCorrectAnswer({
+    prefix: "numbers",
+    answerEls,
+    choiceEls,
+    reveal: {
       word: form,
       parts,
-      en: `${english} (${target})`,
+      en: writtenMode
+        ? `${english || meta.english || ""} (${target})`
+        : `${english} (${target})`,
       ok,
-    });
-
-    const afterPlay = () => scheduleNumbersAdvance(1500);
-    if (!window.speechSynthesis || !nodes.length) {
-      afterPlay();
-      return;
-    }
-    playKaraokeFlow(form, parts, nodes, {
-      keepAdvance: true,
-      onEnd: afterPlay,
-      onError: afterPlay,
-    });
+    },
+    then: (nodes) => {
+      const afterPlay = () => scheduleNumbersAdvance(1500);
+      if (!window.speechSynthesis || !nodes?.length) {
+        afterPlay();
+        return;
+      }
+      playKaraokeFlow(form, parts, nodes, {
+        keepAdvance: true,
+        onEnd: afterPlay,
+        onError: afterPlay,
+      });
+    },
   });
 }
 
@@ -3568,8 +4975,12 @@ function clearNumberSlot(slotIndex) {
 
 function clearNumbers() {
   if (state.numbersChecked) return;
-  if (state.numbersMode === "listen") {
+  if (state.numbersQuizMode === "listen") {
     renderNumbersListen();
+    return;
+  }
+  if (state.numbersQuizMode === "convert") {
+    renderNumbersConvert();
     return;
   }
   const exercise = currentNumberExercise();
@@ -3600,7 +5011,17 @@ function scheduleNumbersAdvance(delayMs = 1500) {
 }
 
 function advanceNumbersItem() {
-  if (state.numbersMode === "listen") {
+  if (state.numbersSessionKind === "mix") {
+    ensureMixDeck();
+    state.numbersMixCursor += 1;
+    if (state.numbersMixCursor >= state.numbersMixDeck.length) {
+      state.numbersMixDeck = shuffle([...state.numbersMixDeck]);
+      state.numbersMixCursor = 0;
+    }
+    syncMixItemFocus();
+    return;
+  }
+  if (state.numbersQuizMode === "listen") {
     ensureListenDeck();
     state.numbersListenCursor += 1;
     if (state.numbersListenCursor >= state.numbersListenDeck.length) {
@@ -3608,11 +5029,21 @@ function advanceNumbersItem() {
     }
     return;
   }
+  ensureStepDeck();
   state.numbersIndex += 1;
+  if (state.numbersIndex >= state.numbersStepDeck.length) {
+    reshuffleStepDeck();
+  }
 }
 
 function retreatNumbersItem() {
-  if (state.numbersMode === "listen") {
+  if (state.numbersSessionKind === "mix") {
+    if (state.numbersMixCursor <= 0) return false;
+    state.numbersMixCursor -= 1;
+    syncMixItemFocus();
+    return true;
+  }
+  if (state.numbersQuizMode === "listen") {
     if (state.numbersListenCursor <= 0) return false;
     state.numbersListenCursor -= 1;
     return true;
@@ -3638,29 +5069,48 @@ function checkNumbers() {
   );
   state.attemptLog.push(attempt);
 
-  document.querySelectorAll("#numbers-slots .slot").forEach((slot, i) => {
-    const good =
-      evaluation.slotMatch != null
-        ? evaluation.slotMatch[i]
-        : built[i] === parts[i];
-    slot.classList.toggle("is-ok", !!good);
-    slot.classList.toggle("is-bad", !good);
-  });
-
-  // Show the canonical fill blinking in slots + matching tray chips.
-  parts.forEach((text, i) => {
+  // PART slots: highlight + flash. Tray chips: green/red border only (no flash).
+  const answerEls = [];
+  const wrongEls = [];
+  const okTexts = new Set();
+  const badTexts = new Set();
+  built.forEach((text, i) => {
     const slot = document.querySelector(
       `#numbers-slots [data-index="${i}"]`
     );
     if (!slot) return;
-    slot.classList.remove("is-bad");
+    const good =
+      evaluation.slotMatch != null
+        ? evaluation.slotMatch[i]
+        : text === parts[i];
+    slot.classList.remove(
+      "is-bad",
+      "is-ok",
+      "is-correct-flash",
+      "is-wrong-flash"
+    );
     slot.classList.add("is-filled");
     slot.textContent = text;
-    applyCorrectFlash(slot);
+    if (good) {
+      answerEls.push(slot);
+      okTexts.add(text);
+    } else {
+      wrongEls.push(slot);
+      badTexts.add(text);
+    }
   });
   document.querySelectorAll("#numbers-tray .piece").forEach((p) => {
     p.disabled = true;
-    if (parts.includes(p.dataset.text)) applyCorrectFlash(p);
+    p.classList.remove(
+      "is-ok",
+      "is-bad",
+      "is-correct-flash",
+      "is-wrong-flash"
+    );
+    const t = p.dataset.text;
+    // Wrong placement wins if the same chip text appears in both.
+    if (badTexts.has(t)) p.classList.add("is-bad");
+    else if (okTexts.has(t)) p.classList.add("is-ok");
   });
 
   const word =
@@ -3668,24 +5118,28 @@ function checkNumbers() {
   const answerParts =
     meta.answerParts || parts.map((t) => ({ text: t, guide: t }));
 
-  flashCorrectThen(() => {
-    const nodes = fillAnswerReveal("numbers", {
+  presentCorrectAnswer({
+    prefix: "numbers",
+    answerEls,
+    wrongEls,
+    reveal: {
       word,
       parts: answerParts,
       en: meta.english || "",
       ok: accepted,
-    });
-
-    const afterPlay = () => scheduleNumbersAdvance(1500);
-    if (!window.speechSynthesis || !nodes.length) {
-      afterPlay();
-      return;
-    }
-    playKaraokeFlow(word, answerParts, nodes, {
-      keepAdvance: true,
-      onEnd: afterPlay,
-      onError: afterPlay,
-    });
+    },
+    then: (nodes) => {
+      const afterPlay = () => scheduleNumbersAdvance(1500);
+      if (!window.speechSynthesis || !nodes?.length) {
+        afterPlay();
+        return;
+      }
+      playKaraokeFlow(word, answerParts, nodes, {
+        keepAdvance: true,
+        onEnd: afterPlay,
+        onError: afterPlay,
+      });
+    },
   });
 }
 
@@ -4249,18 +5703,22 @@ function checkNounsArticles() {
   const correctId = exercise.resolution.article;
   document.querySelectorAll("#nouns-tray .piece").forEach((p) => {
     p.disabled = true;
-    if (correctId && p.dataset.id === correctId) applyCorrectFlash(p);
   });
+  const answerEls = [];
   if (correctId && correctId !== "insufficient") {
     const slot = document.querySelector('#nouns-slots [data-slot="article"]');
     if (slot) {
       slot.textContent = correctId;
       slot.classList.add("is-filled");
       applyChipGender(slot, correctId, true);
-      applyCorrectFlash(slot);
+      answerEls.push(slot);
     }
   }
-  flashCorrectThen(() => revealNounAnswer(exercise));
+  presentCorrectAnswer({
+    prefix: "nouns",
+    answerEls,
+    then: () => revealNounAnswer(exercise),
+  });
 }
 
 function checkNounsPlurals() {
@@ -4310,19 +5768,17 @@ function checkNounsPlurals() {
   clearAttemptFeedback("nouns");
 
   const expected = exercise.materials.parts;
+  const answerEls = [];
   document.querySelectorAll("#nouns-slots .slot").forEach((slot, i) => {
     const text = expected[i + 1];
     if (!text) return;
-    slot.classList.remove("is-bad");
+    slot.classList.remove("is-bad", "is-ok");
     slot.classList.add("is-filled");
     slot.textContent = text;
-    applyCorrectFlash(slot);
+    answerEls.push(slot);
   });
   document.querySelectorAll("#nouns-tray .piece").forEach((p) => {
     p.disabled = true;
-    if (expected.slice(1).includes(p.dataset.text || p.dataset.id)) {
-      applyCorrectFlash(p);
-    }
   });
 
   const phrase =
@@ -4338,25 +5794,28 @@ function checkNounsPlurals() {
   const construction =
     exercise.resolution.parts || exercise.materials.parts;
 
-  flashCorrectThen(() => {
-    const nodes = fillAnswerReveal("nouns", {
+  presentCorrectAnswer({
+    prefix: "nouns",
+    answerEls,
+    reveal: {
       word: phrase,
       wordHtml: nounPluralAnswerWordHtml(construction),
       parts,
       en: exercise.resolution.translation || "",
       ok: accepted,
-    });
-
-    const afterPlay = () => scheduleNounsAdvance(1500);
-    if (!window.speechSynthesis || !nodes.length) {
-      afterPlay();
-      return;
-    }
-    playKaraokeFlow(phrase, parts, nodes, {
-      keepAdvance: true,
-      onEnd: afterPlay,
-      onError: afterPlay,
-    });
+    },
+    then: (nodes) => {
+      const afterPlay = () => scheduleNounsAdvance(1500);
+      if (!window.speechSynthesis || !nodes?.length) {
+        afterPlay();
+        return;
+      }
+      playKaraokeFlow(phrase, parts, nodes, {
+        keepAdvance: true,
+        onEnd: afterPlay,
+        onError: afterPlay,
+      });
+    },
   });
 }
 
@@ -4707,7 +6166,8 @@ function renderSounds() {
   if (state.soundsMode === "karaoke") {
     const nextBtn = actionBtn("Next", soundsSkip, "btn", "sounds-skip", false, "chevronRight");
     const item = soundKaraoke[state.soundsIndex % soundKaraoke.length];
-    prompt.innerHTML = `<strong>${item.word}</strong>`;
+    prompt.setAttribute("lang", "de");
+    prompt.innerHTML = `<strong>${softHyphenateGerman(item.word, item.syllables)}</strong>`;
 
     playRow.hidden = false;
     playRow.appendChild(
@@ -4762,13 +6222,14 @@ function checkSoundsDiscriminate(item) {
   state.soundsChecked = true;
   const ok = state.soundsChoice === item.answer;
   const choices = document.getElementById("sounds-choices");
+  const choiceEls = [];
 
   choices.querySelectorAll(".choice").forEach((el) => {
     el.disabled = true;
     const id = el.dataset.id;
     el.setAttribute("aria-pressed", String(id === state.soundsChoice));
     if (id === state.soundsChoice && !ok) el.classList.add("is-bad");
-    if (id === item.answer) applyCorrectFlash(el);
+    if (id === item.answer) choiceEls.push(el);
   });
 
   const playBtn = document.querySelector("#sounds-play-row button");
@@ -4777,26 +6238,27 @@ function checkSoundsDiscriminate(item) {
   const parts = item.parts || [{ text: item.play, guide: item.play }];
   const gloss = item.en || glossForDe(item.play);
 
-  flashCorrectThen(() => {
-    const nodes = fillAnswerReveal("sounds", {
+  presentCorrectAnswer({
+    prefix: "sounds",
+    choiceEls,
+    reveal: {
       word: item.play,
       parts,
       en: gloss,
       ok,
-    });
-
-    const afterPlay = () => scheduleSoundsAdvance(1500);
-
-    if (!window.speechSynthesis || !nodes.length) {
-      afterPlay();
-      return;
-    }
-
-    playKaraokeFlow(item.play, parts, nodes, {
-      keepAdvance: true,
-      onEnd: afterPlay,
-      onError: afterPlay,
-    });
+    },
+    then: (nodes) => {
+      const afterPlay = () => scheduleSoundsAdvance(1500);
+      if (!window.speechSynthesis || !nodes?.length) {
+        afterPlay();
+        return;
+      }
+      playKaraokeFlow(item.play, parts, nodes, {
+        keepAdvance: true,
+        onEnd: afterPlay,
+        onError: afterPlay,
+      });
+    },
   });
 }
 
@@ -4917,9 +6379,14 @@ function closeAllMenus() {
 
 function openMenuPanel(panel, btn) {
   closeAllMenus();
+  if (panel.closest('[data-territory="numbers"]')) {
+    syncNumbersCurriculumMenu(
+      panel.closest(".territory-menu"),
+      state.phase.numbers || "hub"
+    );
+  }
   panel.hidden = false;
   btn.setAttribute("aria-expanded", "true");
-  // Raise whole topbar so dropdowns beat session panels + any open sheet (iOS).
   bringOverlayFront(topbarEl());
 }
 
@@ -4995,32 +6462,48 @@ function bind() {
     openSheet("Hint", `<p>${ex.materials.hint}</p>`);
   });
   document.getElementById("numbers-ref-btn").addEventListener("click", () => {
+    const step = getNumbersStep(state.numbersTopic, state.numbersStep);
+    const mode = getNumbersMode(state.numbersQuizMode);
     const blurb =
-      state.numbersMode === "teens"
+      state.numbersQuizMode === "listen"
         ? `<ul>
+        <li>Hear the German form (TTS), then give the digit</li>
+        <li><strong>Assisted</strong> — multiple choice; <strong>Core</strong> — type the number</li>
+        <li>Step filters the pool (${step?.label || state.numbersStep})</li>
+        <li>Answer key shows orthography + phonetic beats</li>
+        <li>Recognition practice — not the same mastery as building</li>
+        <li>TTS is a helper; replay freely if audio is unclear</li>
+      </ul>`
+        : state.numbersQuizMode === "convert"
+          ? `<ul>
+        <li>See the digit, type the full German form</li>
+        <li><strong>Assisted</strong> — checks as you type (prefix stay green); auto-checks when complete</li>
+        <li><strong>Core</strong> — type the whole form, then Check</li>
+        <li><em>ß</em> or <em>ss</em> both accepted while typing</li>
+        <li>Production practice — different from Build (no chips) and Listen (no audio cue)</li>
+        <li>Step filters the pool (${step?.label || state.numbersStep})</li>
+      </ul>`
+        : state.numbersStep === "teens"
+          ? `<ul>
         <li>13–19: base + <em>zehn</em> (dreizehn, vierzehn…)</li>
         <li>Shortenings: sechs → <em>sech</em>zehn, sieben → <em>sieb</em>zehn</li>
-        <li>11 and 12 are unique words (elf, zwölf) — not in this quiz</li>
+        <li>11 and 12 are unique words (elf, zwölf) — see 0–12 step</li>
       </ul>`
-        : state.numbersMode === "tens"
-          ? `<ul>
+          : state.numbersStep === "tens"
+            ? `<ul>
         <li>20–90: stem + <em>zig</em> (zwanzig, vierzig…)</li>
         <li>dreißig uses <em>ßig</em>; sechzig / siebzig drop -s / -en</li>
         <li>Build the split — don’t drop in the whole tens word as one chip</li>
       </ul>`
-          : state.numbersMode === "listen"
-            ? `<ul>
-        <li>Hear the German form (TTS), then give the digit</li>
-        <li><strong>Assisted</strong> — multiple choice; <strong>Core</strong> — type the number</li>
-        <li>Digits filter in the Numbers menu: 1 / 2 / 1–2</li>
-        <li>Answer key shows orthography + phonetic beats</li>
-        <li>Recognition practice — not the same mastery as building compounds</li>
-        <li>TTS is a helper; replay freely if audio is unclear</li>
+            : state.numbersStep === "base"
+              ? `<ul>
+        <li>0–12 foundational forms (null … zwölf)</li>
+        <li>11 and 12 are unique; eins → <em>ein</em> in compounds</li>
       </ul>`
-            : `<ul>
-        <li>20–90 tens: zwanzig, dreißig, vierzig…</li>
+              : `<ul>
         <li>Compound: ones + <em>und</em> + tens → vierundzwanzig</li>
         <li>eins → <em>ein</em> in compounds; chips stay reusable</li>
+        <li>Mode: ${mode?.label || "Build"} · Topic: Cardinals</li>
       </ul>`;
     openSheet("Reference", blurb);
   });
@@ -5124,47 +6607,144 @@ function bind() {
     renderNouns();
   });
 
-  document.querySelectorAll("[data-numbers-mode]").forEach((btn) => {
-    btn.addEventListener("click", () => {
+  const numbersMenu = document.querySelector(
+    '.territory-menu[data-territory="numbers"] .menu-panel'
+  );
+  numbersMenu?.addEventListener("click", (e) => {
+    const change = e.target.closest("[data-numbers-change-focus]");
+    const home = e.target.closest("[data-numbers-hub]");
+    const resume = e.target.closest("[data-numbers-resume]");
+    if (resume) {
+      e.stopPropagation();
       closeAllMenus();
-      clearNumbersAdvance();
-      stopSpeech();
-      const mode = btn.dataset.numbersMode;
-      if (mode !== state.numbersMode) {
-        state.numbersMode = mode;
-        state.numbersIndex = 0;
-        if (mode === "listen") reshuffleListenDeck();
-      }
       state.phase.numbers = "practice";
       showTerritoryPhase("numbers");
-    });
+      return;
+    }
+    if (change || home) {
+      e.stopPropagation();
+      closeAllMenus();
+      goNumbersHub();
+      return;
+    }
+    const openTopic = e.target.closest("[data-numbers-open-topic]");
+    if (openTopic) {
+      e.stopPropagation();
+      closeAllMenus();
+      state.numbersHubTopic = openTopic.dataset.numbersOpenTopic;
+      state.phase.numbers = "hub";
+      state.preservePractice.numbers = false;
+      showTerritoryPhase("numbers");
+    }
+  });
+
+  document.getElementById("numbers-hub")?.addEventListener("click", (e) => {
+    const go = e.target.closest("#numbers-hub-go");
+    if (go) {
+      startNumbersPractice({
+        topicId: go.dataset.topicId,
+        stepId: go.dataset.stepId,
+        modeId: go.dataset.modeId,
+        difficulty: go.dataset.difficulty || state.numbersDifficulty,
+        lock: true,
+      });
+      return;
+    }
+    const topicBtn = e.target.closest("[data-hub-topic]");
+    if (topicBtn) {
+      const id = topicBtn.dataset.hubTopic;
+      state.numbersHubTopic =
+        state.numbersHubTopic === id ? "" : id;
+      state.numbersHubPracticePick = "";
+      renderNumbersHub();
+      return;
+    }
+    const learn = e.target.closest("[data-hub-learn]");
+    if (learn) {
+      openNumbersStepLearn(learn.dataset.topic, learn.dataset.step);
+      return;
+    }
+    const practice = e.target.closest("[data-hub-practice]");
+    if (practice) {
+      const topicId = practice.dataset.topic;
+      const stepId = practice.dataset.step;
+      const modes = modesForStep(topicId, stepId);
+      if (modes.length <= 1) {
+        startNumbersPractice({
+          topicId,
+          stepId,
+          modeId: modes[0]?.id || "build",
+          difficulty: state.numbersDifficulty,
+          lock: true,
+        });
+        return;
+      }
+      const key = `${topicId}:${stepId}`;
+      state.numbersHubPracticePick =
+        state.numbersHubPracticePick === key ? "" : key;
+      renderNumbersHub();
+      return;
+    }
+    const start = e.target.closest("[data-hub-start]");
+    if (start) {
+      startNumbersPractice({
+        topicId: start.dataset.topic,
+        stepId: start.dataset.step,
+        modeId: start.dataset.mode,
+        difficulty: state.numbersDifficulty,
+        lock: true,
+      });
+      return;
+    }
+    const mixToggle = e.target.closest("[data-mix-toggle]");
+    if (mixToggle) {
+      const id = mixToggle.dataset.step;
+      const topicId = mixToggle.dataset.topic || state.numbersHubTopic || "cardinals";
+      if (state.numbersMixTopic && state.numbersMixTopic !== topicId) {
+        state.numbersMixSteps = [];
+      }
+      state.numbersMixTopic = topicId;
+      const set = new Set(state.numbersMixSteps);
+      if (set.has(id)) set.delete(id);
+      else set.add(id);
+      state.numbersMixSteps = [...set];
+      renderNumbersHub();
+      return;
+    }
+    const mixModeBtn = e.target.closest("[data-mix-mode]");
+    if (mixModeBtn && mixModeBtn.classList.contains("numbers-mix-toggle")) {
+      state.numbersMixMode = mixModeBtn.dataset.mixMode;
+      const topicId = state.numbersMixTopic || state.numbersHubTopic || "cardinals";
+      const eligible = new Set(
+        mixableSteps(topicId, state.numbersMixMode).map((s) => s.id)
+      );
+      // Keep steps still valid for the new mode; don't auto-fill.
+      state.numbersMixSteps = state.numbersMixSteps.filter((id) =>
+        eligible.has(id)
+      );
+      renderNumbersHub();
+      return;
+    }
+    const mixStart = e.target.closest("#numbers-mix-start");
+    if (mixStart) {
+      startNumbersMix();
+      return;
+    }
   });
 
   document.querySelectorAll("[data-numbers-difficulty]").forEach((btn) => {
     btn.addEventListener("click", () => {
       closeAllMenus();
-      clearNumbersAdvance();
-      stopSpeech();
       state.numbersDifficulty = btn.dataset.numbersDifficulty;
-      state.phase.numbers = "practice";
-      showTerritoryPhase("numbers");
-    });
-  });
-
-  document.querySelectorAll("[data-listen-digits]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      closeAllMenus();
-      clearNumbersAdvance();
-      stopSpeech();
-      const raw = btn.dataset.listenDigits;
-      const next = raw === "1" || raw === "2" ? Number(raw) : "all";
-      if (next !== state.numbersListenDigits) {
-        state.numbersListenDigits = next;
-        reshuffleListenDeck();
+      // Preference only on hub; in practice, re-render with new scaffolding.
+      if (state.phase.numbers === "practice") {
+        clearNumbersAdvance();
+        stopSpeech();
+        showTerritoryPhase("numbers");
+      } else {
+        syncTerritoryMenu("numbers");
+        if (state.phase.numbers === "hub") renderNumbersHub();
       }
-      state.numbersMode = "listen";
-      state.phase.numbers = "practice";
-      showTerritoryPhase("numbers");
     });
   });
 
