@@ -15,6 +15,14 @@ python3 -m http.server 8765
 Then visit `http://localhost:8765/`.  
 (`engine/` is symlinked here so module imports resolve.)
 
+**Hub** now uses the nav carousel (Learn | Play → hold to drill → Start).
+
+**Standalone carousel:**  
+`http://localhost:8765/nav-carousel.html`
+
+**Hierarchy options** (UI + material comparison sketches):  
+`http://localhost:8765/numbers-orgs.html`
+
 ## Engine fixtures
 
 ```bash

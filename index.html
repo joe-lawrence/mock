@@ -23,7 +23,8 @@
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Sora:wght@500;600&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,500&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./css/mock.css?v=20260927-dec2" />
+    <link rel="stylesheet" href="./css/mock.css?v=20260927-caps1" />
+    <link rel="stylesheet" href="./css/nav-carousel.css?v=20260927-nc10" />
     <script type="importmap">
       {
         "imports": {
@@ -292,25 +293,9 @@
       </header>
 
       <main>
-        <!-- HUB -->
-        <section id="view-hub" class="view is-active" aria-label="Hub">
-          <div class="hub-hero">
-            <h1>Where do you want to work?</h1>
-            <p class="hub-lede">
-              Open any territory. The Dealer suggests a next step — it doesn’t
-              lock the path.
-            </p>
-            <div class="dealer-strip">
-              <span class="dealer-badge">Suggested</span>
-              <p class="dealer-copy">
-                <strong>Numbers</strong> — a calm warm-up before gender and
-                case.
-              </p>
-            </div>
-          </div>
-
-          <h2 class="sr-only">Territories</h2>
-          <ul class="territory-grid" id="territory-grid"></ul>
+        <!-- HUB — nav carousel (Learn | Play → territories) -->
+        <section id="view-hub" class="view is-active nc-hub" aria-label="Hub">
+          <div id="nav-carousel-root"></div>
         </section>
 
         <!-- NUMBERS -->
@@ -564,6 +549,6 @@
       </div>
     </div>
 
-    <script type="module" src="./js/mock.js?v=20260927-dec2"></script>
+    <script type="module" src="./js/mock.js?v=20260927-caps1"></script>
   </body>
 </html>

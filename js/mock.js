@@ -36,8 +36,9 @@ import {
   suggestNumbersFocus,
   formatNumbersFocusLabel,
   mixableSteps,
-} from "./numbers-curriculum.js?v=20260927-dec2";
-import { DECIMAL_POOLS } from "./decimals-pools.js?v=20260927-dec2";
+} from "./numbers-curriculum.js?v=20260927-nav1";
+import { DECIMAL_POOLS } from "./decimals-pools.js?v=20260927-nav1";
+import { mountNavCarousel } from "./nav-carousel.js?v=20260927-nc9";
 
 /** Bootstrap Icons (outline) — https://icons.getbootstrap.com */
 const BI_PATHS = {
@@ -1373,12 +1374,16 @@ function mixListenValues(topicId, stepIds) {
 
 function buildMixDeck(topicId, stepIds, modeId) {
   const items = [];
-  const wantBuild = modeId === "build" || modeId === "either";
-  const wantListen = modeId === "listen" || modeId === "either";
-  const wantConvert = modeId === "convert" || modeId === "either";
+  const caps = navCaps();
+  const resolved = mixModeForCaps(modeId);
+  const wantBuild = resolved === "build" || resolved === "either";
+  const wantListen =
+    caps.audio && (resolved === "listen" || resolved === "either");
+  const wantConvert =
+    caps.keyboard && (resolved === "convert" || resolved === "either");
 
   for (const stepId of stepIds) {
-    const modes = modesForStep(topicId, stepId);
+    const modes = filterModesForCaps(modesForStep(topicId, stepId));
     const pool = numberPools[stepId] || numberPools[getNumbersStep(topicId, stepId)?.pool];
     if (!pool) continue;
     if (wantBuild && modes.some((m) => m.id === "build")) {
@@ -1415,9 +1420,11 @@ function buildMixDeck(topicId, stepIds, modeId) {
 }
 
 function ensureMixDeck() {
-  const mode = state.numbersMixMode;
+  const mode = mixModeForCaps(state.numbersMixMode);
+  state.numbersMixMode = mode;
   const topicId = state.numbersMixTopic || "cardinals";
-  const key = `${topicId}:${mode}:${[...state.numbersMixSteps].sort().join(",")}`;
+  const caps = navCaps();
+  const key = `${topicId}:${mode}:k${caps.keyboard ? 1 : 0}a${caps.audio ? 1 : 0}:${[...state.numbersMixSteps].sort().join(",")}`;
   if (
     state.numbersMixDeckKey !== key ||
     !Array.isArray(state.numbersMixDeck) ||
@@ -3360,6 +3367,8 @@ const state = {
   numbersMixSteps: [],
   numbersMixTopic: "cardinals",
   numbersMixMode: "build",
+  /** @type {{ keyboard: boolean, audio: boolean } | null} */
+  navCaps: null,
   numbersMixDeck: null,
   numbersMixDeckKey: "",
   numbersMixCursor: 0,
@@ -3370,8 +3379,82 @@ const state = {
   nounsChartTab: "feminine",
 };
 
+/** Caps from hub carousel (localStorage) + session Start; default both on. */
+function navCaps() {
+  try {
+    const raw = localStorage.getItem("schnapp-nav-caps");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        keyboard: parsed.keyboard !== false,
+        audio: parsed.audio !== false,
+      };
+    }
+  } catch (_) {
+    /* ignore */
+  }
+  return {
+    keyboard: state.navCaps?.keyboard !== false,
+    audio: state.navCaps?.audio !== false,
+  };
+}
+
+function modeAllowedByCaps(modeId) {
+  const caps = navCaps();
+  if (modeId === "listen" && !caps.audio) return false;
+  if (modeId === "convert" && !caps.keyboard) return false;
+  return true;
+}
+
+function filterModesForCaps(modes) {
+  return (modes || []).filter((m) => modeAllowedByCaps(m.id));
+}
+
+/** Mix mode id respecting hub caps (build / listen / either / convert). */
+function mixModeForCaps(preferred) {
+  const caps = navCaps();
+  const p = preferred || "either";
+  if (p === "build") return "build";
+  if (p === "listen") return caps.audio ? "listen" : "build";
+  if (p === "convert") return caps.keyboard ? "convert" : "build";
+  // either — keep when any free-form / audio modality is on; buildMixDeck filters
+  if (caps.audio || caps.keyboard) return "either";
+  return "build";
+}
+
+function mixModeOptionsForCaps() {
+  const caps = navCaps();
+  const opts = [{ id: "build", label: "Build" }];
+  if (caps.audio) opts.push({ id: "listen", label: "Listen" });
+  if (caps.keyboard) opts.push({ id: "convert", label: "Convert" });
+  if (opts.length > 1) opts.push({ id: "either", label: "Either" });
+  return opts;
+}
+
+function capsSessionHint() {
+  const caps = navCaps();
+  if (caps.keyboard && caps.audio) return "";
+  const parts = [];
+  if (!caps.audio) parts.push("audio off");
+  if (!caps.keyboard) parts.push("keyboard off");
+  return parts.join(" · ");
+}
+
+function suggestFocusForCaps(current) {
+  const suggestion = suggestNumbersFocus(current);
+  if (modeAllowedByCaps(suggestion.modeId)) return suggestion;
+  const modes = filterModesForCaps(
+    modesForStep(suggestion.topicId, suggestion.stepId)
+  );
+  return {
+    ...suggestion,
+    modeId: modes[0]?.id || "build",
+  };
+}
+
 const els = {
   grid: document.getElementById("territory-grid"),
+  navCarouselRoot: document.getElementById("nav-carousel-root"),
   views: {
     hub: document.getElementById("view-hub"),
     numbers: document.getElementById("view-numbers"),
@@ -3395,6 +3478,10 @@ function navigate(view, opts = {}) {
     node.classList.toggle("is-active", on);
     node.hidden = !on;
   });
+
+  if (view === "hub") {
+    navCarouselApi?.resetToMode?.();
+  }
 
   if (view === "numbers" || view === "nouns" || view === "sounds") {
     if (!opts.keepPhase) {
@@ -3449,7 +3536,8 @@ function makeSylButton({
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "syl" + (stress ? " has-stress" : "");
-  if (say) {
+  const canSpeak = !!say && navCaps().audio;
+  if (canSpeak) {
     btn.dataset.say = say;
     btn.dataset.lang = lang;
   } else {
@@ -3458,13 +3546,13 @@ function makeSylButton({
   }
   btn.setAttribute(
     "aria-label",
-    ariaLabel || (say ? `Play ${say}` : `${ortho}, no audio`)
+    ariaLabel || (canSpeak ? `Play ${say}` : `${ortho}, no audio`)
   );
   btn.innerHTML = `
     <span class="syl-ortho">${ortho}</span>
     <span class="syl-guide">${guide}</span>
   `;
-  if (say) {
+  if (canSpeak) {
     btn.addEventListener("click", () => playSylChip(btn, say, lang));
   }
   return btn;
@@ -3474,6 +3562,7 @@ function makeSylButton({
  * Highlight chip + speak one beat (quiz syllable tap).
  */
 function playSylChip(node, text, lang = "de-DE") {
+  if (!navCaps().audio) return;
   stopSpeech();
   node.classList.add("is-active");
   withUtterance(text, {
@@ -3703,10 +3792,11 @@ function applyNumbersFocus({ topicId, stepId, modeId, difficulty, lock = true })
   if (!topic || !step) return false;
 
   let mode = modeId;
-  const allowed = modesForStep(topicId, stepId);
+  const allowed = filterModesForCaps(modesForStep(topicId, stepId));
   if (!allowed.some((m) => m.id === mode)) {
     mode = allowed[0]?.id || "build";
   }
+  if (!modeAllowedByCaps(mode)) return false;
   if (!isNumbersCellPlayable(topicId, stepId, mode)) return false;
 
   state.numbersSessionKind = "step";
@@ -3732,7 +3822,8 @@ function startNumbersPractice(focus) {
 }
 
 function startNumbersMix() {
-  const mode = state.numbersMixMode;
+  const mode = mixModeForCaps(state.numbersMixMode);
+  state.numbersMixMode = mode;
   const topicId = state.numbersMixTopic || state.numbersHubTopic || "cardinals";
   const eligible = mixableSteps(topicId, mode);
   const selected = state.numbersMixSteps.filter((id) =>
@@ -3782,11 +3873,8 @@ function openNumbersStepLearn(topicId, stepId) {
 function goNumbersHub() {
   clearNumbersAdvance();
   stopSpeech();
-  state.phase.numbers = "hub";
-  state.numbersHubTopic = "cardinals";
-  state.numbersHubPracticePick = "";
   state.preservePractice.numbers = false;
-  showTerritoryPhase("numbers");
+  navigate("hub");
 }
 
 function softAfterLabel(topicId, step) {
@@ -3797,27 +3885,31 @@ function softAfterLabel(topicId, step) {
 }
 
 function numbersSessionLabel() {
+  const hint = capsSessionHint();
+  const suffix = hint ? ` · ${hint}` : "";
   if (state.numbersSessionKind === "mix") {
     const n = state.numbersMixSteps.length;
     const mode =
       state.numbersMixMode === "either"
         ? "Either"
         : getNumbersMode(state.numbersMixMode)?.label || state.numbersMixMode;
-    return `Custom mix · ${n} step${n === 1 ? "" : "s"} · ${mode}`;
+    return `Custom mix · ${n} step${n === 1 ? "" : "s"} · ${mode}${suffix}`;
   }
-  return formatNumbersFocusLabel({
-    topicId: state.numbersTopic,
-    stepId: state.numbersStep,
-    modeId: state.numbersQuizMode,
-    difficulty: state.numbersDifficulty,
-  });
+  return (
+    formatNumbersFocusLabel({
+      topicId: state.numbersTopic,
+      stepId: state.numbersStep,
+      modeId: state.numbersQuizMode,
+      difficulty: state.numbersDifficulty,
+    }) + suffix
+  );
 }
 
 function renderNumbersHub() {
   const root = document.getElementById("numbers-hub");
   if (!root) return;
 
-  const suggestion = suggestNumbersFocus({
+  const suggestion = suggestFocusForCaps({
     topicId: state.numbersTopic,
     stepId: state.numbersStep,
     modeId: state.numbersQuizMode,
@@ -3826,6 +3918,7 @@ function renderNumbersHub() {
   const suggestLabel = formatNumbersFocusLabel(suggestion);
   const openId = state.numbersHubTopic;
   const pickKey = state.numbersHubPracticePick;
+  state.numbersMixMode = mixModeForCaps(state.numbersMixMode);
   const mixMode = state.numbersMixMode;
   const mixTopic = state.numbersHubTopic || "cardinals";
   const mixEligibleIds = new Set(
@@ -3842,7 +3935,7 @@ function renderNumbersHub() {
     const stepRows = (t.steps || [])
       .map((s) => {
         const cue = softAfterLabel(t.id, s);
-        const modes = modesForStep(t.id, s.id);
+        const modes = filterModesForCaps(modesForStep(t.id, s.id));
         const rowKey = `${t.id}:${s.id}`;
         const picking = pickKey === rowKey;
         const canMix = t.id === mixTopic && mixEligibleIds.has(s.id);
@@ -3863,7 +3956,9 @@ function renderNumbersHub() {
         }
 
         let practiceActions;
-        if (picking && modes.length > 1) {
+        if (!modes.length) {
+          practiceActions = `<button type="button" class="btn btn-primary" disabled>Practice</button>`;
+        } else if (picking && modes.length > 1) {
           practiceActions = modes
             .map(
               (m) =>
@@ -3922,12 +4017,7 @@ function renderNumbersHub() {
     </div>`;
   }).join("");
 
-  const mixModesHtml = [
-    { id: "build", label: "Build" },
-    { id: "listen", label: "Listen" },
-    { id: "convert", label: "Convert" },
-    { id: "either", label: "Either" },
-  ]
+  const mixModesHtml = mixModeOptionsForCaps()
     .map(
       (m) =>
         `<button type="button" class="numbers-mix-toggle${
@@ -3935,6 +4025,11 @@ function renderNumbersHub() {
         }" data-mix-mode="${m.id}" aria-pressed="${mixMode === m.id}">${m.label}</button>`
     )
     .join("");
+
+  const capsHint = capsSessionHint();
+  const capsBanner = capsHint
+    ? `<p class="numbers-caps-banner" role="status">Session caps: ${capsHint}. Unavailable modes are hidden.</p>`
+    : "";
 
   const mixSummary =
     mixCount === 0
@@ -3948,6 +4043,7 @@ function renderNumbersHub() {
       <h1>Numbers</h1>
       <p class="numbers-hub-lede">Guided practice, drill one step, or build a custom mix — you can skip ahead anytime.</p>
     </header>
+    ${capsBanner}
 
     <section class="numbers-guided" aria-label="Guided practice">
       <div class="numbers-path-head">
@@ -4226,35 +4322,82 @@ function renderNounsChart() {
   });
 }
 
-function renderHub() {
-  els.grid.innerHTML = "";
-  territories.forEach((t) => {
-    const li = document.createElement("li");
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "territory";
-    btn.dataset.territory = t.id;
-    if (t.status !== "playable") {
-      /* still clickable for coming-soon honesty */
+function handleNavCarouselStart({ mode, units, keyboard, audio }) {
+  const numbersUnits = units.filter((u) => u.territory === "numbers" && u.topicId && u.stepId);
+  const nounsUnits = units.filter((u) => u.territory === "nouns");
+
+  state.navCaps = { keyboard, audio };
+
+  if (mode === "learn") {
+    if (numbersUnits.length) {
+      const u = numbersUnits[0];
+      navigate("numbers", { keepPhase: true });
+      openNumbersStepLearn(u.topicId, u.stepId);
+      return;
     }
-    btn.innerHTML = `
-      ${t.suggested ? `<span class="territory-suggested">Suggested</span>` : ""}
-      <span class="territory-name">${t.name}</span>
-      <p class="territory-blurb">${t.blurb}</p>
-      <span class="territory-status ${t.status}">${t.statusLabel}</span>
-    `;
-    btn.addEventListener("click", () => {
-      if (t.id === "numbers" || t.id === "nouns" || t.id === "sounds") {
-        navigate(t.id);
-      } else {
-        navigate("coming", {
-          title: t.name,
-          body: comingCopy[t.id] || "Not playable in this prototype.",
-        });
+    if (nounsUnits.length) {
+      navigate("nouns");
+      return;
+    }
+    return;
+  }
+
+  // Play → Numbers mix when any Numbers units selected
+  if (numbersUnits.length) {
+    const byTopic = new Map();
+    for (const u of numbersUnits) {
+      if (!byTopic.has(u.topicId)) byTopic.set(u.topicId, []);
+      byTopic.get(u.topicId).push(u.stepId);
+    }
+    let topicId = "cardinals";
+    let stepIds = [];
+    for (const [tid, ids] of byTopic) {
+      if (ids.length > stepIds.length) {
+        topicId = tid;
+        stepIds = ids;
       }
-    });
-    li.appendChild(btn);
-    els.grid.appendChild(li);
+    }
+
+    let mixMode = mixModeForCaps("either");
+
+    const eligible = new Set(mixableSteps(topicId, mixMode).map((s) => s.id));
+    const selected = stepIds.filter((id) => eligible.has(id));
+    if (!selected.length) {
+      const u = numbersUnits[0];
+      const modes = filterModesForCaps(modesForStep(u.topicId, u.stepId));
+      startNumbersPractice({
+        topicId: u.topicId,
+        stepId: u.stepId,
+        modeId: modes[0]?.id || "build",
+        difficulty: state.numbersDifficulty,
+        lock: true,
+      });
+      return;
+    }
+
+    state.numbersMixTopic = topicId;
+    state.numbersMixSteps = selected;
+    state.numbersMixMode = mixMode;
+    state.numbersHubTopic = topicId;
+    navigate("numbers", { keepPhase: true });
+    startNumbersMix();
+    return;
+  }
+
+  if (nounsUnits.length) {
+    navigate("nouns");
+  }
+}
+
+/** @type {{ resetToMode: Function } | null} */
+let navCarouselApi = null;
+
+function renderHub() {
+  const root = els.navCarouselRoot || document.getElementById("nav-carousel-root");
+  if (!root) return;
+  navCarouselApi = mountNavCarousel(root, {
+    embedded: true,
+    onStart: handleNavCarouselStart,
   });
 }
 
@@ -4433,16 +4576,21 @@ function renderNumbersListen() {
   playBtn.className = "btn btn-primary play-btn";
   playBtn.id = "numbers-listen-play";
   playBtn.textContent = "Play";
-  playBtn.addEventListener("click", () => {
-    if (state.numbersChecked) return;
-    playNumbersListen();
-  });
+  if (!navCaps().audio) {
+    playBtn.disabled = true;
+    playBtn.title = "Audio is off for this session";
+  } else {
+    playBtn.addEventListener("click", () => {
+      if (state.numbersChecked) return;
+      playNumbersListen();
+    });
+  }
   slots.appendChild(playBtn);
 
   const tray = document.getElementById("numbers-tray");
   tray.innerHTML = "";
 
-  if (state.numbersDifficulty === "assisted") {
+  if (state.numbersDifficulty === "assisted" || !navCaps().keyboard) {
     tray.className = "choice-grid";
     tray.setAttribute("aria-label", listenWritten ? "Written form choices" : "Number choices");
     exercise.materials.choices.forEach((n) => {
@@ -4523,6 +4671,7 @@ function renderNumbersListen() {
 }
 
 function playNumbersListen() {
+  if (!navCaps().audio) return;
   const exercise = state.currentExercise || currentNumberExercise();
   const form = exercise.resolution?.form || exercise.materials?.form;
   if (!form) return;
@@ -5973,6 +6122,10 @@ function withGermanUtterance(text, opts = {}) {
 }
 
 function speakGerman(text, rate = 0.9, onEnd) {
+  if (!navCaps().audio) {
+    if (typeof onEnd === "function") queueMicrotask(onEnd);
+    return;
+  }
   stopSpeech({ keepAdvance: true });
   withUtterance(text, { rate, lang: "de-DE", onEnd });
 }
@@ -6270,6 +6423,10 @@ function playKaraoke(item) {
 /** Full-word TTS with flowing syllable highlight (chart examples + quiz Play word). */
 function playKaraokeFlow(tts, syllables, nodes, opts = {}) {
   const { keepAdvance = false, onEnd, onError } = opts;
+  if (!navCaps().audio) {
+    onEnd?.();
+    return;
+  }
   stopSpeech({ keepAdvance });
   if (!nodes.length || !tts) {
     onError?.();
@@ -6668,7 +6825,7 @@ function bind() {
     if (practice) {
       const topicId = practice.dataset.topic;
       const stepId = practice.dataset.step;
-      const modes = modesForStep(topicId, stepId);
+      const modes = filterModesForCaps(modesForStep(topicId, stepId));
       if (modes.length <= 1) {
         startNumbersPractice({
           topicId,
@@ -6713,7 +6870,7 @@ function bind() {
     }
     const mixModeBtn = e.target.closest("[data-mix-mode]");
     if (mixModeBtn && mixModeBtn.classList.contains("numbers-mix-toggle")) {
-      state.numbersMixMode = mixModeBtn.dataset.mixMode;
+      state.numbersMixMode = mixModeForCaps(mixModeBtn.dataset.mixMode);
       const topicId = state.numbersMixTopic || state.numbersHubTopic || "cardinals";
       const eligible = new Set(
         mixableSteps(topicId, state.numbersMixMode).map((s) => s.id)

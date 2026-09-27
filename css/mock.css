@@ -979,6 +979,16 @@ body.is-session .view.is-active.view-session {
   line-height: 1.45;
 }
 
+.numbers-caps-banner {
+  margin: 0.75rem 0 0;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--accent, #c45c26) 12%, transparent);
+  border-radius: 0.4rem;
+}
+
 .numbers-browse-title {
   margin: 0 0 0.55rem;
   font-family: var(--font-display);
