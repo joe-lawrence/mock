@@ -12,11 +12,14 @@ import {
   createDecimalConstructionExercise,
   createMoneyConstructionExercise,
   submitExerciseAttempt,
-} from "../engine/exercise/index.js?v=20260927-dec2";
+} from "../engine/exercise/index.js?v=20260927-nouns6";
 import {
   associationLemmas,
   wugForms,
-} from "../engine/nouns/index.js?v=20260927-dec2";
+  lemmasWithPlural,
+  LEXICON,
+  ARTICLES,
+} from "../engine/nouns/index.js?v=20260927-nouns6";
 import {
   cardinalForm,
   parseCardinalForm,
@@ -32,13 +35,22 @@ import {
   getNumbersStep,
   getNumbersMode,
   modesForStep,
+  introModeForStep,
   isNumbersCellPlayable,
   suggestNumbersFocus,
   formatNumbersFocusLabel,
   mixableSteps,
-} from "./numbers-curriculum.js?v=20260927-nav1";
+} from "./numbers-curriculum.js?v=20260927-unit1";
+import {
+  GENDER_SHORTCUTS_UNITS,
+  NOUNS_STUB_TOPICS,
+  getGenderShortcutsUnit,
+  familiesForUnit,
+  introFamilyForUnit,
+  unitIdForFamily,
+} from "./nouns-curriculum.js?v=20260927-gs1";
 import { DECIMAL_POOLS } from "./decimals-pools.js?v=20260927-nav1";
-import { mountNavCarousel } from "./nav-carousel.js?v=20260927-nc12";
+import { mountNavCarousel } from "./nav-carousel.js?v=20260927-nc26";
 
 /** Bootstrap Icons (outline) — https://icons.getbootstrap.com */
 const BI_PATHS = {
@@ -237,7 +249,7 @@ const territories = [
   {
     id: "nouns",
     name: "Nouns",
-    blurb: "Gender, articles, plurals — patterns vs lexical facts.",
+    blurb: "Gender Shortcuts, Plurals, Articles — patterns vs lexical facts.",
     status: "playable",
     statusLabel: "Playable",
   },
@@ -560,24 +572,30 @@ const briefings = {
     ],
   },
   nouns: {
-    title: "Nouns: pattern before rote",
-    lede: "Everything here is nominative for now. Bootstrap gender from strong suffixes, lock the association, test it on Wugs, then learn plurals as a separate die = number rule.",
+    title: "Gender Shortcuts",
+    lede: "Browse by Learn unit: Suffixes and Categories share one reference each. Practice picks a family (Wugs, Real Words, Associations) — skip ahead anytime. Quiz how (choose article today) comes after family. Plurals and Articles are separate Nouns topics coming next.",
     blocks: [
+      {
+        heading: "Learn units",
+        html: `<ul>
+          <li><strong>Suffixes</strong> — morphological cues; Learn opens the gender/suffix chart</li>
+          <li><strong>Categories</strong> — soft semantic associations; Learn opens the Categories tab</li>
+        </ul>`,
+      },
+      {
+        heading: "Practice families (under a unit)",
+        html: `<ul>
+          <li><strong>Wugs</strong> / <strong>Real Words</strong> — under Suffixes (Wugs soft-first; Real Words skippable)</li>
+          <li><strong>Associations</strong> — under Categories</li>
+          <li><strong>Mix families</strong> — interleave Wugs + Real Words on Suffixes</li>
+        </ul>`,
+      },
       {
         heading: "Nominative frame",
         html: `<ul>
           <li><strong>Singular:</strong> <span class="g-tag g-masc">der</span> / <span class="g-tag g-fem">die</span> / <span class="g-tag g-neut">das</span> mark noun gender</li>
-          <li><strong>Plural:</strong> the article is always <strong>die</strong> — that is number, not feminine gender</li>
-          <li>Other cases come later; don’t generalize article shapes beyond this frame yet</li>
-        </ul>`,
-      },
-      {
-        heading: "Practice spine",
-        html: `<ul>
-          <li><strong>Articles</strong> — suffix cue → nominative singular article</li>
-          <li><strong>Association</strong> — same task by suffix family; aim ~80% before plurals feel natural</li>
-          <li><strong>Wugs</strong> — apply the pattern to novel nouns (or say insufficient info)</li>
-          <li><strong>Plurals</strong> — die is given (number); build stem + ending (— = no ending)</li>
+          <li><strong>Plural:</strong> article always <strong>die</strong> — number, not feminine (Plurals topic)</li>
+          <li>Articles as forms bridging to Case land later</li>
         </ul>`,
       },
       {
@@ -609,6 +627,12 @@ const nounsChart = {
       id: "neuter",
       label: "Neuter",
       blurb: "Diminutives -chen/-lein are near-certain neuter — even when meaning feels feminine.",
+    },
+    {
+      id: "categories",
+      label: "Categories",
+      blurb:
+        "Semantic / category correlations are soft shortcuts — lexical gender still wins when they conflict.",
     },
     {
       id: "plurals",
@@ -747,6 +771,33 @@ const nounsChart = {
         { text: "stru", guide: "STROO", stress: true },
         { text: "ment", guide: "ment" },
       ],
+    },
+  ],
+  categories: [
+    {
+      cue: "Days / months / seasons",
+      note: "tend masculine (der Montag, der Januar, der Sommer) — soft cue",
+      displayCue: "Time units",
+    },
+    {
+      cue: "Trees / weather",
+      note: "often masculine (der Baum, der Regen) — many exceptions",
+      displayCue: "Nature",
+    },
+    {
+      cue: "Rivers (many in DE)",
+      note: "often feminine (die Elbe, die Donau) — not universal",
+      displayCue: "Rivers",
+    },
+    {
+      cue: "Young people / diminutives",
+      note: "das Mädchen is neuter by -chen, not by meaning",
+      displayCue: "Form > meaning",
+    },
+    {
+      cue: "Insufficient info",
+      note: "When no reliable cue → learn the lexical fact; ? is valid on Wugs",
+      displayCue: "No cue",
     },
   ],
   plurals: [
@@ -1902,113 +1953,307 @@ function listenChoices(value) {
   return shuffle([value, ...picks]);
 }
 
-/** Demo article items — karaoke guides stay mock-side; truth/mode from exercise layer. */
-const nounArticleMeta = [
-  {
-    lemma: "Zeitung",
-    parts: [
-      { text: "die", guide: "dee" },
-      { text: "Zei", guide: "TSAI", stress: true },
-      { text: "tung", guide: "toong" },
-    ],
-  },
-  {
-    lemma: "Mädchen",
-    parts: [
-      { text: "das", guide: "dahs" },
-      { text: "Mäd", guide: "MEHD", stress: true },
-      { text: "chen", guide: "chen" },
-    ],
-  },
-  {
-    lemma: "Frühling",
-    parts: [
-      { text: "der", guide: "dair" },
-      { text: "Früh", guide: "FRUE", stress: true },
-      { text: "ling", guide: "ling" },
-    ],
-  },
-];
+/** Karaoke guides for singular article quizzes (article + lemma beats). */
+const NOUN_SINGULAR_PARTS = {
+  Zeitung: [
+    { text: "die", guide: "dee" },
+    { text: "Zei", guide: "TSAI", stress: true },
+    { text: "tung", guide: "toong" },
+  ],
+  Freiheit: [
+    { text: "die", guide: "dee" },
+    { text: "Frei", guide: "FRY", stress: true },
+    { text: "heit", guide: "hite" },
+  ],
+  Möglichkeit: [
+    { text: "die", guide: "dee" },
+    { text: "Mö", guide: "MUE", stress: true },
+    { text: "glich", guide: "glikh" },
+    { text: "keit", guide: "kite" },
+  ],
+  Freundschaft: [
+    { text: "die", guide: "dee" },
+    { text: "Freund", guide: "FROYNT", stress: true },
+    { text: "schaft", guide: "shahft" },
+  ],
+  Nation: [
+    { text: "die", guide: "dee" },
+    { text: "Na", guide: "nah" },
+    { text: "ti", guide: "TSI", stress: true },
+    { text: "on", guide: "ohn" },
+  ],
+  Frühling: [
+    { text: "der", guide: "dair" },
+    { text: "Früh", guide: "FRUE", stress: true },
+    { text: "ling", guide: "ling" },
+  ],
+  Tourismus: [
+    { text: "der", guide: "dair" },
+    { text: "Tou", guide: "too" },
+    { text: "ris", guide: "RIS", stress: true },
+    { text: "mus", guide: "moos" },
+  ],
+  Lehrer: [
+    { text: "der", guide: "dair" },
+    { text: "Lehr", guide: "LAYR", stress: true },
+    { text: "er", guide: "er" },
+  ],
+  Mädchen: [
+    { text: "das", guide: "dahs" },
+    { text: "Mäd", guide: "MEHD", stress: true },
+    { text: "chen", guide: "chen" },
+  ],
+  Büchlein: [
+    { text: "das", guide: "dahs" },
+    { text: "Büch", guide: "BUEKH", stress: true },
+    { text: "lein", guide: "line" },
+  ],
+  Instrument: [
+    { text: "das", guide: "dahs" },
+    { text: "In", guide: "in" },
+    { text: "stru", guide: "STROO", stress: true },
+    { text: "ment", guide: "ment" },
+  ],
+  Tag: [
+    { text: "der", guide: "dair" },
+    { text: "Tag", guide: "TAHK", stress: true },
+  ],
+  Buch: [
+    { text: "das", guide: "dahs" },
+    { text: "Buch", guide: "BOOKH", stress: true },
+  ],
+  Auto: [
+    { text: "das", guide: "dahs" },
+    { text: "Au", guide: "OW", stress: true },
+    { text: "to", guide: "toh" },
+  ],
+};
 
-/** Demo plural items — forms from exercise layer; karaoke guides mock-side. */
-const nounPluralMeta = [
-  {
-    lemma: "Zeitung",
-    translation: "newspapers",
-    answerParts: [
-      { text: "die", guide: "dee" },
-      { text: "Zei", guide: "TSAI", stress: true },
-      { text: "tun", guide: "toon" },
-      { text: "gen", guide: "gen" },
-    ],
-  },
-  {
-    lemma: "Tag",
-    translation: "days",
-    answerParts: [
-      { text: "die", guide: "dee" },
-      { text: "Ta", guide: "TAH", stress: true },
-      { text: "ge", guide: "ge" },
-    ],
-  },
-  {
-    lemma: "Buch",
-    translation: "books",
-    answerParts: [
-      { text: "die", guide: "dee" },
-      { text: "Bü", guide: "BUE", stress: true },
-      { text: "cher", guide: "kher" },
-    ],
-  },
-  {
-    lemma: "Auto",
-    translation: "cars",
-    answerParts: [
-      { text: "die", guide: "dee" },
-      { text: "Au", guide: "OW", stress: true },
-      { text: "tos", guide: "tohs" },
-    ],
-  },
-  {
-    lemma: "Mädchen",
-    translation: "girls",
-    answerParts: [
-      { text: "die", guide: "dee" },
-      { text: "Mäd", guide: "MEHD", stress: true },
-      { text: "chen", guide: "chen" },
-    ],
-  },
-];
+/** Karaoke guides for plural reveal (die + stem beats + ending where spoken). */
+const NOUN_PLURAL_PARTS = {
+  Zeitung: [
+    { text: "die", guide: "dee" },
+    { text: "Zei", guide: "TSAI", stress: true },
+    { text: "tun", guide: "toon" },
+    { text: "gen", guide: "gen" },
+  ],
+  Freiheit: [
+    { text: "die", guide: "dee" },
+    { text: "Frei", guide: "FRY", stress: true },
+    { text: "hei", guide: "hye" },
+    { text: "ten", guide: "ten" },
+  ],
+  Möglichkeit: [
+    { text: "die", guide: "dee" },
+    { text: "Mö", guide: "MUE", stress: true },
+    { text: "glich", guide: "glikh" },
+    { text: "kei", guide: "kye" },
+    { text: "ten", guide: "ten" },
+  ],
+  Freundschaft: [
+    { text: "die", guide: "dee" },
+    { text: "Freund", guide: "FROYNT", stress: true },
+    { text: "schaf", guide: "shahf" },
+    { text: "ten", guide: "ten" },
+  ],
+  Nation: [
+    { text: "die", guide: "dee" },
+    { text: "Na", guide: "nah" },
+    { text: "ti", guide: "TSI", stress: true },
+    { text: "o", guide: "oh" },
+    { text: "nen", guide: "nen" },
+  ],
+  Frühling: [
+    { text: "die", guide: "dee" },
+    { text: "Früh", guide: "FRUE", stress: true },
+    { text: "lin", guide: "lin" },
+    { text: "ge", guide: "ge" },
+  ],
+  Lehrer: [
+    { text: "die", guide: "dee" },
+    { text: "Lehr", guide: "LAYR", stress: true },
+    { text: "er", guide: "er" },
+  ],
+  Mädchen: [
+    { text: "die", guide: "dee" },
+    { text: "Mäd", guide: "MEHD", stress: true },
+    { text: "chen", guide: "chen" },
+  ],
+  Büchlein: [
+    { text: "die", guide: "dee" },
+    { text: "Büch", guide: "BUEKH", stress: true },
+    { text: "lein", guide: "line" },
+  ],
+  Instrument: [
+    { text: "die", guide: "dee" },
+    { text: "In", guide: "in" },
+    { text: "stru", guide: "STROO", stress: true },
+    { text: "men", guide: "men" },
+    { text: "te", guide: "te" },
+  ],
+  Tag: [
+    { text: "die", guide: "dee" },
+    { text: "Ta", guide: "TAH", stress: true },
+    { text: "ge", guide: "ge" },
+  ],
+  Buch: [
+    { text: "die", guide: "dee" },
+    { text: "Bü", guide: "BUE", stress: true },
+    { text: "cher", guide: "kher" },
+  ],
+  Auto: [
+    { text: "die", guide: "dee" },
+    { text: "Au", guide: "OW", stress: true },
+    { text: "tos", guide: "tohs" },
+  ],
+};
+
+function fallbackSingularParts(lemma) {
+  const entry = LEXICON[lemma];
+  const article = entry ? ARTICLES[entry.gender] : "die";
+  const artGuide =
+    article === "der" ? "dair" : article === "das" ? "dahs" : "dee";
+  return [
+    { text: article, guide: artGuide },
+    { text: lemma, guide: lemma, stress: true },
+  ];
+}
+
+function fallbackPluralParts(lemma) {
+  const entry = LEXICON[lemma];
+  const form = entry?.plural?.form || lemma;
+  return [
+    { text: "die", guide: "dee" },
+    { text: form, guide: form, stress: true },
+  ];
+}
+
+/** Real Words / Association: suffix-cued lemmas only (pattern spine). */
+const nounArticleMeta = associationLemmas().map(({ lemma }) => ({
+  lemma,
+  parts: NOUN_SINGULAR_PARTS[lemma] || fallbackSingularParts(lemma),
+}));
+
+/** Plurals: all recorded plurals (includes a few chart exemplars without gender suffix). */
+const NOUN_PLURAL_EN = {
+  Zeitung: "newspapers",
+  Rechnung: "bills",
+  Wohnung: "apartments",
+  Bedeutung: "meanings",
+  Hoffnung: "hopes",
+  Erfahrung: "experiences",
+  Übung: "exercises",
+  Lösung: "solutions",
+  Erzählung: "stories",
+  Freiheit: "freedoms",
+  Schönheit: "beauties",
+  Krankheit: "illnesses",
+  Wahrheit: "truths",
+  Sicherheit: "securities",
+  Möglichkeit: "possibilities",
+  Fähigkeit: "abilities",
+  Schwierigkeit: "difficulties",
+  Geschwindigkeit: "speeds",
+  Freundschaft: "friendships",
+  Wirtschaft: "economies",
+  Landschaft: "landscapes",
+  Wissenschaft: "sciences",
+  Gesellschaft: "societies",
+  Nation: "nations",
+  Information: "pieces of information",
+  Situation: "situations",
+  Station: "stations",
+  Region: "regions",
+  Diskussion: "discussions",
+  Frühling: "springs",
+  Lehrling: "apprentices",
+  Flüchtling: "refugees",
+  Findling: "foundlings",
+  Mädchen: "girls",
+  Häuschen: "little houses",
+  Brötchen: "bread rolls",
+  Märchen: "fairy tales",
+  Kaninchen: "rabbits",
+  Büchlein: "booklets",
+  Kindlein: "little children",
+  Fräulein: "young women",
+  Instrument: "instruments",
+  Dokument: "documents",
+  Experiment: "experiments",
+  Argument: "arguments",
+  Monument: "monuments",
+  Tag: "days",
+  Buch: "books",
+  Auto: "cars",
+};
+
+const nounPluralMeta = lemmasWithPlural().map((lemma) => {
+  const entry = LEXICON[lemma];
+  return {
+    lemma,
+    translation: NOUN_PLURAL_EN[lemma] || entry?.gloss || "",
+    answerParts: NOUN_PLURAL_PARTS[lemma] || fallbackPluralParts(lemma),
+  };
+});
+
+const nounAssociationPool = associationLemmas();
+const nounWugPool = wugForms();
+
+function ensureNounDeck(kind) {
+  const deckKey = `nouns${kind}Deck`;
+  const source =
+    kind === "Article"
+      ? nounArticleMeta
+      : kind === "Plural"
+        ? nounPluralMeta
+        : kind === "Association"
+          ? nounAssociationPool
+          : nounWugPool;
+  if (!Array.isArray(state[deckKey]) || state[deckKey].length !== source.length) {
+    state[deckKey] = shuffle([...source]);
+  }
+  return state[deckKey];
+}
+
+function reshuffleNounDeck(kind) {
+  const deckKey = `nouns${kind}Deck`;
+  const source =
+    kind === "Article"
+      ? nounArticleMeta
+      : kind === "Plural"
+        ? nounPluralMeta
+        : kind === "Association"
+          ? nounAssociationPool
+          : nounWugPool;
+  state[deckKey] = shuffle([...source]);
+}
 
 function currentNounArticleExercise() {
-  const meta = nounArticleMeta[state.nounsIndex % nounArticleMeta.length];
+  const deck = ensureNounDeck("Article");
+  const meta = deck[state.nounsIndex % deck.length];
   return createNounArticleExercise(meta.lemma, {
     mode: state.nounsDifficulty,
     answerParts: meta.parts,
   });
 }
 
-const nounAssociationPool = associationLemmas();
-const nounWugPool = wugForms();
-
 function currentNounAssociationExercise() {
-  const item =
-    nounAssociationPool[
-      state.nounsAssociationIndex % Math.max(1, nounAssociationPool.length)
-    ];
+  const deck = ensureNounDeck("Association");
+  const item = deck[state.nounsAssociationIndex % Math.max(1, deck.length)];
   return createNounAssociationExercise(item.lemma, {
     mode: state.nounsDifficulty,
   });
 }
 
 function currentNounWugExercise() {
-  const form =
-    nounWugPool[state.nounsWugIndex % Math.max(1, nounWugPool.length)];
+  const deck = ensureNounDeck("Wug");
+  const form = deck[state.nounsWugIndex % Math.max(1, deck.length)];
   return createNounWugExercise(form, { mode: state.nounsDifficulty });
 }
 
 function currentNounPluralExercise() {
-  const meta = nounPluralMeta[state.nounsPluralIndex % nounPluralMeta.length];
+  const deck = ensureNounDeck("Plural");
+  const meta = deck[state.nounsPluralIndex % deck.length];
   return createNounPluralExercise(meta.lemma, {
     mode: state.nounsDifficulty,
     translation: meta.translation,
@@ -2018,7 +2263,8 @@ function currentNounPluralExercise() {
 
 function isNounArticleLikeMode() {
   return (
-    state.nounsMode === "articles" ||
+    state.nounsMode === "real-words" ||
+    state.nounsMode === "articles" || // legacy alias
     state.nounsMode === "association" ||
     state.nounsMode === "wugs"
   );
@@ -3311,6 +3557,11 @@ const state = {
   nounsPluralIndex: 0,
   nounsAssociationIndex: 0,
   nounsWugIndex: 0,
+  /** Shuffled question decks (rebuilt when mode starts / pass completes). */
+  nounsArticleDeck: null,
+  nounsPluralDeck: null,
+  nounsAssociationDeck: null,
+  nounsWugDeck: null,
   numbersFilled: [],
   nounsFilled: [],
   nounsArticle: null,
@@ -3319,7 +3570,15 @@ const state = {
   numbersListenRetryUsed: false,
   numbersConvertRetryUsed: false,
   soundsMode: "karaoke",
-  nounsMode: "articles",
+  nounsMode: "wugs",
+  /** Gender Shortcuts learn unit: suffixes | categories */
+  nounsLearnUnit: "suffixes",
+  /** focus | family-mix */
+  nounsSessionKind: "focus",
+  nounsFamilyMix: [],
+  nounsModality: "choose-article",
+  /** Hub: learn unit id while Practice family picker is open. */
+  nounsHubPracticePick: "",
   numbersDifficulty: "assisted",
   nounsDifficulty: "assisted",
   soundsDifficulty: "assisted",
@@ -3342,11 +3601,11 @@ const state = {
   /** In-memory attempt log (mock stand-in for persistence). */
   attemptLog: [],
 
-  /** briefing | chart | practice | hub (Numbers) */
+  /** briefing | chart | practice | hub */
   phase: {
     sounds: "briefing",
     numbers: "hub",
-    nouns: "briefing",
+    nouns: "hub",
   },
   /**
    * When true, returning to practice restores the hidden stage instead of
@@ -3379,7 +3638,8 @@ const state = {
   nounsChartTab: "feminine",
 };
 
-/** Caps from hub carousel (localStorage) + session Start; default both on. */
+/** Caps from hub carousel (localStorage) + session Start; default Write+Listen on.
+ * Pick-style quizzes (Build / Choose article) are always available. */
 function navCaps() {
   try {
     const raw = localStorage.getItem("schnapp-nav-caps");
@@ -3415,10 +3675,17 @@ function mixModeForCaps(preferred) {
   const caps = navCaps();
   const p = preferred || "either";
   if (p === "build") return "build";
-  if (p === "listen") return caps.audio ? "listen" : "build";
-  if (p === "convert") return caps.keyboard ? "convert" : "build";
-  // either — keep when any free-form / audio modality is on; buildMixDeck filters
+  if (p === "listen") return modeAllowedByCaps("listen") ? "listen" : firstAllowedModeId();
+  if (p === "convert")
+    return modeAllowedByCaps("convert") ? "convert" : firstAllowedModeId();
   if (caps.audio || caps.keyboard) return "either";
+  return "build";
+}
+
+function firstAllowedModeId() {
+  if (modeAllowedByCaps("build")) return "build";
+  if (modeAllowedByCaps("listen")) return "listen";
+  if (modeAllowedByCaps("convert")) return "convert";
   return "build";
 }
 
@@ -3435,8 +3702,8 @@ function capsSessionHint() {
   const caps = navCaps();
   if (caps.keyboard && caps.audio) return "";
   const parts = [];
-  if (!caps.audio) parts.push("audio off");
-  if (!caps.keyboard) parts.push("keyboard off");
+  if (!caps.audio) parts.push("listen off");
+  if (!caps.keyboard) parts.push("write off");
   return parts.join(" · ");
 }
 
@@ -3485,7 +3752,8 @@ function navigate(view, opts = {}) {
 
   if (view === "numbers" || view === "nouns" || view === "sounds") {
     if (!opts.keepPhase) {
-      state.phase[view] = view === "numbers" ? "hub" : "practice";
+      state.phase[view] =
+        view === "numbers" || view === "nouns" ? "hub" : "practice";
       state.preservePractice[view] = false;
     }
     showTerritoryPhase(view);
@@ -3730,9 +3998,18 @@ function syncTerritoryMenu(territoryId) {
 
   if (territoryId === "numbers") {
     syncNumbersCurriculumMenu(menu, phase);
+  } else if (territoryId === "nouns") {
+    menu.querySelectorAll("[data-nouns-hub]").forEach((btn) => {
+      btn.classList.toggle("is-on", phase === "hub");
+    });
+    menu.querySelectorAll("[data-nouns-unit]").forEach((btn) => {
+      const on =
+        (phase === "hub" || phase === "chart" || phase === "practice") &&
+        btn.dataset.nounsUnit === state.nounsLearnUnit;
+      btn.classList.toggle("is-on", on);
+    });
   } else {
-    const modeAttr =
-      territoryId === "nouns" ? "nounsMode" : "soundsMode";
+    const modeAttr = "soundsMode";
     menu.querySelectorAll(`[data-${territoryId}-mode]`).forEach((btn) => {
       const on = phase === "practice" && btn.dataset[modeAttr] === modeKey;
       btn.classList.toggle("is-on", on);
@@ -3870,6 +4147,77 @@ function openNumbersStepLearn(topicId, stepId) {
   );
 }
 
+/** Map carousel / hub Nouns learn unit → reference chart tab. */
+function nounsChartTabForUnit(unit) {
+  if (unit?.chartTab && nounsChart[unit.chartTab]) return unit.chartTab;
+  const learnId = unit?.learnUnitId || "";
+  const fromReg = getGenderShortcutsUnit(learnId);
+  if (fromReg?.chartTab && nounsChart[fromReg.chartTab]) return fromReg.chartTab;
+  const id = unit?.id || learnId || "";
+  if (id.includes("categor")) return "categories";
+  if (id.includes("suffix")) return "feminine";
+  if (id.includes("plural")) return "plurals";
+  if (id.includes("masc")) return "masculine";
+  if (id.includes("neut")) return "neuter";
+  return "feminine";
+}
+
+/** Resolve practice family id from a nav unit or explicit family. */
+function nounsFamilyForNavUnit(unit) {
+  if (unit?.nounsMode) return unit.nounsMode;
+  if (unit?.familyId) return unit.familyId;
+  const id = unit?.id || "";
+  if (id.includes("wugs") && !id.includes("plural")) return "wugs";
+  if (id.includes("real-words") || id.includes("real_words")) return "real-words";
+  if (id.includes("association")) return "association";
+  const learnId = unit?.learnUnitId || "";
+  return introFamilyForUnit(learnId)?.id || "wugs";
+}
+
+function openNounsStepLearn(units) {
+  const list = Array.isArray(units) ? units : [];
+  const u = list[0];
+  const learnId = u?.learnUnitId || unitIdForFamily(nounsFamilyForNavUnit(u));
+  state.nounsLearnUnit = learnId;
+  const tab = nounsChartTabForUnit(u) || getGenderShortcutsUnit(learnId)?.chartTab || "feminine";
+  state.nounsChartTab = nounsChart[tab] ? tab : "feminine";
+  state.phase.nouns = "chart";
+  state.preservePractice.nouns = false;
+  navigate("nouns", { keepPhase: true });
+}
+
+function startNounsFamily(familyId, { mix = false } = {}) {
+  const unitId = unitIdForFamily(familyId);
+  state.nounsLearnUnit = unitId;
+  state.nounsModality = "choose-article";
+  state.nounsHubPracticePick = "";
+  if (mix) {
+    state.nounsSessionKind = "family-mix";
+    state.nounsFamilyMix = familiesForUnit(unitId).map((f) => f.id);
+    state.nounsMode = state.nounsFamilyMix[0] || familyId;
+  } else {
+    state.nounsSessionKind = "focus";
+    state.nounsFamilyMix = [];
+    state.nounsMode = familyId;
+  }
+  resetNounsDeckForMode();
+  state.phase.nouns = "practice";
+  state.preservePractice.nouns = false;
+  navigate("nouns", { keepPhase: true });
+}
+
+function goNounsHub(opts = {}) {
+  clearNounsAdvance();
+  stopSpeech();
+  state.preservePractice.nouns = false;
+  state.phase.nouns = "hub";
+  if (opts.unitId) {
+    state.nounsLearnUnit = opts.unitId;
+    state.nounsHubPracticePick = opts.openPractice ? opts.unitId : "";
+  }
+  navigate("nouns", { keepPhase: true });
+}
+
 function goNumbersHub() {
   clearNumbersAdvance();
   stopSpeech();
@@ -3959,12 +4307,19 @@ function renderNumbersHub() {
         if (!modes.length) {
           practiceActions = `<button type="button" class="btn btn-primary" disabled>Practice</button>`;
         } else if (picking && modes.length > 1) {
-          practiceActions = modes
-            .map(
-              (m) =>
-                `<button type="button" class="chip" data-hub-start data-topic="${t.id}" data-step="${s.id}" data-mode="${m.id}">${m.label}</button>`
-            )
+          const introId = introModeForStep(t.id, s.id)?.id;
+          const modeChips = modes
+            .map((m) => {
+              const suggested = m.id === introId;
+              return `<button type="button" class="chip${
+                suggested ? " is-suggested" : ""
+              }" data-hub-start data-topic="${t.id}" data-step="${s.id}" data-mode="${m.id}" title="${
+                suggested ? "Soft intro — try first" : m.blurb || m.label
+              }">${m.label}${suggested ? " · first" : ""}</button>`;
+            })
             .join("");
+          const mixModesChip = `<button type="button" class="chip chip-mix-modes" data-hub-mix-modes data-topic="${t.id}" data-step="${s.id}" title="Interleave modalities on this unit">Mix modes</button>`;
+          practiceActions = `${modeChips}${mixModesChip}`;
         } else {
           practiceActions = `<button type="button" class="btn btn-primary" data-hub-practice data-topic="${t.id}" data-step="${s.id}">Practice</button>`;
         }
@@ -4008,7 +4363,7 @@ function renderNumbersHub() {
             ? `<p class="numbers-step-note">${
                 soon
                   ? "Preview only — not playable yet."
-                  : "Learn opens the step’s reference. Practice drills that step. Use Mix to build a custom mix."
+                  : "Learn is per unit (shared reference). Practice picks a modality or mixes them — not separate Learn pages."
               }</p>
         <ul class="numbers-step-list">${stepRows}</ul>`
             : ""
@@ -4041,7 +4396,7 @@ function renderNumbersHub() {
   root.innerHTML = `
     <header class="numbers-hub-hero">
       <h1>Numbers</h1>
-      <p class="numbers-hub-lede">Guided practice, drill one step, or build a custom mix — you can skip ahead anytime.</p>
+      <p class="numbers-hub-lede">Browse by unit. Learn opens that unit’s reference. Practice focuses or mixes quiz modalities — you can skip ahead anytime.</p>
     </header>
     ${capsBanner}
 
@@ -4068,7 +4423,7 @@ function renderNumbersHub() {
         <h2 class="numbers-browse-title">Custom mix</h2>
         <span class="numbers-path-hint">You choose</span>
       </div>
-      <p class="numbers-mix-lede">Steps you mark with Mix shuffle into one session.</p>
+      <p class="numbers-mix-lede">Mark units with Mix, then choose a modality — or <strong>Either</strong> to interleave modalities for interest and difficulty.</p>
       ${mixSummary}
       <div class="numbers-mix-block">
         <p class="numbers-mix-label" id="numbers-mix-mode-label">Mode</p>
@@ -4077,6 +4432,78 @@ function renderNumbersHub() {
       <button type="button" class="btn btn-primary numbers-mix-start" id="numbers-mix-start" ${
         mixCount ? "" : "disabled"
       }>Start custom mix${mixCount ? ` · ${mixCount}` : ""}</button>
+    </section>
+  `;
+}
+
+function renderNounsHub() {
+  const root = document.getElementById("nouns-hub");
+  if (!root) return;
+
+  const introUnit = getGenderShortcutsUnit("suffixes");
+  const introFam = introFamilyForUnit("suffixes");
+
+  const unitRows = GENDER_SHORTCUTS_UNITS.map((u) => {
+    const fams = familiesForUnit(u.id);
+    const intro = introFamilyForUnit(u.id);
+    return `<li class="numbers-step-row">
+      <div class="numbers-step-copy">
+        <strong>${u.label}</strong>
+        ${u.blurb ? `<span class="numbers-step-blurb">${u.blurb}</span>` : ""}
+      </div>
+      <div class="numbers-step-actions">
+        <div class="numbers-step-actions-main">
+          <button type="button" class="btn" data-nouns-learn data-unit="${u.id}">Learn</button>
+          <button type="button" class="btn btn-primary" data-nouns-start-family data-family="${
+            intro?.id || fams[0]?.id || "wugs"
+          }" ${fams.length ? "" : "disabled"}>Practice</button>
+        </div>
+      </div>
+    </li>`;
+  }).join("");
+
+  const stubs = NOUNS_STUB_TOPICS.map(
+    (t) => `<li class="numbers-step-row is-preview">
+      <div class="numbers-step-copy">
+        <strong>${t.label}</strong>
+        <span class="numbers-step-cue">Coming soon</span>
+        ${t.blurb ? `<span class="numbers-step-blurb">${t.blurb}</span>` : ""}
+      </div>
+      <div class="numbers-step-actions">
+        <button type="button" class="btn" disabled>Learn</button>
+        <button type="button" class="btn btn-primary" disabled>Practice</button>
+      </div>
+    </li>`
+  ).join("");
+
+  root.innerHTML = `
+    <header class="numbers-hub-hero">
+      <h1>Nouns</h1>
+      <p class="numbers-hub-lede">Learn by cue system. Use hub Play caps (Write / Listen) for quiz styles; Pick is always on.</p>
+    </header>
+
+    <section class="numbers-guided" aria-label="Guided practice">
+      <div class="numbers-path-head">
+        <span class="dealer-badge">Guided practice</span>
+        <span class="numbers-path-hint">App chooses</span>
+      </div>
+      <p class="dealer-copy"><strong>${introUnit?.label || "Suffixes"} · ${
+    introFam?.label || "Wugs"
+  }</strong> — Soft intro on novel nouns</p>
+      <button type="button" class="btn btn-primary" data-nouns-start-family data-family="${
+        introFam?.id || "wugs"
+      }">Start guided</button>
+    </section>
+
+    <section class="numbers-browse" aria-label="Gender Shortcuts">
+      <h2 class="numbers-browse-title">Gender Shortcuts</h2>
+      <p class="numbers-step-note">Learn opens reference. Practice starts the soft-first family — Write / Listen on the hub bar add styles; Pick stays on.</p>
+      <ul class="numbers-step-list">${unitRows}</ul>
+    </section>
+
+    <section class="numbers-browse" aria-label="More Nouns topics">
+      <h2 class="numbers-browse-title">More topics</h2>
+      <ul class="numbers-step-list">${stubs}</ul>
     </section>
   `;
 }
@@ -4109,6 +4536,17 @@ function showTerritoryPhase(territoryId) {
     if (hub) {
       hub.hidden = false;
       renderNumbersHub();
+    }
+    stopSpeech();
+    return;
+  }
+
+  if (territoryId === "nouns" && phase === "hub") {
+    if (briefing) briefing.hidden = true;
+    if (stage) stage.hidden = true;
+    if (hub) {
+      hub.hidden = false;
+      renderNounsHub();
     }
     stopSpeech();
     return;
@@ -4277,12 +4715,19 @@ function renderNounsChart() {
       </p>
       ${r.from ? `<p class="chart-note-cell">${r.from}</p>` : ""}
       ${r.note ? `<p class="chart-note-cell">${r.note}</p>` : ""}
+      ${r.cue && r.displayCue ? `<p class="chart-note-cell">${r.cue}</p>` : ""}
     `;
+
+    const parts = r.parts || [];
+    if (!parts.length) {
+      row.append(pattern);
+      list.appendChild(row);
+      return;
+    }
 
     const example = document.createElement("button");
     example.type = "button";
     example.className = "chart-example-play";
-    const parts = r.parts || [];
     const ttsWord = parts
       .map((p, i) => {
         if (i === 0 && ["die", "der", "das"].includes(p.text)) return p.text + " ";
@@ -4322,7 +4767,7 @@ function renderNounsChart() {
   });
 }
 
-function handleNavCarouselStart({ mode, units, keyboard, audio }) {
+function handleNavCarouselStart({ mode, units, keyboard, audio, practice }) {
   const numbersUnits = units.filter((u) => u.territory === "numbers" && u.topicId && u.stepId);
   const nounsUnits = units.filter((u) => u.territory === "nouns");
 
@@ -4336,7 +4781,7 @@ function handleNavCarouselStart({ mode, units, keyboard, audio }) {
       return;
     }
     if (nounsUnits.length) {
-      navigate("nouns");
+      openNounsStepLearn(nounsUnits);
       return;
     }
     return;
@@ -4358,17 +4803,27 @@ function handleNavCarouselStart({ mode, units, keyboard, audio }) {
       }
     }
 
-    let mixMode = mixModeForCaps("either");
+    const prefModes = (practice?.numbersModes || []).filter((id) =>
+      modeAllowedByCaps(id)
+    );
+    let mixMode = "either";
+    if (prefModes.length === 1) mixMode = prefModes[0];
+    else if (prefModes.length > 1) mixMode = mixModeForCaps("either");
+    else mixMode = mixModeForCaps("either");
 
     const eligible = new Set(mixableSteps(topicId, mixMode).map((s) => s.id));
     const selected = stepIds.filter((id) => eligible.has(id));
     if (!selected.length) {
       const u = numbersUnits[0];
       const modes = filterModesForCaps(modesForStep(u.topicId, u.stepId));
+      const modeId =
+        prefModes.find((id) => modes.some((m) => m.id === id)) ||
+        modes[0]?.id ||
+        "build";
       startNumbersPractice({
         topicId: u.topicId,
         stepId: u.stepId,
-        modeId: modes[0]?.id || "build",
+        modeId,
         difficulty: state.numbersDifficulty,
         lock: true,
       });
@@ -4385,8 +4840,58 @@ function handleNavCarouselStart({ mode, units, keyboard, audio }) {
   }
 
   if (nounsUnits.length) {
-    navigate("nouns");
+    startNounsFromPlaylist(nounsUnits, practice);
   }
+}
+
+/** Play playlist of Gender Shortcuts learn units; families from units, style from caps. */
+function startNounsFromPlaylist(nounsUnits, practice) {
+  const playable = nounsUnits.filter((u) => u.playable !== false);
+  if (!playable.length) return;
+
+  const learnIds = [
+    ...new Set(
+      playable.map(
+        (u) => u.learnUnitId || unitIdForFamily(nounsFamilyForNavUnit(u))
+      )
+    ),
+  ];
+
+  // All playable families under selected learn units
+  let uniqueFamilies = [];
+  for (const learnId of learnIds) {
+    for (const f of familiesForUnit(learnId)) {
+      if (!uniqueFamilies.includes(f.id)) uniqueFamilies.push(f.id);
+    }
+  }
+  if (!uniqueFamilies.length) {
+    const intro = introFamilyForUnit(learnIds[0]);
+    uniqueFamilies = [intro?.id || "wugs"];
+  }
+
+  const caps = navCaps();
+  const modality =
+    (practice?.nounsModalities || []).find((id) => {
+      if (id === "choose-article") return true;
+      if (id === "type-article") return caps.keyboard;
+      return false;
+    }) || "choose-article";
+  state.nounsModality = modality;
+
+  if (uniqueFamilies.length === 1) {
+    startNounsFamily(uniqueFamilies[0]);
+    return;
+  }
+  // Multi-family → mix across playlist prefs
+  state.nounsLearnUnit = unitIdForFamily(uniqueFamilies[0]);
+  state.nounsSessionKind = "family-mix";
+  state.nounsFamilyMix = uniqueFamilies;
+  state.nounsMode = uniqueFamilies[0];
+  state.nounsHubPracticePick = "";
+  resetNounsDeckForMode();
+  state.phase.nouns = "practice";
+  state.preservePractice.nouns = false;
+  navigate("nouns", { keepPhase: true });
 }
 
 /** @type {{ resetToMode: Function } | null} */
@@ -5415,7 +5920,7 @@ function applyNounScaffoldingChrome(exercise) {
   }
 }
 
-/** Shared Articles / Association / Wugs tray + slots. */
+/** Shared Real Words / Association / Wugs tray + slots. */
 function renderNounArticleLike(exercise, { familyLine = "" } = {}) {
   state.currentExercise = exercise;
   state.nounsArticle = null;
@@ -5439,7 +5944,7 @@ function renderNounArticleLike(exercise, { familyLine = "" } = {}) {
   const back = document.getElementById("nouns-back");
   if (back) {
     back.disabled =
-      state.nounsMode === "articles"
+      state.nounsMode === "real-words" || state.nounsMode === "articles"
         ? state.nounsIndex <= 0
         : state.nounsMode === "association"
           ? state.nounsAssociationIndex <= 0
@@ -5465,16 +5970,18 @@ function renderNounArticleLike(exercise, { familyLine = "" } = {}) {
 
   const tray = document.getElementById("nouns-tray");
   tray.innerHTML = "";
+  // Keep der / die / das in fixed pedagogical order; shuffle only extras (?).
   const choiceMeta = [
     { id: "der", text: "der", gender: "masculine" },
     { id: "die", text: "die", gender: "feminine" },
     { id: "das", text: "das", gender: "neuter" },
   ];
+  const extras = [];
   if (exercise.materials.allowInsufficient) {
-    choiceMeta.push({ id: "insufficient", text: "?", gender: null });
+    extras.push({ id: "insufficient", text: "?", gender: null });
   }
   const colorChoices = exercise.scaffolding.showChoiceGenderColors;
-  choiceMeta.forEach((a) => {
+  [...choiceMeta, ...shuffle(extras)].forEach((a) => {
     const piece = document.createElement("button");
     piece.type = "button";
     piece.className = "piece";
@@ -5606,23 +6113,13 @@ function renderNounsPlurals() {
   });
 }
 
-/** Tray order: stems → endings (not shuffled). No articles — die is given. Always include —. */
+/** Tray labels shuffled each question (stems + endings mixed). Always include —. */
 function orderPluralTrayLabels(buildParts, distractors) {
-  const endingOrder = ["e", "en", "n", "er", "s", "—"];
-  const endingSet = new Set(endingOrder);
   const articles = new Set(["der", "die", "das"]);
   const pool = new Set([...(buildParts || []), ...(distractors || []), "—"]);
-
-  const stems = [...pool].filter(
-    (t) => !articles.has(t) && !endingSet.has(t)
-  );
-  const endings = endingOrder.filter((t) => pool.has(t));
-  for (const t of pool) {
-    if (endingSet.has(t) || articles.has(t) || stems.includes(t)) continue;
-    endings.push(t);
-  }
-
-  return [...stems, ...endings];
+  const labels = [...pool].filter((t) => !articles.has(t));
+  if (!labels.includes("—")) labels.push("—");
+  return shuffle(labels);
 }
 
 function placeArticle(id) {
@@ -5720,15 +6217,61 @@ function clearNounsAdvance() {
   clearCorrectFlashTimer();
 }
 
+function advanceNounsIndex() {
+  if (
+    state.nounsSessionKind === "family-mix" &&
+    state.nounsFamilyMix.length > 1
+  ) {
+    const i = state.nounsFamilyMix.indexOf(state.nounsMode);
+    state.nounsMode =
+      state.nounsFamilyMix[(i + 1) % state.nounsFamilyMix.length] ||
+      state.nounsMode;
+  }
+  const kind =
+    state.nounsMode === "plurals"
+      ? "Plural"
+      : state.nounsMode === "association"
+        ? "Association"
+        : state.nounsMode === "wugs"
+          ? "Wug"
+          : "Article";
+  const deck = ensureNounDeck(kind);
+  const indexKey =
+    kind === "Plural"
+      ? "nounsPluralIndex"
+      : kind === "Association"
+        ? "nounsAssociationIndex"
+        : kind === "Wug"
+          ? "nounsWugIndex"
+          : "nounsIndex";
+  state[indexKey] += 1;
+  if (state[indexKey] >= deck.length) {
+    reshuffleNounDeck(kind);
+    state[indexKey] = 0;
+  }
+}
+
+function resetNounsDeckForMode() {
+  const kind =
+    state.nounsMode === "plurals"
+      ? "Plural"
+      : state.nounsMode === "association"
+        ? "Association"
+        : state.nounsMode === "wugs"
+          ? "Wug"
+          : "Article";
+  reshuffleNounDeck(kind);
+  if (kind === "Plural") state.nounsPluralIndex = 0;
+  else if (kind === "Association") state.nounsAssociationIndex = 0;
+  else if (kind === "Wug") state.nounsWugIndex = 0;
+  else state.nounsIndex = 0;
+}
+
 function scheduleNounsAdvance(delayMs = 1500) {
   clearNounsAdvance();
   state.nounsAdvanceTimer = setTimeout(() => {
     state.nounsAdvanceTimer = null;
-    if (state.nounsMode === "plurals") state.nounsPluralIndex += 1;
-    else if (state.nounsMode === "association")
-      state.nounsAssociationIndex += 1;
-    else if (state.nounsMode === "wugs") state.nounsWugIndex += 1;
-    else state.nounsIndex += 1;
+    advanceNounsIndex();
     renderNouns();
   }, delayMs);
 }
@@ -6727,9 +7270,9 @@ function bind() {
       openSheet(
         "Reference",
         `<ul>
-          <li>Same nominative-singular task as Articles, grouped by suffix family</li>
+          <li>Same nominative-singular task as Real Words, grouped by suffix family</li>
           <li>Aim ~80% on a family before plurals feel natural for that pattern</li>
-          <li>This is a soft readiness signal — Plurals stays open</li>
+          <li>This is a soft readiness signal — Plurals stays a separate topic</li>
         </ul>`
       );
       return;
@@ -6756,11 +7299,7 @@ function bind() {
   });
   document.getElementById("nouns-skip").addEventListener("click", () => {
     clearNounsAdvance();
-    if (state.nounsMode === "plurals") state.nounsPluralIndex += 1;
-    else if (state.nounsMode === "association")
-      state.nounsAssociationIndex += 1;
-    else if (state.nounsMode === "wugs") state.nounsWugIndex += 1;
-    else state.nounsIndex += 1;
+    advanceNounsIndex();
     renderNouns();
   });
 
@@ -6853,6 +7392,17 @@ function bind() {
       });
       return;
     }
+    const mixModes = e.target.closest("[data-hub-mix-modes]");
+    if (mixModes) {
+      const topicId = mixModes.dataset.topic;
+      const stepId = mixModes.dataset.step;
+      state.numbersMixTopic = topicId;
+      state.numbersMixSteps = [stepId];
+      state.numbersMixMode = mixModeForCaps("either");
+      state.numbersHubPracticePick = "";
+      startNumbersMix();
+      return;
+    }
     const mixToggle = e.target.closest("[data-mix-toggle]");
     if (mixToggle) {
       const id = mixToggle.dataset.step;
@@ -6889,6 +7439,27 @@ function bind() {
     }
   });
 
+  document.getElementById("nouns-hub")?.addEventListener("click", (e) => {
+    const learn = e.target.closest("[data-nouns-learn]");
+    if (learn) {
+      const unitId = learn.dataset.unit;
+      const u = getGenderShortcutsUnit(unitId);
+      openNounsStepLearn([
+        {
+          id: `nouns:gs:${unitId}`,
+          learnUnitId: unitId,
+          chartTab: u?.chartTab,
+        },
+      ]);
+      return;
+    }
+    const startFam = e.target.closest("[data-nouns-start-family]");
+    if (startFam) {
+      startNounsFamily(startFam.dataset.family);
+      return;
+    }
+  });
+
   document.querySelectorAll("[data-numbers-difficulty]").forEach((btn) => {
     btn.addEventListener("click", () => {
       closeAllMenus();
@@ -6905,25 +7476,32 @@ function bind() {
     });
   });
 
-  document.querySelectorAll("[data-nouns-mode]").forEach((btn) => {
+  document.querySelectorAll("[data-nouns-hub]").forEach((btn) => {
     btn.addEventListener("click", () => {
       closeAllMenus();
-      clearNounsAdvance();
-      stopSpeech();
-      state.nounsMode = btn.dataset.nounsMode;
-      state.phase.nouns = "practice";
-      showTerritoryPhase("nouns");
+      goNounsHub();
+    });
+  });
+
+  document.querySelectorAll("[data-nouns-unit]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      closeAllMenus();
+      goNounsHub({ unitId: btn.dataset.nounsUnit });
     });
   });
 
   document.querySelectorAll("[data-nouns-difficulty]").forEach((btn) => {
     btn.addEventListener("click", () => {
       closeAllMenus();
-      clearNounsAdvance();
-      stopSpeech();
       state.nounsDifficulty = btn.dataset.nounsDifficulty;
-      state.phase.nouns = "practice";
-      showTerritoryPhase("nouns");
+      if (state.phase.nouns === "practice") {
+        clearNounsAdvance();
+        stopSpeech();
+        showTerritoryPhase("nouns");
+      } else {
+        syncTerritoryMenu("nouns");
+        if (state.phase.nouns === "hub") renderNounsHub();
+      }
     });
   });
 

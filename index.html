@@ -23,8 +23,8 @@
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Sora:wght@500;600&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,500&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./css/mock.css?v=20260927-caps1" />
-    <link rel="stylesheet" href="./css/nav-carousel.css?v=20260927-nc12" />
+    <link rel="stylesheet" href="./css/mock.css?v=20260927-chrome4" />
+    <link rel="stylesheet" href="./css/nav-carousel.css?v=20260927-nc26" />
     <script type="importmap">
       {
         "imports": {
@@ -35,11 +35,11 @@
           "/engine/numbers/evaluate.js": "/engine/numbers/evaluate.js?v=20260927-dec2",
           "/engine/numbers/attempt.js": "/engine/numbers/attempt.js?v=20260927-dec2",
           "/engine/numbers/index.js": "/engine/numbers/index.js?v=20260927-dec2",
-          "/engine/exercise/index.js": "/engine/exercise/index.js?v=20260927-dec2",
-          "/engine/exercise/create.js": "/engine/exercise/create.js?v=20260927-dec2",
+          "/engine/exercise/index.js": "/engine/exercise/index.js?v=20260927-nouns6",
+          "/engine/exercise/create.js": "/engine/exercise/create.js?v=20260927-nouns6",
           "/engine/exercise/modes.js": "/engine/exercise/modes.js?v=20260927-dec2",
           "/engine/exercise/submit.js": "/engine/exercise/submit.js?v=20260927-dec2",
-          "/engine/nouns/index.js": "/engine/nouns/index.js?v=20260927-dec2"
+          "/engine/nouns/index.js": "/engine/nouns/index.js?v=20260927-nouns6"
         }
       }
     </script>
@@ -190,22 +190,32 @@
               Reference Chart
             </button>
             <hr class="menu-sep" />
+            <button type="button" role="menuitem" data-nouns-hub>
+              Nouns home
+            </button>
+            <hr class="menu-sep" />
+            <p class="menu-group-label">Gender Shortcuts</p>
             <button
               type="button"
               role="menuitem"
-              class="is-on"
-              data-nouns-mode="articles"
+              data-nouns-unit="suffixes"
             >
-              Articles
+              Suffixes
             </button>
-            <button type="button" role="menuitem" data-nouns-mode="association">
-              Association
+            <button
+              type="button"
+              role="menuitem"
+              data-nouns-unit="categories"
+            >
+              Categories
             </button>
-            <button type="button" role="menuitem" data-nouns-mode="wugs">
-              Wugs
-            </button>
-            <button type="button" role="menuitem" data-nouns-mode="plurals">
+            <hr class="menu-sep" />
+            <p class="menu-group-label">Coming soon</p>
+            <button type="button" role="menuitem" disabled>
               Plurals
+            </button>
+            <button type="button" role="menuitem" disabled>
+              Articles
             </button>
             <hr class="menu-sep" />
             <button
@@ -381,6 +391,7 @@
           hidden
         >
           <div class="briefing" id="nouns-briefing"></div>
+          <div class="numbers-hub" id="nouns-hub" hidden></div>
           <div class="sound-chart" id="nouns-chart" hidden></div>
           <div class="stage stage-fill" id="nouns-stage" hidden>
             <p class="legend legend-text" id="nouns-legend" aria-label="Gender key">
@@ -549,6 +560,6 @@
       </div>
     </div>
 
-    <script type="module" src="./js/mock.js?v=20260927-caps3"></script>
+    <script type="module" src="./js/mock.js?v=20260927-gs11"></script>
   </body>
 </html>

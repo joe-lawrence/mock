@@ -15,6 +15,9 @@ body.nc-standalone {
   --signal-soft: rgba(47, 111, 237, 0.12);
   --ok: #0f7a6e;
   --ok-soft: rgba(15, 122, 110, 0.14);
+  --fem: #d96b9a;
+  --fem-ink: #b34472;
+  --topbar-bg: rgba(255, 255, 255, 0.72);
   --de-black: #111111;
   --de-red: #dd0000;
   --de-gold: #ffcc00;
@@ -50,6 +53,9 @@ html[data-theme="dark"] body.nc-standalone {
   --signal-soft: rgba(91, 143, 255, 0.16);
   --ok: #2ec4a8;
   --ok-soft: rgba(46, 196, 168, 0.16);
+  --fem: #e080a8;
+  --fem-ink: #f0b0c8;
+  --topbar-bg: rgba(18, 21, 26, 0.8);
   --de-black: #f2f2f2;
   --de-red: #ff4d4d;
   --de-gold: #ffd54a;
@@ -77,6 +83,9 @@ body.nc-standalone *::after {
   --signal-soft: rgba(47, 111, 237, 0.12);
   --ok: #0f7a6e;
   --ok-soft: rgba(15, 122, 110, 0.14);
+  --fem: #d96b9a;
+  --fem-ink: #b34472;
+  --topbar-bg: rgba(255, 255, 255, 0.72);
   --de-black: #111111;
   --de-red: #dd0000;
   --de-gold: #ffcc00;
@@ -116,6 +125,9 @@ html[data-theme="dark"] .nc-phone {
   --signal-soft: rgba(91, 143, 255, 0.16);
   --ok: #2ec4a8;
   --ok-soft: rgba(46, 196, 168, 0.16);
+  --fem: #e080a8;
+  --fem-ink: #f0b0c8;
+  --topbar-bg: rgba(18, 21, 26, 0.8);
   --de-black: #f2f2f2;
   --de-red: #ff4d4d;
   --de-gold: #ffd54a;
@@ -174,9 +186,12 @@ html[data-theme="dark"] .nc-phone {
   flex-wrap: nowrap;
   align-items: center;
   gap: 0.85rem;
-  margin: 0 1.15rem 0.35rem;
-  padding: 0.85rem 0 0.75rem;
+  margin: 0;
+  padding: 0.45rem 1rem;
   border-bottom: 1px solid var(--line);
+  background: var(--topbar-bg, color-mix(in srgb, var(--surface) 72%, transparent));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   flex: 0 0 auto;
 }
 
@@ -518,7 +533,7 @@ html[data-theme="dark"] .nc-phone {
   flex: 1;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.55rem;
   min-height: 3.15rem;
   padding: 0.55rem 0.85rem;
@@ -548,10 +563,7 @@ html[data-theme="dark"] .nc-phone {
 }
 
 .nc-start-copy {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  line-height: 1.15;
+  display: none;
 }
 
 .nc-start-label {
@@ -559,19 +571,97 @@ html[data-theme="dark"] .nc-phone {
   font-size: 1rem;
   font-weight: 650;
   letter-spacing: -0.015em;
+  white-space: nowrap;
 }
 
 .nc-start-meta {
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  opacity: 0.75;
+  display: none;
 }
 
 .nc-bar-caps {
   display: flex;
   gap: 0.3rem;
+}
+
+.nc-playlist-sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.nc-playlist-sheet[hidden] {
+  display: none;
+}
+
+.nc-playlist-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.nc-playlist-empty {
+  margin: 0;
+  padding: 0.75rem 0.25rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.nc-playlist-row {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, #c44 88%, #000);
+  touch-action: pan-y;
+}
+
+.nc-playlist-remove {
+  position: absolute;
+  right: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  pointer-events: none;
+}
+
+.nc-playlist-row-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.75rem 0.85rem;
+  background: var(--surface-2, var(--surface));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  transition: transform 0.08s linear;
+}
+
+.nc-playlist-row.is-swiping .nc-playlist-row-inner {
+  transition: none;
+}
+
+.nc-playlist-title {
+  font-weight: 650;
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.nc-playlist-meta {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .nc-cap {
@@ -585,19 +675,24 @@ html[data-theme="dark"] .nc-phone {
   background: var(--surface-2);
   color: var(--faint);
   cursor: pointer;
-  transition: background var(--ease), color var(--ease), border-color var(--ease);
+  transition: background var(--ease), color var(--ease), border-color var(--ease), opacity var(--ease);
   -webkit-tap-highlight-color: transparent;
 }
 
-.nc-cap[aria-pressed="true"] {
-  background: var(--ok-soft);
-  border-color: color-mix(in srgb, var(--ok) 50%, transparent);
-  color: var(--ok);
+/* Pick / Write / Listen — inverted feminine (coral) fill, light icon */
+.nc-bar-caps .nc-cap[aria-pressed="true"] {
+  background: var(--fem);
+  border-color: var(--fem);
+  color: #fff;
+  opacity: 1;
 }
 
-.nc-cap.is-off,
-.nc-cap[aria-pressed="false"] {
-  opacity: 0.65;
+.nc-bar-caps .nc-cap.is-off,
+.nc-bar-caps .nc-cap[aria-pressed="false"] {
+  background: color-mix(in srgb, var(--fem) 28%, var(--surface-2));
+  border-color: color-mix(in srgb, var(--fem) 35%, transparent);
+  color: #fff;
+  opacity: 0.55;
 }
 
 .nc-toast {
@@ -631,40 +726,44 @@ html[data-theme="dark"] .nc-phone {
 }
 
 
-/* Embedded in main mock hub — absolute screens need a real height (min-height alone
-   collapses to 0 on some iOS flex contexts, leaving only the app Schnapp header). */
+/* Embedded in main mock hub — fill remaining viewport under shared player topbar */
 .nc-hub {
-  --nc-embed-h: calc(100vh - 5.5rem);
-  --nc-embed-h: calc(100svh - 5.5rem);
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   padding: 0;
+  overflow: hidden;
 }
 
 .nc-hub #nav-carousel-root {
-  height: var(--nc-embed-h);
-  min-height: 28rem;
+  flex: 1 1 0;
+  min-height: 16rem;
   position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.nc-hub #nav-carousel-root > .nc-phone.is-embedded {
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .nc-phone.is-embedded {
   max-width: none;
   width: 100%;
-  height: var(--nc-embed-h);
-  min-height: 28rem;
+  height: 100%;
+  min-height: 0;
   max-height: none;
   border: none;
   border-radius: 0;
   box-shadow: none;
   background: transparent;
+  position: relative;
+  overflow: hidden;
 }
 
 .nc-card.is-soon {
   opacity: 0.5;
   cursor: default;
-}
-
-@media (min-width: 480px) {
-  .nc-hub {
-    --nc-embed-h: calc(100vh - 6rem);
-    --nc-embed-h: calc(100svh - 6rem);
-  }
 }

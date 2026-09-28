@@ -3,7 +3,8 @@
  * Standalone page or embedded hub in the main mock.
  */
 
-import { NUMBERS_TOPICS } from "./numbers-curriculum.js";
+import { NUMBERS_TOPICS, modesForStep } from "./numbers-curriculum.js";
+import { genderShortcutsNavUnits, modalitiesForUnit } from "./nouns-curriculum.js";
 
 const CAPS_KEY = "schnapp-nav-caps";
 const LONG_MS = 500;
@@ -18,11 +19,12 @@ const GAME_SVG = `<svg viewBox="0 0 16 16" width="52" height="52" fill="currentC
 
 const PLAY_SVG = `<svg viewBox="0 0 16 16" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M11.596 8.697l-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>`;
 
-const KEY_SVG = `<svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M14 5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM2 4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><path d="M13 10.25a.25.25 0 0 1 .25-.25h.5a.25.25 0 0 1 .25.25v.5a.25.25 0 0 1-.25.25h-.5a.25.25 0 0 1-.25-.25zm0-2a.25.25 0 0 1 .25-.25h.5a.25.25 0 0 1 .25.25v.5a.25.25 0 0 1-.25.25h-.5a.25.25 0 0 1-.25-.25zm-5 0A.25.25 0 0 1 8.25 8h.5a.25.25 0 0 1 .25.25v.5a.25.25 0 0 1-.25.25h-.5A.25.25 0 0 1 8 8.75zm2 0a.25.25 0 0 1 .25-.25h1.5a.25.25 0 0 1 .25.25v.5a.25.25 0 0 1-.25.25h-1.5a.25.25 0 0 1-.25-.25zm1 2a.25.25 0 0 1 .25-.25h.5a.25.25 0 0 1 .25.25v.5a.25.25 0 0 1-.25.25h-.5a.25.25 0 0 1-.25-.25zm-5-2A.25.25 0 0 1 6.25 8h.5a.25.25 0 0 1 .25.25v.5a.25.25 0 0 1-.25.25h-.5A.25.25 0 0 1 6 8.75zm-2 0A.25.25 0 0 1 4.25 8h.5a.25.25 0 0 1 .25.25v.5a.25.25 0 0 1-.25.25h-.5A.25.25 0 0 1 4 8.75zm-2 0A.25.25 0 0 1 2.25 8h.5a.25.25 0 0 1 .25.25v.5a.25.25 0 0 1-.25.25h-.5A.25.25 0 0 1 2 8.75zm5 2a.25.25 0 0 1 .25-.25h.5a.25.25 0 0 1 .25.25v.5a.25.25 0 0 1-.25.25h-.5a.25.25 0 0 1-.25-.25zm-2 0a.25.25 0 0 1 .25-.25h.5a.25.25 0 0 1 .25.25v.5a.25.25 0 0 1-.25.25h-.5a.25.25 0 0 1-.25-.25zm-2 0a.25.25 0 0 1 .25-.25h.5a.25.25 0 0 1 .25.25v.5a.25.25 0 0 1-.25.25h-.5a.25.25 0 0 1-.25-.25zm0-4a.25.25 0 0 1 .25-.25h.5a.25.25 0 0 1 .25.25v.5a.25.25 0 0 1-.25.25h-.5A.25.25 0 0 1 4 6.75zm2 0a.25.25 0 0 1 .25-.25h.5a.25.25 0 0 1 .25.25v.5a.25.25 0 0 1-.25.25h-.5A.25.25 0 0 1 6 6.75zm2 0a.25.25 0 0 1 .25-.25h.5a.25.25 0 0 1 .25.25v.5a.25.25 0 0 1-.25.25h-.5A.25.25 0 0 1 8 6.75zm2 0a.25.25 0 0 1 .25-.25h.5a.25.25 0 0 1 .25.25v.5a.25.25 0 0 1-.25-.25h-.5a.25.25 0 0 1-.25-.25z"/></svg>`;
+/* Fluent Edit — © 2020 Microsoft Corporation, MIT License */
+const KEY_SVG = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M20.0626 8.44532C21.319 9.70247 21.3183 11.7401 20.0612 12.9964L12.938 20.1076C12.675 20.3701 12.3511 20.5634 11.9952 20.6703L7.70221 21.9589C7.17324 22.1177 6.61571 21.8176 6.45694 21.2886C6.3987 21.0946 6.40076 20.8874 6.46285 20.6946L7.82425 16.4666C7.93389 16.1261 8.12313 15.8166 8.37628 15.5639L15.5091 8.44272C16.7674 7.18646 18.8058 7.18762 20.0626 8.44532ZM16.5689 9.50425L9.43607 16.6254C9.35168 16.7096 9.2886 16.8128 9.25206 16.9263L8.18228 20.2487L11.564 19.2336C11.6826 19.198 11.7906 19.1336 11.8782 19.046L19.0002 11.9361C19.6721 11.2647 19.6724 10.1768 19.0016 9.50564C18.3301 8.83371 17.2412 8.83309 16.5689 9.50425ZM8.15104 2.36975L8.20152 2.47487L11.454 10.724L10.297 11.879L9.556 10H5.443L4.44768 12.5209C4.30809 12.874 3.93033 13.0621 3.57164 12.9737L3.47447 12.9426C3.12137 12.803 2.93328 12.4253 3.02168 12.0666L3.05272 11.9694L6.80633 2.47427C7.04172 1.87883 7.84884 1.84415 8.15104 2.36975ZM7.50294 4.79226L6.036 8.5H8.964L7.50294 4.79226Z" fill="currentColor"/></svg>`;
 
 const HEAD_SVG = `<svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M8 3a5 5 0 0 0-5 5v1h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a6 6 0 1 1 12 0v5a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1V8a5 5 0 0 0-5-5z"/></svg>`;
 
-/** Nouns stub until nouns curriculum is wired the same way */
+/** Nouns territory: Gender Shortcuts learn units; Plurals / Articles stubbed. */
 const NOUNS_BRANCH = {
   id: "nouns",
   title: "Nouns",
@@ -30,15 +32,11 @@ const NOUNS_BRANCH = {
   territory: "nouns",
   children: [
     {
-      id: "nouns:gender",
-      title: "Gender",
+      id: "nouns:gender-shortcuts",
+      title: "Gender Shortcuts",
       type: "subtopic",
       territory: "nouns",
-      children: [
-        { id: "nouns:der", title: "Der (masculine)", type: "unit", territory: "nouns", playable: true },
-        { id: "nouns:die", title: "Die (feminine)", type: "unit", territory: "nouns", playable: true },
-        { id: "nouns:das", title: "Das (neuter)", type: "unit", territory: "nouns", playable: true },
-      ],
+      children: genderShortcutsNavUnits(),
     },
     {
       id: "nouns:plurals",
@@ -46,8 +44,28 @@ const NOUNS_BRANCH = {
       type: "subtopic",
       territory: "nouns",
       children: [
-        { id: "nouns:endings", title: "Common endings", type: "unit", territory: "nouns", playable: true },
-        { id: "nouns:exceptions", title: "Exceptions", type: "unit", territory: "nouns", playable: true },
+        {
+          id: "nouns:plurals:soon",
+          title: "Coming soon",
+          type: "unit",
+          territory: "nouns",
+          playable: false,
+        },
+      ],
+    },
+    {
+      id: "nouns:articles",
+      title: "Articles",
+      type: "subtopic",
+      territory: "nouns",
+      children: [
+        {
+          id: "nouns:articles:soon",
+          title: "Coming soon",
+          type: "unit",
+          territory: "nouns",
+          playable: false,
+        },
       ],
     },
   ],
@@ -103,7 +121,7 @@ function shellHtml({ embedded }) {
       <section class="nc-screen nc-screen-mode is-active" data-nc-screen="1">
         ${brand}
         <h1 class="nc-mode-title">Choose a path</h1>
-        <p class="nc-mode-lede">Learn with charts, or Play a practice mix.</p>
+        <p class="nc-mode-lede">Learn opens unit reference. Play practices or mixes quiz modalities.</p>
         <div class="nc-mode-stack">
           <button type="button" class="nc-mode-card" data-enter="learn">
             <span class="nc-mode-icon">${HAT_SVG}</span>
@@ -125,16 +143,24 @@ function shellHtml({ embedded }) {
         <footer class="nc-bar">
           <button type="button" class="nc-start" data-nc-start disabled>
             <span class="nc-start-icon">${PLAY_SVG}</span>
-            <span class="nc-start-copy">
-              <span class="nc-start-label">Start</span>
-              <span class="nc-start-meta" data-nc-count>0 units</span>
-            </span>
+            <span class="nc-start-label">Start (<span data-nc-count>0</span>)</span>
           </button>
-          <div class="nc-bar-caps" role="group" aria-label="Input capabilities">
-            <button type="button" class="nc-cap" data-nc-cap="keyboard" aria-pressed="true" aria-label="Keyboard" title="Keyboard — free-form text">${KEY_SVG}</button>
-            <button type="button" class="nc-cap" data-nc-cap="audio" aria-pressed="true" aria-label="Audio" title="Audio — listen & speak">${HEAD_SVG}</button>
+          <div class="nc-bar-caps" role="group" aria-label="Quiz styles">
+            <button type="button" class="nc-cap" data-nc-cap="keyboard" aria-pressed="true" aria-label="Write" title="Write — free-form text">${KEY_SVG}</button>
+            <button type="button" class="nc-cap" data-nc-cap="audio" aria-pressed="true" aria-label="Listen" title="Listen — audio in">${HEAD_SVG}</button>
           </div>
         </footer>
+        <div class="nc-playlist-sheet" data-nc-playlist-sheet hidden>
+          <div class="nc-cfg-backdrop" data-nc-playlist-close tabindex="-1"></div>
+          <div class="nc-cfg-panel" role="dialog" aria-labelledby="nc-playlist-title">
+            <div class="nc-cfg-head">
+              <h2 id="nc-playlist-title">Playlist</h2>
+              <button type="button" class="nc-cfg-done" data-nc-playlist-close>Done</button>
+            </div>
+            <p class="nc-cfg-lede">Hold Start to open. Swipe left on a unit to remove.</p>
+            <ul class="nc-playlist-list" data-nc-playlist-body></ul>
+          </div>
+        </div>
       </section>
       <div class="nc-toast" data-nc-toast hidden role="status"></div>
     </div>
@@ -165,6 +191,7 @@ export function mountNavCarousel(container, options = {}) {
     selected: new Set(),
     keyboard: true,
     audio: true,
+    playlistOpen: false,
   };
 
   try {
@@ -180,7 +207,10 @@ export function mountNavCarousel(container, options = {}) {
     try {
       localStorage.setItem(
         CAPS_KEY,
-        JSON.stringify({ keyboard: state.keyboard, audio: state.audio })
+        JSON.stringify({
+          keyboard: state.keyboard,
+          audio: state.audio,
+        })
       );
     } catch (_) {}
   }
@@ -196,6 +226,165 @@ export function mountNavCarousel(container, options = {}) {
   const toastEl = root.querySelector("[data-nc-toast]");
   const keyBtn = root.querySelector('[data-nc-cap="keyboard"]');
   const audioBtn = root.querySelector('[data-nc-cap="audio"]');
+  const capsGroup = root.querySelector(".nc-bar-caps");
+  const playlistSheet = root.querySelector("[data-nc-playlist-sheet]");
+  const playlistBody = root.querySelector("[data-nc-playlist-body]");
+
+  function selectedUnits() {
+    return [...state.selected]
+      .map((id) => unitIndex.get(id))
+      .filter(Boolean)
+      .sort((a, b) => a.id.localeCompare(b.id));
+  }
+
+  function caps() {
+    return {
+      keyboard: state.keyboard,
+      audio: state.audio,
+    };
+  }
+
+  /**
+   * Unit supports practice under current caps.
+   * Pick-style (Build / Choose article) is always available when the unit allows it;
+   * Write/Listen only when those caps are on.
+   */
+  function unitMatchesCaps(u, c = caps()) {
+    if (!u || u.playable === false) return false;
+    if (u.territory === "numbers" && u.topicId && u.stepId) {
+      return modesForStep(u.topicId, u.stepId).some(
+        (m) =>
+          m.id === "build" ||
+          (m.id === "listen" && c.audio) ||
+          (m.id === "convert" && c.keyboard)
+      );
+    }
+    if (u.territory === "nouns" && u.learnUnitId) {
+      return modalitiesForUnit(u.learnUnitId).some(
+        (m) =>
+          m.playable &&
+          (m.id === "choose-article" ||
+            (m.id === "type-article" && c.keyboard))
+      );
+    }
+    return false;
+  }
+
+  /** Selected units that can actually run under current caps (Play). */
+  function eligibleUnits() {
+    if (state.mode === "learn") return selectedUnits();
+    return selectedUnits().filter((u) => unitMatchesCaps(u));
+  }
+
+  function toggleCap(key) {
+    state[key] = !state[key];
+    saveCaps();
+    renderNav();
+  }
+
+  function closePlaylist() {
+    state.playlistOpen = false;
+    if (playlistSheet) playlistSheet.hidden = true;
+  }
+
+  function openPlaylist() {
+    if (state.selected.size === 0) return;
+    state.playlistOpen = true;
+    renderPlaylistSheet();
+    if (playlistSheet) playlistSheet.hidden = false;
+  }
+
+  /** Derive Start practice buckets — Pick always on; Write/Listen from caps. */
+  function practiceFromCaps() {
+    const c = caps();
+    const numbersModes = ["build"];
+    if (c.audio) numbersModes.push("listen");
+    if (c.keyboard) numbersModes.push("convert");
+    const nounsModalities = ["choose-article"];
+    if (c.keyboard) nounsModalities.push("type-article");
+    return {
+      numbersModes,
+      nounsFamilies: [],
+      nounsModalities,
+    };
+  }
+
+  function renderPlaylistSheet() {
+    if (!playlistBody) return;
+    const units = selectedUnits();
+    if (!units.length) {
+      playlistBody.innerHTML = `<li class="nc-playlist-empty">No units selected.</li>`;
+      return;
+    }
+    playlistBody.innerHTML = units
+      .map(
+        (u) => `<li class="nc-playlist-row" data-playlist-id="${u.id}">
+          <div class="nc-playlist-row-inner">
+            <span class="nc-playlist-title">${u.title}</span>
+            <span class="nc-playlist-meta">${u.territory || ""}</span>
+          </div>
+          <span class="nc-playlist-remove" aria-hidden="true">Remove</span>
+        </li>`
+      )
+      .join("");
+
+    playlistBody.querySelectorAll(".nc-playlist-row").forEach((row) => {
+      wirePlaylistSwipe(row);
+    });
+  }
+
+  function wirePlaylistSwipe(row) {
+    const inner = row.querySelector(".nc-playlist-row-inner");
+    if (!inner) return;
+    let startX = 0;
+    let dx = 0;
+    let tracking = false;
+
+    const reset = () => {
+      inner.style.transform = "";
+      row.classList.remove("is-swiping");
+      dx = 0;
+      tracking = false;
+    };
+
+    row.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      tracking = true;
+      startX = e.clientX;
+      dx = 0;
+      row.classList.add("is-swiping");
+      try {
+        row.setPointerCapture(e.pointerId);
+      } catch (_) {}
+    });
+
+    row.addEventListener("pointermove", (e) => {
+      if (!tracking) return;
+      dx = e.clientX - startX;
+      if (dx > 0) dx = 0;
+      inner.style.transform = `translateX(${Math.max(dx, -120)}px)`;
+    });
+
+    row.addEventListener("pointerup", () => {
+      if (!tracking) return;
+      const id = row.dataset.playlistId;
+      if (dx < -72 && id) {
+        state.selected.delete(id);
+        renderNav();
+        if (state.selected.size === 0) closePlaylist();
+        else renderPlaylistSheet();
+        return;
+      }
+      reset();
+    });
+
+    row.addEventListener("pointercancel", reset);
+  }
+
+  function updateStartMeta() {
+    if (!countEl) return;
+    countEl.textContent = String(eligibleUnits().length);
+  }
 
   function getAllUnitIds(node) {
     if (node.type === "unit") return node.playable === false ? [] : [node.id];
@@ -377,9 +566,10 @@ export function mountNavCarousel(container, options = {}) {
       carouselEl.innerHTML = "";
       for (const item of list) carouselEl.appendChild(createCard(item));
     }
-    const n = state.selected.size;
-    if (countEl) countEl.textContent = `${n} unit${n === 1 ? "" : "s"}`;
+    const n = eligibleUnits().length;
     if (startBtn) startBtn.disabled = n === 0;
+    updateStartMeta();
+    if (capsGroup) capsGroup.hidden = state.mode !== "play";
     if (keyBtn) {
       keyBtn.setAttribute("aria-pressed", String(state.keyboard));
       keyBtn.classList.toggle("is-off", !state.keyboard);
@@ -393,6 +583,7 @@ export function mountNavCarousel(container, options = {}) {
   function enterMode(mode) {
     state.mode = mode;
     state.navStack = [];
+    closePlaylist();
     s1?.classList.add("is-leaving");
     if (s2) {
       s2.hidden = false;
@@ -405,59 +596,113 @@ export function mountNavCarousel(container, options = {}) {
   function resetToMode() {
     state.mode = null;
     state.navStack = [];
+    closePlaylist();
     s2?.classList.remove("is-active");
     s1?.classList.remove("is-leaving");
+    s1?.classList.add("is-active");
     if (s2) s2.hidden = true;
+    if (s1) s1.hidden = false;
     renderNav();
   }
 
   function startSeries() {
-    if (state.selected.size === 0 || !state.mode) return;
-    const units = [...state.selected]
-      .map((id) => unitIndex.get(id))
-      .filter(Boolean)
-      .sort((a, b) => a.id.localeCompare(b.id));
+    if (!state.mode) return;
+    const units = eligibleUnits();
+    if (units.length === 0) return;
+    const practice = practiceFromCaps();
 
     const payload = {
       mode: state.mode,
       units,
       keyboard: state.keyboard,
       audio: state.audio,
+      practice,
     };
+
+    closePlaylist();
 
     if (onStart) {
       onStart(payload);
       return;
     }
 
-    const caps = [
-      state.keyboard ? "keyboard" : null,
-      state.audio ? "audio" : null,
+    const capsLabel = [
+      state.keyboard ? "write" : null,
+      state.audio ? "listen" : null,
     ]
       .filter(Boolean)
-      .join("+") || "none";
+      .join("+") || "pick";
     showToast(
       `${state.mode === "learn" ? "Learn" : "Play"} · ${units.length} unit${
         units.length === 1 ? "" : "s"
-      } · ${caps}`
+      } · ${capsLabel}`
     );
     console.info("[nav-carousel] start", payload);
+  }
+
+  function wireStartButton() {
+    if (!startBtn) return;
+    let timer = 0;
+    let startX = 0;
+    let startY = 0;
+    let isLongPress = false;
+
+    const clearTimer = () => {
+      window.clearTimeout(timer);
+    };
+
+    startBtn.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0 || startBtn.disabled) return;
+      isLongPress = false;
+      startX = e.clientX;
+      startY = e.clientY;
+      try {
+        startBtn.setPointerCapture(e.pointerId);
+      } catch (_) {}
+      timer = window.setTimeout(() => {
+        isLongPress = true;
+        if (navigator.vibrate) navigator.vibrate(40);
+        openPlaylist();
+      }, LONG_MS);
+    });
+
+    startBtn.addEventListener("pointermove", (e) => {
+      if (
+        Math.abs(e.clientX - startX) > MOVE_PX ||
+        Math.abs(e.clientY - startY) > MOVE_PX
+      ) {
+        clearTimer();
+      }
+    });
+
+    startBtn.addEventListener("pointerup", (e) => {
+      clearTimer();
+      if (startBtn.disabled) return;
+      if (
+        !isLongPress &&
+        Math.abs(e.clientX - startX) < MOVE_PX &&
+        Math.abs(e.clientY - startY) < MOVE_PX
+      ) {
+        startSeries();
+      }
+    });
+
+    startBtn.addEventListener("pointercancel", clearTimer);
+    startBtn.addEventListener("contextmenu", (e) => e.preventDefault());
   }
 
   root.querySelectorAll("[data-enter]").forEach((btn) => {
     btn.addEventListener("click", () => enterMode(btn.dataset.enter));
   });
-  keyBtn?.addEventListener("click", () => {
-    state.keyboard = !state.keyboard;
-    saveCaps();
-    renderNav();
+  keyBtn?.addEventListener("click", () => toggleCap("keyboard"));
+  audioBtn?.addEventListener("click", () => toggleCap("audio"));
+  playlistSheet?.querySelectorAll("[data-nc-playlist-close]").forEach((el) => {
+    el.addEventListener("click", () => {
+      closePlaylist();
+      updateStartMeta();
+    });
   });
-  audioBtn?.addEventListener("click", () => {
-    state.audio = !state.audio;
-    saveCaps();
-    renderNav();
-  });
-  startBtn?.addEventListener("click", startSeries);
+  wireStartButton();
 
   renderNav();
 

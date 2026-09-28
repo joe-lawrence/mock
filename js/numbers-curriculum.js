@@ -1,22 +1,28 @@
 /**
- * Numbers territory curriculum registry — Topic × Step × Mode.
+ * Numbers territory curriculum registry — Topic × Unit (step) × Quiz modality.
+ *
+ * Spec (§7): the unit owns Learn/reference + content pool. Modalities (build /
+ * listen / convert) are reusable interactions — soft intro order, then mix —
+ * not sibling curriculum cards with their own Learn trees.
  * Money lives under Decimals as later steps (not a peer topic).
  * Playable flags gate the mock menu; engines/pools fill cells over time.
  */
 
 /** @typedef {"build"|"listen"|"convert"} NumbersQuizModeId */
 
+/** @typedef {"introduce"|"focus"|"mix"} SessionPolicy */
+
 /**
  * @typedef {object} NumbersStep
- * @property {string} id
+ * @property {string} id — unit id within the topic
  * @property {string} label
  * @property {boolean} playable
  * @property {string} [pool] — key into mock numberPools / listen filters
- * @property {NumbersQuizModeId[]} [modes] — if set, only these modes apply
+ * @property {NumbersQuizModeId[]} [modes] — modality allowlist; array order = soft intro order (omit = all modes)
  * @property {string} [blurb]
- * @property {string} [softAfter] — prior step id for soft “usually after …” cue (not a lock)
- * @property {string} [chartTab] — Numbers chart tab id for Learn
- * @property {string[]} [plannedModes] — mode ids to show as coming-soon chips
+ * @property {string} [softAfter] — prior unit id for soft “usually after …” cue (not a lock)
+ * @property {string} [chartTab] — Learn: Numbers chart tab id (unit property, not per-modality)
+ * @property {string[]} [plannedModes] — modality ids to show as coming-soon chips
  */
 
 /**
@@ -25,7 +31,7 @@
  * @property {string} label
  * @property {boolean} playable
  * @property {string} [blurb]
- * @property {NumbersStep[]} steps
+ * @property {NumbersStep[]} steps — curriculum units
  */
 
 /** @type {NumbersTopic[]} */
@@ -444,12 +450,25 @@ export function getNumbersMode(modeId) {
   return NUMBERS_MODES.find((m) => m.id === modeId) || null;
 }
 
-/** Modes allowed for a topic+step cell. */
+/** Modalities allowed for a topic+unit cell (allowlist; order = soft intro). */
 export function modesForStep(topicId, stepId) {
   const step = getNumbersStep(topicId, stepId);
   if (!step?.playable) return [];
   const allowed = step.modes || NUMBERS_MODES.map((m) => m.id);
-  return NUMBERS_MODES.filter((m) => m.playable && allowed.includes(m.id));
+  const byId = new Map(NUMBERS_MODES.map((m) => [m.id, m]));
+  return allowed
+    .map((id) => byId.get(id))
+    .filter((m) => m && m.playable);
+}
+
+/** Alias — quiz modalities for a unit (spec §7). */
+export function quizzesForStep(topicId, stepId) {
+  return modesForStep(topicId, stepId);
+}
+
+/** Soft “try first” modality for introduce policy. */
+export function introModeForStep(topicId, stepId) {
+  return modesForStep(topicId, stepId)[0] || null;
 }
 
 export function isNumbersCellPlayable(topicId, stepId, modeId) {
@@ -462,7 +481,7 @@ export function isNumbersCellPlayable(topicId, stepId, modeId) {
 
 /**
  * Simple Dealer suggestion for the mock (no mastery engine yet).
- * Prefer: same topic → next weak-ish step, or Listen after Build on current step.
+ * Scaffolding bump → rotate modality on same unit (mix) → next unit (introduce).
  */
 export function suggestNumbersFocus(current = {}) {
   const {
@@ -478,7 +497,8 @@ export function suggestNumbersFocus(current = {}) {
       stepId,
       modeId: "build",
       difficulty: "core",
-      reason: "Same step without Assisted choices",
+      policy: "focus",
+      reason: "Same unit, less scaffolding (focus)",
     };
   }
 
@@ -490,7 +510,8 @@ export function suggestNumbersFocus(current = {}) {
         stepId,
         modeId: "listen",
         difficulty: "assisted",
-        reason: "Recognize what you just built",
+        policy: "mix",
+        reason: "Mix modalities — recognize what you just built",
       };
     }
   }
@@ -503,38 +524,45 @@ export function suggestNumbersFocus(current = {}) {
         stepId,
         modeId: "convert",
         difficulty: "assisted",
-        reason: "Type the German form from the digit",
+        policy: "mix",
+        reason: "Mix modalities — type the German form from the digit",
       };
     }
   }
 
   if (topicId === "cardinals" && modeId === "convert" && stepId === "compounds") {
+    const intro = introModeForStep("cardinals", "hundreds");
     return {
       topicId: "cardinals",
       stepId: "hundreds",
-      modeId: "build",
+      modeId: intro?.id || "build",
       difficulty: "assisted",
-      reason: "Step up to hundert / tausend",
+      policy: "introduce",
+      reason: "Introduce next unit: Hundreds+",
     };
   }
 
   if (topicId === "cardinals" && modeId === "listen" && stepId === "compounds") {
+    const intro = introModeForStep("cardinals", "hundreds");
     return {
       topicId: "cardinals",
       stepId: "hundreds",
-      modeId: "build",
+      modeId: intro?.id || "build",
       difficulty: "assisted",
-      reason: "Step up to hundert / tausend",
+      policy: "introduce",
+      reason: "Introduce next unit: Hundreds+",
     };
   }
 
   if (topicId === "cardinals" && modeId === "convert" && stepId === "hundreds") {
+    const intro = introModeForStep("decimals", "komma-read");
     return {
       topicId: "decimals",
       stepId: "komma-read",
-      modeId: "listen",
+      modeId: intro?.id || "listen",
       difficulty: "assisted",
-      reason: "Next topic: Decimals — Komma, not Punkt",
+      policy: "introduce",
+      reason: "Introduce Decimals — Komma, not Punkt",
     };
   }
 
@@ -544,7 +572,8 @@ export function suggestNumbersFocus(current = {}) {
       stepId,
       modeId: "listen",
       difficulty: "core",
-      reason: "Same step without Assisted choices",
+      policy: "focus",
+      reason: "Same unit, less scaffolding (focus)",
     };
   }
 
@@ -556,7 +585,8 @@ export function suggestNumbersFocus(current = {}) {
         stepId,
         modeId: "convert",
         difficulty: "assisted",
-        reason: "Type the German reading from the written form",
+        policy: "mix",
+        reason: "Mix modalities — type the German reading from the written form",
       };
     }
     const buildOk = isNumbersCellPlayable("decimals", stepId, "build");
@@ -566,7 +596,8 @@ export function suggestNumbersFocus(current = {}) {
         stepId,
         modeId: "build",
         difficulty: "assisted",
-        reason: "Build the spoken form from chips",
+        policy: "mix",
+        reason: "Mix modalities — build the spoken form from chips",
       };
     }
   }
@@ -582,13 +613,14 @@ export function suggestNumbersFocus(current = {}) {
     const idx = ladder.indexOf(stepId);
     if (idx >= 0 && idx < ladder.length - 1) {
       const next = ladder[idx + 1];
-      const modes = modesForStep("decimals", next);
+      const intro = introModeForStep("decimals", next);
       return {
         topicId: "decimals",
         stepId: next,
-        modeId: modes[0]?.id || "listen",
+        modeId: intro?.id || "listen",
         difficulty: "assisted",
-        reason: `Next Decimals step: ${getNumbersStep("decimals", next)?.label}`,
+        policy: "introduce",
+        reason: `Introduce next unit: ${getNumbersStep("decimals", next)?.label}`,
       };
     }
   }
@@ -597,31 +629,37 @@ export function suggestNumbersFocus(current = {}) {
   const idx = ladder.indexOf(stepId);
   if (idx >= 0 && idx < ladder.length - 1) {
     const next = ladder[idx + 1];
+    const intro = introModeForStep("cardinals", next);
     return {
       topicId: "cardinals",
       stepId: next,
-      modeId: "build",
+      modeId: intro?.id || "build",
       difficulty: "assisted",
-      reason: `Next Cardinals step: ${getNumbersStep("cardinals", next)?.label}`,
+      policy: "introduce",
+      reason: `Introduce next unit: ${getNumbersStep("cardinals", next)?.label}`,
     };
   }
 
   if (topicId === "cardinals" && stepId === "hundreds") {
+    const intro = introModeForStep("decimals", "komma-read");
     return {
       topicId: "decimals",
       stepId: "komma-read",
-      modeId: "listen",
+      modeId: intro?.id || "listen",
       difficulty: "assisted",
-      reason: "Next topic: Decimals — Komma, not Punkt",
+      policy: "introduce",
+      reason: "Introduce Decimals — Komma, not Punkt",
     };
   }
 
+  const intro = introModeForStep("cardinals", "teens");
   return {
     topicId: "cardinals",
     stepId: "teens",
-    modeId: "build",
+    modeId: intro?.id || "build",
     difficulty: "assisted",
-    reason: "Warm-up on teens",
+    policy: "introduce",
+    reason: "Introduce teens",
   };
 }
 
