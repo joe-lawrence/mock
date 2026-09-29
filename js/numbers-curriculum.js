@@ -119,23 +119,13 @@ export const NUMBERS_TOPICS = [
         chartTab: "komma",
       },
       {
-        id: "write-komma",
-        label: "Write with Komma",
-        playable: true,
-        pool: "write-komma",
-        modes: ["convert", "build", "proofread"],
-        blurb: "Produce written decimals (Komma) from English or speech cues.",
-        softAfter: "place-value",
-        chartTab: "komma",
-      },
-      {
         id: "money-euros",
         label: "Euro amounts",
         playable: true,
         pool: "money-euros",
         modes: ["build", "listen", "convert", "proofread"],
         blurb: "Whole euros: … Euro.",
-        softAfter: "write-komma",
+        softAfter: "place-value",
         chartTab: "money",
       },
       {
@@ -681,7 +671,6 @@ export function suggestNumbersFocus(current = {}) {
     const ladder = [
       "komma-read",
       "place-value",
-      "write-komma",
       "money-euros",
       "money-cents",
     ];

@@ -83,7 +83,8 @@ export function corruptForm(form) {
   if (s.includes("Viertel")) variants.push(s.replace("Viertel", "Viertal"));
   if (s.includes("te") && !s.includes("ste")) variants.push(s.replace(/te$/, "ste"));
   if (s.includes("ste")) variants.push(s.replace(/ste$/, "te"));
-  if (s.includes("Uhr")) variants.push(s.replace("Uhr", "Stunde"));
+  // NB: never swap "Uhr" → "Stunde" — that is a confusing semantic error
+  // ("null Stunde"), not the orthographic slip proofreading is meant to test.
   if (s.includes(" ")) {
     const bits = s.split(" ");
     if (bits.length >= 2) {

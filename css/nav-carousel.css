@@ -512,6 +512,110 @@ html[data-theme="dark"] .nc-phone {
   height: 0.85rem;
 }
 
+.nc-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-height: 0;
+}
+
+.nc-card-main .nc-card-title {
+  margin: 0;
+}
+
+/* Explicit drill-down control — replaces the old long-press gesture. */
+.nc-card-explore {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.85rem;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--ease), border-color var(--ease), transform 120ms ease;
+}
+
+.nc-card-explore svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.nc-card-explore:hover,
+.nc-card-explore:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--signal) 45%, var(--line));
+  background: var(--signal-soft);
+}
+
+.nc-card-explore:active {
+  transform: scale(0.96);
+}
+
+.nc-card.is-all .nc-card-explore {
+  border-color: color-mix(in srgb, #fff 55%, transparent);
+  background: color-mix(in srgb, #fff 18%, transparent);
+  color: #fff;
+}
+
+/* Guided start — Dealer-driven entry on the mode screen */
+.nc-guided {
+  margin: 0 1.15rem 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 3rem;
+  padding: 0.6rem 1rem;
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--ease), border-color var(--ease), transform 120ms ease;
+}
+
+.nc-guided:hover,
+.nc-guided:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--signal) 45%, var(--line));
+  background: var(--signal-soft);
+}
+
+.nc-guided:active {
+  transform: scale(0.98);
+}
+
+.nc-caps-label {
+  align-self: center;
+  margin-right: 0.15rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.nc-bar-caps {
+  align-items: center;
+}
+
 /* Bottom bar */
 .nc-bar {
   position: absolute;

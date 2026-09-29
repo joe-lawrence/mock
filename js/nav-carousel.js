@@ -3,7 +3,7 @@
  * Standalone page or embedded hub in the main mock.
  */
 
-import { NUMBERS_TOPICS, modesForStep } from "./numbers-curriculum.js?v=20260929-dmo4";
+import { NUMBERS_TOPICS, modesForStep } from "./numbers-curriculum.js?v=20260929-dmo15";
 import { genderShortcutsNavUnits, modalitiesForUnit } from "./nouns-curriculum.js?v=20260929-dmo4";
 
 const CAPS_KEY = "schnapp-nav-caps";
@@ -146,6 +146,10 @@ function shellHtml({ embedded }) {
             <span class="nc-mode-label">Play</span>
           </button>
         </div>
+        <button type="button" class="nc-guided" data-guided>
+          <span class="nc-start-icon">${PLAY_SVG}</span>
+          <span>Start guided</span>
+        </button>
       </section>
 
       <section class="nc-screen nc-screen-nav" data-nc-screen="2" hidden>
@@ -159,9 +163,10 @@ function shellHtml({ embedded }) {
             <span class="nc-start-icon">${PLAY_SVG}</span>
             <span class="nc-start-label">Start (<span data-nc-count>0</span>)</span>
           </button>
-          <div class="nc-bar-caps" role="group" aria-label="Quiz styles">
-            <button type="button" class="nc-cap" data-nc-cap="keyboard" aria-pressed="true" aria-label="Write" title="Write — free-form text">${KEY_SVG}</button>
-            <button type="button" class="nc-cap" data-nc-cap="audio" aria-pressed="true" aria-label="Listen" title="Listen — audio in">${HEAD_SVG}</button>
+          <div class="nc-bar-caps" role="group" aria-label="Practice styles">
+            <span class="nc-caps-label">Practice styles</span>
+            <button type="button" class="nc-cap" data-nc-cap="keyboard" aria-pressed="true" aria-label="Write practice style" title="Write — free-form text">${KEY_SVG}</button>
+            <button type="button" class="nc-cap" data-nc-cap="audio" aria-pressed="true" aria-label="Listen practice style" title="Listen — audio in">${HEAD_SVG}</button>
           </div>
         </footer>
         <div class="nc-playlist-sheet" data-nc-playlist-sheet hidden>
@@ -475,65 +480,67 @@ export function mountNavCarousel(container, options = {}) {
     const card = document.createElement("article");
     card.className = `nc-card is-${sel}${unplayable ? " is-soon" : ""}`;
     card.setAttribute("role", "button");
+    card.setAttribute("aria-pressed", String(sel === "all"));
     card.tabIndex = unplayable ? -1 : 0;
 
     let badge = "";
     if (sel === "all") badge = CHECK_SVG;
     else if (sel === "some") badge = `<span class="nc-card-dot"></span>`;
 
-    const hint = !isUnit
-      ? `<div class="nc-card-hint"><span>Hold to open</span>${ARROW_SVG}</div>`
+    // Non-unit cards get an explicit Explore button (drill-down); units show a
+    // status hint. The card body itself is a selection toggle in every case.
+    const footer = !isUnit
+      ? `<button type="button" class="nc-card-explore" data-explore aria-label="Explore ${item.title}"><span>Explore</span>${ARROW_SVG}</button>`
       : unplayable
         ? `<div class="nc-card-hint">Soon</div>`
         : `<div class="nc-card-hint" aria-hidden="true">&nbsp;</div>`;
 
     card.innerHTML = `
       <div class="nc-card-badge">${badge}</div>
-      <div>
+      <div class="nc-card-main">
         <h3 class="nc-card-title">${item.title}</h3>
-        ${hint}
+        ${footer}
       </div>
     `;
 
     if (unplayable) return card;
 
-    let timer = 0;
+    const exploreBtn = card.querySelector("[data-explore]");
+    if (exploreBtn) {
+      // Keep the drill-down action isolated from the card's toggle handlers.
+      exploreBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
+      exploreBtn.addEventListener("pointerup", (e) => e.stopPropagation());
+      exploreBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        drillDown(item);
+      });
+      exploreBtn.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") e.stopPropagation();
+      });
+    }
+
     let startX = 0;
     let startY = 0;
-    let isLongPress = false;
 
-    const clearTimer = () => {
-      window.clearTimeout(timer);
+    const reset = () => {
       card.style.transform = "";
     };
 
     card.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
-      isLongPress = false;
+      if (e.target.closest("[data-explore]")) return;
       startX = e.clientX;
       startY = e.clientY;
       card.style.transform = "scale(0.97)";
       try {
         card.setPointerCapture(e.pointerId);
       } catch (_) {}
-      timer = window.setTimeout(() => {
-        isLongPress = true;
-        if (navigator.vibrate) navigator.vibrate(40);
-        card.style.transform = "scale(1.02)";
-        if (!isUnit) drillDown(item);
-      }, LONG_MS);
-    });
-
-    card.addEventListener("pointermove", (e) => {
-      if (Math.abs(e.clientX - startX) > MOVE_PX || Math.abs(e.clientY - startY) > MOVE_PX) {
-        clearTimer();
-      }
     });
 
     card.addEventListener("pointerup", (e) => {
-      clearTimer();
+      reset();
+      if (e.target.closest("[data-explore]")) return;
       if (
-        !isLongPress &&
         Math.abs(e.clientX - startX) < MOVE_PX &&
         Math.abs(e.clientY - startY) < MOVE_PX
       ) {
@@ -541,14 +548,17 @@ export function mountNavCarousel(container, options = {}) {
       }
     });
 
-    card.addEventListener("pointercancel", clearTimer);
-    card.addEventListener("pointerleave", clearTimer);
-    card.addEventListener("contextmenu", (e) => e.preventDefault());
+    card.addEventListener("pointercancel", reset);
+    card.addEventListener("pointerleave", reset);
     card.addEventListener("keydown", (e) => {
+      if (e.target.closest("[data-explore]")) return;
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         toggleNodeSelection(item);
-      } else if ((e.key === "ArrowDown" || e.key === "o") && !isUnit) {
+      } else if (
+        (e.key === "ArrowDown" || e.key === "ArrowRight" || e.key === "o") &&
+        !isUnit
+      ) {
         e.preventDefault();
         drillDown(item);
       }
@@ -717,6 +727,13 @@ export function mountNavCarousel(container, options = {}) {
 
   root.querySelectorAll("[data-enter]").forEach((btn) => {
     btn.addEventListener("click", () => enterMode(btn.dataset.enter));
+  });
+  root.querySelector("[data-guided]")?.addEventListener("click", () => {
+    if (onStart) {
+      onStart({ guided: true });
+    } else {
+      showToast("Guided start — Dealer picks your next rep.");
+    }
   });
   keyBtn?.addEventListener("click", () => toggleCap("keyboard"));
   audioBtn?.addEventListener("click", () => toggleCap("audio"));

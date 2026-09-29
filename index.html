@@ -23,8 +23,8 @@
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Sora:wght@500;600&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,500&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./css/mock.css?v=20260929-dmo4" />
-    <link rel="stylesheet" href="./css/nav-carousel.css?v=20260929-nc32" />
+    <link rel="stylesheet" href="./css/mock.css?v=20260929-dmo15" />
+    <link rel="stylesheet" href="./css/nav-carousel.css?v=20260929-nc33" />
     <script type="importmap">
       {
         "imports": {
@@ -311,6 +311,12 @@
         </span>
       </header>
 
+      <!-- Persistent session chrome: active mode + breadcrumb (Numbers · Tens) -->
+      <div class="session-crumb" id="session-crumb" hidden>
+        <span class="session-mode" id="session-mode" data-mode=""></span>
+        <nav class="session-breadcrumb" id="session-breadcrumb" aria-label="Location"></nav>
+      </div>
+
       <main>
         <!-- HUB — nav carousel (Learn | Play → territories) -->
         <section id="view-hub" class="view is-active nc-hub" aria-label="Hub">
@@ -328,7 +334,14 @@
           <div class="briefing" id="numbers-briefing" hidden></div>
           <div class="sound-chart" id="numbers-chart" hidden></div>
           <div class="stage stage-fill" id="numbers-stage" hidden>
+            <p class="action-instruction" id="numbers-instruction" hidden></p>
             <p class="prompt" id="numbers-prompt"></p>
+            <p
+              class="exercise-feedback"
+              id="numbers-feedback"
+              hidden
+              aria-live="polite"
+            ></p>
             <div
               class="slot-row"
               id="numbers-slots"
@@ -410,7 +423,14 @@
               <span class="g-key g-neut">das</span>
             </p>
             <p class="family-progress" id="nouns-family-progress" hidden></p>
+            <p class="action-instruction" id="nouns-instruction" hidden></p>
             <p class="prompt" id="nouns-prompt"></p>
+            <p
+              class="exercise-feedback"
+              id="nouns-feedback"
+              hidden
+              aria-live="polite"
+            ></p>
             <p class="help-line" id="nouns-help" hidden></p>
             <p class="help-line" id="nouns-translation" hidden></p>
             <div class="slot-row" id="nouns-slots" aria-label="Phrase slots">
@@ -569,6 +589,6 @@
       </div>
     </div>
 
-    <script type="module" src="./js/mock.js?v=20260929-dmo4"></script>
+    <script type="module" src="./js/mock.js?v=20260929-dmo15"></script>
   </body>
 </html>

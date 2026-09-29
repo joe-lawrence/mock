@@ -54,20 +54,6 @@ export function buildPlaceValuePool() {
   return buildKommaPool();
 }
 
-/** Writing focus: denser 2-place set on small wholes. */
-export function buildWriteKommaPool() {
-  const items = [];
-  for (let w = 0; w <= 50; w++) {
-    for (let d = 0; d <= 9; d++) items.push(decimalMeta(w, [d]));
-  }
-  for (let w = 0; w <= 30; w++) {
-    for (let f = 0; f <= 99; f++) {
-      items.push(decimalMeta(w, [Math.floor(f / 10), f % 10]));
-    }
-  }
-  return items;
-}
-
 /** Whole euros 1–200. */
 export function buildMoneyEurosPool() {
   const items = [];
@@ -90,7 +76,6 @@ export function buildMoneyCentsPool() {
 export const DECIMAL_POOLS = {
   "komma-read": buildKommaPool(),
   "place-value": buildPlaceValuePool(),
-  "write-komma": buildWriteKommaPool(),
   "money-euros": buildMoneyEurosPool(),
   "money-cents": buildMoneyCentsPool(),
 };
