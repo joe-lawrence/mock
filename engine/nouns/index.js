@@ -24,6 +24,10 @@ export {
   associationLemmas,
   lexiconLemmas,
   lemmasWithPlural,
+  categoryGenderRecognitionExercise,
+  categoryArticleApplicationExercise,
+  categoryGenderImposterExercise,
+  categorySentenceValidationExercise,
 } from "./exercise.js";
 
 export {
@@ -33,3 +37,26 @@ export {
   LEXICON,
   WUGS,
 } from "./data.js";
+
+export {
+  GENDER_CATEGORIES,
+  getGenderCategory,
+  practiceCategories,
+  categoryMembers,
+  categoryTransferMembers,
+  categoryTeachingMembers,
+  categoryMatchingMembers,
+  withDefiniteArticle,
+  associationChoiceLabel,
+  CATEGORY_GENDER_CHOICES,
+  CATEGORY_ASSOCIATION_CHOICES,
+} from "./categories.js";
+
+export {
+  CATEGORY_ARTICLE_ITEMS,
+  CATEGORY_VALIDATION_ITEMS,
+  categoryArticleItems,
+  categoryValidationItems,
+  getCategoryArticleItem,
+  getCategoryValidationItem,
+} from "./category-practice.js";

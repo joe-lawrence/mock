@@ -5,6 +5,18 @@
 import { LEXICON, WUGS, SUFFIX_PATTERNS } from "./data.js";
 import { matchSuffixPattern, definiteArticle, nounAnalysis } from "./noun.js";
 import { pluralConstructionParts } from "./evaluate.js";
+import {
+  getGenderCategory,
+  associationChoiceLabel,
+  practiceCategories,
+  categoryMatchingMembers,
+  categoryMembers,
+  CATEGORY_GENDER_CHOICES,
+} from "./categories.js";
+import {
+  getCategoryArticleItem,
+  getCategoryValidationItem,
+} from "./category-practice.js";
 
 function unique(list) {
   return [...new Set(list.filter(Boolean))];
@@ -44,7 +56,7 @@ export function articleExercise(lemma) {
 }
 
 /**
- * Lemmas that have a suffix-family cue — for Association drills.
+ * Lemmas that have a suffix-family cue — for Suffixes / Real Words drills.
  */
 export function associationLemmas() {
   return Object.keys(LEXICON)
@@ -54,6 +66,159 @@ export function associationLemmas() {
       return { lemma, patternId: pattern.id, suffix: pattern.suffix, gender: pattern.gender };
     })
     .filter(Boolean);
+}
+
+/**
+ * Stable 0..n-1 index from a string (for deterministic choice rotation).
+ * @param {string} seed
+ * @param {number} n
+ */
+function stableIndex(seed, n) {
+  if (n <= 0) return 0;
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return h % n;
+}
+
+function rotateList(list, seed) {
+  if (!list.length) return [];
+  const rot = stableIndex(seed, list.length);
+  return [...list.slice(rot), ...list.slice(0, rot)];
+}
+
+/**
+ * Gender Recognition: category examples → associated gender (M/F/N).
+ * @param {string} categoryId
+ */
+export function categoryGenderRecognitionExercise(categoryId) {
+  const cat = getGenderCategory(categoryId);
+  if (!cat) throw new Error(`categoryGenderRecognitionExercise: unknown ${categoryId}`);
+  if (!practiceCategories().some((c) => c.id === categoryId)) {
+    throw new Error(`categoryGenderRecognitionExercise: not practice-eligible ${categoryId}`);
+  }
+  const expectedAssociation = cat.association;
+  return {
+    categoryId: cat.id,
+    categoryName: cat.name,
+    association: cat.association,
+    strength: cat.strength,
+    expectedAssociation,
+    choices: [...CATEGORY_GENDER_CHOICES],
+    choiceLabels: Object.fromEntries(
+      CATEGORY_GENDER_CHOICES.map((id) => [id, associationChoiceLabel(id)])
+    ),
+    choiceLabel: associationChoiceLabel(expectedAssociation),
+    description: cat.description || "",
+  };
+}
+
+/**
+ * Article Application: authored blanked sentence → article choice.
+ * @param {string} itemId
+ */
+export function categoryArticleApplicationExercise(itemId) {
+  const item = getCategoryArticleItem(itemId);
+  if (!item) throw new Error(`categoryArticleApplicationExercise: unknown ${itemId}`);
+  const cat = getGenderCategory(item.categoryId);
+  if (!cat) throw new Error(`categoryArticleApplicationExercise: bad category ${item.categoryId}`);
+  const blank = "___";
+  return {
+    itemId: item.id,
+    categoryId: cat.id,
+    categoryName: cat.name,
+    association: cat.association,
+    strength: cat.strength,
+    lemma: item.lemma,
+    articleKind: item.articleKind,
+    before: item.before,
+    after: item.after,
+    promptText: `${item.before}${blank}${item.after}`.trim(),
+    choices: [...item.choices],
+    correct: item.correct,
+    expectedAssociation: cat.association,
+    choiceLabel: associationChoiceLabel(cat.association),
+  };
+}
+
+/**
+ * Gender Imposter: 3 matching-gender members + 1 wrong-gender noun.
+ * @param {string} categoryId
+ */
+export function categoryGenderImposterExercise(categoryId) {
+  const cat = getGenderCategory(categoryId);
+  if (!cat) throw new Error(`categoryGenderImposterExercise: unknown ${categoryId}`);
+  if (!practiceCategories().some((c) => c.id === categoryId)) {
+    throw new Error(`categoryGenderImposterExercise: not practice-eligible ${categoryId}`);
+  }
+  const matching = categoryMatchingMembers(categoryId);
+  if (matching.length < 3) {
+    throw new Error(
+      `categoryGenderImposterExercise: need ≥3 matching members for ${categoryId}`
+    );
+  }
+  const matchStart = stableIndex(`${categoryId}:match`, matching.length);
+  const matches = [];
+  for (let i = 0; i < matching.length && matches.length < 3; i++) {
+    matches.push(matching[(matchStart + i) % matching.length]);
+  }
+
+  const memberSet = new Set(categoryMembers(categoryId));
+  const imposters = Object.keys(LEXICON)
+    .filter(
+      (lemma) =>
+        !memberSet.has(lemma) &&
+        LEXICON[lemma]?.gender &&
+        LEXICON[lemma].gender !== cat.association
+    )
+    .sort();
+  if (!imposters.length) {
+    throw new Error(`categoryGenderImposterExercise: no imposters for ${categoryId}`);
+  }
+  const imposter = imposters[stableIndex(`${categoryId}:imp`, imposters.length)];
+
+  const lemmas = rotateList([...matches, imposter], `${categoryId}:order`);
+  const displays = Object.fromEntries(lemmas.map((lemma) => [lemma, lemma]));
+
+  return {
+    categoryId: cat.id,
+    categoryName: cat.name,
+    association: cat.association,
+    strength: cat.strength,
+    expectedAssociation: cat.association,
+    expectedLemma: imposter,
+    matches,
+    imposter,
+    imposterGender: LEXICON[imposter].gender,
+    choices: lemmas,
+    choiceLabels: displays,
+    choiceLabel: associationChoiceLabel(cat.association),
+    header: `Category: ${cat.name} · Expected gender: ${associationChoiceLabel(cat.association)}`,
+  };
+}
+
+/**
+ * Sentence Validation: authored sentence → correct / incorrect.
+ * @param {string} itemId
+ */
+export function categorySentenceValidationExercise(itemId) {
+  const item = getCategoryValidationItem(itemId);
+  if (!item) throw new Error(`categorySentenceValidationExercise: unknown ${itemId}`);
+  const cat = getGenderCategory(item.categoryId);
+  if (!cat) throw new Error(`categorySentenceValidationExercise: bad category ${item.categoryId}`);
+  return {
+    itemId: item.id,
+    categoryId: cat.id,
+    categoryName: cat.name,
+    association: cat.association,
+    strength: cat.strength,
+    lemma: item.lemma,
+    sentence: item.sentence,
+    correct: item.correct,
+    expected: item.correct ? "correct" : "incorrect",
+    choices: ["correct", "incorrect"],
+    choiceLabels: Object.freeze({ correct: "Correct", incorrect: "Incorrect" }),
+    choiceLabel: associationChoiceLabel(cat.association),
+  };
 }
 
 /**

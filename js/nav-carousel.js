@@ -3,8 +3,8 @@
  * Standalone page or embedded hub in the main mock.
  */
 
-import { NUMBERS_TOPICS, modesForStep } from "./numbers-curriculum.js";
-import { genderShortcutsNavUnits, modalitiesForUnit } from "./nouns-curriculum.js";
+import { NUMBERS_TOPICS, modesForStep } from "./numbers-curriculum.js?v=20260929-dmo4";
+import { genderShortcutsNavUnits, modalitiesForUnit } from "./nouns-curriculum.js?v=20260929-dmo4";
 
 const CAPS_KEY = "schnapp-nav-caps";
 const LONG_MS = 500;
@@ -104,6 +104,20 @@ export function buildNavTree() {
     },
     NOUNS_BRANCH,
   ];
+}
+
+/** Depth-first unit order for Learn (and stable playlist order). */
+export function unitTreeOrderMap(tree = buildNavTree()) {
+  const map = new Map();
+  let i = 0;
+  function walk(nodes) {
+    for (const n of nodes || []) {
+      if (n.type === "unit") map.set(n.id, i++);
+      if (n.children?.length) walk(n.children);
+    }
+  }
+  walk(tree);
+  return map;
 }
 
 function shellHtml({ embedded }) {
@@ -230,11 +244,17 @@ export function mountNavCarousel(container, options = {}) {
   const playlistSheet = root.querySelector("[data-nc-playlist-sheet]");
   const playlistBody = root.querySelector("[data-nc-playlist-body]");
 
+  const treeOrder = unitTreeOrderMap(tree);
+
   function selectedUnits() {
     return [...state.selected]
       .map((id) => unitIndex.get(id))
       .filter(Boolean)
-      .sort((a, b) => a.id.localeCompare(b.id));
+      .sort(
+        (a, b) =>
+          (treeOrder.get(a.id) ?? 1e9) - (treeOrder.get(b.id) ?? 1e9) ||
+          a.id.localeCompare(b.id)
+      );
   }
 
   function caps() {
@@ -255,8 +275,11 @@ export function mountNavCarousel(container, options = {}) {
       return modesForStep(u.topicId, u.stepId).some(
         (m) =>
           m.id === "build" ||
+          m.id === "cloze" ||
+          m.id === "visual" ||
+          m.id === "sentence" ||
           (m.id === "listen" && c.audio) ||
-          (m.id === "convert" && c.keyboard)
+          ((m.id === "convert" || m.id === "proofread") && c.keyboard)
       );
     }
     if (u.territory === "nouns" && u.learnUnitId) {
@@ -264,6 +287,7 @@ export function mountNavCarousel(container, options = {}) {
         (m) =>
           m.playable &&
           (m.id === "choose-article" ||
+            m.id === "category-gender" ||
             (m.id === "type-article" && c.keyboard))
       );
     }
@@ -300,7 +324,7 @@ export function mountNavCarousel(container, options = {}) {
     const numbersModes = ["build"];
     if (c.audio) numbersModes.push("listen");
     if (c.keyboard) numbersModes.push("convert");
-    const nounsModalities = ["choose-article"];
+    const nounsModalities = ["choose-article", "category-gender"];
     if (c.keyboard) nounsModalities.push("type-article");
     return {
       numbersModes,

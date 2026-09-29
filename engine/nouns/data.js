@@ -3,7 +3,7 @@
  * Lexical gender/plural are authoritative; patterns are predictive only.
  */
 
-export const DATA_VERSION = "0.2.0";
+export const DATA_VERSION = "0.5.0";
 
 export const ARTICLES = Object.freeze({
   masculine: "der",
@@ -368,6 +368,81 @@ export const LEXICON = Object.freeze({
     gloss: "monument",
     plural: Object.freeze({ form: "Monumente", stem: "Monument", ending: "e" }),
   }),
+
+  // —— Calendar / time categories (Gender Shortcuts — Categories) ——
+  Montag: Object.freeze({ gender: "masculine", gloss: "Monday" }),
+  Dienstag: Object.freeze({ gender: "masculine", gloss: "Tuesday" }),
+  Mittwoch: Object.freeze({ gender: "masculine", gloss: "Wednesday" }),
+  Donnerstag: Object.freeze({ gender: "masculine", gloss: "Thursday" }),
+  Freitag: Object.freeze({ gender: "masculine", gloss: "Friday" }),
+  Samstag: Object.freeze({ gender: "masculine", gloss: "Saturday" }),
+  Sonntag: Object.freeze({ gender: "masculine", gloss: "Sunday" }),
+  Januar: Object.freeze({ gender: "masculine", gloss: "January" }),
+  Februar: Object.freeze({ gender: "masculine", gloss: "February" }),
+  März: Object.freeze({ gender: "masculine", gloss: "March" }),
+  April: Object.freeze({ gender: "masculine", gloss: "April" }),
+  Mai: Object.freeze({ gender: "masculine", gloss: "May" }),
+  Juni: Object.freeze({ gender: "masculine", gloss: "June" }),
+  Juli: Object.freeze({ gender: "masculine", gloss: "July" }),
+  August: Object.freeze({ gender: "masculine", gloss: "August" }),
+  September: Object.freeze({ gender: "masculine", gloss: "September" }),
+  Oktober: Object.freeze({ gender: "masculine", gloss: "October" }),
+  November: Object.freeze({ gender: "masculine", gloss: "November" }),
+  Dezember: Object.freeze({ gender: "masculine", gloss: "December" }),
+  Sommer: Object.freeze({ gender: "masculine", gloss: "summer" }),
+  Herbst: Object.freeze({ gender: "masculine", gloss: "autumn / fall" }),
+  Winter: Object.freeze({ gender: "masculine", gloss: "winter" }),
+  // Frühling already listed under -ling
+
+  // —— Directions (m) ——
+  Norden: Object.freeze({ gender: "masculine", gloss: "north" }),
+  Süden: Object.freeze({ gender: "masculine", gloss: "south" }),
+  Osten: Object.freeze({ gender: "masculine", gloss: "east" }),
+  Westen: Object.freeze({ gender: "masculine", gloss: "west" }),
+
+  // —— Weather (m) ——
+  Regen: Object.freeze({ gender: "masculine", gloss: "rain" }),
+  Schnee: Object.freeze({ gender: "masculine", gloss: "snow" }),
+  Wind: Object.freeze({ gender: "masculine", gloss: "wind" }),
+  Nebel: Object.freeze({ gender: "masculine", gloss: "fog" }),
+  Hagel: Object.freeze({ gender: "masculine", gloss: "hail" }),
+
+  // —— Rivers (f, with m exceptions) ——
+  Elbe: Object.freeze({ gender: "feminine", gloss: "Elbe (river)" }),
+  Donau: Object.freeze({ gender: "feminine", gloss: "Danube (river)" }),
+  Oder: Object.freeze({ gender: "feminine", gloss: "Oder (river)" }),
+  Mosel: Object.freeze({ gender: "feminine", gloss: "Moselle (river)" }),
+  Spree: Object.freeze({ gender: "feminine", gloss: "Spree (river)" }),
+  Rhein: Object.freeze({ gender: "masculine", gloss: "Rhine (river)" }),
+  Main: Object.freeze({ gender: "masculine", gloss: "Main (river)" }),
+
+  // —— Flowers (f) ——
+  Rose: Object.freeze({ gender: "feminine", gloss: "rose" }),
+  Tulpe: Object.freeze({ gender: "feminine", gloss: "tulip" }),
+  Lilie: Object.freeze({ gender: "feminine", gloss: "lily" }),
+  Nelke: Object.freeze({ gender: "feminine", gloss: "carnation" }),
+  Narzisse: Object.freeze({ gender: "feminine", gloss: "daffodil / narcissus" }),
+
+  // —— Metals / elements (n) ——
+  Gold: Object.freeze({ gender: "neuter", gloss: "gold" }),
+  Silber: Object.freeze({ gender: "neuter", gloss: "silver" }),
+  Eisen: Object.freeze({ gender: "neuter", gloss: "iron" }),
+  Kupfer: Object.freeze({ gender: "neuter", gloss: "copper" }),
+  Blei: Object.freeze({ gender: "neuter", gloss: "lead (metal)" }),
+  Zinn: Object.freeze({ gender: "neuter", gloss: "tin (metal)" }),
+
+  // —— Venues / establishments (n) ——
+  Hotel: Object.freeze({ gender: "neuter", gloss: "hotel" }),
+  Café: Object.freeze({ gender: "neuter", gloss: "café" }),
+  Restaurant: Object.freeze({ gender: "neuter", gloss: "restaurant" }),
+  Kino: Object.freeze({ gender: "neuter", gloss: "cinema / movie theater" }),
+  Museum: Object.freeze({ gender: "neuter", gloss: "museum" }),
+
+  // —— Occupations unmarked (m) ——
+  Arzt: Object.freeze({ gender: "masculine", gloss: "doctor" }),
+  Lehrer: Object.freeze({ gender: "masculine", gloss: "teacher" }),
+  Schüler: Object.freeze({ gender: "masculine", gloss: "student / pupil" }),
+  Koch: Object.freeze({ gender: "masculine", gloss: "cook / chef" }),
 
   // —— Chart plural exemplars (no strong gender suffix; plurals mode / reference) ——
   Tag: Object.freeze({

@@ -6,20 +6,39 @@
 import {
   createNounArticleExercise,
   createNounAssociationExercise,
+  createNounCategoryGenderRecognitionExercise,
+  createNounCategoryArticleApplicationExercise,
+  createNounCategoryGenderImposterExercise,
+  createNounCategorySentenceValidationExercise,
   createNounWugExercise,
   createNounPluralExercise,
   createNumberConstructionExercise,
   createDecimalConstructionExercise,
   createMoneyConstructionExercise,
+  createFractionConstructionExercise,
+  createMixedFractionConstructionExercise,
+  createClockConstructionExercise,
+  createDigitalTimeConstructionExercise,
+  createDurationConstructionExercise,
+  createOrdinalConstructionExercise,
+  createOrdinalAmConstructionExercise,
+  createWeekdayConstructionExercise,
+  createMonthConstructionExercise,
+  createCalendarDateConstructionExercise,
+  createMeasureConstructionExercise,
   submitExerciseAttempt,
-} from "../engine/exercise/index.js?v=20260927-nouns6";
+} from "../engine/exercise/index.js?v=20260929-dmo4";
 import {
   associationLemmas,
   wugForms,
   lemmasWithPlural,
   LEXICON,
   ARTICLES,
-} from "../engine/nouns/index.js?v=20260927-nouns6";
+  GENDER_CATEGORIES,
+  practiceCategories,
+  categoryArticleItems,
+  categoryValidationItems,
+} from "../engine/nouns/index.js?v=20260928-nouns11";
 import {
   cardinalForm,
   parseCardinalForm,
@@ -28,7 +47,9 @@ import {
   parseDecimalForm,
   parseDecimalWritten,
   parseMoneyForm,
-} from "../engine/numbers/index.js?v=20260927-dec2";
+  parseFractionForm,
+  parseOrdinalForm,
+} from "../engine/numbers/index.js?v=20260929-dmo4";
 import {
   NUMBERS_TOPICS,
   getNumbersTopic,
@@ -40,7 +61,7 @@ import {
   suggestNumbersFocus,
   formatNumbersFocusLabel,
   mixableSteps,
-} from "./numbers-curriculum.js?v=20260927-unit1";
+} from "./numbers-curriculum.js?v=20260929-dmo4";
 import {
   GENDER_SHORTCUTS_UNITS,
   NOUNS_STUB_TOPICS,
@@ -48,9 +69,23 @@ import {
   familiesForUnit,
   introFamilyForUnit,
   unitIdForFamily,
-} from "./nouns-curriculum.js?v=20260927-gs1";
-import { DECIMAL_POOLS } from "./decimals-pools.js?v=20260927-nav1";
-import { mountNavCarousel } from "./nav-carousel.js?v=20260927-nc26";
+} from "./nouns-curriculum.js?v=20260929-dmo4";
+import { DECIMAL_POOLS } from "./decimals-pools.js?v=20260929-dmo4";
+import { FRACTION_POOLS } from "./fractions-pools.js?v=20260929-dmo4";
+import { TIME_POOLS } from "./time-pools.js?v=20260929-dmo4";
+import { DATE_POOLS } from "./dates-pools.js?v=20260929-dmo4";
+import { MEASURE_POOLS } from "./measure-pools.js?v=20260929-dmo4";
+import { ORDINAL_POOLS } from "./ordinals-pools.js?v=20260929-dmo4";
+import {
+  makeClozeExercise,
+  makeProofreadExercise,
+  makeSentenceOrdinalExercise,
+  visualForMeta,
+  canonicalFormForMeta,
+  makeNounProofreadChoices,
+  makeNounReverseChoices,
+} from "./quiz-extras.js?v=20260929-dmo4";
+import { mountNavCarousel } from "./nav-carousel.js?v=20260929-nc32";
 
 /** Bootstrap Icons (outline) — https://icons.getbootstrap.com */
 const BI_PATHS = {
@@ -555,9 +590,10 @@ const briefings = {
       {
         heading: "What you’ll use in practice",
         html: `<ul>
-          <li><strong>Topics</strong> — Cardinals and Decimals (Komma → money); Fractions, Time, Dates, Measurement, Ordinals next</li>
+          <li><strong>Topics</strong> — Cardinals through Ordinals (all Numbers topics playable except phrase-context stubs)</li>
           <li><strong>Cardinals steps</strong> — 0–12, Teens, Tens, Compounds, Hundreds+</li>
           <li><strong>Decimals steps</strong> — Komma reading, place value, write-komma, Euro / Euro+Cent</li>
+          <li><strong>Fractions / Time</strong> — halb→mixed; Uhr / halb / Viertel / minutes / 24h / durations</li>
           <li><strong>Modes</strong> — Build, Listen, Convert (per step)</li>
           <li>Assisted / Core change support, not the German truth</li>
         </ul>`,
@@ -573,21 +609,20 @@ const briefings = {
   },
   nouns: {
     title: "Gender Shortcuts",
-    lede: "Browse by Learn unit: Suffixes and Categories share one reference each. Practice picks a family (Wugs, Real Words, Associations) — skip ahead anytime. Quiz how (choose article today) comes after family. Plurals and Articles are separate Nouns topics coming next.",
+    lede: "Browse by Learn unit: Suffixes (Wugs / Real Words) and Categories (Gender Recognition → Article → Imposter → Sentence). Categories train gender discrimination from semantic shortcuts — not suffix drills. Plurals and Articles are separate Nouns topics coming next.",
     blocks: [
       {
         heading: "Learn units",
         html: `<ul>
           <li><strong>Suffixes</strong> — morphological cues; Learn opens the gender/suffix chart</li>
-          <li><strong>Categories</strong> — soft semantic associations; Learn opens the Categories tab</li>
+          <li><strong>Categories</strong> — semantic associations; Learn opens the Categories tab</li>
         </ul>`,
       },
       {
         heading: "Practice families (under a unit)",
         html: `<ul>
-          <li><strong>Wugs</strong> / <strong>Real Words</strong> — under Suffixes (Wugs soft-first; Real Words skippable)</li>
-          <li><strong>Associations</strong> — under Categories</li>
-          <li><strong>Mix families</strong> — interleave Wugs + Real Words on Suffixes</li>
+          <li><strong>Wugs</strong> / <strong>Real Words</strong> — under Suffixes</li>
+          <li><strong>Gender Recognition</strong> / <strong>Article Application</strong> / <strong>Gender Imposter</strong> / <strong>Sentence Validation</strong> — under Categories</li>
         </ul>`,
       },
       {
@@ -632,7 +667,7 @@ const nounsChart = {
       id: "categories",
       label: "Categories",
       blurb:
-        "Semantic / category correlations are soft shortcuts — lexical gender still wins when they conflict.",
+        "Semantic categories are soft gender shortcuts — Recognition → Article → Imposter → Sentence. Lexical gender still wins on conflict.",
     },
     {
       id: "plurals",
@@ -773,33 +808,17 @@ const nounsChart = {
       ],
     },
   ],
-  categories: [
-    {
-      cue: "Days / months / seasons",
-      note: "tend masculine (der Montag, der Januar, der Sommer) — soft cue",
-      displayCue: "Time units",
-    },
-    {
-      cue: "Trees / weather",
-      note: "often masculine (der Baum, der Regen) — many exceptions",
-      displayCue: "Nature",
-    },
-    {
-      cue: "Rivers (many in DE)",
-      note: "often feminine (die Elbe, die Donau) — not universal",
-      displayCue: "Rivers",
-    },
-    {
-      cue: "Young people / diminutives",
-      note: "das Mädchen is neuter by -chen, not by meaning",
-      displayCue: "Form > meaning",
-    },
-    {
-      cue: "Insufficient info",
-      note: "When no reliable cue → learn the lexical fact; ? is valid on Wugs",
-      displayCue: "No cue",
-    },
-  ],
+  categories: GENDER_CATEGORIES.map((c) => ({
+    cue: c.description || c.name,
+    note: c.chartNote || "",
+    displayCue: c.name,
+    gender:
+      c.association === "masculine" ||
+      c.association === "feminine" ||
+      c.association === "neuter"
+        ? c.association
+        : null,
+  })),
   plurals: [
     {
       cue: "+en",
@@ -892,6 +911,244 @@ const numbersChart = {
       id: "money",
       label: "Euro",
       blurb: "… Euro; with cents: … Euro fünfzig (cents as a cardinal, not digit-by-digit).",
+    },
+    {
+      id: "fractions",
+      label: "Fractions",
+      blurb: "halb; ein Viertel; zwei Drittel; mixed eineinhalb / zwei und ein Viertel.",
+    },
+    {
+      id: "time",
+      label: "Time",
+      blurb: "… Uhr; halb vier = 3:30; Viertel nach / vor; minutes nach/vor; digital … Uhr …",
+    },
+    {
+      id: "dates",
+      label: "Dates",
+      blurb: "Weekdays, months, am dritten, full dates (Tag.Monat).",
+    },
+    {
+      id: "measure",
+      label: "Measure",
+      blurb: "Meter, Gramm, Liter, Grad, Stundenkilometer with numbers.",
+    },
+    {
+      id: "ordinals",
+      label: "Ordinals",
+      blurb: "erste …; teens + te; tens/compounds + ste; am + -en.",
+    },
+  ],
+  dates: [
+    {
+      n: "Montag",
+      parts: [{ text: "Montag", guide: "MOHN-tahk", stress: true }],
+      note: "weekday",
+    },
+    {
+      n: "März",
+      parts: [{ text: "März", guide: "mairts", stress: true }],
+      note: "month",
+    },
+    {
+      n: "3.",
+      parts: [
+        { text: "am", guide: "ahm" },
+        { text: "dritten", guide: "DRIT-ten", stress: true },
+      ],
+      note: "day of month → am + …en",
+    },
+    {
+      n: "3.3.",
+      parts: [
+        { text: "am", guide: "ahm" },
+        { text: "dritten", guide: "DRIT-ten", stress: true },
+        { text: "März", guide: "mairts" },
+      ],
+      note: "",
+    },
+  ],
+  measure: [
+    {
+      n: "3 m",
+      parts: [
+        { text: "drei", guide: "DRY", stress: true },
+        { text: "Meter", guide: "MAY-ter" },
+      ],
+      note: "",
+    },
+    {
+      n: "250 g",
+      parts: [
+        { text: "zweihundert", guide: "TSVAI-hoon-dert", stress: true },
+        { text: "fünfzig", guide: "FUENF-tsikh" },
+        { text: "Gramm", guide: "grahm" },
+      ],
+      note: "construction may split hundreds",
+    },
+    {
+      n: "1 l",
+      parts: [
+        { text: "ein", guide: "INE", stress: true },
+        { text: "Liter", guide: "LEE-ter" },
+      ],
+      note: "ein, not eins",
+    },
+    {
+      n: "20 °C",
+      parts: [
+        { text: "zwanzig", guide: "TSVAN-tsikh", stress: true },
+        { text: "Grad", guide: "graht" },
+      ],
+      note: "",
+    },
+  ],
+  ordinals: [
+    {
+      n: "1.",
+      parts: [{ text: "erste", guide: "AIR-stuh", stress: true }],
+      note: "irregular",
+    },
+    {
+      n: "3.",
+      parts: [{ text: "dritte", guide: "DRIT-tuh", stress: true }],
+      note: "irregular",
+    },
+    {
+      n: "13.",
+      parts: [
+        { text: "drei", guide: "DRY" },
+        { text: "zehn", guide: "tsayn" },
+        { text: "te", guide: "tuh", stress: true },
+      ],
+      note: "+ te",
+    },
+    {
+      n: "20.",
+      parts: [
+        { text: "zwanzig", guide: "TSVAN-tsikh", stress: true },
+        { text: "ste", guide: "stuh" },
+      ],
+      note: "+ ste",
+    },
+    {
+      n: "21.",
+      parts: [
+        { text: "ein", guide: "INE" },
+        { text: "und", guide: "oont" },
+        { text: "zwanzig", guide: "TSVAN-tsikh" },
+        { text: "ste", guide: "stuh", stress: true },
+      ],
+      note: "",
+    },
+  ],
+  fractions: [
+    {
+      n: "1/2",
+      parts: [{ text: "halb", guide: "halp", stress: true }],
+      note: "lexical half",
+    },
+    {
+      n: "1/4",
+      parts: [
+        { text: "ein", guide: "INE", stress: true },
+        { text: "Viertel", guide: "FEER-tel" },
+      ],
+      note: "",
+    },
+    {
+      n: "3/4",
+      parts: [
+        { text: "drei", guide: "DRY", stress: true },
+        { text: "Viertel", guide: "FEER-tel" },
+      ],
+      note: "",
+    },
+    {
+      n: "2/3",
+      parts: [
+        { text: "zwei", guide: "TSVAI", stress: true },
+        { text: "Drittel", guide: "DRIT-tel" },
+      ],
+      note: "",
+    },
+    {
+      n: "1 1/2",
+      parts: [{ text: "eineinhalb", guide: "INE-ine-halp", stress: true }],
+      note: "fused …einhalb",
+    },
+    {
+      n: "2 1/4",
+      parts: [
+        { text: "zwei", guide: "TSVAI", stress: true },
+        { text: "und", guide: "oont" },
+        { text: "ein", guide: "INE" },
+        { text: "Viertel", guide: "FEER-tel" },
+      ],
+      note: "",
+    },
+  ],
+  time: [
+    {
+      n: "03:00",
+      parts: [
+        { text: "drei", guide: "DRY", stress: true },
+        { text: "Uhr", guide: "oor" },
+      ],
+      note: "",
+    },
+    {
+      n: "03:30",
+      parts: [
+        { text: "halb", guide: "halp", stress: true },
+        { text: "vier", guide: "feer" },
+      ],
+      note: "halb → next hour",
+    },
+    {
+      n: "03:15",
+      parts: [
+        { text: "Viertel", guide: "FEER-tel", stress: true },
+        { text: "nach", guide: "nakh" },
+        { text: "drei", guide: "dry" },
+      ],
+      note: "",
+    },
+    {
+      n: "03:45",
+      parts: [
+        { text: "Viertel", guide: "FEER-tel", stress: true },
+        { text: "vor", guide: "for" },
+        { text: "vier", guide: "feer" },
+      ],
+      note: "",
+    },
+    {
+      n: "03:10",
+      parts: [
+        { text: "zehn", guide: "TSAYN", stress: true },
+        { text: "nach", guide: "nakh" },
+        { text: "drei", guide: "dry" },
+      ],
+      note: "",
+    },
+    {
+      n: "14:05",
+      parts: [
+        { text: "vierzehn", guide: "FEER-tsayn", stress: true },
+        { text: "Uhr", guide: "oor" },
+        { text: "fünf", guide: "fuenf" },
+      ],
+      note: "digital / 24h",
+    },
+    {
+      n: "1h 30min",
+      parts: [
+        { text: "eine", guide: "INE-uh", stress: true },
+        { text: "Stunde", guide: "SHTOON-duh" },
+        { text: "dreißig", guide: "DRY-sikh" },
+        { text: "Minuten", guide: "mi-NOO-ten" },
+      ],
+      note: "duration",
     },
   ],
   komma: [
@@ -1212,7 +1469,7 @@ const numbersChart = {
 
 /** Look up an exact Numbers chart row (guides + stress). */
 function numbersChartParts(n) {
-  for (const key of ["hundreds", "teens", "tens", "compounds", "base", "komma", "money"]) {
+  for (const key of ["hundreds", "teens", "tens", "compounds", "base", "komma", "money", "fractions", "time", "dates", "measure", "ordinals"]) {
     const row = (numbersChart[key] || []).find((r) => Number(r.n) === n || String(r.n) === String(n));
     if (row?.parts?.length) return row.parts;
   }
@@ -1398,7 +1655,35 @@ const numberPools = Object.fromEntries(
   ])
 );
 
-Object.assign(numberPools, DECIMAL_POOLS);
+Object.assign(
+  numberPools,
+  DECIMAL_POOLS,
+  FRACTION_POOLS,
+  TIME_POOLS,
+  DATE_POOLS,
+  MEASURE_POOLS,
+  ORDINAL_POOLS
+);
+
+const WRITTENISH_KINDS = new Set([
+  "decimal",
+  "money",
+  "fraction",
+  "mixed-fraction",
+  "clock",
+  "digital-time",
+  "duration",
+  "ordinal",
+  "ordinal-am",
+  "weekday",
+  "month",
+  "calendar-date",
+  "measure",
+]);
+
+function isWrittenishMeta(meta) {
+  return meta && WRITTENISH_KINDS.has(meta.kind);
+}
 
 /** Values allowed in Listen for the current Cardinals step or mix (cardinal digits only). */
 function listenValuePool() {
@@ -1432,6 +1717,8 @@ function buildMixDeck(topicId, stepIds, modeId) {
     caps.audio && (resolved === "listen" || resolved === "either");
   const wantConvert =
     caps.keyboard && (resolved === "convert" || resolved === "either");
+  const wantEitherExtras = resolved === "either";
+  const wantNamed = (id) => resolved === id || wantEitherExtras;
 
   for (const stepId of stepIds) {
     const modes = filterModesForCaps(modesForStep(topicId, stepId));
@@ -1464,6 +1751,14 @@ function buildMixDeck(topicId, stepIds, modeId) {
     if (wantConvert && modes.some((m) => m.id === "convert")) {
       for (const meta of pool) {
         items.push({ ...meta, stepId, mode: "convert", topicId });
+      }
+    }
+    for (const extra of ["cloze", "proofread", "visual", "sentence"]) {
+      if (!wantNamed(extra)) continue;
+      if (!modeAllowedByCaps(extra)) continue;
+      if (!modes.some((m) => m.id === extra)) continue;
+      for (const meta of pool) {
+        items.push({ ...meta, stepId, mode: extra, topicId });
       }
     }
   }
@@ -1575,7 +1870,7 @@ function currentNumberPool() {
 
 function enrichNumberMeta(meta) {
   if (!meta) return meta;
-  if (meta.kind === "decimal" || meta.kind === "money") {
+  if (isWrittenishMeta(meta)) {
     const parts = meta.parts || [];
     return {
       ...meta,
@@ -1640,8 +1935,8 @@ function decimalAnswerParts(meta) {
 
 function currentNumberExercise() {
   const meta = currentNumberMeta();
-  if (meta.kind === "decimal" || meta.kind === "money") {
-    return currentDecimalishExercise(meta);
+  if (isWrittenishMeta(meta)) {
+    return currentWrittenishExercise(meta);
   }
   if (state.numbersQuizMode === "listen") {
     const form = cardinalForm(meta.value);
@@ -1722,8 +2017,8 @@ function currentNumberExercise() {
   });
 }
 
-/** Listen / Convert / Build for decimal & money metas. */
-function currentDecimalishExercise(meta) {
+/** Listen / Convert / Build for decimal, money, fraction, and time metas. */
+function currentWrittenishExercise(meta) {
   const form = meta.form;
   const written = meta.written;
   const parts = decimalAnswerParts(meta);
@@ -1751,8 +2046,12 @@ function currentDecimalishExercise(meta) {
         answerParts: parts,
         hint:
           state.numbersDifficulty === "assisted"
-            ? "Replay if needed. Pick the written form (Komma, not Punkt)."
-            : "Replay if needed, then type the written form (use Komma).",
+            ? meta.kind === "decimal" || meta.kind === "money"
+              ? "Replay if needed. Pick the written form (Komma, not Punkt)."
+              : "Replay if needed. Pick the written form you heard."
+            : meta.kind === "decimal" || meta.kind === "money"
+              ? "Replay if needed, then type the written form (use Komma)."
+              : "Replay if needed, then type the written form.",
       },
       resolution: {
         kind: meta.kind,
@@ -1763,6 +2062,17 @@ function currentDecimalishExercise(meta) {
         fracDigits: meta.fracDigits,
         euros: meta.euros,
         cents: meta.cents,
+        numerator: meta.numerator,
+        denominator: meta.denominator,
+        hours: meta.hours,
+        minutes: meta.minutes,
+        n: meta.n,
+        index: meta.index,
+        month: meta.month,
+        day: meta.day,
+        year: meta.year,
+        value: meta.value,
+        unit: meta.unit,
       },
     };
   }
@@ -1841,12 +2151,115 @@ function currentDecimalishExercise(meta) {
         fracDigits: meta.fracDigits,
         euros: meta.euros,
         cents: meta.cents,
+        numerator: meta.numerator,
+        denominator: meta.denominator,
+        hours: meta.hours,
+        minutes: meta.minutes,
+        n: meta.n,
+        index: meta.index,
+        month: meta.month,
+        day: meta.day,
+        year: meta.year,
+        value: meta.value,
+        unit: meta.unit,
       },
     };
   }
 
   if (meta.kind === "money") {
     return createMoneyConstructionExercise(meta.euros, meta.cents, {
+      mode: state.numbersDifficulty,
+      english: meta.english,
+      answerParts: parts,
+    });
+  }
+  if (meta.kind === "fraction") {
+    return createFractionConstructionExercise(meta.numerator, meta.denominator, {
+      mode: state.numbersDifficulty,
+      english: meta.english,
+      answerParts: parts,
+    });
+  }
+  if (meta.kind === "mixed-fraction") {
+    return createMixedFractionConstructionExercise(
+      meta.whole,
+      meta.numerator,
+      meta.denominator,
+      {
+        mode: state.numbersDifficulty,
+        english: meta.english,
+        answerParts: parts,
+      }
+    );
+  }
+  if (meta.kind === "clock") {
+    return createClockConstructionExercise(meta.hours, meta.minutes, {
+      mode: state.numbersDifficulty,
+      english: meta.english,
+      answerParts: parts,
+    });
+  }
+  if (meta.kind === "digital-time") {
+    return createDigitalTimeConstructionExercise(meta.hours, meta.minutes, {
+      mode: state.numbersDifficulty,
+      english: meta.english,
+      answerParts: parts,
+    });
+  }
+  if (meta.kind === "duration") {
+    return createDurationConstructionExercise(
+      { hours: meta.hours, minutes: meta.minutes },
+      {
+        mode: state.numbersDifficulty,
+        english: meta.english,
+        answerParts: parts,
+      }
+    );
+  }
+  if (meta.kind === "ordinal") {
+    return createOrdinalConstructionExercise(meta.n, {
+      mode: state.numbersDifficulty,
+      english: meta.english,
+      answerParts: parts,
+    });
+  }
+  if (meta.kind === "ordinal-am") {
+    return createOrdinalAmConstructionExercise(meta.n, {
+      mode: state.numbersDifficulty,
+      english: meta.english,
+      answerParts: parts,
+    });
+  }
+  if (meta.kind === "weekday") {
+    return createWeekdayConstructionExercise(meta.index, {
+      mode: state.numbersDifficulty,
+      english: meta.english,
+      answerParts: parts,
+    });
+  }
+  if (meta.kind === "month") {
+    return createMonthConstructionExercise(meta.month, {
+      mode: state.numbersDifficulty,
+      english: meta.english,
+      answerParts: parts,
+    });
+  }
+  if (meta.kind === "calendar-date") {
+    return createCalendarDateConstructionExercise(
+      {
+        day: meta.day,
+        month: meta.month,
+        year: meta.year ?? undefined,
+      },
+      {
+        mode: state.numbersDifficulty,
+        english: meta.english,
+        answerParts: parts,
+      }
+    );
+  }
+  if (meta.kind === "measure") {
+    return createMeasureConstructionExercise(meta.value, meta.unit, {
       mode: state.numbersDifficulty,
       english: meta.english,
       answerParts: parts,
@@ -2198,17 +2611,30 @@ const nounPluralMeta = lemmasWithPlural().map((lemma) => {
 
 const nounAssociationPool = associationLemmas();
 const nounWugPool = wugForms();
+const nounCategoryGenderRecognitionPool = () =>
+  practiceCategories().map((c) => ({ categoryId: c.id }));
+const nounCategoryArticleApplicationPool = () =>
+  categoryArticleItems().map((x) => ({ itemId: x.id }));
+const nounCategoryGenderImposterPool = () =>
+  practiceCategories().map((c) => ({ categoryId: c.id }));
+const nounCategorySentenceValidationPool = () =>
+  categoryValidationItems().map((x) => ({ itemId: x.id }));
+
+function nounDeckSource(kind) {
+  if (kind === "Article") return nounArticleMeta;
+  if (kind === "Plural") return nounPluralMeta;
+  if (kind === "Association") return nounAssociationPool;
+  if (kind === "Proofread" || kind === "Reverse") return nounAssociationPool;
+  if (kind === "CategoryGenderRecognition") return nounCategoryGenderRecognitionPool();
+  if (kind === "CategoryArticleApplication") return nounCategoryArticleApplicationPool();
+  if (kind === "CategoryGenderImposter") return nounCategoryGenderImposterPool();
+  if (kind === "CategorySentenceValidation") return nounCategorySentenceValidationPool();
+  return nounWugPool;
+}
 
 function ensureNounDeck(kind) {
   const deckKey = `nouns${kind}Deck`;
-  const source =
-    kind === "Article"
-      ? nounArticleMeta
-      : kind === "Plural"
-        ? nounPluralMeta
-        : kind === "Association"
-          ? nounAssociationPool
-          : nounWugPool;
+  const source = nounDeckSource(kind);
   if (!Array.isArray(state[deckKey]) || state[deckKey].length !== source.length) {
     state[deckKey] = shuffle([...source]);
   }
@@ -2217,15 +2643,7 @@ function ensureNounDeck(kind) {
 
 function reshuffleNounDeck(kind) {
   const deckKey = `nouns${kind}Deck`;
-  const source =
-    kind === "Article"
-      ? nounArticleMeta
-      : kind === "Plural"
-        ? nounPluralMeta
-        : kind === "Association"
-          ? nounAssociationPool
-          : nounWugPool;
-  state[deckKey] = shuffle([...source]);
+  state[deckKey] = shuffle([...nounDeckSource(kind)]);
 }
 
 function currentNounArticleExercise() {
@@ -2241,6 +2659,42 @@ function currentNounAssociationExercise() {
   const deck = ensureNounDeck("Association");
   const item = deck[state.nounsAssociationIndex % Math.max(1, deck.length)];
   return createNounAssociationExercise(item.lemma, {
+    mode: state.nounsDifficulty,
+  });
+}
+
+function currentNounCategoryGenderRecognitionExercise() {
+  const deck = ensureNounDeck("CategoryGenderRecognition");
+  const item =
+    deck[state.nounsCategoryGenderRecognitionIndex % Math.max(1, deck.length)];
+  return createNounCategoryGenderRecognitionExercise(item.categoryId, {
+    mode: state.nounsDifficulty,
+  });
+}
+
+function currentNounCategoryArticleApplicationExercise() {
+  const deck = ensureNounDeck("CategoryArticleApplication");
+  const item =
+    deck[state.nounsCategoryArticleApplicationIndex % Math.max(1, deck.length)];
+  return createNounCategoryArticleApplicationExercise(item.itemId, {
+    mode: state.nounsDifficulty,
+  });
+}
+
+function currentNounCategoryGenderImposterExercise() {
+  const deck = ensureNounDeck("CategoryGenderImposter");
+  const item =
+    deck[state.nounsCategoryGenderImposterIndex % Math.max(1, deck.length)];
+  return createNounCategoryGenderImposterExercise(item.categoryId, {
+    mode: state.nounsDifficulty,
+  });
+}
+
+function currentNounCategorySentenceValidationExercise() {
+  const deck = ensureNounDeck("CategorySentenceValidation");
+  const item =
+    deck[state.nounsCategorySentenceValidationIndex % Math.max(1, deck.length)];
+  return createNounCategorySentenceValidationExercise(item.itemId, {
     mode: state.nounsDifficulty,
   });
 }
@@ -2265,9 +2719,22 @@ function isNounArticleLikeMode() {
   return (
     state.nounsMode === "real-words" ||
     state.nounsMode === "articles" || // legacy alias
-    state.nounsMode === "association" ||
+    state.nounsMode === "association" || // legacy suffix-family drill
     state.nounsMode === "wugs"
   );
+}
+
+function isNounCategoryMode() {
+  return (
+    state.nounsMode === "gender-recognition" ||
+    state.nounsMode === "article-application" ||
+    state.nounsMode === "gender-imposter" ||
+    state.nounsMode === "sentence-validation"
+  );
+}
+
+function isNounDiscriminateMode() {
+  return state.nounsMode === "proofread" || state.nounsMode === "reverse-mc";
 }
 
 function recordFamilyAttempt(patternId, ok) {
@@ -3556,19 +4023,28 @@ const state = {
   nounsIndex: 0,
   nounsPluralIndex: 0,
   nounsAssociationIndex: 0,
+  nounsCategoryGenderRecognitionIndex: 0,
+  nounsCategoryArticleApplicationIndex: 0,
+  nounsCategoryGenderImposterIndex: 0,
+  nounsCategorySentenceValidationIndex: 0,
   nounsWugIndex: 0,
+  nounsProofreadIndex: 0,
+  nounsReverseIndex: 0,
   /** Shuffled question decks (rebuilt when mode starts / pass completes). */
   nounsArticleDeck: null,
   nounsPluralDeck: null,
   nounsAssociationDeck: null,
   nounsWugDeck: null,
+  nounsProofreadDeck: null,
+  nounsReverseDeck: null,
   numbersFilled: [],
   nounsFilled: [],
   nounsArticle: null,
   numbersListenChoice: null,
   /** Listen Assisted: one retry after a wrong pick, then reveal. */
   numbersListenRetryUsed: false,
-  numbersConvertRetryUsed: false,
+  nounsConvertRetryUsed: false,
+  nounsDiscriminateRetryUsed: false,
   soundsMode: "karaoke",
   nounsMode: "wugs",
   /** Gender Shortcuts learn unit: suffixes | categories */
@@ -3579,6 +4055,10 @@ const state = {
   nounsModality: "choose-article",
   /** Hub: learn unit id while Practice family picker is open. */
   nounsHubPracticePick: "",
+  /** When Play selects Numbers + Nouns, randomly interleave territories. */
+  crossTerritoryMix: null,
+  /** Learn: DFS-ordered units through the selection. */
+  learnSeries: null,
   numbersDifficulty: "assisted",
   nounsDifficulty: "assisted",
   soundsDifficulty: "assisted",
@@ -3662,7 +4142,12 @@ function navCaps() {
 function modeAllowedByCaps(modeId) {
   const caps = navCaps();
   if (modeId === "listen" && !caps.audio) return false;
-  if (modeId === "convert" && !caps.keyboard) return false;
+  if (
+    (modeId === "convert" || modeId === "proofread") &&
+    !caps.keyboard
+  ) {
+    return false;
+  }
   return true;
 }
 
@@ -4049,7 +4534,7 @@ function syncNumbersCurriculumMenu(menu, phase) {
     hubHome.classList.toggle("is-on", phase === "hub");
   }
   if (body) {
-    // Quick topic jumps — playable topics only (Decimals included).
+    // Quick topic jumps — playable topics only (Decimals / Fractions / Time included).
     const playable = NUMBERS_TOPICS.filter((t) => t.playable);
     body.hidden = false;
     body.innerHTML = playable
@@ -4092,6 +4577,7 @@ function applyNumbersFocus({ topicId, stepId, modeId, difficulty, lock = true })
 }
 
 function startNumbersPractice(focus) {
+  clearCrossTerritoryMix();
   if (!applyNumbersFocus(focus)) return;
   state.phase.numbers = "practice";
   state.preservePractice.numbers = false;
@@ -4099,28 +4585,7 @@ function startNumbersPractice(focus) {
 }
 
 function startNumbersMix() {
-  const mode = mixModeForCaps(state.numbersMixMode);
-  state.numbersMixMode = mode;
-  const topicId = state.numbersMixTopic || state.numbersHubTopic || "cardinals";
-  const eligible = mixableSteps(topicId, mode);
-  const selected = state.numbersMixSteps.filter((id) =>
-    eligible.some((s) => s.id === id)
-  );
-  if (!selected.length) return;
-
-  state.numbersMixSteps = selected;
-  state.numbersMixTopic = topicId;
-  state.numbersSessionKind = "mix";
-  state.numbersFocusLocked = false;
-  state.numbersTopic = topicId;
-  state.numbersStep = selected[0];
-  state.numbersMixDeckKey = "";
-  state.numbersMixDeck = null;
-  state.numbersMixCursor = 0;
-  state.numbersHubPracticePick = "";
-  ensureMixDeck();
-  if (!state.numbersMixDeck?.length) return;
-
+  if (!prepareNumbersMixState()) return;
   state.phase.numbers = "practice";
   state.preservePractice.numbers = false;
   showTerritoryPhase("numbers");
@@ -4141,10 +4606,12 @@ function openNumbersStepLearn(topicId, stepId) {
   const cue = softAfterLabel(topicId, step);
   openSheet(
     step.label,
-    `<p>${step.blurb || "Reference for this step."}</p>
+    `${learnSeriesChromeHtml()}
+     <p>${step.blurb || "Reference for this step."}</p>
      ${cue ? `<p class="sheet-cue">${cue}</p>` : ""}
      <p>A dedicated chart for this step lands later. Use the Reference Chart for Cardinals forms that already have tabs.</p>`
   );
+  wireLearnSeriesChrome(document.getElementById("sheet-body"));
 }
 
 /** Map carousel / hub Nouns learn unit → reference chart tab. */
@@ -4169,6 +4636,16 @@ function nounsFamilyForNavUnit(unit) {
   const id = unit?.id || "";
   if (id.includes("wugs") && !id.includes("plural")) return "wugs";
   if (id.includes("real-words") || id.includes("real_words")) return "real-words";
+  if (id.includes("proofread")) return "proofread";
+  if (id.includes("reverse")) return "reverse-mc";
+  if (id.includes("gender-recognition") || id.includes("gender_recognition"))
+    return "gender-recognition";
+  if (id.includes("article-application") || id.includes("article_application"))
+    return "article-application";
+  if (id.includes("gender-imposter") || id.includes("gender_imposter"))
+    return "gender-imposter";
+  if (id.includes("sentence-validation") || id.includes("sentence_validation"))
+    return "sentence-validation";
   if (id.includes("association")) return "association";
   const learnId = unit?.learnUnitId || "";
   return introFamilyForUnit(learnId)?.id || "wugs";
@@ -4187,9 +4664,11 @@ function openNounsStepLearn(units) {
 }
 
 function startNounsFamily(familyId, { mix = false } = {}) {
+  clearCrossTerritoryMix();
   const unitId = unitIdForFamily(familyId);
   state.nounsLearnUnit = unitId;
-  state.nounsModality = "choose-article";
+  state.nounsModality =
+    unitId === "categories" ? "category-gender" : "choose-article";
   state.nounsHubPracticePick = "";
   if (mix) {
     state.nounsSessionKind = "family-mix";
@@ -4208,6 +4687,8 @@ function startNounsFamily(familyId, { mix = false } = {}) {
 
 function goNounsHub(opts = {}) {
   clearNounsAdvance();
+  clearCrossTerritoryMix();
+  clearLearnSeries();
   stopSpeech();
   state.preservePractice.nouns = false;
   state.phase.nouns = "hub";
@@ -4220,6 +4701,8 @@ function goNounsHub(opts = {}) {
 
 function goNumbersHub() {
   clearNumbersAdvance();
+  clearCrossTerritoryMix();
+  clearLearnSeries();
   stopSpeech();
   state.preservePractice.numbers = false;
   navigate("hub");
@@ -4479,7 +4962,7 @@ function renderNounsHub() {
   root.innerHTML = `
     <header class="numbers-hub-hero">
       <h1>Nouns</h1>
-      <p class="numbers-hub-lede">Learn by cue system. Use hub Play caps (Write / Listen) for quiz styles; Pick is always on.</p>
+      <p class="numbers-hub-lede">Learn by cue system. Hub Play caps: Write / Listen (Pick-style stays on).</p>
     </header>
 
     <section class="numbers-guided" aria-label="Guided practice">
@@ -4497,7 +4980,7 @@ function renderNounsHub() {
 
     <section class="numbers-browse" aria-label="Gender Shortcuts">
       <h2 class="numbers-browse-title">Gender Shortcuts</h2>
-      <p class="numbers-step-note">Learn opens reference. Practice starts the soft-first family — Write / Listen on the hub bar add styles; Pick stays on.</p>
+      <p class="numbers-step-note">Learn opens reference. Practice starts the soft-first family (Wugs or Gender Recognition).</p>
       <ul class="numbers-step-list">${unitRows}</ul>
     </section>
 
@@ -4614,6 +5097,7 @@ function renderNumbersChart() {
     : "";
 
   root.innerHTML = `
+    ${learnSeriesChromeHtml()}
     <div class="chart-tabs" role="tablist">${tabs}</div>
     <div class="chart-scroll">
       <p class="chart-note">Tap an example to hear the German form with syllable highlight. Left side is silent reference.</p>
@@ -4621,7 +5105,7 @@ function renderNumbersChart() {
       <div class="chart-list" id="numbers-chart-list"></div>
     </div>
   `;
-
+  wireLearnSeriesChrome(root);
   const list = root.querySelector("#numbers-chart-list");
   rows.forEach((r) => {
     const row = document.createElement("div");
@@ -4692,6 +5176,7 @@ function renderNounsChart() {
     : "";
 
   root.innerHTML = `
+    ${learnSeriesChromeHtml()}
     <div class="chart-tabs" role="tablist">${tabs}</div>
     <div class="chart-scroll">
       <p class="chart-note">Left = pattern cue (silent). Tap the example to hear article + noun.</p>
@@ -4699,7 +5184,7 @@ function renderNounsChart() {
       <div class="chart-list" id="nouns-chart-list"></div>
     </div>
   `;
-
+  wireLearnSeriesChrome(root);
   const list = root.querySelector("#nouns-chart-list");
   rows.forEach((r) => {
     const row = document.createElement("div");
@@ -4772,82 +5257,231 @@ function handleNavCarouselStart({ mode, units, keyboard, audio, practice }) {
   const nounsUnits = units.filter((u) => u.territory === "nouns");
 
   state.navCaps = { keyboard, audio };
+  clearCrossTerritoryMix();
+  clearLearnSeries();
 
   if (mode === "learn") {
-    if (numbersUnits.length) {
-      const u = numbersUnits[0];
-      navigate("numbers", { keepPhase: true });
-      openNumbersStepLearn(u.topicId, u.stepId);
-      return;
-    }
-    if (nounsUnits.length) {
-      openNounsStepLearn(nounsUnits);
-      return;
-    }
+    startLearnSeries(units);
     return;
   }
 
-  // Play → Numbers mix when any Numbers units selected
-  if (numbersUnits.length) {
-    const byTopic = new Map();
-    for (const u of numbersUnits) {
-      if (!byTopic.has(u.topicId)) byTopic.set(u.topicId, []);
-      byTopic.get(u.topicId).push(u.stepId);
-    }
-    let topicId = "cardinals";
-    let stepIds = [];
-    for (const [tid, ids] of byTopic) {
-      if (ids.length > stepIds.length) {
-        topicId = tid;
-        stepIds = ids;
-      }
-    }
+  const hasNumbers = numbersUnits.length > 0;
+  const hasNouns = nounsUnits.length > 0;
 
-    const prefModes = (practice?.numbersModes || []).filter((id) =>
-      modeAllowedByCaps(id)
-    );
-    let mixMode = "either";
-    if (prefModes.length === 1) mixMode = prefModes[0];
-    else if (prefModes.length > 1) mixMode = mixModeForCaps("either");
-    else mixMode = mixModeForCaps("either");
+  // Play → randomly interleave Numbers and Nouns when both are selected
+  if (hasNumbers && hasNouns) {
+    if (!prepareNumbersFromPlaylist(numbersUnits, practice)) return;
+    if (!prepareNounsFromPlaylist(nounsUnits, practice)) return;
+    state.crossTerritoryMix = {
+      active: true,
+      territories: shuffle(["numbers", "nouns"]),
+    };
+    state.phase.numbers = "practice";
+    state.phase.nouns = "practice";
+    state.preservePractice.numbers = false;
+    state.preservePractice.nouns = false;
+    const first = state.crossTerritoryMix.territories[0] || "numbers";
+    navigate(first, { keepPhase: true });
+    return;
+  }
 
-    const eligible = new Set(mixableSteps(topicId, mixMode).map((s) => s.id));
-    const selected = stepIds.filter((id) => eligible.has(id));
-    if (!selected.length) {
-      const u = numbersUnits[0];
-      const modes = filterModesForCaps(modesForStep(u.topicId, u.stepId));
-      const modeId =
-        prefModes.find((id) => modes.some((m) => m.id === id)) ||
-        modes[0]?.id ||
-        "build";
-      startNumbersPractice({
-        topicId: u.topicId,
-        stepId: u.stepId,
-        modeId,
-        difficulty: state.numbersDifficulty,
-        lock: true,
-      });
-      return;
-    }
-
-    state.numbersMixTopic = topicId;
-    state.numbersMixSteps = selected;
-    state.numbersMixMode = mixMode;
-    state.numbersHubTopic = topicId;
+  if (hasNumbers) {
+    if (!prepareNumbersFromPlaylist(numbersUnits, practice)) return;
+    state.phase.numbers = "practice";
+    state.preservePractice.numbers = false;
     navigate("numbers", { keepPhase: true });
-    startNumbersMix();
     return;
   }
 
-  if (nounsUnits.length) {
+  if (hasNouns) {
     startNounsFromPlaylist(nounsUnits, practice);
   }
 }
 
-/** Play playlist of Gender Shortcuts learn units; families from units, style from caps. */
-function startNounsFromPlaylist(nounsUnits, practice) {
+function clearCrossTerritoryMix() {
+  state.crossTerritoryMix = null;
+}
+
+function clearLearnSeries() {
+  state.learnSeries = null;
+}
+
+/**
+ * Learn: open selected units in tree (depth-first) order.
+ * @param {object[]} units
+ */
+function startLearnSeries(units) {
+  clearCrossTerritoryMix();
+  const list = Array.isArray(units) ? units.filter(Boolean) : [];
+  if (!list.length) return;
+  state.learnSeries = { units: list, cursor: 0 };
+  openLearnSeriesUnit();
+}
+
+function openLearnSeriesUnit() {
+  const series = state.learnSeries;
+  if (!series?.units?.length) return;
+  const u = series.units[series.cursor];
+  if (!u) return;
+  closeSheet();
+  if (u.territory === "numbers" && u.topicId && u.stepId) {
+    navigate("numbers", { keepPhase: true });
+    openNumbersStepLearn(u.topicId, u.stepId);
+    return;
+  }
+  if (u.territory === "nouns") {
+    openNounsStepLearn([u]);
+  }
+}
+
+function learnSeriesCanPrev() {
+  return (state.learnSeries?.cursor ?? 0) > 0;
+}
+
+function learnSeriesCanNext() {
+  const series = state.learnSeries;
+  if (!series?.units?.length) return false;
+  return series.cursor < series.units.length - 1;
+}
+
+function learnSeriesPrev() {
+  if (!learnSeriesCanPrev()) return;
+  state.learnSeries.cursor -= 1;
+  openLearnSeriesUnit();
+}
+
+function learnSeriesNext() {
+  if (!learnSeriesCanNext()) return;
+  state.learnSeries.cursor += 1;
+  openLearnSeriesUnit();
+}
+
+function learnSeriesChromeHtml() {
+  const series = state.learnSeries;
+  if (!series?.units?.length || series.units.length < 2) return "";
+  const n = series.units.length;
+  const i = series.cursor + 1;
+  const u = series.units[series.cursor];
+  const label = u?.title || u?.label || "Unit";
+  return `<div class="learn-series-bar" role="navigation" aria-label="Learn series">
+    <button type="button" class="chip" data-learn-prev ${learnSeriesCanPrev() ? "" : "disabled"}>Previous</button>
+    <span class="learn-series-status">${i} / ${n} · ${label}</span>
+    <button type="button" class="chip" data-learn-next ${learnSeriesCanNext() ? "" : "disabled"}>Next</button>
+  </div>`;
+}
+
+function wireLearnSeriesChrome(root) {
+  if (!root) return;
+  root.querySelector("[data-learn-prev]")?.addEventListener("click", () => {
+    learnSeriesPrev();
+  });
+  root.querySelector("[data-learn-next]")?.addEventListener("click", () => {
+    learnSeriesNext();
+  });
+}
+
+/**
+ * After finishing a Play item, pick the next territory at random.
+ * @returns {boolean} true if navigation/render handled
+ */
+function continueCrossTerritoryMix(fromTerritory) {
+  if (!state.crossTerritoryMix?.active) return false;
+  const pool = state.crossTerritoryMix.territories || ["numbers", "nouns"];
+  if (!pool.length) return false;
+  const next = pool[Math.floor(Math.random() * pool.length)];
+  if (next === fromTerritory) {
+    if (next === "numbers") renderNumbers();
+    else renderNouns();
+    return true;
+  }
+  state.phase[next] = "practice";
+  navigate(next, { keepPhase: true });
+  return true;
+}
+
+/**
+ * Set up Numbers mix/practice from carousel units. Does not navigate.
+ * @returns {boolean}
+ */
+function prepareNumbersFromPlaylist(numbersUnits, practice) {
+  const byTopic = new Map();
+  for (const u of numbersUnits) {
+    if (!byTopic.has(u.topicId)) byTopic.set(u.topicId, []);
+    byTopic.get(u.topicId).push(u.stepId);
+  }
+  let topicId = "cardinals";
+  let stepIds = [];
+  for (const [tid, ids] of byTopic) {
+    if (ids.length > stepIds.length) {
+      topicId = tid;
+      stepIds = ids;
+    }
+  }
+
+  const prefModes = (practice?.numbersModes || []).filter((id) =>
+    modeAllowedByCaps(id)
+  );
+  let mixMode = "either";
+  if (prefModes.length === 1) mixMode = prefModes[0];
+  else mixMode = mixModeForCaps("either");
+
+  const eligible = new Set(mixableSteps(topicId, mixMode).map((s) => s.id));
+  const selected = stepIds.filter((id) => eligible.has(id));
+  if (!selected.length) {
+    const u = numbersUnits[0];
+    const modes = filterModesForCaps(modesForStep(u.topicId, u.stepId));
+    const modeId =
+      prefModes.find((id) => modes.some((m) => m.id === id)) ||
+      modes[0]?.id ||
+      "build";
+    return applyNumbersFocus({
+      topicId: u.topicId,
+      stepId: u.stepId,
+      modeId,
+      difficulty: state.numbersDifficulty,
+      lock: true,
+    });
+  }
+
+  state.numbersMixTopic = topicId;
+  state.numbersMixSteps = selected;
+  state.numbersMixMode = mixMode;
+  state.numbersHubTopic = topicId;
+  return prepareNumbersMixState();
+}
+
+/** Configure mix deck from current mix topic/steps/mode. @returns {boolean} */
+function prepareNumbersMixState() {
+  const mode = mixModeForCaps(state.numbersMixMode);
+  state.numbersMixMode = mode;
+  const topicId = state.numbersMixTopic || state.numbersHubTopic || "cardinals";
+  const eligible = mixableSteps(topicId, mode);
+  const selected = state.numbersMixSteps.filter((id) =>
+    eligible.some((s) => s.id === id)
+  );
+  if (!selected.length) return false;
+
+  state.numbersMixSteps = selected;
+  state.numbersMixTopic = topicId;
+  state.numbersSessionKind = "mix";
+  state.numbersFocusLocked = false;
+  state.numbersTopic = topicId;
+  state.numbersStep = selected[0];
+  state.numbersMixDeckKey = "";
+  state.numbersMixDeck = null;
+  state.numbersMixCursor = 0;
+  state.numbersHubPracticePick = "";
+  ensureMixDeck();
+  return !!(state.numbersMixDeck?.length);
+}
+
+/**
+ * Set up Nouns family mix from carousel units. Does not navigate.
+ * @returns {boolean}
+ */
+function prepareNounsFromPlaylist(nounsUnits, practice) {
   const playable = nounsUnits.filter((u) => u.playable !== false);
-  if (!playable.length) return;
+  if (!playable.length) return false;
 
   const learnIds = [
     ...new Set(
@@ -4857,7 +5491,6 @@ function startNounsFromPlaylist(nounsUnits, practice) {
     ),
   ];
 
-  // All playable families under selected learn units
   let uniqueFamilies = [];
   for (const learnId of learnIds) {
     for (const f of familiesForUnit(learnId)) {
@@ -4869,26 +5502,40 @@ function startNounsFromPlaylist(nounsUnits, practice) {
     uniqueFamilies = [intro?.id || "wugs"];
   }
 
+  const prefFamilies = (practice?.nounsFamilies || []).filter((id) =>
+    uniqueFamilies.includes(id)
+  );
+  if (prefFamilies.length) uniqueFamilies = prefFamilies;
+
   const caps = navCaps();
   const modality =
     (practice?.nounsModalities || []).find((id) => {
+      if (id === "category-gender") return true;
       if (id === "choose-article") return true;
       if (id === "type-article") return caps.keyboard;
       return false;
-    }) || "choose-article";
+    }) ||
+    (learnIds.includes("categories") ? "category-gender" : "choose-article");
   state.nounsModality = modality;
 
-  if (uniqueFamilies.length === 1) {
-    startNounsFamily(uniqueFamilies[0]);
-    return;
-  }
-  // Multi-family → mix across playlist prefs
   state.nounsLearnUnit = unitIdForFamily(uniqueFamilies[0]);
-  state.nounsSessionKind = "family-mix";
-  state.nounsFamilyMix = uniqueFamilies;
-  state.nounsMode = uniqueFamilies[0];
+  if (uniqueFamilies.length === 1) {
+    state.nounsSessionKind = "focus";
+    state.nounsFamilyMix = [];
+    state.nounsMode = uniqueFamilies[0];
+  } else {
+    state.nounsSessionKind = "family-mix";
+    state.nounsFamilyMix = uniqueFamilies;
+    state.nounsMode = uniqueFamilies[0];
+  }
   state.nounsHubPracticePick = "";
   resetNounsDeckForMode();
+  return true;
+}
+
+/** Play playlist of Gender Shortcuts learn units; families from units, style from caps. */
+function startNounsFromPlaylist(nounsUnits, practice) {
+  if (!prepareNounsFromPlaylist(nounsUnits, practice)) return;
   state.phase.nouns = "practice";
   state.preservePractice.nouns = false;
   navigate("nouns", { keepPhase: true });
@@ -4937,6 +5584,22 @@ function renderNumbers() {
     renderNumbersConvert();
     return;
   }
+  if (state.numbersQuizMode === "cloze") {
+    renderNumbersCloze();
+    return;
+  }
+  if (state.numbersQuizMode === "proofread") {
+    renderNumbersProofread();
+    return;
+  }
+  if (state.numbersQuizMode === "visual") {
+    renderNumbersVisual();
+    return;
+  }
+  if (state.numbersQuizMode === "sentence") {
+    renderNumbersSentence();
+    return;
+  }
   renderNumbersBuild();
 }
 
@@ -4944,6 +5607,356 @@ function numbersBackDisabled() {
   if (state.numbersSessionKind === "mix") return state.numbersMixCursor <= 0;
   if (state.numbersQuizMode === "listen") return state.numbersListenCursor <= 0;
   return state.numbersIndex <= 0;
+}
+
+function finishNumbersOk(exercise, revealForm) {
+  state.numbersChecked = true;
+  const form = revealForm || exercise.resolution.form;
+  const meta = currentNumberMeta();
+  const parts = (form || "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((t) => ({ text: t, guide: t }));
+  presentCorrectAnswer({
+    prefix: "numbers",
+    answerEls: [],
+    wrongEls: [],
+    choiceEls: document.querySelectorAll("#numbers-tray .choice, #numbers-tray .piece"),
+    reveal: {
+      word: form,
+      parts,
+      en: meta?.english || meta?.written || "",
+      ok: true,
+    },
+    then: (nodes) => {
+      const afterPlay = () => scheduleNumbersAdvance(1500);
+      if (!window.speechSynthesis || !nodes?.length) {
+        afterPlay();
+        return;
+      }
+      playKaraokeFlow(form, parts, nodes, {
+        keepAdvance: true,
+        onEnd: afterPlay,
+        onError: afterPlay,
+      });
+    },
+  });
+}
+
+/** Cloze — fill one missing morph chip. */
+function renderNumbersCloze() {
+  clearNumbersAdvance();
+  stopSpeech();
+  const meta = currentNumberMeta();
+  const exercise = makeClozeExercise(meta, {
+    difficulty: state.numbersDifficulty,
+  });
+  if (!exercise) {
+    state.numbersQuizMode = "build";
+    renderNumbersBuild();
+    return;
+  }
+  state.currentExercise = exercise;
+  state.numbersFilled = Array(exercise.materials.parts.length).fill(null);
+  exercise.materials.parts.forEach((p, i) => {
+    if (i !== exercise.materials.blankIndex) state.numbersFilled[i] = p;
+  });
+  state.numbersChecked = false;
+
+  const stage = document.getElementById("numbers-stage");
+  if (stage) stage.dataset.mode = "cloze";
+  ensureSessionChip();
+
+  const lead =
+    meta.written ||
+    (meta.value != null ? String(meta.value) : exercise.materials.form);
+  document.getElementById("numbers-prompt").innerHTML = `
+    <strong lang="de">${lead}</strong>
+    <span class="convert-ask">${exercise.prompt.ask}</span>
+  `;
+  clearAnswerReveal("numbers");
+  const back = document.getElementById("numbers-back");
+  if (back) back.disabled = numbersBackDisabled();
+  const hintBtn = document.getElementById("numbers-hint");
+  const refBtn = document.getElementById("numbers-ref-btn");
+  if (hintBtn) hintBtn.hidden = !exercise.scaffolding.showHintButton;
+  if (refBtn) refBtn.hidden = !exercise.scaffolding.showReferenceButton;
+
+  const slots = document.getElementById("numbers-slots");
+  slots.hidden = false;
+  slots.className = "slot-row";
+  slots.innerHTML = "";
+  exercise.materials.parts.forEach((p, i) => {
+    const slot = document.createElement("div");
+    const isBlank = i === exercise.materials.blankIndex;
+    slot.className = isBlank ? "slot is-blank" : "slot is-given";
+    slot.dataset.index = String(i);
+    slot.textContent = isBlank ? "…" : p;
+    slots.appendChild(slot);
+  });
+
+  const tray = document.getElementById("numbers-tray");
+  tray.className = "tray";
+  tray.innerHTML = "";
+  shuffle([exercise.materials.blank, ...exercise.materials.distractors]).forEach(
+    (label) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "piece";
+      btn.textContent = label;
+      btn.addEventListener("click", () => {
+        if (state.numbersChecked) return;
+        const bi = exercise.materials.blankIndex;
+        state.numbersFilled[bi] = label;
+        const slot = slots.querySelector(`[data-index="${bi}"]`);
+        if (slot) slot.textContent = label;
+        const ok = label === exercise.materials.blank;
+        if (ok) finishNumbersOk(exercise, exercise.resolution.form);
+        else {
+          showAttemptFeedback("numbers", "Try again");
+          if (slot) {
+            slot.classList.add("is-bad");
+            window.setTimeout(() => {
+              if (state.numbersChecked) return;
+              slot.textContent = "…";
+              slot.classList.remove("is-bad");
+              state.numbersFilled[bi] = null;
+            }, 400);
+          }
+        }
+      });
+      tray.appendChild(btn);
+    }
+  );
+  syncTerritoryMenu("numbers");
+}
+
+function renderNumbersProofread() {
+  clearNumbersAdvance();
+  stopSpeech();
+  const meta = currentNumberMeta();
+  const exercise = makeProofreadExercise(meta, {
+    difficulty: state.numbersDifficulty,
+  });
+  if (!exercise) {
+    state.numbersQuizMode = "convert";
+    renderNumbersConvert();
+    return;
+  }
+  state.currentExercise = exercise;
+  state.numbersChecked = false;
+  state.numbersConvertRetryUsed = false;
+
+  const stage = document.getElementById("numbers-stage");
+  if (stage) stage.dataset.mode = "proofread";
+  ensureSessionChip();
+  document.getElementById("numbers-prompt").innerHTML = `
+    <strong lang="de">${exercise.prompt.wrong}</strong>
+    <span class="convert-ask">${exercise.prompt.ask}</span>
+  `;
+  clearAnswerReveal("numbers");
+  const back = document.getElementById("numbers-back");
+  if (back) back.disabled = numbersBackDisabled();
+
+  const slots = document.getElementById("numbers-slots");
+  slots.hidden = true;
+  slots.innerHTML = "";
+
+  const tray = document.getElementById("numbers-tray");
+  tray.className = "numbers-convert-entry";
+  tray.innerHTML = "";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.id = "numbers-convert-input";
+  input.className = "numbers-convert-input";
+  input.autocomplete = "off";
+  input.placeholder = "correct form…";
+  const submit = () => {
+    if (state.numbersChecked) return;
+    const typed = normalizeConvertInput(input.value);
+    if (!typed) return;
+    const target = normalizeConvertInput(exercise.resolution.form);
+    const ok =
+      typed === target ||
+      typed.replace(/\s+/g, "") === target.replace(/\s+/g, "");
+    if (ok) {
+      input.classList.add("is-ok");
+      finishNumbersOk(exercise, exercise.resolution.form);
+    } else if (!state.numbersConvertRetryUsed) {
+      state.numbersConvertRetryUsed = true;
+      input.classList.add("is-bad");
+      showAttemptFeedback("numbers", "Try again");
+      window.setTimeout(() => {
+        if (state.numbersChecked) return;
+        input.value = "";
+        input.classList.remove("is-bad");
+        input.focus();
+      }, 400);
+    } else {
+      state.numbersChecked = true;
+      input.classList.add("is-bad");
+      presentCorrectAnswer({
+        prefix: "numbers",
+        answerEls: [],
+        wrongEls: input ? [input] : [],
+        reveal: {
+          word: exercise.resolution.form,
+          parts: [{ text: exercise.resolution.form, guide: exercise.resolution.form }],
+          en: "",
+          ok: false,
+        },
+        then: () => scheduleNumbersAdvance(1500),
+      });
+    }
+  };
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      submit();
+    }
+  });
+  const checkBtn = document.createElement("button");
+  checkBtn.type = "button";
+  checkBtn.className = "btn btn-primary";
+  checkBtn.textContent = "Check";
+  checkBtn.addEventListener("click", submit);
+  tray.append(input, checkBtn);
+  syncTerritoryMenu("numbers");
+  queueMicrotask(() => input.focus());
+}
+
+function renderNumbersVisual() {
+  clearNumbersAdvance();
+  stopSpeech();
+  const meta = currentNumberMeta();
+  const visual = visualForMeta(meta);
+  if (!visual) {
+    state.numbersQuizMode = "convert";
+    renderNumbersConvert();
+    return;
+  }
+  const stage = document.getElementById("numbers-stage");
+  if (stage) stage.dataset.mode = "visual";
+
+  let exercise;
+  if (isWrittenishMeta(meta)) {
+    const saved = state.numbersQuizMode;
+    state.numbersQuizMode = "build";
+    exercise = currentWrittenishExercise(meta);
+    state.numbersQuizMode = saved;
+  } else if (meta.value != null) {
+    exercise = createNumberConstructionExercise(meta.value, {
+      grain: meta.grain,
+      english: meta.english,
+      mode: state.numbersDifficulty,
+      answerParts: meta.answerParts,
+    });
+  } else {
+    state.numbersQuizMode = "convert";
+    renderNumbersConvert();
+    const prompt = document.getElementById("numbers-prompt");
+    if (prompt) {
+      prompt.innerHTML = `<div class="quiz-visual">${visual.html}</div><span class="convert-ask">${visual.ask}</span>`;
+    }
+    return;
+  }
+
+  state.currentExercise = exercise;
+  const parts = exercise.materials.parts;
+  const distractors = exercise.materials.distractors || [];
+  state.numbersFilled = Array(parts.length).fill(null);
+  state.numbersChecked = false;
+  ensureSessionChip();
+  document.getElementById("numbers-prompt").innerHTML = `
+    <div class="quiz-visual">${visual.html}</div>
+    <span class="convert-ask">${visual.ask}</span>
+  `;
+  clearAnswerReveal("numbers");
+  const back = document.getElementById("numbers-back");
+  if (back) back.disabled = numbersBackDisabled();
+
+  const slots = document.getElementById("numbers-slots");
+  slots.hidden = false;
+  slots.className = "slot-row";
+  slots.innerHTML = "";
+  parts.forEach((_, i) => {
+    const slot = document.createElement("div");
+    slot.className = "slot";
+    slot.dataset.index = String(i);
+    slot.tabIndex = 0;
+    slot.textContent = `Part ${i + 1}`;
+    slot.addEventListener("click", () => {
+      if (state.numbersChecked) return;
+      if (state.numbersFilled[i]) clearNumberSlot(i);
+    });
+    slots.appendChild(slot);
+  });
+
+  const tray = document.getElementById("numbers-tray");
+  tray.className = "tray";
+  tray.innerHTML = "";
+  shuffle([...new Set([...parts, ...distractors])]).forEach((label) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "piece";
+    btn.textContent = label;
+    btn.addEventListener("click", () => {
+      if (state.numbersChecked) return;
+      const next = state.numbersFilled.findIndex((x) => !x);
+      if (next >= 0) placeNumberText(label, next);
+    });
+    tray.appendChild(btn);
+  });
+  syncTerritoryMenu("numbers");
+}
+
+function renderNumbersSentence() {
+  clearNumbersAdvance();
+  stopSpeech();
+  const meta = currentNumberMeta();
+  const exercise = makeSentenceOrdinalExercise(meta, {
+    difficulty: state.numbersDifficulty,
+  });
+  if (!exercise) {
+    state.numbersQuizMode = "convert";
+    renderNumbersConvert();
+    return;
+  }
+  state.currentExercise = exercise;
+  state.numbersChecked = false;
+  const stage = document.getElementById("numbers-stage");
+  if (stage) stage.dataset.mode = "sentence";
+  ensureSessionChip();
+  document.getElementById("numbers-prompt").innerHTML = `
+    <strong lang="de">${exercise.prompt.written}</strong>
+    <span class="convert-ask">${exercise.prompt.ask}</span>
+  `;
+  clearAnswerReveal("numbers");
+  const back = document.getElementById("numbers-back");
+  if (back) back.disabled = numbersBackDisabled();
+  const slots = document.getElementById("numbers-slots");
+  slots.hidden = true;
+  slots.innerHTML = "";
+  const tray = document.getElementById("numbers-tray");
+  tray.className = "choice-grid";
+  tray.innerHTML = "";
+  exercise.materials.choices.forEach((choice) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "choice";
+    btn.textContent = choice;
+    btn.addEventListener("click", () => {
+      if (state.numbersChecked) return;
+      const ok = choice === exercise.resolution.form;
+      if (ok) finishNumbersOk(exercise, exercise.resolution.form);
+      else {
+        btn.classList.add("is-bad");
+        showAttemptFeedback("numbers", "Try again");
+      }
+    });
+    tray.appendChild(btn);
+  });
+  syncTerritoryMenu("numbers");
 }
 
 function ensureSessionChip() {
@@ -4958,6 +5971,12 @@ function ensureSessionChip() {
     else stage.prepend(chip);
   }
   chip.textContent = numbersSessionLabel();
+}
+
+function numbersPromptAsk(meta) {
+  if (meta?.kind === "ordinal") return "Write the German ordinal";
+  if (meta?.kind === "ordinal-am") return "Write the day-of-month form";
+  return "";
 }
 
 function renderNumbersBuild() {
@@ -4983,8 +6002,11 @@ function renderNumbersBuild() {
   const promptLead =
     meta.written ||
     (meta.value != null ? String(meta.value) : exercise.materials?.written || "");
+  const ask = numbersPromptAsk(meta);
   document.getElementById("numbers-prompt").innerHTML = `
-    <strong lang="de">${promptLead}</strong>${en}
+    <strong lang="de">${promptLead}</strong>${en}${
+      ask ? `<span class="convert-ask">${ask}</span>` : ""
+    }
   `;
 
   clearAnswerReveal("numbers");
@@ -5241,9 +6263,13 @@ function renderNumbersConvert() {
   const convertAsk =
     exercise.prompt?.kind === "convert-write-komma"
       ? "Type the written form (Komma)"
-      : meta.kind === "decimal" || meta.kind === "money"
-        ? "Type the German reading"
-        : "Type the German form";
+      : meta.kind === "ordinal"
+        ? "Type the German ordinal"
+        : meta.kind === "ordinal-am"
+          ? "Type the day-of-month form"
+          : isWrittenishMeta(meta)
+            ? "Type the German reading"
+            : "Type the German form";
   document.getElementById("numbers-prompt").innerHTML = `
     <strong lang="de">${convertLead}</strong>${
       exercise.prompt?.kind === "convert-write-komma" ? "" : en
@@ -5366,6 +6392,44 @@ function checkNumbersConvert(raw, opts = {}) {
       !!p &&
       p.euros === exercise.resolution.euros &&
       p.cents === exercise.resolution.cents;
+  }
+  if (
+    !ok &&
+    (exercise.resolution.kind === "fraction" ||
+      exercise.resolution.kind === "mixed-fraction")
+  ) {
+    const spaced = String(raw || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+    const fused = spaced.replace(/\s+/g, "");
+    const p = parseFractionForm(spaced) || parseFractionForm(fused);
+    if (exercise.resolution.kind === "fraction") {
+      ok =
+        !!p &&
+        p.kind === "fraction" &&
+        p.numerator === exercise.resolution.numerator &&
+        p.denominator === exercise.resolution.denominator;
+    } else {
+      ok =
+        !!p &&
+        p.kind === "mixed" &&
+        p.whole === exercise.resolution.whole &&
+        p.numerator === exercise.resolution.numerator &&
+        p.denominator === exercise.resolution.denominator;
+    }
+  }
+  if (
+    !ok &&
+    (exercise.resolution.kind === "ordinal" ||
+      exercise.resolution.kind === "ordinal-am")
+  ) {
+    const spaced = String(raw || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+    const p = parseOrdinalForm(spaced) || parseOrdinalForm(spaced.replace(/\s+/g, ""));
+    ok = p === exercise.resolution.n;
   }
   if (!ok && exercise.templateId === "numbers.convert.written") {
     const p = parseDecimalWritten(raw);
@@ -5637,6 +6701,22 @@ function clearNumbers() {
     renderNumbersConvert();
     return;
   }
+  if (state.numbersQuizMode === "cloze") {
+    renderNumbersCloze();
+    return;
+  }
+  if (state.numbersQuizMode === "proofread") {
+    renderNumbersProofread();
+    return;
+  }
+  if (state.numbersQuizMode === "visual") {
+    renderNumbersVisual();
+    return;
+  }
+  if (state.numbersQuizMode === "sentence") {
+    renderNumbersSentence();
+    return;
+  }
   const exercise = currentNumberExercise();
   state.numbersFilled = Array(exercise.materials.parts.length).fill(null);
   document.querySelectorAll("#numbers-slots .slot").forEach((s, i) => {
@@ -5660,6 +6740,7 @@ function scheduleNumbersAdvance(delayMs = 1500) {
   state.numbersAdvanceTimer = setTimeout(() => {
     state.numbersAdvanceTimer = null;
     advanceNumbersItem();
+    if (continueCrossTerritoryMix("numbers")) return;
     renderNumbers();
   }, delayMs);
 }
@@ -5880,6 +6961,16 @@ function renderNouns() {
     return;
   }
 
+  if (isNounCategoryMode()) {
+    renderNounsCategory();
+    return;
+  }
+
+  if (isNounDiscriminateMode()) {
+    renderNounsDiscriminate();
+    return;
+  }
+
   if (state.nounsMode === "association") {
     renderNounsAssociation();
     return;
@@ -6026,6 +7117,413 @@ function renderNounsAssociation() {
 function renderNounsWugs() {
   // No legend / “Wug · apply …” chrome — just the nonce + article choices.
   renderNounArticleLike(currentNounWugExercise(), { familyLine: "" });
+}
+
+/** Categories — Gender Recognition / Article / Imposter / Sentence Validation. */
+function currentNounCategoryExercise() {
+  switch (state.nounsMode) {
+    case "article-application":
+      return currentNounCategoryArticleApplicationExercise();
+    case "gender-imposter":
+      return currentNounCategoryGenderImposterExercise();
+    case "sentence-validation":
+      return currentNounCategorySentenceValidationExercise();
+    default:
+      return currentNounCategoryGenderRecognitionExercise();
+  }
+}
+
+function categoryModeIndexKey() {
+  switch (state.nounsMode) {
+    case "article-application":
+      return "nounsCategoryArticleApplicationIndex";
+    case "gender-imposter":
+      return "nounsCategoryGenderImposterIndex";
+    case "sentence-validation":
+      return "nounsCategorySentenceValidationIndex";
+    default:
+      return "nounsCategoryGenderRecognitionIndex";
+  }
+}
+
+function categoryModeDeckKind() {
+  switch (state.nounsMode) {
+    case "article-application":
+      return "CategoryArticleApplication";
+    case "gender-imposter":
+      return "CategoryGenderImposter";
+    case "sentence-validation":
+      return "CategorySentenceValidation";
+    default:
+      return "CategoryGenderRecognition";
+  }
+}
+
+function categoryModeLabel() {
+  switch (state.nounsMode) {
+    case "article-application":
+      return "Article Application";
+    case "gender-imposter":
+      return "Gender Imposter";
+    case "sentence-validation":
+      return "Sentence Validation";
+    default:
+      return "Gender Recognition";
+  }
+}
+
+function renderNounsCategory() {
+  const exercise = currentNounCategoryExercise();
+  state.currentExercise = exercise;
+  state.nounsArticle = null;
+  state.nounsChecked = false;
+  state.nounsFilled = [];
+
+  const legend = document.getElementById("nouns-legend");
+  if (legend) legend.hidden = true;
+  const hintBtn = document.getElementById("nouns-hint");
+  const refBtn = document.getElementById("nouns-ref-btn");
+  if (hintBtn) hintBtn.hidden = false;
+  if (refBtn) refBtn.hidden = false;
+
+  const help = document.getElementById("nouns-help");
+  if (help) {
+    help.hidden = true;
+    help.textContent = "";
+  }
+  const translationEl = document.getElementById("nouns-translation");
+  if (translationEl) {
+    if (exercise.prompt.description) {
+      translationEl.hidden = false;
+      translationEl.textContent = exercise.prompt.description;
+    } else if (exercise.prompt.header) {
+      translationEl.hidden = false;
+      translationEl.textContent = exercise.prompt.header;
+    } else {
+      translationEl.hidden = true;
+      translationEl.textContent = "";
+    }
+  }
+
+  const fam = document.getElementById("nouns-family-progress");
+  if (fam) {
+    fam.hidden = false;
+    const cat = exercise.resolution.categoryName || "";
+    fam.textContent = cat
+      ? `${categoryModeLabel()} · ${cat}`
+      : categoryModeLabel();
+  }
+
+  const prompt = document.getElementById("nouns-prompt");
+  if (prompt) {
+    prompt.hidden = false;
+    prompt.textContent = exercise.prompt.text;
+  }
+
+  const reveal = document.getElementById("nouns-reveal");
+  if (reveal) reveal.hidden = true;
+  const feedback = document.getElementById("nouns-attempt-feedback");
+  if (feedback) {
+    feedback.hidden = true;
+    feedback.textContent = "";
+  }
+
+  const slotsRow = document.getElementById("nouns-slots");
+  slotsRow.innerHTML = "";
+  const status = document.createElement("div");
+  status.className = "slot is-filled noun-unit";
+  status.id = "nouns-noun-slot";
+  status.setAttribute("aria-live", "polite");
+  if (state.nounsMode === "gender-recognition") {
+    status.textContent = exercise.prompt.categoryName;
+  } else if (state.nounsMode === "article-application") {
+    status.textContent = exercise.prompt.text;
+    if (prompt) prompt.hidden = true;
+  } else if (state.nounsMode === "sentence-validation") {
+    status.textContent = exercise.prompt.sentence;
+  } else {
+    status.textContent = "Pick the gender imposter";
+  }
+  slotsRow.appendChild(status);
+
+  const back = document.getElementById("nouns-back");
+  if (back) {
+    back.disabled = state[categoryModeIndexKey()] <= 0;
+  }
+
+  const tray = document.getElementById("nouns-tray");
+  tray.innerHTML = "";
+  const labels = exercise.materials.choiceLabels || {};
+  for (const id of exercise.materials.choices) {
+    const piece = document.createElement("button");
+    piece.type = "button";
+    piece.className = "piece";
+    piece.textContent = labels[id] || id;
+    piece.dataset.id = id;
+    piece.dataset.text = id;
+    piece.setAttribute("aria-label", labels[id] || id);
+    piece.addEventListener("click", () => {
+      if (piece.disabled || state.nounsChecked) return;
+      placeCategoryAssociation(id);
+    });
+    tray.appendChild(piece);
+  }
+}
+
+function placeCategoryAssociation(id) {
+  if (state.nounsChecked || !isNounCategoryMode()) return;
+  state.nounsArticle = id;
+  document.querySelectorAll("#nouns-tray .piece").forEach((p) => {
+    p.classList.toggle("is-placed", p.dataset.id === id);
+  });
+  checkNounsCategory();
+}
+
+/** Suffixes Proofread / Reverse — Richtig-Falsch or article→lemma MC. */
+function currentNounDiscriminateItem() {
+  const kind = state.nounsMode === "reverse-mc" ? "Reverse" : "Proofread";
+  const deck = ensureNounDeck(kind);
+  const indexKey =
+    state.nounsMode === "reverse-mc" ? "nounsReverseIndex" : "nounsProofreadIndex";
+  const item = deck[state[indexKey] % Math.max(1, deck.length)];
+  return item;
+}
+
+function renderNounsDiscriminate() {
+  const item = currentNounDiscriminateItem();
+  const article = ARTICLES[item.gender] || "die";
+  const candidates = nounAssociationPool.map((x) => ({
+    lemma: x.lemma,
+    article: ARTICLES[x.gender] || "die",
+  }));
+
+  let promptText;
+  let choices;
+  let expected;
+  let ask;
+  if (state.nounsMode === "proofread") {
+    const pack = makeNounProofreadChoices(article, item.lemma);
+    promptText = pack.statement;
+    choices = pack.options;
+    expected = pack.answer;
+    ask = "Richtig oder falsch?";
+    state.currentExercise = {
+      materials: { hint: `True article is ${pack.correctArticle}.` },
+      resolution: {
+        expected,
+        feedbackOk: pack.isCorrect
+          ? "Richtig — that article matches."
+          : `Falsch spotted — true article is ${pack.correctArticle}.`,
+        feedbackBad: `True article is ${pack.correctArticle}.`,
+        form: `${pack.correctArticle} ${item.lemma}`,
+      },
+    };
+  } else {
+    const pack = makeNounReverseChoices(item.lemma, article, candidates);
+    promptText = pack.promptArticle;
+    choices = pack.options;
+    expected = pack.answer;
+    ask = "Which noun takes this article?";
+    state.currentExercise = {
+      materials: { hint: `Look for a ${article}-gender suffix cue.` },
+      resolution: {
+        expected,
+        feedbackOk: `Yes — ${article} ${item.lemma}.`,
+        feedbackBad: `Target was ${article} ${item.lemma}.`,
+        form: `${article} ${item.lemma}`,
+      },
+    };
+  }
+
+  state.nounsArticle = null;
+  state.nounsChecked = false;
+  state.nounsFilled = [];
+  state.nounsDiscriminateRetryUsed = false;
+
+  const legend = document.getElementById("nouns-legend");
+  if (legend) legend.hidden = true;
+  const hintBtn = document.getElementById("nouns-hint");
+  const refBtn = document.getElementById("nouns-ref-btn");
+  if (hintBtn) hintBtn.hidden = false;
+  if (refBtn) refBtn.hidden = false;
+
+  const help = document.getElementById("nouns-help");
+  if (help) {
+    help.hidden = true;
+    help.textContent = "";
+  }
+  const translationEl = document.getElementById("nouns-translation");
+  if (translationEl) {
+    translationEl.hidden = false;
+    translationEl.textContent = ask;
+  }
+
+  const fam = document.getElementById("nouns-family-progress");
+  if (fam) {
+    fam.hidden = false;
+    fam.textContent =
+      state.nounsMode === "proofread" ? "Proofread" : "Reverse match";
+  }
+
+  const prompt = document.getElementById("nouns-prompt");
+  if (prompt) {
+    prompt.hidden = true;
+    prompt.textContent = "";
+  }
+
+  const reveal = document.getElementById("nouns-reveal");
+  if (reveal) reveal.hidden = true;
+  const feedback = document.getElementById("nouns-attempt-feedback");
+  if (feedback) {
+    feedback.hidden = true;
+    feedback.textContent = "";
+  }
+
+  const slotsRow = document.getElementById("nouns-slots");
+  slotsRow.innerHTML = "";
+  const status = document.createElement("div");
+  status.className = "slot is-filled noun-unit";
+  status.id = "nouns-noun-slot";
+  status.setAttribute("aria-live", "polite");
+  status.textContent = promptText;
+  slotsRow.appendChild(status);
+
+  const back = document.getElementById("nouns-back");
+  if (back) {
+    back.disabled =
+      state.nounsMode === "reverse-mc"
+        ? state.nounsReverseIndex <= 0
+        : state.nounsProofreadIndex <= 0;
+  }
+
+  const tray = document.getElementById("nouns-tray");
+  tray.innerHTML = "";
+  for (const choice of choices) {
+    const piece = document.createElement("button");
+    piece.type = "button";
+    piece.className = "piece";
+    piece.textContent = choice;
+    piece.dataset.id = choice;
+    piece.dataset.text = choice;
+    piece.setAttribute("aria-label", choice);
+    piece.addEventListener("click", () => {
+      if (piece.disabled || state.nounsChecked) return;
+      placeNounDiscriminate(choice);
+    });
+    tray.appendChild(piece);
+  }
+}
+
+function placeNounDiscriminate(id) {
+  if (state.nounsChecked || !isNounDiscriminateMode()) return;
+  state.nounsArticle = id;
+  document.querySelectorAll("#nouns-tray .piece").forEach((p) => {
+    p.classList.toggle("is-placed", p.dataset.id === id);
+  });
+  checkNounsDiscriminate();
+}
+
+function checkNounsDiscriminate() {
+  if (state.nounsChecked || !state.nounsArticle || !isNounDiscriminateMode())
+    return;
+  const exercise = state.currentExercise;
+  if (!exercise) return;
+  const expected = exercise.resolution.expected;
+  const accepted = state.nounsArticle === expected;
+  state.nounsChecked = true;
+
+  const chosen = document.querySelector(
+    `#nouns-tray [data-id="${CSS.escape(state.nounsArticle)}"]`
+  );
+  document.querySelectorAll("#nouns-tray .piece").forEach((p) => {
+    p.disabled = true;
+  });
+
+  const feedback = document.getElementById("nouns-attempt-feedback");
+  if (accepted) {
+    if (chosen) chosen.classList.add("is-ok");
+    if (feedback) {
+      feedback.hidden = false;
+      feedback.className = "attempt-feedback is-ok";
+      feedback.textContent = exercise.resolution.feedbackOk;
+    }
+    playFeedbackSound("ok");
+    scheduleNounsAdvance(1600);
+  } else {
+    if (chosen) {
+      chosen.classList.add("is-bad");
+      chosen.classList.remove("is-placed");
+    }
+    if (feedback) {
+      feedback.hidden = false;
+      feedback.className = "attempt-feedback is-bad";
+      feedback.textContent = exercise.resolution.feedbackBad;
+    }
+    playFeedbackSound("bad");
+    // One retry then reveal + advance
+    if (!state.nounsDiscriminateRetryUsed) {
+      state.nounsDiscriminateRetryUsed = true;
+      state.nounsChecked = false;
+      state.nounsArticle = null;
+      window.setTimeout(() => {
+        document.querySelectorAll("#nouns-tray .piece").forEach((p) => {
+          if (!p.classList.contains("is-bad")) p.disabled = false;
+        });
+      }, 400);
+      return;
+    }
+    const correct = document.querySelector(
+      `#nouns-tray [data-id="${CSS.escape(expected)}"]`
+    );
+    if (correct) correct.classList.add("is-ok");
+    scheduleNounsAdvance(1800);
+  }
+}
+
+function checkNounsCategory() {
+  if (state.nounsChecked || !state.nounsArticle) return;
+  const exercise = state.currentExercise;
+  if (!exercise) return;
+  const expected = exercise.resolution.expected;
+  const accepted = state.nounsArticle === expected;
+  state.nounsChecked = true;
+
+  const chosen = document.querySelector(
+    `#nouns-tray [data-id="${CSS.escape(state.nounsArticle)}"]`
+  );
+  document.querySelectorAll("#nouns-tray .piece").forEach((p) => {
+    p.disabled = true;
+  });
+
+  const feedback = document.getElementById("nouns-attempt-feedback");
+  if (accepted) {
+    if (chosen) chosen.classList.add("is-ok");
+    if (feedback) {
+      feedback.hidden = false;
+      feedback.className = "attempt-feedback is-ok";
+      feedback.textContent = exercise.resolution.feedbackOk;
+    }
+    playFeedbackSound("ok");
+    scheduleNounsAdvance(1600);
+  } else {
+    if (chosen) {
+      chosen.classList.add("is-bad");
+      chosen.classList.remove("is-placed");
+    }
+    if (feedback) {
+      feedback.hidden = false;
+      feedback.className = "attempt-feedback is-bad";
+      feedback.textContent = exercise.resolution.feedbackBad;
+    }
+    playFeedbackSound("bad");
+    state.nounsChecked = false;
+    state.nounsArticle = null;
+    window.setTimeout(() => {
+      document.querySelectorAll("#nouns-tray .piece").forEach((p) => {
+        if (!p.classList.contains("is-bad")) p.disabled = false;
+      });
+    }, 400);
+  }
 }
 
 function renderNounsPlurals() {
@@ -6222,28 +7720,36 @@ function advanceNounsIndex() {
     state.nounsSessionKind === "family-mix" &&
     state.nounsFamilyMix.length > 1
   ) {
-    const i = state.nounsFamilyMix.indexOf(state.nounsMode);
-    state.nounsMode =
-      state.nounsFamilyMix[(i + 1) % state.nounsFamilyMix.length] ||
-      state.nounsMode;
+    const mix = state.nounsFamilyMix;
+    state.nounsMode = mix[Math.floor(Math.random() * mix.length)] || state.nounsMode;
   }
-  const kind =
-    state.nounsMode === "plurals"
+  const kind = isNounCategoryMode()
+    ? categoryModeDeckKind()
+    : state.nounsMode === "plurals"
       ? "Plural"
       : state.nounsMode === "association"
         ? "Association"
         : state.nounsMode === "wugs"
           ? "Wug"
-          : "Article";
+          : state.nounsMode === "proofread"
+            ? "Proofread"
+            : state.nounsMode === "reverse-mc"
+              ? "Reverse"
+              : "Article";
   const deck = ensureNounDeck(kind);
-  const indexKey =
-    kind === "Plural"
+  const indexKey = isNounCategoryMode()
+    ? categoryModeIndexKey()
+    : kind === "Plural"
       ? "nounsPluralIndex"
       : kind === "Association"
         ? "nounsAssociationIndex"
         : kind === "Wug"
           ? "nounsWugIndex"
-          : "nounsIndex";
+          : kind === "Proofread"
+            ? "nounsProofreadIndex"
+            : kind === "Reverse"
+              ? "nounsReverseIndex"
+              : "nounsIndex";
   state[indexKey] += 1;
   if (state[indexKey] >= deck.length) {
     reshuffleNounDeck(kind);
@@ -6252,18 +7758,26 @@ function advanceNounsIndex() {
 }
 
 function resetNounsDeckForMode() {
-  const kind =
-    state.nounsMode === "plurals"
+  const kind = isNounCategoryMode()
+    ? categoryModeDeckKind()
+    : state.nounsMode === "plurals"
       ? "Plural"
       : state.nounsMode === "association"
         ? "Association"
         : state.nounsMode === "wugs"
           ? "Wug"
-          : "Article";
+          : state.nounsMode === "proofread"
+            ? "Proofread"
+            : state.nounsMode === "reverse-mc"
+              ? "Reverse"
+              : "Article";
   reshuffleNounDeck(kind);
-  if (kind === "Plural") state.nounsPluralIndex = 0;
+  if (isNounCategoryMode()) state[categoryModeIndexKey()] = 0;
+  else if (kind === "Plural") state.nounsPluralIndex = 0;
   else if (kind === "Association") state.nounsAssociationIndex = 0;
   else if (kind === "Wug") state.nounsWugIndex = 0;
+  else if (kind === "Proofread") state.nounsProofreadIndex = 0;
+  else if (kind === "Reverse") state.nounsReverseIndex = 0;
   else state.nounsIndex = 0;
 }
 
@@ -6272,6 +7786,7 @@ function scheduleNounsAdvance(delayMs = 1500) {
   state.nounsAdvanceTimer = setTimeout(() => {
     state.nounsAdvanceTimer = null;
     advanceNounsIndex();
+    if (continueCrossTerritoryMix("nouns")) return;
     renderNouns();
   }, delayMs);
 }
@@ -7215,6 +8730,7 @@ function bind() {
   document.getElementById("numbers-skip").addEventListener("click", () => {
     clearNumbersAdvance();
     advanceNumbersItem();
+    if (continueCrossTerritoryMix("numbers")) return;
     renderNumbers();
   });
 
@@ -7227,6 +8743,31 @@ function bind() {
     if (state.nounsMode === "wugs") {
       const ex = state.currentExercise || currentNounWugExercise();
       openSheet("Hint", `<p>${ex.materials.hint}</p>`);
+      return;
+    }
+    if (isNounDiscriminateMode()) {
+      const ex = state.currentExercise;
+      openSheet(
+        "Hint",
+        `<p>${ex?.materials?.hint || "Use the suffix cue to judge the article."}</p>`
+      );
+      return;
+    }
+    if (isNounCategoryMode()) {
+      const hints = {
+        "gender-recognition":
+          "Retrieve the category’s gender shortcut — masculine, feminine, or neuter.",
+        "article-application":
+          "Retrieve the category’s gender, then pick the matching article.",
+        "gender-imposter":
+          "Three nouns match the category’s expected gender; one does not.",
+        "sentence-validation":
+          "Does the article match the category’s gender shortcut?",
+      };
+      openSheet(
+        "Hint",
+        `<p>${hints[state.nounsMode] || ""}</p>`
+      );
       return;
     }
     const ex =
@@ -7266,6 +8807,30 @@ function bind() {
       );
       return;
     }
+    if (isNounDiscriminateMode()) {
+      openSheet(
+        "Reference",
+        `<ul>
+          <li><strong>Proofread</strong> — judge whether the article+noun pair is correct</li>
+          <li><strong>Reverse</strong> — article shown; pick the lemma that takes it</li>
+          <li>Same suffix-cued lexicon as Real Words</li>
+        </ul>`
+      );
+      return;
+    }
+    if (isNounCategoryMode()) {
+      openSheet(
+        "Reference",
+        `<ul>
+          <li><strong>Gender Recognition</strong> — named category → associated gender</li>
+          <li><strong>Article Application</strong> — use that gender to pick der/die/das or ein/eine</li>
+          <li><strong>Gender Imposter</strong> — find the noun whose gender violates the shortcut</li>
+          <li><strong>Sentence Validation</strong> — is the article in context correct?</li>
+          <li>Category association predicts; lexical gender is authoritative</li>
+        </ul>`
+      );
+      return;
+    }
     if (state.nounsMode === "association") {
       openSheet(
         "Reference",
@@ -7285,12 +8850,22 @@ function bind() {
     if (state.nounsMode === "plurals") {
       if (state.nounsPluralIndex <= 0) return;
       state.nounsPluralIndex -= 1;
+    } else if (isNounCategoryMode()) {
+      const key = categoryModeIndexKey();
+      if (state[key] <= 0) return;
+      state[key] -= 1;
     } else if (state.nounsMode === "association") {
       if (state.nounsAssociationIndex <= 0) return;
       state.nounsAssociationIndex -= 1;
     } else if (state.nounsMode === "wugs") {
       if (state.nounsWugIndex <= 0) return;
       state.nounsWugIndex -= 1;
+    } else if (state.nounsMode === "proofread") {
+      if (state.nounsProofreadIndex <= 0) return;
+      state.nounsProofreadIndex -= 1;
+    } else if (state.nounsMode === "reverse-mc") {
+      if (state.nounsReverseIndex <= 0) return;
+      state.nounsReverseIndex -= 1;
     } else {
       if (state.nounsIndex <= 0) return;
       state.nounsIndex -= 1;
@@ -7300,6 +8875,7 @@ function bind() {
   document.getElementById("nouns-skip").addEventListener("click", () => {
     clearNounsAdvance();
     advanceNounsIndex();
+    if (continueCrossTerritoryMix("nouns")) return;
     renderNouns();
   });
 

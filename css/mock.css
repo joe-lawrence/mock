@@ -706,6 +706,23 @@ body.is-session .view.is-active.view-session {
   flex-shrink: 0;
 }
 
+.learn-series-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.learn-series-status {
+  flex: 1;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--muted, #667);
+}
+
 .chart-tabs .chip {
   flex-shrink: 0;
   min-height: 34px;
@@ -2457,6 +2474,29 @@ button.syl:disabled,
   font-size: 0.9rem;
   font-weight: 500;
   color: var(--muted);
+}
+
+.quiz-visual {
+  display: flex;
+  justify-content: center;
+  margin: 0.35rem 0 0.5rem;
+}
+
+.quiz-visual-svg {
+  display: block;
+  max-width: 140px;
+  height: auto;
+  color: var(--ink, #1e293b);
+}
+
+.slot.is-given {
+  opacity: 0.9;
+  cursor: default;
+  background: var(--surface-2, #f1f5f9);
+}
+
+.slot.is-blank {
+  outline: 2px dashed color-mix(in oklab, var(--accent, #2563eb) 50%, transparent);
 }
 
 .slot-row {

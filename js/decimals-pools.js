@@ -5,7 +5,7 @@
 import {
   decimalAnalysis,
   moneyAnalysis,
-} from "../engine/numbers/index.js?v=20260927-dec2";
+} from "../engine/numbers/index.js?v=20260929-dmo4";
 
 function decimalMeta(whole, fracDigits) {
   const a = decimalAnalysis(whole, fracDigits);

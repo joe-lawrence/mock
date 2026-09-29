@@ -47,6 +47,7 @@ export const NUMBERS_TOPICS = [
         label: "0–12",
         playable: true,
         pool: "base",
+        modes: ["build", "listen", "convert", "cloze", "proofread"],
         blurb: "Foundational blocks; 11 and 12 are unique.",
         chartTab: "base",
       },
@@ -55,6 +56,7 @@ export const NUMBERS_TOPICS = [
         label: "Teens",
         playable: true,
         pool: "teens",
+        modes: ["build", "listen", "convert", "cloze", "proofread"],
         blurb: "13–19 as base + zehn.",
         softAfter: "base",
         chartTab: "teens",
@@ -64,6 +66,7 @@ export const NUMBERS_TOPICS = [
         label: "Tens",
         playable: true,
         pool: "tens",
+        modes: ["build", "listen", "convert", "cloze", "proofread"],
         blurb: "20–90 as stem + zig/ßig.",
         softAfter: "teens",
         chartTab: "tens",
@@ -73,6 +76,7 @@ export const NUMBERS_TOPICS = [
         label: "Compounds",
         playable: true,
         pool: "compounds",
+        modes: ["build", "listen", "convert", "cloze", "proofread"],
         blurb: "21–99 ones + und + tens.",
         softAfter: "tens",
         chartTab: "compounds",
@@ -82,6 +86,7 @@ export const NUMBERS_TOPICS = [
         label: "Hundreds+",
         playable: true,
         pool: "hundreds",
+        modes: ["build", "listen", "convert", "cloze", "proofread"],
         blurb: "Full 100–1000 — hundert / tausend, then the 0–99 tail.",
         softAfter: "compounds",
         chartTab: "hundreds",
@@ -99,7 +104,7 @@ export const NUMBERS_TOPICS = [
         label: "Komma reading",
         playable: true,
         pool: "komma-read",
-        modes: ["listen", "convert"],
+        modes: ["listen", "convert", "proofread"],
         blurb: "Hear/read forms like 3,14 — Komma, not Punkt.",
         chartTab: "komma",
       },
@@ -108,7 +113,7 @@ export const NUMBERS_TOPICS = [
         label: "Place value",
         playable: true,
         pool: "place-value",
-        modes: ["build", "listen"],
+        modes: ["build", "listen", "cloze", "proofread"],
         blurb: "Build spoken decimals: whole + Komma + digits.",
         softAfter: "komma-read",
         chartTab: "komma",
@@ -118,7 +123,7 @@ export const NUMBERS_TOPICS = [
         label: "Write with Komma",
         playable: true,
         pool: "write-komma",
-        modes: ["convert", "build"],
+        modes: ["convert", "build", "proofread"],
         blurb: "Produce written decimals (Komma) from English or speech cues.",
         softAfter: "place-value",
         chartTab: "komma",
@@ -128,7 +133,7 @@ export const NUMBERS_TOPICS = [
         label: "Euro amounts",
         playable: true,
         pool: "money-euros",
-        modes: ["build", "listen", "convert"],
+        modes: ["build", "listen", "convert", "proofread"],
         blurb: "Whole euros: … Euro.",
         softAfter: "write-komma",
         chartTab: "money",
@@ -138,7 +143,7 @@ export const NUMBERS_TOPICS = [
         label: "Euro + Cent",
         playable: true,
         pool: "money-cents",
-        modes: ["build", "listen", "convert"],
+        modes: ["build", "listen", "convert", "proofread"],
         blurb: "… Euro … — cents as a cardinal after Euro.",
         softAfter: "money-euros",
         chartTab: "money",
@@ -156,39 +161,47 @@ export const NUMBERS_TOPICS = [
   {
     id: "fractions",
     label: "Fractions",
-    playable: false,
-    blurb: "halb, viertel, and productive fraction patterns.",
+    playable: true,
+    blurb: "halb, Viertel, and productive fraction patterns.",
     steps: [
       {
         id: "half-quarter",
-        label: "halb & viertel",
-        playable: false,
+        label: "halb & Viertel",
+        playable: true,
+        pool: "half-quarter",
+        modes: ["listen", "build", "convert", "visual", "proofread"],
         blurb: "High-frequency halves and quarters (lexical + pattern).",
-        plannedModes: ["listen", "build"],
+        chartTab: "fractions",
       },
       {
         id: "unit-fractions",
         label: "Unit fractions",
-        playable: false,
+        playable: true,
+        pool: "unit-fractions",
+        modes: ["build", "listen", "convert", "visual", "proofread"],
         blurb: "Drittel, Fünftel, … — stem + -tel.",
         softAfter: "half-quarter",
-        plannedModes: ["build", "listen"],
+        chartTab: "fractions",
       },
       {
         id: "proper-fractions",
         label: "Proper fractions",
-        playable: false,
+        playable: true,
+        pool: "proper-fractions",
+        modes: ["build", "convert", "listen", "visual", "proofread"],
         blurb: "zwei Drittel, drei Viertel — number + fraction noun.",
         softAfter: "unit-fractions",
-        plannedModes: ["build", "convert"],
+        chartTab: "fractions",
       },
       {
         id: "mixed-numbers",
         label: "Mixed numbers",
-        playable: false,
+        playable: true,
+        pool: "mixed-numbers",
+        modes: ["listen", "build", "convert", "proofread"],
         blurb: "Whole + fraction (e.g. eineinhalb) — common spoken forms.",
         softAfter: "proper-fractions",
-        plannedModes: ["listen", "build"],
+        chartTab: "fractions",
       },
       {
         id: "fraction-context",
@@ -203,94 +216,114 @@ export const NUMBERS_TOPICS = [
   {
     id: "time",
     label: "Time",
-    playable: false,
+    playable: true,
     blurb: "Clock (Uhr) and durations.",
     steps: [
       {
         id: "whole-hours",
         label: "Whole hours",
-        playable: false,
+        playable: true,
+        pool: "whole-hours",
+        modes: ["build", "listen", "convert", "visual", "proofread"],
         blurb: "… Uhr — es ist drei Uhr.",
-        plannedModes: ["build", "listen"],
+        chartTab: "time",
       },
       {
         id: "half-past",
         label: "halb",
-        playable: false,
+        playable: true,
+        pool: "half-past",
+        modes: ["listen", "convert", "build", "visual"],
         blurb: "halb vier = 3:30 — the German half-hour flip.",
         softAfter: "whole-hours",
-        plannedModes: ["listen", "convert", "build"],
+        chartTab: "time",
       },
       {
         id: "quarters",
         label: "Viertel",
-        playable: false,
+        playable: true,
+        pool: "quarters",
+        modes: ["listen", "build", "convert", "visual"],
         blurb: "Viertel nach / Viertel vor — regional variants noted in hints.",
         softAfter: "half-past",
-        plannedModes: ["listen", "build"],
+        chartTab: "time",
       },
       {
         id: "minutes",
         label: "Minutes",
-        playable: false,
+        playable: true,
+        pool: "minutes",
+        modes: ["build", "convert", "listen", "visual"],
         blurb: "… nach / … vor with minute counts.",
         softAfter: "quarters",
-        plannedModes: ["build", "convert", "listen"],
+        chartTab: "time",
       },
       {
         id: "digital-24h",
         label: "24-hour / digital",
-        playable: false,
+        playable: true,
+        pool: "digital-24h",
+        modes: ["convert", "listen", "build", "proofread"],
         blurb: "Reading 14:05-style times in German.",
         softAfter: "minutes",
-        plannedModes: ["convert", "listen"],
+        chartTab: "time",
       },
       {
         id: "duration",
         label: "Durations",
-        playable: false,
-        blurb: "Minuten, Stunden, Tage — how long something takes.",
+        playable: true,
+        pool: "duration",
+        modes: ["build", "listen", "convert", "proofread"],
+        blurb: "Minuten, Stunden — how long something takes.",
         softAfter: "minutes",
-        plannedModes: ["build", "listen"],
+        chartTab: "time",
       },
     ],
   },
   {
     id: "dates",
     label: "Dates",
-    playable: false,
+    playable: true,
     blurb: "Calendar reading and writing (separate from clock time).",
     steps: [
       {
         id: "weekdays",
         label: "Weekdays",
-        playable: false,
+        playable: true,
+        pool: "weekdays",
+        modes: ["listen", "build", "convert", "proofread"],
         blurb: "Montag … Sonntag — names and order.",
-        plannedModes: ["listen", "build"],
+        chartTab: "dates",
       },
       {
         id: "months",
         label: "Months",
-        playable: false,
+        playable: true,
+        pool: "months",
+        modes: ["listen", "build", "convert", "proofread"],
         blurb: "Januar … Dezember.",
         softAfter: "weekdays",
-        plannedModes: ["listen", "build"],
+        chartTab: "dates",
       },
       {
         id: "ordinal-days",
         label: "Days of the month",
-        playable: false,
-        blurb: "am 3. / der dritte — ordinal date forms.",
+        playable: true,
+        pool: "ordinal-days",
+        modes: ["build", "convert", "listen", "proofread"],
+        blurb: "am 3. / am dritten — ordinal date forms.",
         softAfter: "months",
-        plannedModes: ["build", "convert", "listen"],
+        chartTab: "dates",
       },
       {
         id: "full-dates",
         label: "Full dates",
-        playable: false,
+        playable: true,
+        pool: "full-dates",
+        modes: ["convert", "listen", "build", "proofread"],
         blurb: "Spoken and written calendar dates (Tag.Monat.Jahr).",
         softAfter: "ordinal-days",
-        plannedModes: ["convert", "listen", "build"],
+        chartTab: "dates",
       },
       {
         id: "date-context",
@@ -305,39 +338,47 @@ export const NUMBERS_TOPICS = [
   {
     id: "measurement",
     label: "Measurement",
-    playable: false,
+    playable: true,
     blurb: "Common units and number agreement habits.",
     steps: [
       {
         id: "length",
         label: "Length",
-        playable: false,
+        playable: true,
+        pool: "length",
+        modes: ["build", "listen", "convert", "proofread"],
         blurb: "Meter, Zentimeter, Kilometer with numbers.",
-        plannedModes: ["build", "listen", "convert"],
+        chartTab: "measure",
       },
       {
         id: "weight",
         label: "Weight",
-        playable: false,
+        playable: true,
+        pool: "weight",
+        modes: ["build", "listen", "convert", "proofread"],
         blurb: "Gramm, Kilo(gramm) — shopping amounts.",
         softAfter: "length",
-        plannedModes: ["build", "listen", "convert"],
+        chartTab: "measure",
       },
       {
         id: "volume",
         label: "Volume",
-        playable: false,
+        playable: true,
+        pool: "volume",
+        modes: ["build", "listen", "convert", "proofread"],
         blurb: "Liter, Milliliter — drinks and recipes.",
         softAfter: "weight",
-        plannedModes: ["build", "listen"],
+        chartTab: "measure",
       },
       {
         id: "temp-speed",
         label: "Temp & speed",
-        playable: false,
+        playable: true,
+        pool: "temp-speed",
+        modes: ["listen", "convert", "build", "proofread"],
         blurb: "Grad, Stundenkilometer — weather and travel.",
         softAfter: "volume",
-        plannedModes: ["listen", "convert"],
+        chartTab: "measure",
       },
       {
         id: "measure-context",
@@ -352,47 +393,57 @@ export const NUMBERS_TOPICS = [
   {
     id: "ordinals",
     label: "Ordinals",
-    playable: false,
+    playable: true,
     blurb: "der erste / am 3. …",
     steps: [
       {
         id: "ordinal-1-12",
         label: "1.–12.",
-        playable: false,
+        playable: true,
+        pool: "ordinal-1-12",
+        modes: ["build", "listen", "convert", "sentence", "proofread", "cloze"],
         blurb: "erste … zwölfte — core ordinal stems.",
-        plannedModes: ["build", "listen"],
+        chartTab: "ordinals",
       },
       {
         id: "ordinal-teens",
         label: "13.–19.",
-        playable: false,
+        playable: true,
+        pool: "ordinal-teens",
+        modes: ["build", "listen", "convert", "sentence", "proofread", "cloze"],
         blurb: "Ordinal teens (dreizehnte …).",
         softAfter: "ordinal-1-12",
-        plannedModes: ["build", "listen"],
+        chartTab: "ordinals",
       },
       {
         id: "ordinal-tens",
         label: "20.–90.",
-        playable: false,
+        playable: true,
+        pool: "ordinal-tens",
+        modes: ["build", "listen", "convert", "sentence", "proofread", "cloze"],
         blurb: "zwanzigste, dreißigste …",
         softAfter: "ordinal-teens",
-        plannedModes: ["build", "listen"],
+        chartTab: "ordinals",
       },
       {
         id: "ordinal-compounds",
         label: "Compound ordinals",
-        playable: false,
+        playable: true,
+        pool: "ordinal-compounds",
+        modes: ["build", "convert", "listen", "sentence", "proofread", "cloze"],
         blurb: "einundzwanzigste — ones + und + tens + -te/-ste.",
         softAfter: "ordinal-tens",
-        plannedModes: ["build", "convert"],
+        chartTab: "ordinals",
       },
       {
         id: "ordinal-dates-use",
         label: "Ordinals in dates",
-        playable: false,
+        playable: true,
+        pool: "ordinal-dates-use",
+        modes: ["listen", "convert", "build", "proofread"],
         blurb: "am …ten — bridging toward Dates.",
         softAfter: "ordinal-compounds",
-        plannedModes: ["listen", "read", "convert"],
+        chartTab: "ordinals",
       },
     ],
   },
@@ -434,6 +485,30 @@ export const NUMBERS_MODES = [
     label: "Convert",
     playable: true,
     blurb: "See the digit, type the German form — production.",
+  },
+  {
+    id: "cloze",
+    label: "Cloze",
+    playable: true,
+    blurb: "Fill the missing morph piece (und / zehn / zig…).",
+  },
+  {
+    id: "proofread",
+    label: "Proofread",
+    playable: true,
+    blurb: "Spot and fix a wrong spelling.",
+  },
+  {
+    id: "visual",
+    label: "Visual",
+    playable: true,
+    blurb: "Read a pie chart or clock face.",
+  },
+  {
+    id: "sentence",
+    label: "Sentence",
+    playable: true,
+    blurb: "Read an ordinal inside a short sentence.",
   },
 ];
 
@@ -621,6 +696,154 @@ export function suggestNumbersFocus(current = {}) {
         difficulty: "assisted",
         policy: "introduce",
         reason: `Introduce next unit: ${getNumbersStep("decimals", next)?.label}`,
+      };
+    }
+    const intro = introModeForStep("fractions", "half-quarter");
+    return {
+      topicId: "fractions",
+      stepId: "half-quarter",
+      modeId: intro?.id || "listen",
+      difficulty: "assisted",
+      policy: "introduce",
+      reason: "Introduce Fractions — halb & Viertel",
+    };
+  }
+
+  if (topicId === "fractions") {
+    const ladder = [
+      "half-quarter",
+      "unit-fractions",
+      "proper-fractions",
+      "mixed-numbers",
+    ];
+    const idx = ladder.indexOf(stepId);
+    if (idx >= 0 && idx < ladder.length - 1) {
+      const next = ladder[idx + 1];
+      const intro = introModeForStep("fractions", next);
+      return {
+        topicId: "fractions",
+        stepId: next,
+        modeId: intro?.id || "build",
+        difficulty: "assisted",
+        policy: "introduce",
+        reason: `Introduce next unit: ${getNumbersStep("fractions", next)?.label}`,
+      };
+    }
+    const intro = introModeForStep("time", "whole-hours");
+    return {
+      topicId: "time",
+      stepId: "whole-hours",
+      modeId: intro?.id || "build",
+      difficulty: "assisted",
+      policy: "introduce",
+      reason: "Introduce Time — whole hours",
+    };
+  }
+
+  if (topicId === "time") {
+    const ladder = [
+      "whole-hours",
+      "half-past",
+      "quarters",
+      "minutes",
+      "digital-24h",
+      "duration",
+    ];
+    const idx = ladder.indexOf(stepId);
+    if (idx >= 0 && idx < ladder.length - 1) {
+      const next = ladder[idx + 1];
+      const intro = introModeForStep("time", next);
+      return {
+        topicId: "time",
+        stepId: next,
+        modeId: intro?.id || "listen",
+        difficulty: "assisted",
+        policy: "introduce",
+        reason: `Introduce next unit: ${getNumbersStep("time", next)?.label}`,
+      };
+    }
+    const intro = introModeForStep("dates", "weekdays");
+    return {
+      topicId: "dates",
+      stepId: "weekdays",
+      modeId: intro?.id || "listen",
+      difficulty: "assisted",
+      policy: "introduce",
+      reason: "Introduce Dates — weekdays",
+    };
+  }
+
+  if (topicId === "dates") {
+    const ladder = ["weekdays", "months", "ordinal-days", "full-dates"];
+    const idx = ladder.indexOf(stepId);
+    if (idx >= 0 && idx < ladder.length - 1) {
+      const next = ladder[idx + 1];
+      const intro = introModeForStep("dates", next);
+      return {
+        topicId: "dates",
+        stepId: next,
+        modeId: intro?.id || "listen",
+        difficulty: "assisted",
+        policy: "introduce",
+        reason: `Introduce next unit: ${getNumbersStep("dates", next)?.label}`,
+      };
+    }
+    const intro = introModeForStep("measurement", "length");
+    return {
+      topicId: "measurement",
+      stepId: "length",
+      modeId: intro?.id || "build",
+      difficulty: "assisted",
+      policy: "introduce",
+      reason: "Introduce Measurement — length",
+    };
+  }
+
+  if (topicId === "measurement") {
+    const ladder = ["length", "weight", "volume", "temp-speed"];
+    const idx = ladder.indexOf(stepId);
+    if (idx >= 0 && idx < ladder.length - 1) {
+      const next = ladder[idx + 1];
+      const intro = introModeForStep("measurement", next);
+      return {
+        topicId: "measurement",
+        stepId: next,
+        modeId: intro?.id || "build",
+        difficulty: "assisted",
+        policy: "introduce",
+        reason: `Introduce next unit: ${getNumbersStep("measurement", next)?.label}`,
+      };
+    }
+    const intro = introModeForStep("ordinals", "ordinal-1-12");
+    return {
+      topicId: "ordinals",
+      stepId: "ordinal-1-12",
+      modeId: intro?.id || "build",
+      difficulty: "assisted",
+      policy: "introduce",
+      reason: "Introduce Ordinals — 1.–12.",
+    };
+  }
+
+  if (topicId === "ordinals") {
+    const ladder = [
+      "ordinal-1-12",
+      "ordinal-teens",
+      "ordinal-tens",
+      "ordinal-compounds",
+      "ordinal-dates-use",
+    ];
+    const idx = ladder.indexOf(stepId);
+    if (idx >= 0 && idx < ladder.length - 1) {
+      const next = ladder[idx + 1];
+      const intro = introModeForStep("ordinals", next);
+      return {
+        topicId: "ordinals",
+        stepId: next,
+        modeId: intro?.id || "build",
+        difficulty: "assisted",
+        policy: "introduce",
+        reason: `Introduce next unit: ${getNumbersStep("ordinals", next)?.label}`,
       };
     }
   }

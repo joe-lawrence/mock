@@ -2,12 +2,12 @@
  * Nouns / Gender Shortcuts curriculum — Learn units vs practice families.
  *
  * Spec §7: Learn units own reference (Suffixes, Categories).
- * Practice families (Wugs, Real Words, Associations) hang under units — not peer Learn cards.
- * Quiz modalities (choose-article, …) are chosen after family; only choose ships today.
+ * Practice families hang under units — not peer Learn cards.
+ * Categories: Gender Recognition → Article Application → Gender Imposter → Sentence Validation.
  */
 
-/** @typedef {"wugs"|"real-words"|"association"} NounsPracticeFamilyId */
-/** @typedef {"choose-article"} NounsQuizModalityId */
+/** @typedef {"wugs"|"real-words"|"proofread"|"reverse-mc"|"gender-recognition"|"article-application"|"gender-imposter"|"sentence-validation"} NounsPracticeFamilyId */
+/** @typedef {"choose-article"|"category-gender"} NounsQuizModalityId */
 
 /**
  * @typedef {object} NounsPracticeFamily
@@ -26,7 +26,7 @@
  * @property {string} [blurb]
  * @property {string} chartTab — nounsChart tab id for Learn
  * @property {NounsPracticeFamily[]} families
- * @property {NounsQuizModalityId[]} [modalities] — allowlist; omit = choose-article only
+ * @property {NounsQuizModalityId[]} [modalities]
  */
 
 /** @type {NounsLearnUnit[]} */
@@ -51,6 +51,18 @@ export const GENDER_SHORTCUTS_UNITS = [
         playable: true,
         blurb: "Same task on cued lexicon lemmas. Skip ahead anytime.",
       },
+      {
+        id: "proofread",
+        label: "Proofread",
+        playable: true,
+        blurb: "Is “der X” right? Richtig / Falsch.",
+      },
+      {
+        id: "reverse-mc",
+        label: "Reverse",
+        playable: true,
+        blurb: "Article given — pick the matching lemma.",
+      },
     ],
     modalities: ["choose-article"],
   },
@@ -58,18 +70,37 @@ export const GENDER_SHORTCUTS_UNITS = [
     id: "categories",
     label: "Categories",
     playable: true,
-    blurb: "Semantic / category associations — soft correlations, not laws.",
+    blurb:
+      "Semantic category → gender discrimination: Recognition → Article → Imposter → Sentence.",
     chartTab: "categories",
     families: [
       {
-        id: "association",
-        label: "Associations",
+        id: "gender-recognition",
+        label: "Gender Recognition",
         playable: true,
         intro: true,
-        blurb: "Practice by suffix family with a soft ~80% readiness signal.",
+        blurb: "Named category → associated gender.",
+      },
+      {
+        id: "article-application",
+        label: "Article Application",
+        playable: true,
+        blurb: "Use the category gender to pick der/die/das or ein/eine.",
+      },
+      {
+        id: "gender-imposter",
+        label: "Gender Imposter",
+        playable: true,
+        blurb: "Find the noun whose gender violates the category shortcut.",
+      },
+      {
+        id: "sentence-validation",
+        label: "Sentence Validation",
+        playable: true,
+        blurb: "Is the article in this sentence correct for the category?",
       },
     ],
-    modalities: ["choose-article"],
+    modalities: ["category-gender"],
   },
 ];
 
@@ -92,6 +123,7 @@ export const NOUNS_STUB_TOPICS = [
 export const NOUNS_MODALITY_LABELS = {
   "choose-article": "Choose article",
   "type-article": "Type article",
+  "category-gender": "Category → gender",
 };
 
 export function getGenderShortcutsUnit(unitId) {
@@ -115,11 +147,11 @@ export function unitIdForFamily(familyId) {
   return "suffixes";
 }
 
-/** Playable + planned modalities for UI chips. */
+/** Playable + planned modalities for UI chips / caps eligibility. */
 export function modalitiesForUnit(unitId) {
   const u = getGenderShortcutsUnit(unitId);
   const playable = new Set(u?.modalities || ["choose-article"]);
-  const all = ["choose-article", "type-article"];
+  const all = ["choose-article", "type-article", "category-gender"];
   return all.map((id) => ({
     id,
     label: NOUNS_MODALITY_LABELS[id] || id,

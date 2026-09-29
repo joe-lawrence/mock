@@ -18,6 +18,12 @@ export const PREFS_KEY = "schnapp-practice-prefs";
 const FAMILY_LABELS = {
   wugs: "Wugs",
   "real-words": "Real Words",
+  proofread: "Proofread",
+  "reverse-mc": "Reverse",
+  "gender-recognition": "Gender Recognition",
+  "article-application": "Article Application",
+  "gender-imposter": "Gender Imposter",
+  "sentence-validation": "Sentence Validation",
   association: "Associations",
 };
 
@@ -63,7 +69,11 @@ export function collectPracticeOptions(units, caps = {}) {
     if (u.territory === "numbers" && u.topicId && u.stepId) {
       for (const m of modesForStep(u.topicId, u.stepId)) {
         if (m.id === "listen" && caps.audio === false) continue;
-        if (m.id === "convert" && caps.keyboard === false) continue;
+        if (
+          (m.id === "convert" || m.id === "proofread") &&
+          caps.keyboard === false
+        )
+          continue;
         numbersMap.set(m.id, {
           id: `numbers:${m.id}`,
           typeId: m.id,

@@ -7,8 +7,27 @@ import {
   articleExercise,
   pluralExercise,
   wugExercise,
+  categoryGenderRecognitionExercise,
+  categoryArticleApplicationExercise,
+  categoryGenderImposterExercise,
+  categorySentenceValidationExercise,
 } from "../nouns/index.js";
-import { constructionExercise, decimalExercise, moneyExercise } from "../numbers/index.js";
+import {
+  constructionExercise,
+  decimalExercise,
+  moneyExercise,
+  fractionExercise,
+  mixedFractionExercise,
+  clockExercise,
+  digitalTimeExercise,
+  durationExercise,
+  ordinalExercise,
+  ordinalAmExercise,
+  weekdayExercise,
+  monthExercise,
+  calendarDateExercise,
+  measureExercise,
+} from "../numbers/index.js";
 
 function splitCue(lemma, cue) {
   const ending = String(cue || "").replace(/^-/, "");
@@ -73,6 +92,7 @@ export function createNounArticleExercise(lemma, opts = {}) {
 
 /**
  * Association = same linguistic task as articles, tagged for family mastery tracking.
+ * Used by Suffixes / Real Words family drills (not Categories).
  * @param {string} lemma
  * @param {{ mode?: import("./modes.js").DifficultyMode }} [opts]
  */
@@ -122,6 +142,205 @@ export function createNounAssociationExercise(lemma, opts = {}) {
       translation: truth.translation,
       rules: truth.rules,
       patternId: truth.patternId,
+    },
+  };
+}
+
+/**
+ * Categories — Gender Recognition: examples → associated gender.
+ * @param {string} categoryId
+ * @param {{ mode?: import("./modes.js").DifficultyMode }} [opts]
+ */
+export function createNounCategoryGenderRecognitionExercise(categoryId, opts = {}) {
+  const mode = opts.mode || "assisted";
+  const truth = categoryGenderRecognitionExercise(categoryId);
+  const templateId = TEMPLATES.NOUN_CATEGORY_GENDER_RECOGNITION;
+  const scaffolding = scaffoldingFor(templateId, mode);
+
+  return {
+    id: `ex.${templateId}.${truth.categoryId}.${mode}`,
+    templateId,
+    territoryId: "nouns",
+    mode,
+    layerVersion: EXERCISE_LAYER_VERSION,
+    target: {
+      categoryId: truth.categoryId,
+      expectedAssociation: truth.expectedAssociation,
+    },
+    scaffolding,
+    prompt: {
+      kind: "category-gender-recognition",
+      categoryId: truth.categoryId,
+      categoryName: truth.categoryName,
+      text: "What gender is associated with this category?",
+      description: scaffolding.showEnglish ? truth.description : null,
+    },
+    materials: {
+      choices: [...truth.choices],
+      choiceLabels: { ...truth.choiceLabels },
+    },
+    resolution: {
+      expected: truth.expectedAssociation,
+      expectedAssociation: truth.expectedAssociation,
+      association: truth.association,
+      strength: truth.strength,
+      categoryName: truth.categoryName,
+      feedbackOk: `Correct. ${truth.categoryName} → ${truth.choiceLabel.toLowerCase()} (${truth.strength.replace("_", " ")} shortcut).`,
+      feedbackBad: `${truth.categoryName} is associated with ${truth.choiceLabel.toLowerCase()}.`,
+    },
+  };
+}
+
+/**
+ * Categories — Article Application: blanked authored sentence → article.
+ * @param {string} itemId
+ * @param {{ mode?: import("./modes.js").DifficultyMode }} [opts]
+ */
+export function createNounCategoryArticleApplicationExercise(itemId, opts = {}) {
+  const mode = opts.mode || "assisted";
+  const truth = categoryArticleApplicationExercise(itemId);
+  const templateId = TEMPLATES.NOUN_CATEGORY_ARTICLE_APPLICATION;
+  const scaffolding = scaffoldingFor(templateId, mode);
+
+  return {
+    id: `ex.${templateId}.${truth.itemId}.${mode}`,
+    templateId,
+    territoryId: "nouns",
+    mode,
+    layerVersion: EXERCISE_LAYER_VERSION,
+    target: {
+      categoryId: truth.categoryId,
+      lemma: truth.lemma,
+      itemId: truth.itemId,
+      expectedArticle: truth.correct,
+    },
+    scaffolding,
+    prompt: {
+      kind: "category-article-application",
+      categoryId: truth.categoryId,
+      categoryName: truth.categoryName,
+      lemma: truth.lemma,
+      text: truth.promptText,
+      header: `${truth.categoryName} → ${truth.choiceLabel}`,
+    },
+    materials: {
+      choices: [...truth.choices],
+      choiceLabels: Object.fromEntries(truth.choices.map((c) => [c, c])),
+    },
+    resolution: {
+      expected: truth.correct,
+      expectedAssociation: truth.expectedAssociation,
+      association: truth.association,
+      strength: truth.strength,
+      categoryName: truth.categoryName,
+      lemma: truth.lemma,
+      feedbackOk: `Correct. ${truth.categoryName} → ${truth.choiceLabel.toLowerCase()} → ${truth.correct}.`,
+      feedbackBad: `${truth.categoryName} → ${truth.choiceLabel.toLowerCase()} → ${truth.correct}.`,
+    },
+  };
+}
+
+/**
+ * Categories — Gender Imposter: find the noun whose gender violates the shortcut.
+ * @param {string} categoryId
+ * @param {{ mode?: import("./modes.js").DifficultyMode }} [opts]
+ */
+export function createNounCategoryGenderImposterExercise(categoryId, opts = {}) {
+  const mode = opts.mode || "assisted";
+  const truth = categoryGenderImposterExercise(categoryId);
+  const templateId = TEMPLATES.NOUN_CATEGORY_GENDER_IMPOSTER;
+  const scaffolding = scaffoldingFor(templateId, mode);
+
+  return {
+    id: `ex.${templateId}.${truth.categoryId}.${truth.imposter}.${mode}`,
+    templateId,
+    territoryId: "nouns",
+    mode,
+    layerVersion: EXERCISE_LAYER_VERSION,
+    target: {
+      categoryId: truth.categoryId,
+      expectedLemma: truth.expectedLemma,
+      expectedAssociation: truth.expectedAssociation,
+      imposterGender: truth.imposterGender,
+    },
+    scaffolding,
+    prompt: {
+      kind: "category-gender-imposter",
+      categoryId: truth.categoryId,
+      categoryName: truth.categoryName,
+      text: "Which noun is the gender imposter?",
+      header: truth.header,
+    },
+    materials: {
+      choices: [...truth.choices],
+      choiceLabels: { ...truth.choiceLabels },
+    },
+    resolution: {
+      expected: truth.expectedLemma,
+      expectedLemma: truth.expectedLemma,
+      expectedAssociation: truth.expectedAssociation,
+      association: truth.association,
+      strength: truth.strength,
+      categoryName: truth.categoryName,
+      imposterGender: truth.imposterGender,
+      feedbackOk: `Correct. Category expected ${truth.choiceLabel.toLowerCase()}, but ${truth.imposter} is ${truth.imposterGender} — learn that lexical fact.`,
+      feedbackBad: `The imposter is ${truth.imposter} (${truth.imposterGender}). Category ${truth.categoryName} expects ${truth.choiceLabel.toLowerCase()}.`,
+    },
+  };
+}
+
+/**
+ * Categories — Sentence Validation: authored sentence → Correct / Incorrect.
+ * @param {string} itemId
+ * @param {{ mode?: import("./modes.js").DifficultyMode }} [opts]
+ */
+export function createNounCategorySentenceValidationExercise(itemId, opts = {}) {
+  const mode = opts.mode || "assisted";
+  const truth = categorySentenceValidationExercise(itemId);
+  const templateId = TEMPLATES.NOUN_CATEGORY_SENTENCE_VALIDATION;
+  const scaffolding = scaffoldingFor(templateId, mode);
+
+  return {
+    id: `ex.${templateId}.${truth.itemId}.${mode}`,
+    templateId,
+    territoryId: "nouns",
+    mode,
+    layerVersion: EXERCISE_LAYER_VERSION,
+    target: {
+      categoryId: truth.categoryId,
+      lemma: truth.lemma,
+      itemId: truth.itemId,
+      sentenceCorrect: truth.correct,
+    },
+    scaffolding,
+    prompt: {
+      kind: "category-sentence-validation",
+      categoryId: truth.categoryId,
+      categoryName: truth.categoryName,
+      lemma: truth.lemma,
+      text: "Is this sentence correct?",
+      sentence: truth.sentence,
+      header: `${truth.categoryName} → ${truth.choiceLabel}`,
+    },
+    materials: {
+      choices: [...truth.choices],
+      choiceLabels: { ...truth.choiceLabels },
+    },
+    resolution: {
+      expected: truth.expected,
+      correct: truth.correct,
+      expectedAssociation: truth.association,
+      association: truth.association,
+      strength: truth.strength,
+      categoryName: truth.categoryName,
+      lemma: truth.lemma,
+      sentence: truth.sentence,
+      feedbackOk: truth.correct
+        ? `Correct — the article matches ${truth.categoryName} → ${truth.choiceLabel.toLowerCase()}.`
+        : `Correct — the article does not match ${truth.categoryName} → ${truth.choiceLabel.toLowerCase()}.`,
+      feedbackBad: truth.correct
+        ? `The sentence is correct: category ${truth.categoryName} → ${truth.choiceLabel.toLowerCase()}.`
+        : `The sentence is incorrect: category ${truth.categoryName} → ${truth.choiceLabel.toLowerCase()}.`,
     },
   };
 }
@@ -393,6 +612,409 @@ export function createMoneyConstructionExercise(euros, cents, opts = {}) {
 }
 
 /**
+ * @param {number} numerator
+ * @param {number} denominator
+ * @param {{ mode?: import("./modes.js").DifficultyMode, english?: string, answerParts?: object[] }} [opts]
+ */
+export function createFractionConstructionExercise(numerator, denominator, opts = {}) {
+  const mode = opts.mode || "assisted";
+  const truth = fractionExercise(numerator, denominator, { english: opts.english });
+  const templateId = TEMPLATES.NUMBER_FRACTION_CONSTRUCTION;
+  const scaffolding = scaffoldingFor(templateId, mode);
+
+  return {
+    id: `ex.${templateId}.${numerator}.${denominator}.${mode}`,
+    templateId,
+    territoryId: "numbers",
+    mode,
+    layerVersion: EXERCISE_LAYER_VERSION,
+    target: { kind: "fraction", numerator, denominator },
+    scaffolding,
+    prompt: {
+      kind: "build-fraction",
+      written: truth.written,
+      english: scaffolding.showEnglish ? opts.english || truth.english : null,
+    },
+    materials: {
+      parts: truth.parts,
+      distractors: scaffolding.chipTray ? truth.distractors : [],
+      form: truth.form,
+      written: truth.written,
+      hint: truth.hint,
+      answerParts: opts.answerParts || null,
+    },
+    resolution: {
+      kind: "fraction",
+      parts: truth.parts,
+      form: truth.form,
+      written: truth.written,
+      numerator,
+      denominator,
+      english: opts.english || truth.english,
+      rules: truth.rules,
+    },
+  };
+}
+
+/**
+ * @param {number} whole
+ * @param {number} numerator
+ * @param {number} denominator
+ * @param {{ mode?: import("./modes.js").DifficultyMode, english?: string, answerParts?: object[] }} [opts]
+ */
+export function createMixedFractionConstructionExercise(
+  whole,
+  numerator,
+  denominator,
+  opts = {}
+) {
+  const mode = opts.mode || "assisted";
+  const truth = mixedFractionExercise(whole, numerator, denominator, {
+    english: opts.english,
+  });
+  const templateId = TEMPLATES.NUMBER_MIXED_FRACTION_CONSTRUCTION;
+  const scaffolding = scaffoldingFor(templateId, mode);
+
+  return {
+    id: `ex.${templateId}.${whole}.${numerator}.${denominator}.${mode}`,
+    templateId,
+    territoryId: "numbers",
+    mode,
+    layerVersion: EXERCISE_LAYER_VERSION,
+    target: { kind: "mixed-fraction", whole, numerator, denominator },
+    scaffolding,
+    prompt: {
+      kind: "build-mixed-fraction",
+      written: truth.written,
+      english: scaffolding.showEnglish ? opts.english || truth.english : null,
+    },
+    materials: {
+      parts: truth.parts,
+      distractors: scaffolding.chipTray ? truth.distractors : [],
+      form: truth.form,
+      written: truth.written,
+      hint: truth.hint,
+      answerParts: opts.answerParts || null,
+    },
+    resolution: {
+      kind: "mixed-fraction",
+      parts: truth.parts,
+      form: truth.form,
+      written: truth.written,
+      whole,
+      numerator,
+      denominator,
+      english: opts.english || truth.english,
+      rules: truth.rules,
+    },
+  };
+}
+
+/**
+ * @param {number} hours
+ * @param {number} minutes
+ * @param {{ mode?: import("./modes.js").DifficultyMode, english?: string, answerParts?: object[] }} [opts]
+ */
+export function createClockConstructionExercise(hours, minutes, opts = {}) {
+  const mode = opts.mode || "assisted";
+  const truth = clockExercise(hours, minutes, { english: opts.english });
+  const templateId = TEMPLATES.NUMBER_CLOCK_CONSTRUCTION;
+  const scaffolding = scaffoldingFor(templateId, mode);
+
+  return {
+    id: `ex.${templateId}.${hours}.${minutes}.${mode}`,
+    templateId,
+    territoryId: "numbers",
+    mode,
+    layerVersion: EXERCISE_LAYER_VERSION,
+    target: { kind: "clock", hours, minutes },
+    scaffolding,
+    prompt: {
+      kind: "build-clock",
+      written: truth.written,
+      english: scaffolding.showEnglish ? opts.english || truth.english : null,
+    },
+    materials: {
+      parts: truth.parts,
+      distractors: scaffolding.chipTray ? truth.distractors : [],
+      form: truth.form,
+      written: truth.written,
+      hint: truth.hint,
+      answerParts: opts.answerParts || null,
+    },
+    resolution: {
+      kind: "clock",
+      parts: truth.parts,
+      form: truth.form,
+      written: truth.written,
+      hours,
+      minutes,
+      english: opts.english || truth.english,
+      rules: truth.rules,
+    },
+  };
+}
+
+/**
+ * @param {number} hours
+ * @param {number} minutes
+ * @param {{ mode?: import("./modes.js").DifficultyMode, english?: string, answerParts?: object[] }} [opts]
+ */
+export function createDigitalTimeConstructionExercise(hours, minutes, opts = {}) {
+  const mode = opts.mode || "assisted";
+  const truth = digitalTimeExercise(hours, minutes, { english: opts.english });
+  const templateId = TEMPLATES.NUMBER_DIGITAL_TIME_CONSTRUCTION;
+  const scaffolding = scaffoldingFor(templateId, mode);
+
+  return {
+    id: `ex.${templateId}.${hours}.${minutes}.${mode}`,
+    templateId,
+    territoryId: "numbers",
+    mode,
+    layerVersion: EXERCISE_LAYER_VERSION,
+    target: { kind: "digital-time", hours, minutes },
+    scaffolding,
+    prompt: {
+      kind: "build-digital-time",
+      written: truth.written,
+      english: scaffolding.showEnglish ? opts.english || truth.english : null,
+    },
+    materials: {
+      parts: truth.parts,
+      distractors: scaffolding.chipTray ? truth.distractors : [],
+      form: truth.form,
+      written: truth.written,
+      hint: truth.hint,
+      answerParts: opts.answerParts || null,
+    },
+    resolution: {
+      kind: "digital-time",
+      parts: truth.parts,
+      form: truth.form,
+      written: truth.written,
+      hours,
+      minutes,
+      english: opts.english || truth.english,
+      rules: truth.rules,
+    },
+  };
+}
+
+/**
+ * @param {{ hours?: number, minutes?: number }} dur
+ * @param {{ mode?: import("./modes.js").DifficultyMode, english?: string, answerParts?: object[] }} [opts]
+ */
+export function createDurationConstructionExercise(dur, opts = {}) {
+  const mode = opts.mode || "assisted";
+  const truth = durationExercise(dur, { english: opts.english });
+  const templateId = TEMPLATES.NUMBER_DURATION_CONSTRUCTION;
+  const scaffolding = scaffoldingFor(templateId, mode);
+  const hours = truth.hours;
+  const minutes = truth.minutes;
+
+  return {
+    id: `ex.${templateId}.${hours}.${minutes}.${mode}`,
+    templateId,
+    territoryId: "numbers",
+    mode,
+    layerVersion: EXERCISE_LAYER_VERSION,
+    target: { kind: "duration", hours, minutes },
+    scaffolding,
+    prompt: {
+      kind: "build-duration",
+      written: truth.written,
+      english: scaffolding.showEnglish ? opts.english || truth.english : null,
+    },
+    materials: {
+      parts: truth.parts,
+      distractors: scaffolding.chipTray ? truth.distractors : [],
+      form: truth.form,
+      written: truth.written,
+      hint: truth.hint,
+      answerParts: opts.answerParts || null,
+    },
+    resolution: {
+      kind: "duration",
+      parts: truth.parts,
+      form: truth.form,
+      written: truth.written,
+      hours,
+      minutes,
+      english: opts.english || truth.english,
+      rules: truth.rules,
+    },
+  };
+}
+
+function numberBuildShell({
+  templateId,
+  idSuffix,
+  target,
+  promptKind,
+  truth,
+  mode,
+  opts,
+  resolutionExtras = {},
+}) {
+  const scaffolding = scaffoldingFor(templateId, mode);
+  return {
+    id: `ex.${templateId}.${idSuffix}.${mode}`,
+    templateId,
+    territoryId: "numbers",
+    mode,
+    layerVersion: EXERCISE_LAYER_VERSION,
+    target,
+    scaffolding,
+    prompt: {
+      kind: promptKind,
+      written: truth.written,
+      english: scaffolding.showEnglish ? opts.english || truth.english : null,
+    },
+    materials: {
+      parts: truth.parts,
+      distractors: scaffolding.chipTray ? truth.distractors : [],
+      form: truth.form,
+      written: truth.written,
+      hint: truth.hint,
+      answerParts: opts.answerParts || null,
+    },
+    resolution: {
+      kind: target.kind,
+      parts: truth.parts,
+      form: truth.form,
+      written: truth.written,
+      english: opts.english || truth.english,
+      rules: truth.rules,
+      ...resolutionExtras,
+    },
+  };
+}
+
+/**
+ * @param {number} n
+ * @param {{ mode?: import("./modes.js").DifficultyMode, english?: string, answerParts?: object[] }} [opts]
+ */
+export function createOrdinalConstructionExercise(n, opts = {}) {
+  const mode = opts.mode || "assisted";
+  const truth = ordinalExercise(n, { english: opts.english });
+  return numberBuildShell({
+    templateId: TEMPLATES.NUMBER_ORDINAL_CONSTRUCTION,
+    idSuffix: String(n),
+    target: { kind: "ordinal", n },
+    promptKind: "build-ordinal",
+    truth,
+    mode,
+    opts,
+    resolutionExtras: { n },
+  });
+}
+
+/**
+ * @param {number} n
+ * @param {{ mode?: import("./modes.js").DifficultyMode, english?: string, answerParts?: object[] }} [opts]
+ */
+export function createOrdinalAmConstructionExercise(n, opts = {}) {
+  const mode = opts.mode || "assisted";
+  const truth = ordinalAmExercise(n, { english: opts.english });
+  return numberBuildShell({
+    templateId: TEMPLATES.NUMBER_ORDINAL_AM_CONSTRUCTION,
+    idSuffix: String(n),
+    target: { kind: "ordinal-am", n },
+    promptKind: "build-ordinal-am",
+    truth,
+    mode,
+    opts,
+    resolutionExtras: { n },
+  });
+}
+
+/**
+ * @param {number} index
+ * @param {{ mode?: import("./modes.js").DifficultyMode, english?: string, answerParts?: object[] }} [opts]
+ */
+export function createWeekdayConstructionExercise(index, opts = {}) {
+  const mode = opts.mode || "assisted";
+  const truth = weekdayExercise(index, { english: opts.english });
+  return numberBuildShell({
+    templateId: TEMPLATES.NUMBER_WEEKDAY_CONSTRUCTION,
+    idSuffix: String(index),
+    target: { kind: "weekday", index },
+    promptKind: "build-weekday",
+    truth,
+    mode,
+    opts,
+    resolutionExtras: { index },
+  });
+}
+
+/**
+ * @param {number} month
+ * @param {{ mode?: import("./modes.js").DifficultyMode, english?: string, answerParts?: object[] }} [opts]
+ */
+export function createMonthConstructionExercise(month, opts = {}) {
+  const mode = opts.mode || "assisted";
+  const truth = monthExercise(month, { english: opts.english });
+  return numberBuildShell({
+    templateId: TEMPLATES.NUMBER_MONTH_CONSTRUCTION,
+    idSuffix: String(month),
+    target: { kind: "month", month },
+    promptKind: "build-month",
+    truth,
+    mode,
+    opts,
+    resolutionExtras: { month },
+  });
+}
+
+/**
+ * @param {{ day: number, month: number, year?: number }} date
+ * @param {{ mode?: import("./modes.js").DifficultyMode, english?: string, answerParts?: object[] }} [opts]
+ */
+export function createCalendarDateConstructionExercise(date, opts = {}) {
+  const mode = opts.mode || "assisted";
+  const truth = calendarDateExercise(date, { english: opts.english });
+  return numberBuildShell({
+    templateId: TEMPLATES.NUMBER_CALENDAR_DATE_CONSTRUCTION,
+    idSuffix: `${truth.day}.${truth.month}.${truth.year ?? ""}`,
+    target: {
+      kind: "calendar-date",
+      day: truth.day,
+      month: truth.month,
+      year: truth.year,
+    },
+    promptKind: "build-calendar-date",
+    truth,
+    mode,
+    opts,
+    resolutionExtras: {
+      day: truth.day,
+      month: truth.month,
+      year: truth.year,
+    },
+  });
+}
+
+/**
+ * @param {number} value
+ * @param {string} unit
+ * @param {{ mode?: import("./modes.js").DifficultyMode, english?: string, answerParts?: object[] }} [opts]
+ */
+export function createMeasureConstructionExercise(value, unit, opts = {}) {
+  const mode = opts.mode || "assisted";
+  const truth = measureExercise(value, unit, { english: opts.english });
+  return numberBuildShell({
+    templateId: TEMPLATES.NUMBER_MEASURE_CONSTRUCTION,
+    idSuffix: `${value}.${unit}`,
+    target: { kind: "measure", value, unit },
+    promptKind: "build-measure",
+    truth,
+    mode,
+    opts,
+    resolutionExtras: { value, unit },
+  });
+}
+
+/**
  * @param {{ templateId: string, target: object, mode?: string, extras?: object }} spec
  */
 export function createExercise(spec) {
@@ -405,6 +1027,22 @@ export function createExercise(spec) {
       });
     case TEMPLATES.NOUN_ASSOCIATION_CHOICE:
       return createNounAssociationExercise(spec.target.lemma, { mode });
+    case TEMPLATES.NOUN_CATEGORY_GENDER_RECOGNITION:
+      return createNounCategoryGenderRecognitionExercise(spec.target.categoryId, {
+        mode,
+      });
+    case TEMPLATES.NOUN_CATEGORY_ARTICLE_APPLICATION:
+      return createNounCategoryArticleApplicationExercise(spec.target.itemId, {
+        mode,
+      });
+    case TEMPLATES.NOUN_CATEGORY_GENDER_IMPOSTER:
+      return createNounCategoryGenderImposterExercise(spec.target.categoryId, {
+        mode,
+      });
+    case TEMPLATES.NOUN_CATEGORY_SENTENCE_VALIDATION:
+      return createNounCategorySentenceValidationExercise(spec.target.itemId, {
+        mode,
+      });
     case TEMPLATES.NOUN_WUG_CHOICE:
       return createNounWugExercise(spec.target.form || spec.target.lemma, {
         mode,
@@ -440,6 +1078,103 @@ export function createExercise(spec) {
         {
           mode,
           grain: spec.target.grain,
+          english: spec.extras?.english,
+          answerParts: spec.extras?.answerParts,
+        }
+      );
+    case TEMPLATES.NUMBER_FRACTION_CONSTRUCTION:
+      return createFractionConstructionExercise(
+        spec.target.numerator,
+        spec.target.denominator,
+        {
+          mode,
+          english: spec.extras?.english,
+          answerParts: spec.extras?.answerParts,
+        }
+      );
+    case TEMPLATES.NUMBER_MIXED_FRACTION_CONSTRUCTION:
+      return createMixedFractionConstructionExercise(
+        spec.target.whole,
+        spec.target.numerator,
+        spec.target.denominator,
+        {
+          mode,
+          english: spec.extras?.english,
+          answerParts: spec.extras?.answerParts,
+        }
+      );
+    case TEMPLATES.NUMBER_CLOCK_CONSTRUCTION:
+      return createClockConstructionExercise(
+        spec.target.hours,
+        spec.target.minutes,
+        {
+          mode,
+          english: spec.extras?.english,
+          answerParts: spec.extras?.answerParts,
+        }
+      );
+    case TEMPLATES.NUMBER_DIGITAL_TIME_CONSTRUCTION:
+      return createDigitalTimeConstructionExercise(
+        spec.target.hours,
+        spec.target.minutes,
+        {
+          mode,
+          english: spec.extras?.english,
+          answerParts: spec.extras?.answerParts,
+        }
+      );
+    case TEMPLATES.NUMBER_DURATION_CONSTRUCTION:
+      return createDurationConstructionExercise(
+        { hours: spec.target.hours, minutes: spec.target.minutes },
+        {
+          mode,
+          english: spec.extras?.english,
+          answerParts: spec.extras?.answerParts,
+        }
+      );
+    case TEMPLATES.NUMBER_ORDINAL_CONSTRUCTION:
+      return createOrdinalConstructionExercise(spec.target.n, {
+        mode,
+        english: spec.extras?.english,
+        answerParts: spec.extras?.answerParts,
+      });
+    case TEMPLATES.NUMBER_ORDINAL_AM_CONSTRUCTION:
+      return createOrdinalAmConstructionExercise(spec.target.n, {
+        mode,
+        english: spec.extras?.english,
+        answerParts: spec.extras?.answerParts,
+      });
+    case TEMPLATES.NUMBER_WEEKDAY_CONSTRUCTION:
+      return createWeekdayConstructionExercise(spec.target.index, {
+        mode,
+        english: spec.extras?.english,
+        answerParts: spec.extras?.answerParts,
+      });
+    case TEMPLATES.NUMBER_MONTH_CONSTRUCTION:
+      return createMonthConstructionExercise(spec.target.month, {
+        mode,
+        english: spec.extras?.english,
+        answerParts: spec.extras?.answerParts,
+      });
+    case TEMPLATES.NUMBER_CALENDAR_DATE_CONSTRUCTION:
+      return createCalendarDateConstructionExercise(
+        {
+          day: spec.target.day,
+          month: spec.target.month,
+          year: spec.target.year ?? undefined,
+        },
+        {
+          mode,
+          english: spec.extras?.english,
+          answerParts: spec.extras?.answerParts,
+        }
+      );
+    case TEMPLATES.NUMBER_MEASURE_CONSTRUCTION:
+      return createMeasureConstructionExercise(
+        spec.target.value,
+        spec.target.unit,
+        {
+          mode,
           english: spec.extras?.english,
           answerParts: spec.extras?.answerParts,
         }
