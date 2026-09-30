@@ -38,6 +38,7 @@ export {
   clockAnalysis,
   clockForm,
   clockParts,
+  clockFormAlternates,
   digitalTimeAnalysis,
   digitalTimeForm,
   digitalTimeParts,

@@ -244,7 +244,7 @@ export const NUMBERS_TOPICS = [
         playable: true,
         pool: "minutes",
         modes: ["build", "convert", "listen", "visual"],
-        blurb: "… nach / … vor with minute counts.",
+        blurb: "… nach / … vor; :25/:35 use fünf vor/nach halb (everyday).",
         softAfter: "quarters",
         chartTab: "time",
       },

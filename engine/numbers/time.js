@@ -107,6 +107,44 @@ export function clockAnalysis(hours, minutes) {
     };
   }
 
+  // Everyday colloquial: pivot on halb for :25 / :35
+  // 8:25 → fünf vor halb neun; 8:35 → fünf nach halb neun
+  if (minutes === 25) {
+    const parts = ["fünf", "vor", "halb", ...hourParts(next)];
+    const form = `fünf vor halb ${hourForm(next)}`;
+    return {
+      hours,
+      minutes,
+      kind: "time-before-half",
+      form,
+      written,
+      englishWritten,
+      segments: {
+        construction: parts,
+        spoken: ["fünf", "vor", "halb", hourForm(next)],
+      },
+      rules: ["time.vor.halb"],
+    };
+  }
+
+  if (minutes === 35) {
+    const parts = ["fünf", "nach", "halb", ...hourParts(next)];
+    const form = `fünf nach halb ${hourForm(next)}`;
+    return {
+      hours,
+      minutes,
+      kind: "time-after-half",
+      form,
+      written,
+      englishWritten,
+      segments: {
+        construction: parts,
+        spoken: ["fünf", "nach", "halb", hourForm(next)],
+      },
+      rules: ["time.nach.halb"],
+    };
+  }
+
   if (minutes < 30) {
     const parts = [...constructionParts(minutes), "nach", ...hourParts(h)];
     const form = `${cardinalForm(minutes)} nach ${hourForm(h)}`;
@@ -149,6 +187,42 @@ export function clockForm(hours, minutes) {
 
 export function clockParts(hours, minutes) {
   return [...clockAnalysis(hours, minutes).segments.construction];
+}
+
+/**
+ * Accepted colloquial readings for a clock time (canonical first).
+ * Includes regional Viertel/dreiviertel alts and hour-counted fünfundzwanzig
+ * forms alongside everyday fünf vor/nach halb.
+ * @param {number} hours
+ * @param {number} minutes
+ * @returns {string[]}
+ */
+export function clockFormAlternates(hours, minutes) {
+  assertClock(hours, minutes);
+  const a = clockAnalysis(hours, minutes);
+  const out = [a.form];
+  const h = toTwelveHour(hours);
+  const next = toTwelveHour((hours + 1) % 24);
+  const hourSpoken = hourForm(h);
+  const nextSpoken = hourForm(next);
+
+  if (minutes === 45) {
+    // Regional: "dreiviertel vier" / "drei Viertel vier" ≈ 3:45
+    out.push(`dreiviertel ${nextSpoken}`);
+    out.push(`drei Viertel ${nextSpoken}`);
+  }
+  if (minutes === 15) {
+    // Regional: "viertel vier" ≈ Viertel nach drei
+    out.push(`viertel ${nextSpoken}`);
+  }
+  if (minutes === 25) {
+    // Less common but correct: count from the hour
+    out.push(`fünfundzwanzig nach ${hourSpoken}`);
+  }
+  if (minutes === 35) {
+    out.push(`fünfundzwanzig vor ${nextSpoken}`);
+  }
+  return [...new Set(out)];
 }
 
 /**

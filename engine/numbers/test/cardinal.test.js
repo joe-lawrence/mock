@@ -306,12 +306,17 @@ describe("evaluateCardinalConstruction", () => {
     assert.equal(r.status, "correct");
   });
 
-  it("normalizes case on chips", () => {
-    const r = evaluateCardinalConstruction({
+  it("is case-sensitive on chips", () => {
+    const wrong = evaluateCardinalConstruction({
       value: 13,
       parts: ["Drei", "Zehn"],
     });
-    assert.equal(r.status, "correct");
+    assert.equal(wrong.status, "incorrect");
+    const right = evaluateCardinalConstruction({
+      value: 13,
+      parts: ["drei", "zehn"],
+    });
+    assert.equal(right.status, "correct");
   });
 
   it("slotMatch flags the wrong chip", () => {

@@ -5,7 +5,7 @@
 import {
   fractionAnalysis,
   mixedFractionAnalysis,
-} from "../engine/numbers/index.js?v=20260929-dmo4";
+} from "../engine/numbers/index.js?v=20260930-dmo16";
 
 function fractionMeta(numerator, denominator) {
   const a = fractionAnalysis(numerator, denominator);

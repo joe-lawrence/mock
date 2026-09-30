@@ -7,7 +7,7 @@ import {
   monthAnalysis,
   ordinalAmAnalysis,
   calendarDateAnalysis,
-} from "../engine/numbers/index.js?v=20260929-dmo4";
+} from "../engine/numbers/index.js?v=20260930-dmo16";
 
 function weekdayMeta(index) {
   const a = weekdayAnalysis(index);

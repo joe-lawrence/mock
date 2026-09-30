@@ -2938,6 +2938,20 @@ button.crumb-reason:focus-visible,
   max-width: 140px;
   height: auto;
   color: var(--ink, #1e293b);
+  --clock-face: #ffffff;
+  --clock-hand: #1c2430;
+  --clock-rim: #1c2430;
+}
+
+html[data-theme="dark"] .quiz-visual-svg {
+  /* Light dial stays readable on dark chrome; dark hands contrast on the face. */
+  --clock-face: #f1f5f9;
+  --clock-hand: #0f172a;
+  --clock-rim: #e8ecf1;
+}
+
+.quiz-clock-svg .clock-hand {
+  color: var(--clock-hand);
 }
 
 .slot.is-given {

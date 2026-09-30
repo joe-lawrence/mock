@@ -3,7 +3,7 @@
  * Standalone page or embedded hub in the main mock.
  */
 
-import { NUMBERS_TOPICS, modesForStep } from "./numbers-curriculum.js?v=20260929-dmo15";
+import { NUMBERS_TOPICS, modesForStep } from "./numbers-curriculum.js?v=20260930-dmo17";
 import { genderShortcutsNavUnits, modalitiesForUnit } from "./nouns-curriculum.js?v=20260929-dmo4";
 
 const CAPS_KEY = "schnapp-nav-caps";
@@ -164,7 +164,6 @@ function shellHtml({ embedded }) {
             <span class="nc-start-label">Start (<span data-nc-count>0</span>)</span>
           </button>
           <div class="nc-bar-caps" role="group" aria-label="Practice styles">
-            <span class="nc-caps-label">Practice styles</span>
             <button type="button" class="nc-cap" data-nc-cap="keyboard" aria-pressed="true" aria-label="Write practice style" title="Write — free-form text">${KEY_SVG}</button>
             <button type="button" class="nc-cap" data-nc-cap="audio" aria-pressed="true" aria-label="Listen practice style" title="Listen — audio in">${HEAD_SVG}</button>
           </div>

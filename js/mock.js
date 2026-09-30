@@ -49,7 +49,8 @@ import {
   parseMoneyForm,
   parseFractionForm,
   parseOrdinalForm,
-} from "../engine/numbers/index.js?v=20260929-dmo4";
+  clockFormAlternates,
+} from "../engine/numbers/index.js?v=20260930-dmo17";
 import {
   NUMBERS_TOPICS,
   getNumbersTopic,
@@ -61,7 +62,7 @@ import {
   suggestNumbersFocus,
   formatNumbersFocusLabel,
   mixableSteps,
-} from "./numbers-curriculum.js?v=20260929-dmo15";
+} from "./numbers-curriculum.js?v=20260930-dmo17";
 import {
   GENDER_SHORTCUTS_UNITS,
   NOUNS_STUB_TOPICS,
@@ -70,7 +71,7 @@ import {
   introFamilyForUnit,
   unitIdForFamily,
 } from "./nouns-curriculum.js?v=20260929-dmo4";
-import { DECIMAL_POOLS } from "./decimals-pools.js?v=20260929-dmo15";
+import { DECIMAL_POOLS } from "./decimals-pools.js?v=20260930-dmo17";
 import { FRACTION_POOLS } from "./fractions-pools.js?v=20260929-dmo4";
 import { TIME_POOLS } from "./time-pools.js?v=20260929-dmo4";
 import { DATE_POOLS } from "./dates-pools.js?v=20260929-dmo4";
@@ -84,8 +85,8 @@ import {
   canonicalFormForMeta,
   makeNounProofreadChoices,
   makeNounReverseChoices,
-} from "./quiz-extras.js?v=20260929-dmo9";
-import { mountNavCarousel } from "./nav-carousel.js?v=20260929-dmo15";
+} from "./quiz-extras.js?v=20260930-dmo17";
+import { mountNavCarousel } from "./nav-carousel.js?v=20260930-dmo17";
 import {
   dealExercise,
   WEAK_ACCURACY,
@@ -924,7 +925,7 @@ const numbersChart = {
     {
       id: "time",
       label: "Time",
-      blurb: "… Uhr; halb vier = 3:30; Viertel nach / vor; minutes nach/vor; digital … Uhr …",
+      blurb: "… Uhr; halb vier = 3:30; Viertel; fünf vor/nach halb; digital … Uhr …",
     },
     {
       id: "dates",
@@ -1134,6 +1135,26 @@ const numbersChart = {
         { text: "drei", guide: "dry" },
       ],
       note: "",
+    },
+    {
+      n: "08:25",
+      parts: [
+        { text: "fünf", guide: "fuenf", stress: true },
+        { text: "vor", guide: "for" },
+        { text: "halb", guide: "halp" },
+        { text: "neun", guide: "noyn" },
+      ],
+      note: "everyday — not fünfundzwanzig nach",
+    },
+    {
+      n: "08:35",
+      parts: [
+        { text: "fünf", guide: "fuenf", stress: true },
+        { text: "nach", guide: "nakh" },
+        { text: "halb", guide: "halp" },
+        { text: "neun", guide: "noyn" },
+      ],
+      note: "everyday — not fünfundzwanzig vor",
     },
     {
       n: "14:05",
@@ -2074,9 +2095,12 @@ function currentWrittenishExercise(meta) {
   const parts = decimalAnswerParts(meta);
 
   if (state.numbersQuizMode === "listen") {
+    const readTime = isClockMeta(meta);
     return {
       id: `ex.numbers.listen.${written}.${state.numbersDifficulty}`,
-      templateId: "numbers.listen.written",
+      templateId: readTime
+        ? "numbers.listen.read-time"
+        : "numbers.listen.written",
       territoryId: "numbers",
       mode: state.numbersDifficulty,
       target: { kind: meta.kind, written, form },
@@ -2087,20 +2111,26 @@ function currentWrittenishExercise(meta) {
         showReferenceButton: true,
         allowRetryWrongChoice: true,
       },
-      prompt: { kind: "listen-written", form, written },
+      prompt: { kind: readTime ? "listen-read-time" : "listen-written", form, written },
       materials: {
         form,
         written,
-        choices: listenWrittenChoices(meta),
+        choices: readTime
+          ? listenGermanFormChoices(meta)
+          : listenWrittenChoices(meta),
         answerParts: parts,
         hint:
           state.numbersDifficulty === "assisted"
-            ? meta.kind === "decimal" || meta.kind === "money"
-              ? "Replay if needed. Pick the written form (Komma, not Punkt)."
-              : "Replay if needed. Pick the written form you heard."
-            : meta.kind === "decimal" || meta.kind === "money"
-              ? "Replay if needed, then type the written form (use Komma)."
-              : "Replay if needed, then type the written form.",
+            ? readTime
+              ? `Pick the German ${clockFormatLabel(meta)} reading.`
+              : meta.kind === "decimal" || meta.kind === "money"
+                ? "Replay if needed. Pick the written form (Komma, not Punkt)."
+                : "Replay if needed. Pick the written form you heard."
+            : readTime
+              ? `Type the German ${clockFormatLabel(meta)} reading.`
+              : meta.kind === "decimal" || meta.kind === "money"
+                ? "Replay if needed, then type the written form (use Komma)."
+                : "Replay if needed, then type the written form.",
       },
       resolution: {
         kind: meta.kind,
@@ -2122,6 +2152,9 @@ function currentWrittenishExercise(meta) {
         year: meta.year,
         value: meta.value,
         unit: meta.unit,
+        acceptedForms: readTime
+          ? acceptedConvertForms(meta)
+          : undefined,
       },
     };
   }
@@ -2137,7 +2170,7 @@ function currentWrittenishExercise(meta) {
       target: { kind: meta.kind, written, form },
       scaffolding: {
         mode: state.numbersDifficulty,
-        showEnglish: state.numbersDifficulty === "assisted",
+        showEnglish: false,
         showHintButton: true,
         showReferenceButton: true,
         allowRetryWrongChoice: true,
@@ -2145,7 +2178,7 @@ function currentWrittenishExercise(meta) {
       prompt: {
         kind: "convert-written",
         written,
-        english: meta.english,
+        english: "",
       },
       materials: {
         form,
@@ -2176,6 +2209,7 @@ function currentWrittenishExercise(meta) {
         year: meta.year,
         value: meta.value,
         unit: meta.unit,
+        acceptedForms: acceptedConvertForms(meta),
       },
     };
   }
@@ -2300,6 +2334,74 @@ function listenWrittenChoices(meta) {
     picks.add(w);
   }
   return shuffle([...picks]).slice(0, 4);
+}
+
+/** MC choices: German spoken readings (for Read-the-time quizzes). */
+function listenGermanFormChoices(meta) {
+  const pool = currentNumberPool();
+  const correct = meta.form;
+  const picks = new Set([correct]);
+  const candidates = shuffle(
+    pool.map((m) => m.form).filter((f) => f && f !== correct)
+  );
+  for (const f of candidates) {
+    if (picks.size >= 4) break;
+    picks.add(f);
+  }
+  return shuffle([...picks]).slice(0, 4);
+}
+
+/** "12-hour form" vs "24-hour form" label for clock cues. */
+function clockFormatLabel(meta) {
+  if (meta?.kind === "digital-time") return "24-hour";
+  if (meta?.kind === "clock") return "12-hour";
+  return "";
+}
+
+/** Canonical + accepted alternate readings for convert / read-time checks. */
+function acceptedConvertForms(meta) {
+  if (!meta) return [];
+  if (meta.kind === "clock" && meta.hours != null && meta.minutes != null) {
+    return clockFormAlternates(meta.hours, meta.minutes);
+  }
+  return meta.form ? [meta.form] : [];
+}
+
+/** Static format exemplars for “Type the German reading” asks (not the answer). */
+function convertReadingExample(meta) {
+  switch (meta?.kind) {
+    case "decimal":
+      return "vier Komma acht fünf";
+    case "money":
+      return "zwei Euro fünfzig";
+    case "fraction":
+    case "fraction-half":
+    case "fraction-unit":
+    case "fraction-proper":
+      return "drei Viertel";
+    case "mixed-fraction":
+      return "zwei ein halb";
+    case "clock":
+      return "Viertel nach drei";
+    case "digital-time":
+      return "dreiundzwanzig Uhr fünfzehn";
+    case "duration":
+      return "zwei Stunden fünfzehn Minuten";
+    case "ordinal":
+      return "zwölfte";
+    case "ordinal-am":
+      return "am zwölften";
+    case "weekday":
+      return "Montag";
+    case "month":
+      return "Januar";
+    case "calendar-date":
+      return "der dritte Oktober";
+    case "measure":
+      return "drei Meter";
+    default:
+      return meta?.form || "";
+  }
 }
 
 /**
@@ -6861,9 +6963,11 @@ function numbersLead(meta, fallback = "") {
   return isClockMeta(meta) ? formatClockWritten(base) : base;
 }
 
-/** Action instruction — clock builds read "Read the time", not "Build …". */
+/** Action instruction — clock builds/listens read "Read the time", not "Build …". */
 function numbersInstruction(mode, meta) {
-  if (isClockMeta(meta) && mode === "build") return "Read the time";
+  if (isClockMeta(meta) && (mode === "build" || mode === "listen")) {
+    return "Read the time";
+  }
   return NUMBERS_INSTRUCTION[mode] || "";
 }
 
@@ -7010,27 +7114,41 @@ function renderNumbersListen() {
   ensureSessionChip();
 
   const listenWritten = exercise.templateId === "numbers.listen.written";
+  const listenReadTime = exercise.templateId === "numbers.listen.read-time";
   const listenKind = exercise.resolution?.kind || meta?.kind || "";
   const listenIsDecimalish =
     listenWritten &&
     (listenKind === "decimal" || listenKind === "money");
   const listenSelect =
     state.numbersDifficulty === "assisted" || !navCaps().keyboard;
-  document.getElementById("numbers-prompt").innerHTML = listenWritten
-    ? listenIsDecimalish
-      ? `What did you hear?
+  const formatBit = clockFormatLabel(meta);
+  const formatCue = formatBit ? ` (${formatBit} form)` : "";
+  if (listenReadTime) {
+    const lead = numbersLead(meta, exercise.materials?.written || "");
+    document.getElementById("numbers-prompt").innerHTML = `
+      ${promptDeHtml(lead)}
+      <span class="convert-ask">${
+        listenSelect
+          ? `Pick the German${formatCue}`
+          : `Type the German reading${formatCue}`
+      }</span>`;
+  } else {
+    document.getElementById("numbers-prompt").innerHTML = listenWritten
+      ? listenIsDecimalish
+        ? `What did you hear?
          <span class="convert-ask">${
            listenSelect
              ? `Select the German Komma form (e.g. <span lang="de">16,42</span>).`
              : `Type the German Komma form (e.g. <span lang="de">16,42</span>).`
          }</span>`
-      : `What did you hear?
+        : `What did you hear?
          <span class="convert-ask">${
            listenSelect
              ? "Select the German written form you heard."
              : "Type the German written form you heard."
          }</span>`
-    : `What number did you hear?`;
+      : `What number did you hear?`;
+  }
 
   clearAnswerReveal("numbers");
   const back = document.getElementById("numbers-back");
@@ -7042,31 +7160,42 @@ function renderNumbersListen() {
   if (refBtn) refBtn.hidden = !exercise.scaffolding.showReferenceButton;
 
   const slots = document.getElementById("numbers-slots");
-  slots.hidden = false;
   slots.className = "numbers-listen-play";
   slots.innerHTML = "";
-  const playBtn = document.createElement("button");
-  playBtn.type = "button";
-  playBtn.className = "btn btn-primary play-btn";
-  playBtn.id = "numbers-listen-play";
-  playBtn.textContent = "Play";
-  if (!navCaps().audio) {
-    playBtn.disabled = true;
-    playBtn.title = "Audio is off for this session";
+  if (listenReadTime) {
+    slots.hidden = true;
   } else {
-    playBtn.addEventListener("click", () => {
-      if (state.numbersChecked) return;
-      playNumbersListen();
-    });
+    slots.hidden = false;
+    const playBtn = document.createElement("button");
+    playBtn.type = "button";
+    playBtn.className = "btn btn-primary play-btn";
+    playBtn.id = "numbers-listen-play";
+    playBtn.textContent = "Play";
+    if (!navCaps().audio) {
+      playBtn.disabled = true;
+      playBtn.title = "Audio is off for this session";
+    } else {
+      playBtn.addEventListener("click", () => {
+        if (state.numbersChecked) return;
+        playNumbersListen();
+      });
+    }
+    slots.appendChild(playBtn);
   }
-  slots.appendChild(playBtn);
 
   const tray = document.getElementById("numbers-tray");
   tray.innerHTML = "";
 
   if (state.numbersDifficulty === "assisted" || !navCaps().keyboard) {
     tray.className = "choice-grid";
-    tray.setAttribute("aria-label", listenWritten ? "Written form choices" : "Number choices");
+    tray.setAttribute(
+      "aria-label",
+      listenReadTime
+        ? "German reading choices"
+        : listenWritten
+          ? "Written form choices"
+          : "Number choices"
+    );
     exercise.materials.choices.forEach((n) => {
       const btn = document.createElement("button");
       btn.type = "button";
@@ -7082,32 +7211,45 @@ function renderNumbersListen() {
     });
   } else {
     tray.className = "numbers-listen-entry";
-    tray.setAttribute("aria-label", listenWritten ? "Enter the written form" : "Enter the number");
+    tray.setAttribute(
+      "aria-label",
+      listenReadTime
+        ? "Enter the German reading"
+        : listenWritten
+          ? "Enter the written form"
+          : "Enter the number"
+    );
     const input = document.createElement("input");
     input.type = "text";
     input.id = "numbers-listen-input";
     input.className = "numbers-listen-input";
-    if (!listenWritten) {
+    if (!listenWritten && !listenReadTime) {
       input.inputMode = "numeric";
       input.pattern = "[0-9]*";
       input.maxLength = listenInputMaxLength();
     } else {
-      input.inputMode = "decimal";
-      input.maxLength = 16;
+      input.inputMode = listenReadTime ? "text" : "decimal";
+      input.maxLength = listenReadTime ? 48 : 16;
+      input.autocapitalize = "off";
+      input.spellcheck = false;
     }
     input.autocomplete = "off";
-    input.placeholder = listenWritten
-      ? listenIsDecimalish
-        ? "e.g. 16,42"
-        : "German written form"
-      : "";
+    input.placeholder = listenReadTime
+      ? "German reading"
+      : listenWritten
+        ? listenIsDecimalish
+          ? "e.g. 16,42"
+          : "German written form"
+        : "";
     input.setAttribute(
       "aria-label",
-      listenWritten
-        ? listenIsDecimalish
-          ? "German Komma form"
-          : "Written form you heard"
-        : "Number you heard"
+      listenReadTime
+        ? "German reading"
+        : listenWritten
+          ? listenIsDecimalish
+            ? "German Komma form"
+            : "Written form you heard"
+          : "Number you heard"
     );
     const checkBtn = document.createElement("button");
     checkBtn.type = "button";
@@ -7117,7 +7259,7 @@ function renderNumbersListen() {
     const submit = () => {
       if (state.numbersChecked) return;
       const raw = input.value.trim();
-      if (listenWritten) {
+      if (listenWritten || listenReadTime) {
         if (!raw) {
           input.classList.add("is-bad");
           return;
@@ -7127,7 +7269,7 @@ function renderNumbersListen() {
       }
       const pool = listenValuePool();
       const maxDigits = String(Math.max(0, ...pool)).length || 1;
-      if (!new RegExp(`^\d{1,${maxDigits}}$`).test(raw)) {
+      if (!new RegExp(`^\\d{1,${maxDigits}}$`).test(raw)) {
         input.classList.add("is-bad");
         return;
       }
@@ -7151,8 +7293,10 @@ function renderNumbersListen() {
   }
 
   syncTerritoryMenu("numbers");
-  // Auto-play when possible; iOS may require the Play tap after a cold start.
-  queueMicrotask(() => playNumbersListen());
+  // Auto-play when possible; skip for read-the-time (cue is the digital display).
+  if (!listenReadTime) {
+    queueMicrotask(() => playNumbersListen());
+  }
 }
 
 function playNumbersListen() {
@@ -7166,9 +7310,9 @@ function playNumbersListen() {
 function normalizeConvertInput(raw) {
   // Collapse runs of whitespace — do NOT strip spaces. Spoken decimals need
   // "vier Komma acht fünf", not "vierKommaachtfünf".
+  // Case-sensitive: keep capitalization (Komma, Uhr, Viertel, …).
   return String(raw || "")
     .trim()
-    .toLowerCase()
     .replace(/\s+/g, " ")
     .replace(/ß/g, "ss") // allow ss for ß while typing
     .replace(/\./g, ","); // accept Punkt when target uses Komma
@@ -7177,23 +7321,38 @@ function normalizeConvertInput(raw) {
 function convertTargetForm(exercise) {
   return String(exercise?.resolution?.form || exercise?.materials?.form || "")
     .trim()
-    .toLowerCase()
     .replace(/\s+/g, " ")
     .replace(/\./g, ",");
 }
 
+/** Space-normalize + ß-fold a candidate answer (case preserved). */
+function normalizeAnswerCandidate(raw) {
+  return String(raw || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/ß/g, "ss")
+    .replace(/\./g, ",");
+}
+
 /** Assisted: live prefix check. Core: only used on submit. */
-function convertInputMatches(typed, targetForm) {
+function convertInputMatches(typed, targetForm, acceptedForms) {
   const t = normalizeConvertInput(typed);
-  // Accept ß or ss against canonical ß forms.
-  const variants = [targetForm];
-  if (targetForm.includes("ß")) {
-    variants.push(targetForm.replace(/ß/g, "ss"));
-  }
+  const variants = [];
+  const add = (form) => {
+    const n = normalizeAnswerCandidate(form);
+    if (!n) return;
+    variants.push(n);
+    if (String(form).includes("ß")) {
+      variants.push(normalizeAnswerCandidate(String(form).replace(/ß/g, "ss")));
+    }
+  };
+  add(targetForm);
+  for (const alt of acceptedForms || []) add(alt);
+  const uniq = [...new Set(variants)];
   return {
     typed: t,
-    isPrefix: t.length > 0 && variants.some((v) => v.startsWith(t)),
-    isComplete: variants.some((v) => v === t),
+    isPrefix: t.length > 0 && uniq.some((v) => v.startsWith(t)),
+    isComplete: uniq.some((v) => v === t),
   };
 }
 
@@ -7213,27 +7372,33 @@ function renderNumbersConvert() {
   ensureSessionChip();
 
   const convertLead = numbersLead(meta);
-  const convertAsk =
-    meta.kind === "ordinal"
-      ? "Type the German ordinal"
-      : meta.kind === "ordinal-am"
-        ? "Type the day-of-month form"
-        : isWrittenishMeta(meta)
-          ? "Type the German reading"
-          : "Type the German form";
+  const example = convertReadingExample(meta);
+  const formatBit = clockFormatLabel(meta);
+  const convertAsk = (() => {
+    if (meta.kind === "ordinal") return "Type the German ordinal";
+    if (meta.kind === "ordinal-am") return "Type the day-of-month form";
+    if (isClockMeta(meta)) {
+      const fmt = formatBit ? ` (${formatBit} form)` : "";
+      const ex = example
+        ? ` — e.g. <span lang="de">${example}</span>`
+        : "";
+      return `Type the German reading${fmt}${ex}`;
+    }
+    if (isWrittenishMeta(meta)) {
+      const ex = example
+        ? ` — e.g. <span lang="de">${example}</span>`
+        : "";
+      return `Type the German reading${ex}`;
+    }
+    return "Type the German form";
+  })();
   // Written-decimal cues: show Komma vs point as written forms; answer is spoken.
+  // No English *gloss* of the spoken reading — point form is orthography, not a translation.
   const leadHtml = isWrittenDecimalMeta(meta)
     ? promptWrittenDecimalHtml(convertLead, meta.english || "")
     : promptDeHtml(convertLead);
-  const en =
-    !isWrittenDecimalMeta(meta) &&
-    exercise.scaffolding.showEnglish &&
-    meta.english &&
-    !isClockMeta(meta)
-      ? promptEnHtml(meta.english)
-      : "";
   document.getElementById("numbers-prompt").innerHTML = `
-    ${leadHtml}${en}
+    ${leadHtml}
     <span class="convert-ask">${convertAsk}</span>
   `;
 
@@ -7256,6 +7421,8 @@ function renderNumbersConvert() {
   tray.innerHTML = "";
 
   const assisted = state.numbersDifficulty === "assisted";
+  const accepted =
+    exercise.resolution?.acceptedForms || acceptedConvertForms(meta);
   const input = document.createElement("input");
   input.type = "text";
   input.id = "numbers-convert-input";
@@ -7269,7 +7436,7 @@ function renderNumbersConvert() {
   const finishIfComplete = () => {
     if (state.numbersChecked) return;
     const target = convertTargetForm(exercise);
-    const { isComplete } = convertInputMatches(input.value, target);
+    const { isComplete } = convertInputMatches(input.value, target, accepted);
     if (isComplete) checkNumbersConvert(input.value, { fromLive: true });
   };
 
@@ -7282,7 +7449,8 @@ function renderNumbersConvert() {
     const target = convertTargetForm(exercise);
     const { typed, isPrefix, isComplete } = convertInputMatches(
       input.value,
-      target
+      target,
+      accepted
     );
     input.classList.remove("is-ok", "is-bad", "is-prefix-ok");
     if (!typed) return;
@@ -7305,7 +7473,8 @@ function renderNumbersConvert() {
     const target = convertTargetForm(exercise);
     const { typed, isPrefix, isComplete } = convertInputMatches(
       input.value,
-      target
+      target,
+      accepted
     );
     if (isComplete) {
       checkNumbersConvert(input.value, { fromLive: true });
@@ -7339,72 +7508,25 @@ function checkNumbersConvert(raw, opts = {}) {
   const typed = normalizeConvertInput(raw);
   if (!typed) return;
 
-  const { isComplete } = convertInputMatches(typed, form);
-  // Cardinal value parse is a fallback for compound spelling variants — but
-  // only when the typed string already has the same spacing shape as the
-  // canonical form (no fused "vierKommaachtfünf" shortcuts).
-  const parsed = parseCardinalForm(typed.replace(/\s+/g, ""));
-  const spacingOk =
-    !/\s/.test(form) || /\s/.test(String(raw || "").trim());
-  let ok = isComplete || (spacingOk && parsed === exercise.resolution.value);
-  if (!ok && exercise.resolution.kind === "decimal") {
-    const spaced = String(raw || "")
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, " ");
-    const p = parseDecimalForm(spaced);
-    ok =
-      !!p &&
-      p.whole === exercise.resolution.whole &&
-      String(p.fracDigits) === String(exercise.resolution.fracDigits);
-  }
-  if (!ok && exercise.resolution.kind === "money") {
-    const spaced = String(raw || "")
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, " ");
-    const p = parseMoneyForm(spaced);
-    ok =
-      !!p &&
-      p.euros === exercise.resolution.euros &&
-      p.cents === exercise.resolution.cents;
-  }
+  const accepted =
+    exercise.resolution?.acceptedForms || acceptedConvertForms(meta);
+  const { isComplete } = convertInputMatches(typed, form, accepted);
+  // Case-sensitive exact match against canonical + accepted alternates only
+  // (no case-folding parse shortcuts that would accept "vier komma…").
+  let ok = isComplete;
+  // Cardinal compounds: allow value-parse only when casing already matches
+  // the all-lowercase cardinal orthography (no capitals to police).
   if (
     !ok &&
-    (exercise.resolution.kind === "fraction" ||
-      exercise.resolution.kind === "mixed-fraction")
+    exercise.resolution?.value != null &&
+    meta?.kind === "cardinal"
   ) {
-    const spaced = String(raw || "")
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, " ");
-    const p = parseFractionForm(spaced);
-    if (exercise.resolution.kind === "fraction") {
-      ok =
-        !!p &&
-        p.kind === "fraction" &&
-        p.numerator === exercise.resolution.numerator &&
-        p.denominator === exercise.resolution.denominator;
-    } else {
-      ok =
-        !!p &&
-        p.kind === "mixed" &&
-        p.whole === exercise.resolution.whole &&
-        p.numerator === exercise.resolution.numerator &&
-        p.denominator === exercise.resolution.denominator;
+    const spacingOk =
+      !/\s/.test(form) || /\s/.test(String(raw || "").trim());
+    if (spacingOk && typed === typed.toLowerCase()) {
+      const parsed = parseCardinalForm(typed.replace(/\s+/g, ""));
+      ok = parsed === exercise.resolution.value;
     }
-  }
-  if (
-    !ok &&
-    (exercise.resolution.kind === "ordinal" ||
-      exercise.resolution.kind === "ordinal-am")
-  ) {
-    const spaced = String(raw || "")
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, " ");
-    const p = parseOrdinalForm(spaced);
-    ok = p === exercise.resolution.n;
   }
 
   state.attemptLog.push({
@@ -7509,12 +7631,21 @@ function checkNumbersListen(answer) {
   const exercise = state.currentExercise || currentNumberExercise();
   const meta = currentNumberMeta();
   const writtenMode = exercise.templateId === "numbers.listen.written";
-  const target = writtenMode
-    ? exercise.resolution.written
-    : exercise.resolution.value;
-  const ok = writtenMode
-    ? normalizeConvertInput(answer) === normalizeConvertInput(target)
-    : Number(answer) === Number(target);
+  const readTimeMode = exercise.templateId === "numbers.listen.read-time";
+  const accepted =
+    exercise.resolution?.acceptedForms || acceptedConvertForms(meta);
+  let target;
+  let ok;
+  if (readTimeMode) {
+    target = exercise.resolution.form;
+    ok = convertInputMatches(String(answer), target, accepted).isComplete;
+  } else if (writtenMode) {
+    target = exercise.resolution.written;
+    ok = normalizeConvertInput(answer) === normalizeConvertInput(target);
+  } else {
+    target = exercise.resolution.value;
+    ok = Number(answer) === Number(target);
+  }
 
   state.attemptLog.push({
     territoryId: "numbers",
@@ -7528,7 +7659,11 @@ function checkNumbersListen(answer) {
     rawInput: { value: answer },
     evaluation: {
       status: ok ? "correct" : "incorrect",
-      canonicalAnswers: [String(target)],
+      canonicalAnswers: readTimeMode
+        ? accepted.length
+          ? accepted
+          : [String(target)]
+        : [String(target)],
     },
     appVersion: "mock",
   });
@@ -7539,9 +7674,10 @@ function checkNumbersListen(answer) {
     state.numbersListenChoice = null;
     if (state.numbersDifficulty === "assisted") {
       document.querySelectorAll("#numbers-tray .choice").forEach((el) => {
-        const same = writtenMode
-          ? String(el.dataset.value) === String(answer)
-          : Number(el.dataset.value) === Number(answer);
+        const same =
+          writtenMode || readTimeMode
+            ? String(el.dataset.value) === String(answer)
+            : Number(el.dataset.value) === Number(answer);
         if (same) {
           el.classList.remove("is-bad");
           void el.offsetWidth;
@@ -7571,10 +7707,8 @@ function checkNumbersListen(answer) {
 
   logGuidedQa({
     question: currentGuidedQuestionCue(),
-    answer: writtenMode
-      ? String(answer)
-      : String(answer),
-    expected: writtenMode
+    answer: String(answer),
+    expected: writtenMode || readTimeMode
       ? String(target)
       : exercise.resolution.form || String(target),
     status: ok ? "correct" : "incorrect",

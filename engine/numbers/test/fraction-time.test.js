@@ -13,6 +13,7 @@ import {
   mixedFractionExercise,
   clockForm,
   clockParts,
+  clockFormAlternates,
   digitalTimeForm,
   digitalTimeParts,
   durationForm,
@@ -126,6 +127,24 @@ describe("time", () => {
     assert.equal(clockForm(3, 10), "zehn nach drei");
     assert.equal(clockForm(3, 50), "zehn vor vier");
     assert.deepEqual(clockParts(4, 20), ["zwanzig", "nach", "vier"]);
+  });
+
+  it("everyday fünf vor/nach halb for :25 / :35", () => {
+    assert.equal(clockForm(8, 25), "fünf vor halb neun");
+    assert.equal(clockForm(8, 35), "fünf nach halb neun");
+    assert.equal(clockForm(4, 35), "fünf nach halb fünf");
+    assert.deepEqual(clockParts(4, 35), ["fünf", "nach", "halb", "fünf"]);
+  });
+
+  it("clockFormAlternates accepts fünfundzwanzig hour-count forms", () => {
+    assert.deepEqual(clockFormAlternates(8, 25), [
+      "fünf vor halb neun",
+      "fünfundzwanzig nach acht",
+    ]);
+    assert.deepEqual(clockFormAlternates(4, 35), [
+      "fünf nach halb fünf",
+      "fünfundzwanzig vor fünf",
+    ]);
   });
 
   it("digital 24h", () => {

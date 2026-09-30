@@ -3,7 +3,7 @@
  * cloze, proofread, visual (pie/clock), sentence ordinals.
  */
 
-import { cardinalForm, constructionParts } from "../engine/numbers/index.js?v=20260929-dmo4";
+import { cardinalForm, constructionParts } from "../engine/numbers/index.js?v=20260930-dmo16";
 
 const BLANK_PREF = new Set([
   "und",
@@ -250,14 +250,14 @@ function clockSvg(hours, minutes) {
   let ticks = "";
   for (let t = 0; t < 12; t++) {
     const major = t % 3 === 0;
-    ticks += `<line x1="64" y1="12" x2="64" y2="${12 + (major ? 8 : 4)}" stroke="currentColor" stroke-width="${major ? 3 : 1.5}" stroke-linecap="round" transform="rotate(${t * 30} 64 64)"/>`;
+    ticks += `<line class="clock-tick" x1="64" y1="12" x2="64" y2="${12 + (major ? 8 : 4)}" stroke="var(--clock-hand, #1c2430)" stroke-width="${major ? 3 : 1.5}" stroke-linecap="round" transform="rotate(${t * 30} 64 64)"/>`;
   }
-  return `<svg class="quiz-visual-svg" viewBox="0 0 128 128" width="128" height="128" aria-hidden="true">
-    <circle cx="64" cy="64" r="58" fill="#fff" stroke="currentColor" stroke-width="4"/>
+  return `<svg class="quiz-visual-svg quiz-clock-svg" viewBox="0 0 128 128" width="128" height="128" aria-hidden="true">
+    <circle class="clock-face" cx="64" cy="64" r="58" fill="var(--clock-face, #fff)" stroke="var(--clock-rim, currentColor)" stroke-width="4"/>
     ${ticks}
-    <line x1="64" y1="64" x2="64" y2="34" stroke="currentColor" stroke-width="4" stroke-linecap="round" transform="rotate(${hourDeg} 64 64)"/>
-    <line x1="64" y1="64" x2="64" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" transform="rotate(${minuteDeg} 64 64)"/>
-    <circle cx="64" cy="64" r="4" fill="currentColor"/>
+    <line class="clock-hand" x1="64" y1="64" x2="64" y2="34" stroke="var(--clock-hand, currentColor)" stroke-width="4" stroke-linecap="round" transform="rotate(${hourDeg} 64 64)"/>
+    <line class="clock-hand" x1="64" y1="64" x2="64" y2="20" stroke="var(--clock-hand, currentColor)" stroke-width="2.5" stroke-linecap="round" transform="rotate(${minuteDeg} 64 64)"/>
+    <circle class="clock-hub" cx="64" cy="64" r="4" fill="var(--clock-hand, currentColor)"/>
   </svg>`;
 }
 

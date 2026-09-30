@@ -2,7 +2,7 @@
  * Measurement quiz pools for the Numbers mock.
  */
 
-import { measureAnalysis } from "../engine/numbers/index.js?v=20260929-dmo4";
+import { measureAnalysis } from "../engine/numbers/index.js?v=20260930-dmo16";
 
 function measureMeta(value, unit) {
   const a = measureAnalysis(value, unit);

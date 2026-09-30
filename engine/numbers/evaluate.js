@@ -11,6 +11,7 @@ import {
 } from "./fraction.js";
 import {
   clockAnalysis,
+  clockFormAlternates,
   digitalTimeAnalysis,
   durationAnalysis,
 } from "./time.js";
@@ -32,7 +33,7 @@ function partsEqual(a, b) {
 }
 
 function normalizeParts(parts) {
-  return (parts || []).map((p) => String(p).trim().toLowerCase());
+  return (parts || []).map((p) => String(p).trim());
 }
 
 /**
@@ -74,7 +75,10 @@ export function evaluateCardinalConstruction({ value, parts, grain = "constructi
   }
 
   const parsed = parseCardinalForm(built);
-  if (parsed === value) {
+  // parseCardinalForm folds case — only accept parse alts when the chips are
+  // already lowercase (cardinal orthography is lowercase).
+  const caseOk = built === built.toLowerCase();
+  if (caseOk && parsed === value) {
     return {
       status: "accepted-alternative",
       canonicalAnswers: [canonical],
@@ -85,7 +89,7 @@ export function evaluateCardinalConstruction({ value, parts, grain = "constructi
     };
   }
 
-  if (parsed != null && parsed !== value) {
+  if (caseOk && parsed != null && parsed !== value) {
     return {
       status: "valid-but-unintended",
       canonicalAnswers: [canonical],
@@ -114,7 +118,7 @@ function evaluateSegmentedForm({ parts, expected, form, rules = [] }) {
   const expect = normalizeParts(expected);
   const builtSpaced = normalized.join(" ");
   const builtFused = normalized.join("");
-  const canonical = String(form).toLowerCase().replace(/\s+/g, " ").trim();
+  const canonical = String(form).replace(/\s+/g, " ").trim();
   const canonicalFused = canonical.replace(/\s+/g, "");
   const evidenceIds = [...rules, "eval.segmented"];
 
@@ -263,12 +267,30 @@ export function evaluateMixedFractionConstruction({
  */
 export function evaluateClockConstruction({ hours, minutes, parts }) {
   const a = clockAnalysis(hours, minutes);
-  return evaluateSegmentedForm({
+  const base = evaluateSegmentedForm({
     parts,
     expected: a.segments.construction,
     form: a.form,
     rules: a.rules,
   });
+  if (base.status !== "incorrect") return base;
+  const built = normalizeParts(parts).join(" ").replace(/\s+/g, " ");
+  const fused = normalizeParts(parts).join("");
+  const alts = clockFormAlternates(hours, minutes);
+  for (const alt of alts) {
+    const spaced = String(alt).replace(/\s+/g, " ").trim();
+    if (built === spaced || fused === spaced.replace(/\s+/g, "")) {
+      return {
+        status: "accepted-alternative",
+        canonicalAnswers: alts,
+        matchedAnswer: built || fused,
+        explanation: "Matches an accepted regional clock reading.",
+        evidenceIds: [...a.rules, "eval.alt.clock"],
+        slotMatch: null,
+      };
+    }
+  }
+  return base;
 }
 
 /**
