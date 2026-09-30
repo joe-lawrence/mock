@@ -27,7 +27,7 @@ import {
   createCalendarDateConstructionExercise,
   createMeasureConstructionExercise,
   submitExerciseAttempt,
-} from "../engine/exercise/index.js?v=20260929-dmo4";
+} from "../engine/exercise/index.js?v=20260930-nouns13";
 import {
   associationLemmas,
   wugForms,
@@ -38,7 +38,7 @@ import {
   practiceCategories,
   categoryArticleItems,
   categoryValidationItems,
-} from "../engine/nouns/index.js?v=20260928-nouns11";
+} from "../engine/nouns/index.js?v=20260930-nouns13";
 import {
   cardinalForm,
   parseCardinalForm,
@@ -50,7 +50,9 @@ import {
   parseFractionForm,
   parseOrdinalForm,
   clockFormAlternates,
-} from "../engine/numbers/index.js?v=20260930-dmo17";
+  clockForm,
+  digitalTimeForm,
+} from "../engine/numbers/index.js?v=20260930-ref1";
 import {
   NUMBERS_TOPICS,
   getNumbersTopic,
@@ -62,7 +64,7 @@ import {
   suggestNumbersFocus,
   formatNumbersFocusLabel,
   mixableSteps,
-} from "./numbers-curriculum.js?v=20260930-dmo17";
+} from "./numbers-curriculum.js?v=20260930-ref1";
 import {
   GENDER_SHORTCUTS_UNITS,
   NOUNS_STUB_TOPICS,
@@ -71,7 +73,7 @@ import {
   introFamilyForUnit,
   unitIdForFamily,
 } from "./nouns-curriculum.js?v=20260929-dmo4";
-import { DECIMAL_POOLS } from "./decimals-pools.js?v=20260930-dmo17";
+import { DECIMAL_POOLS } from "./decimals-pools.js?v=20260930-ref1";
 import { FRACTION_POOLS } from "./fractions-pools.js?v=20260929-dmo4";
 import { TIME_POOLS } from "./time-pools.js?v=20260929-dmo4";
 import { DATE_POOLS } from "./dates-pools.js?v=20260929-dmo4";
@@ -85,12 +87,45 @@ import {
   canonicalFormForMeta,
   makeNounProofreadChoices,
   makeNounReverseChoices,
-} from "./quiz-extras.js?v=20260930-dmo17";
-import { mountNavCarousel } from "./nav-carousel.js?v=20260930-dmo17";
+} from "./quiz-extras.js?v=20260930-numui3";
+import { mountNavCarousel } from "./nav-carousel.js?v=20260930-vocab17";
 import {
   dealExercise,
   WEAK_ACCURACY,
 } from "../engine/dealer.js?v=20260929-dmo8";
+
+import {
+  buildSoundsChart,
+  buildNumbersChart,
+  buildNounsChart,
+} from "./reference-charts.js?v=20260930-ref1";
+import {
+  renderReferenceEntryHtml,
+  renderReferenceLandingHtml,
+  wireReferenceNav,
+  referenceIdForPracticeContext,
+} from "./reference-ui.js?v=20260930-ref1";
+import {
+  mountVocabularyPanel,
+  topicHasVocabulary,
+  vocabAreasFromCurriculumTopics,
+} from "./vocabulary-ui.js?v=20260930-vocab17";
+import {
+  vocabularyAreas,
+  curriculumTopicToVocabArea,
+} from "./generated/vocabulary.js?v=20260930-vocab17";
+import {
+  emptyPlaylistState,
+  buildNumbersCatalog,
+  buildNounsCatalog,
+  catalogUnitIds,
+  mountSessionPlaylistDropdown,
+  enabledQuizEntries,
+  enabledVocabAreas,
+  enabledNounFamilies,
+  playlistHasQuiz,
+  playlistHasVocab,
+} from "./session-playlist.js?v=20260930-vocab17";
 
 /** Bootstrap Icons (outline) — https://icons.getbootstrap.com */
 const BI_PATHS = {
@@ -235,35 +270,45 @@ function playFeedbackSound(kind) {
   const ctx = getFeedbackAudio();
   if (!ctx) return;
 
-  const now = ctx.currentTime;
-  const master = ctx.createGain();
-  master.gain.value = 0.065;
-  master.connect(ctx.destination);
+  const run = () => {
+    const now = ctx.currentTime;
+    const master = ctx.createGain();
+    master.gain.value = 0.065;
+    master.connect(ctx.destination);
 
-  const tone = (freq, t0, dur, type = "sine") => {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, t0);
-    gain.gain.setValueAtTime(0.0001, t0);
-    gain.gain.exponentialRampToValueAtTime(1, t0 + 0.014);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    osc.connect(gain);
-    gain.connect(master);
-    osc.start(t0);
-    osc.stop(t0 + dur + 0.03);
+    const tone = (freq, t0, dur, type = "sine") => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t0);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(1, t0 + 0.014);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(gain);
+      gain.connect(master);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.03);
+    };
+
+    if (kind === "ok") {
+      // Soft major third lift
+      tone(523.25, now, 0.11);
+      tone(659.25, now + 0.085, 0.15);
+    } else if (kind === "retry") {
+      tone(349.23, now, 0.09, "triangle");
+    } else {
+      // Gentle descending pair — not harsh
+      tone(277.18, now, 0.1, "triangle");
+      tone(220.0, now + 0.09, 0.14, "triangle");
+    }
   };
 
-  if (kind === "ok") {
-    // Soft major third lift
-    tone(523.25, now, 0.11);
-    tone(659.25, now + 0.085, 0.15);
-  } else if (kind === "retry") {
-    tone(349.23, now, 0.09, "triangle");
+  // Resume may be async — schedule tones only after the context is running
+  // so delayed flashes (post-click) still produce audible feedback.
+  if (ctx.state === "suspended") {
+    void ctx.resume().then(run).catch(() => {});
   } else {
-    // Gentle descending pair — not harsh
-    tone(277.18, now, 0.1, "triangle");
-    tone(220.0, now + 0.09, 0.14, "triangle");
+    run();
   }
 }
 
@@ -338,215 +383,8 @@ const comingCopy = {
   reading: "Verified passages only — no silent generated curriculum.",
 };
 
-/** Full Sounds chart — curated spelling→sound clues (not exhaustive phonology). */
-const soundsChart = {
-  tabs: [
-    {
-      id: "vowels",
-      label: "Vowels",
-      blurb:
-        "Short vs long pairs. Spelling often tips you off: double letter or h → longer; double consonant after → shorter.",
-    },
-    {
-      id: "umlauts",
-      label: "Umlauts",
-      blurb:
-        "Front rounded vowels English doesn’t have. Same length cues as plain vowels (h / double consonant).",
-    },
-    {
-      id: "diphthongs",
-      label: "Diphthongs",
-      blurb: "Two letters, one glide. ei/ai and eu/äu are spelling twins — same sound either way.",
-    },
-    {
-      id: "consonants",
-      label: "Consonants",
-      blurb:
-        "English traps and German-only clusters. Examples split into syllables so you can see where the beat sits.",
-    },
-    {
-      id: "special",
-      label: "Special",
-      blurb:
-        "Environment rules and how to read stress. Native words usually stress the first stem syllable; CAPS + underline mark it.",
-    },
-  ],
-  // spells = orthography variants · guide = sounds-like (silent)
-  // parts = syllable chips; stress:true → CAPS guide + underline; tap example → karaoke
-  vowels: [
-    { spells: ["a"], guide: "ah", parts: [{ text: "Mann", guide: "mahn" }], note: "short, open — double n keeps it short" },
-    { spells: ["aa", "ah"], guide: "aah", parts: [{ text: "Bahn", guide: "baahn" }], note: "longer a — aa or ah cue length" },
-    { spells: ["e"], guide: "eh", parts: [{ text: "Bett", guide: "bett" }], note: "short e — double t keeps it short" },
-    { spells: ["ee", "eh"], guide: "ay", parts: [{ text: "See", guide: "zay" }], note: "longer e — ee or eh" },
-    { spells: ["i"], guide: "ih", parts: [{ text: "mit", guide: "mit" }], note: "short i" },
-    { spells: ["ie", "ih"], guide: "ee", parts: [{ text: "sie", guide: "zee" }], note: "longer ee — ie is the usual long-i spelling" },
-    { spells: ["o"], guide: "aw", parts: [{ text: "oft", guide: "awft" }], note: "short o" },
-    { spells: ["oo", "oh"], guide: "oh", parts: [{ text: "Boot", guide: "boht" }], note: "longer o — oo or oh" },
-    { spells: ["u"], guide: "oo", parts: [{ text: "und", guide: "oont" }], note: "short u" },
-    { spells: ["uh"], guide: "oo", parts: [{ text: "Schuh", guide: "shoo" }], note: "longer u — uh marks length" },
-  ],
-  umlauts: [
-    {
-      spells: ["ä"],
-      guide: "eh",
-      parts: [{ text: "män", guide: "MEN", stress: true }, { text: "ner", guide: "ner" }],
-      note: "like short e / airy eh — stress on first beat",
-    },
-    { spells: ["äh", "ä"], guide: "eh", parts: [{ text: "spät", guide: "shpeht" }], note: "longer ä — äh cues length" },
-    {
-      spells: ["ö"],
-      guide: "oe",
-      parts: [{ text: "öff", guide: "OEFF", stress: true }, { text: "nen", guide: "nen" }],
-      note: "rounded; lips of o, tongue of e — not in English",
-    },
-    {
-      spells: ["öh", "ö"],
-      guide: "oe",
-      parts: [{ text: "schön", guide: "shoen" }],
-      note: "longer ö — contrast with schon (no umlaut)",
-    },
-    {
-      spells: ["ü"],
-      guide: "ue",
-      parts: [{ text: "müs", guide: "MUES", stress: true }, { text: "sen", guide: "sen" }],
-      note: "rounded; lips of u, tongue of i — not in English",
-    },
-    {
-      spells: ["üh", "ü"],
-      guide: "ue",
-      parts: [{ text: "Tür", guide: "tueer" }],
-      note: "longer ü — contrast with u (Tür ≠ Tour)",
-    },
-  ],
-  diphthongs: [
-    {
-      spells: ["ei", "ai"],
-      guide: "eye",
-      parts: [{ text: "mein", guide: "mine" }],
-      note: "same sound both spellings — don’t say “ay”",
-    },
-    { spells: ["au"], guide: "ow", parts: [{ text: "Haus", guide: "hows" }], note: "as in “house”" },
-    {
-      spells: ["eu", "äu"],
-      guide: "oy",
-      parts: [{ text: "neu", guide: "noy" }],
-      note: "same sound both spellings — like “oy”",
-    },
-  ],
-  consonants: [
-    {
-      spells: ["b", "d", "g"],
-      guide: "b / d / g",
-      parts: [{ text: "Bad", guide: "baht" }],
-      note: "often softer (more like p/t/k) at word end",
-    },
-    {
-      spells: ["ch"],
-      guide: "ikh",
-      parts: [{ text: "ich", guide: "ikh" }],
-      note: "soft after front vowels — see Special for ach",
-    },
-    {
-      spells: ["ck"],
-      guide: "k",
-      parts: [{ text: "Eck", guide: "ECK", stress: true }, { text: "e", guide: "e" }],
-      note: "like k — double c keeps the vowel short",
-    },
-    {
-      spells: ["f", "v"],
-      guide: "f",
-      parts: [{ text: "Va", guide: "FA", stress: true }, { text: "ter", guide: "ter" }],
-      note: "v often = f (Vater ≠ “vay-ter”)",
-    },
-    { spells: ["w"], guide: "v", parts: [{ text: "was", guide: "vas" }], note: "like English v — not English w" },
-    { spells: ["j"], guide: "y", parts: [{ text: "ja", guide: "ya" }], note: "like English y — not English j" },
-    { spells: ["l"], guide: "l", parts: [{ text: "lang", guide: "lahng" }], note: "clear l (less “dark” than English)" },
-    {
-      spells: ["ng"],
-      guide: "ng",
-      parts: [{ text: "lang", guide: "lahng" }],
-      note: "as in “sing” — no hard g after",
-    },
-    { spells: ["nk"], guide: "ngk", parts: [{ text: "Bank", guide: "bahngk" }], note: "ng + k" },
-    {
-      spells: ["pf"],
-      guide: "pf",
-      parts: [{ text: "Ap", guide: "AP", stress: true }, { text: "fel", guide: "fel" }],
-      note: "both sounds — stress on first syllable",
-    },
-    { spells: ["qu"], guide: "kv", parts: [{ text: "Quark", guide: "kvark" }], note: "k + v — not English “kw”" },
-    {
-      spells: ["s"],
-      guide: "z",
-      parts: [{ text: "Son", guide: "ZON", stress: true }, { text: "ne", guide: "ne" }],
-      note: "often like z at the start before a vowel",
-    },
-    { spells: ["ss", "ß"], guide: "s", parts: [{ text: "Fuß", guide: "foos" }], note: "voiceless s (never z)" },
-    {
-      spells: ["sch"],
-      guide: "sh",
-      parts: [{ text: "Schu", guide: "SHOO", stress: true }, { text: "le", guide: "le" }],
-      note: "like English sh — one sound, three letters",
-    },
-    {
-      spells: ["sp"],
-      guide: "shp",
-      parts: [{ text: "Spiel", guide: "shpeel" }],
-      note: "word-initial — s sounds like sh",
-    },
-    {
-      spells: ["st"],
-      guide: "sht",
-      parts: [{ text: "Stein", guide: "shtine" }],
-      note: "word-initial — s sounds like sh",
-    },
-    { spells: ["z"], guide: "ts", parts: [{ text: "Zeit", guide: "tsite" }], note: "like “ts” in “cats” — never English z" },
-    {
-      spells: ["tz"],
-      guide: "ts",
-      parts: [{ text: "Kat", guide: "KAT", stress: true }, { text: "ze", guide: "tse" }],
-      note: "same ts sound — t marks short vowel before",
-    },
-  ],
-  special: [
-    {
-      spells: ["ich"],
-      guide: "ikh",
-      parts: [{ text: "ich", guide: "ikh" }],
-      note: "soft ch after front vowels (i, e, ä, ö, ü, ei…)",
-    },
-    {
-      spells: ["ach"],
-      guide: "akh",
-      parts: [{ text: "Buch", guide: "bookh" }],
-      note: "back ch after a, o, u, au",
-    },
-    {
-      spells: ["r"],
-      guide: "r",
-      parts: [{ text: "rot", guide: "roht" }],
-      note: "varies by speaker; often soft / vocalic at ends",
-    },
-    {
-      spells: ["h"],
-      guide: "—",
-      parts: [{ text: "ge", guide: "GE", stress: true }, { text: "hen", guide: "hen" }],
-      note: "between vowels often silent — marks length on the vowel before",
-    },
-    {
-      spells: ["tt", "pp", "ck"],
-      guide: "short vowel",
-      parts: [{ text: "Mut", guide: "MUT", stress: true }, { text: "ter", guide: "ter" }],
-      note: "double consonant → vowel before is short (Mut-ter, not “moot”)",
-    },
-    {
-      spells: ["stress"],
-      guide: "CAPS",
-      parts: [{ text: "Zei", guide: "TSAI", stress: true }, { text: "tung", guide: "toong" }],
-      note: "CAPS + underline = primary stress. Default: first stem syllable (Zeitung). Loanwords may stress later (see practice).",
-    },
-  ],
-};
+/** Sounds chart — built from generated Reference Markdown. */
+const soundsChart = buildSoundsChart();
 
 /** Territory briefings = Introduce / Demonstrate before practice (spec learning loop). */
 const briefings = {
@@ -650,847 +488,11 @@ const briefings = {
   },
 };
 
-/** Nouns chart — suffix → gender tendencies + common plural shapes. */
-const nounsChart = {
-  tabs: [
-    {
-      id: "feminine",
-      label: "Feminine",
-      blurb: "Strong suffix clues for die. Patterns, not absolute laws — lexical facts still win.",
-    },
-    {
-      id: "masculine",
-      label: "Masculine",
-      blurb: "Useful masculine endings. Coverage is narrower than the big feminine suffixes.",
-    },
-    {
-      id: "neuter",
-      label: "Neuter",
-      blurb: "Diminutives -chen/-lein are near-certain neuter — even when meaning feels feminine.",
-    },
-    {
-      id: "categories",
-      label: "Categories",
-      blurb:
-        "Semantic categories are soft gender shortcuts — Recognition → Article → Imposter → Sentence. Lexical gender still wins on conflict.",
-    },
-    {
-      id: "plurals",
-      label: "Plurals",
-      blurb:
-        "Nominative plural article is always die — that is number, not feminine gender. Ending notes refer to the singular noun’s gender tendency (der Tag → die Tage).",
-    },
-  ],
-  feminine: [
-    {
-      cue: "-ung",
-      note: "very strong → F",
-      article: "die",
-      gender: "feminine",
-      parts: [
-        { text: "die", guide: "dee" },
-        { text: "Zei", guide: "TSAI", stress: true },
-        { text: "tung", guide: "toong" },
-      ],
-    },
-    {
-      cue: "-heit",
-      note: "very strong → F",
-      article: "die",
-      gender: "feminine",
-      parts: [
-        { text: "die", guide: "dee" },
-        { text: "Frei", guide: "FRY", stress: true },
-        { text: "heit", guide: "hite" },
-      ],
-    },
-    {
-      cue: "-keit",
-      note: "very strong → F",
-      article: "die",
-      gender: "feminine",
-      parts: [
-        { text: "die", guide: "dee" },
-        { text: "Mö", guide: "MUE", stress: true },
-        { text: "glich", guide: "glikh" },
-        { text: "keit", guide: "kite" },
-      ],
-    },
-    {
-      cue: "-schaft",
-      note: "strong → F",
-      article: "die",
-      gender: "feminine",
-      parts: [
-        { text: "die", guide: "dee" },
-        { text: "Freund", guide: "FROYNT", stress: true },
-        { text: "schaft", guide: "shahft" },
-      ],
-    },
-    {
-      cue: "-ion",
-      note: "strong → F (loan)",
-      article: "die",
-      gender: "feminine",
-      parts: [
-        { text: "die", guide: "dee" },
-        { text: "Na", guide: "nah" },
-        { text: "ti", guide: "TSI", stress: true },
-        { text: "on", guide: "ohn" },
-      ],
-    },
-  ],
-  masculine: [
-    {
-      cue: "-ling",
-      note: "strong → M",
-      article: "der",
-      gender: "masculine",
-      parts: [
-        { text: "der", guide: "dair" },
-        { text: "Früh", guide: "FRUE", stress: true },
-        { text: "ling", guide: "ling" },
-      ],
-    },
-    {
-      cue: "-ismus",
-      note: "strong → M",
-      article: "der",
-      gender: "masculine",
-      parts: [
-        { text: "der", guide: "dair" },
-        { text: "Tou", guide: "too" },
-        { text: "ris", guide: "RIS", stress: true },
-        { text: "mus", guide: "moos" },
-      ],
-    },
-    {
-      cue: "-ner",
-      note: "often → M (agents)",
-      article: "der",
-      gender: "masculine",
-      parts: [
-        { text: "der", guide: "dair" },
-        { text: "Lehr", guide: "LAYR", stress: true },
-        { text: "er", guide: "er" },
-      ],
-      displayCue: "-er / -ner",
-    },
-  ],
-  neuter: [
-    {
-      cue: "-chen",
-      note: "near-certain → N",
-      article: "das",
-      gender: "neuter",
-      parts: [
-        { text: "das", guide: "dahs" },
-        { text: "Mäd", guide: "MEHD", stress: true },
-        { text: "chen", guide: "chen" },
-      ],
-    },
-    {
-      cue: "-lein",
-      note: "near-certain → N",
-      article: "das",
-      gender: "neuter",
-      parts: [
-        { text: "das", guide: "dahs" },
-        { text: "Büch", guide: "BUEKH", stress: true },
-        { text: "lein", guide: "line" },
-      ],
-    },
-    {
-      cue: "-ment",
-      note: "often → N (loan)",
-      article: "das",
-      gender: "neuter",
-      parts: [
-        { text: "das", guide: "dahs" },
-        { text: "In", guide: "in" },
-        { text: "stru", guide: "STROO", stress: true },
-        { text: "ment", guide: "ment" },
-      ],
-    },
-  ],
-  categories: GENDER_CATEGORIES.map((c) => ({
-    cue: c.description || c.name,
-    note: c.chartNote || "",
-    displayCue: c.name,
-    gender:
-      c.association === "masculine" ||
-      c.association === "feminine" ||
-      c.association === "neuter"
-        ? c.association
-        : null,
-  })),
-  plurals: [
-    {
-      cue: "+en",
-      note: "often after feminine singulars",
-      from: "die Zeitung",
-      parts: [
-        { text: "die", guide: "dee" },
-        { text: "Zei", guide: "TSAI", stress: true },
-        { text: "tun", guide: "toon" },
-        { text: "gen", guide: "gen" },
-      ],
-    },
-    {
-      cue: "+e",
-      note: "often after masculine singulars",
-      from: "der Tag",
-      parts: [
-        { text: "die", guide: "dee" },
-        { text: "Ta", guide: "TAH", stress: true },
-        { text: "ge", guide: "ge" },
-      ],
-    },
-    {
-      cue: "+er",
-      note: "often after neuter singulars (±umlaut)",
-      from: "das Buch",
-      parts: [
-        { text: "die", guide: "dee" },
-        { text: "Bü", guide: "BUE", stress: true },
-        { text: "cher", guide: "kher" },
-      ],
-    },
-    {
-      cue: "+s",
-      note: "loanwords (any singular gender)",
-      from: "das Auto",
-      parts: [
-        { text: "die", guide: "dee" },
-        { text: "Au", guide: "OW", stress: true },
-        { text: "tos", guide: "tohs" },
-      ],
-    },
-    {
-      cue: "—",
-      note: "no ending (some -chen, -el…)",
-      from: "das Mädchen",
-      parts: [
-        { text: "die", guide: "dee" },
-        { text: "Mäd", guide: "MEHD", stress: true },
-        { text: "chen", guide: "chen" },
-      ],
-    },
-  ],
-};
+/** Nouns chart — built from generated Reference Markdown. */
+const nounsChart = buildNounsChart();
 
-/** Numbers chart — tabbed reference; tap example → karaoke like Sounds chart. */
-const numbersChart = {
-  tabs: [
-    {
-      id: "base",
-      label: "0–12",
-      blurb: "Foundational blocks. 11 and 12 are unique words. eins drops s in compounds (einundzwanzig).",
-    },
-    {
-      id: "teens",
-      label: "13–19",
-      blurb: "Rule: base + zehn. sechzehn / siebzehn shorten sechs / sieben.",
-    },
-    {
-      id: "tens",
-      label: "20–90",
-      blurb: "Rule: base + zig. Watch zwanzig, dreißig, and the sech-/sieb- shortenings.",
-    },
-    {
-      id: "compounds",
-      label: "21–99",
-      blurb: "Read backward: ones + und + tens as one word (vierundzwanzig = four-and-twenty).",
-    },
-    {
-      id: "hundreds",
-      label: "100+",
-      blurb: "ein/zwei/… + hundert, then the 0–99 tail. 1000 = eintausend.",
-    },
-    {
-      id: "komma",
-      label: "Komma",
-      blurb: "Written 3,14 — spoken drei Komma eins vier. Digits after Komma are one-by-one (not “vierzehn”).",
-    },
-    {
-      id: "money",
-      label: "Euro",
-      blurb: "… Euro; with cents: … Euro fünfzig (cents as a cardinal, not digit-by-digit).",
-    },
-    {
-      id: "fractions",
-      label: "Fractions",
-      blurb: "halb; ein Viertel; zwei Drittel; mixed eineinhalb / zwei und ein Viertel.",
-    },
-    {
-      id: "time",
-      label: "Time",
-      blurb: "… Uhr; halb vier = 3:30; Viertel; fünf vor/nach halb; digital … Uhr …",
-    },
-    {
-      id: "dates",
-      label: "Dates",
-      blurb: "Weekdays, months, am dritten, full dates (Tag.Monat).",
-    },
-    {
-      id: "measure",
-      label: "Measure",
-      blurb: "Meter, Gramm, Liter, Grad, Stundenkilometer with numbers.",
-    },
-    {
-      id: "ordinals",
-      label: "Ordinals",
-      blurb: "erste …; teens + te; tens/compounds + ste; am + -en.",
-    },
-  ],
-  dates: [
-    {
-      n: "Montag",
-      parts: [{ text: "Montag", guide: "MOHN-tahk", stress: true }],
-      note: "weekday",
-    },
-    {
-      n: "März",
-      parts: [{ text: "März", guide: "mairts", stress: true }],
-      note: "month",
-    },
-    {
-      n: "3.",
-      parts: [
-        { text: "am", guide: "ahm" },
-        { text: "dritten", guide: "DRIT-ten", stress: true },
-      ],
-      note: "day of month → am + …en",
-    },
-    {
-      n: "3.3.",
-      parts: [
-        { text: "am", guide: "ahm" },
-        { text: "dritten", guide: "DRIT-ten", stress: true },
-        { text: "März", guide: "mairts" },
-      ],
-      note: "",
-    },
-  ],
-  measure: [
-    {
-      n: "3 m",
-      parts: [
-        { text: "drei", guide: "DRY", stress: true },
-        { text: "Meter", guide: "MAY-ter" },
-      ],
-      note: "",
-    },
-    {
-      n: "250 g",
-      parts: [
-        { text: "zweihundert", guide: "TSVAI-hoon-dert", stress: true },
-        { text: "fünfzig", guide: "FUENF-tsikh" },
-        { text: "Gramm", guide: "grahm" },
-      ],
-      note: "construction may split hundreds",
-    },
-    {
-      n: "1 l",
-      parts: [
-        { text: "ein", guide: "INE", stress: true },
-        { text: "Liter", guide: "LEE-ter" },
-      ],
-      note: "ein, not eins",
-    },
-    {
-      n: "20 °C",
-      parts: [
-        { text: "zwanzig", guide: "TSVAN-tsikh", stress: true },
-        { text: "Grad", guide: "graht" },
-      ],
-      note: "",
-    },
-  ],
-  ordinals: [
-    {
-      n: "1.",
-      parts: [{ text: "erste", guide: "AIR-stuh", stress: true }],
-      note: "irregular",
-    },
-    {
-      n: "3.",
-      parts: [{ text: "dritte", guide: "DRIT-tuh", stress: true }],
-      note: "irregular",
-    },
-    {
-      n: "13.",
-      parts: [
-        { text: "drei", guide: "DRY" },
-        { text: "zehn", guide: "tsayn" },
-        { text: "te", guide: "tuh", stress: true },
-      ],
-      note: "+ te",
-    },
-    {
-      n: "20.",
-      parts: [
-        { text: "zwanzig", guide: "TSVAN-tsikh", stress: true },
-        { text: "ste", guide: "stuh" },
-      ],
-      note: "+ ste",
-    },
-    {
-      n: "21.",
-      parts: [
-        { text: "ein", guide: "INE" },
-        { text: "und", guide: "oont" },
-        { text: "zwanzig", guide: "TSVAN-tsikh" },
-        { text: "ste", guide: "stuh", stress: true },
-      ],
-      note: "",
-    },
-  ],
-  fractions: [
-    {
-      n: "1/2",
-      parts: [{ text: "halb", guide: "halp", stress: true }],
-      note: "lexical half",
-    },
-    {
-      n: "1/4",
-      parts: [
-        { text: "ein", guide: "INE", stress: true },
-        { text: "Viertel", guide: "FEER-tel" },
-      ],
-      note: "",
-    },
-    {
-      n: "3/4",
-      parts: [
-        { text: "drei", guide: "DRY", stress: true },
-        { text: "Viertel", guide: "FEER-tel" },
-      ],
-      note: "",
-    },
-    {
-      n: "2/3",
-      parts: [
-        { text: "zwei", guide: "TSVAI", stress: true },
-        { text: "Drittel", guide: "DRIT-tel" },
-      ],
-      note: "",
-    },
-    {
-      n: "1 1/2",
-      parts: [{ text: "eineinhalb", guide: "INE-ine-halp", stress: true }],
-      note: "fused …einhalb",
-    },
-    {
-      n: "2 1/4",
-      parts: [
-        { text: "zwei", guide: "TSVAI", stress: true },
-        { text: "und", guide: "oont" },
-        { text: "ein", guide: "INE" },
-        { text: "Viertel", guide: "FEER-tel" },
-      ],
-      note: "",
-    },
-  ],
-  time: [
-    {
-      n: "03:00",
-      parts: [
-        { text: "drei", guide: "DRY", stress: true },
-        { text: "Uhr", guide: "oor" },
-      ],
-      note: "",
-    },
-    {
-      n: "03:30",
-      parts: [
-        { text: "halb", guide: "halp", stress: true },
-        { text: "vier", guide: "feer" },
-      ],
-      note: "halb → next hour",
-    },
-    {
-      n: "03:15",
-      parts: [
-        { text: "Viertel", guide: "FEER-tel", stress: true },
-        { text: "nach", guide: "nakh" },
-        { text: "drei", guide: "dry" },
-      ],
-      note: "",
-    },
-    {
-      n: "03:45",
-      parts: [
-        { text: "Viertel", guide: "FEER-tel", stress: true },
-        { text: "vor", guide: "for" },
-        { text: "vier", guide: "feer" },
-      ],
-      note: "",
-    },
-    {
-      n: "03:10",
-      parts: [
-        { text: "zehn", guide: "TSAYN", stress: true },
-        { text: "nach", guide: "nakh" },
-        { text: "drei", guide: "dry" },
-      ],
-      note: "",
-    },
-    {
-      n: "08:25",
-      parts: [
-        { text: "fünf", guide: "fuenf", stress: true },
-        { text: "vor", guide: "for" },
-        { text: "halb", guide: "halp" },
-        { text: "neun", guide: "noyn" },
-      ],
-      note: "everyday — not fünfundzwanzig nach",
-    },
-    {
-      n: "08:35",
-      parts: [
-        { text: "fünf", guide: "fuenf", stress: true },
-        { text: "nach", guide: "nakh" },
-        { text: "halb", guide: "halp" },
-        { text: "neun", guide: "noyn" },
-      ],
-      note: "everyday — not fünfundzwanzig vor",
-    },
-    {
-      n: "14:05",
-      parts: [
-        { text: "vierzehn", guide: "FEER-tsayn", stress: true },
-        { text: "Uhr", guide: "oor" },
-        { text: "fünf", guide: "fuenf" },
-      ],
-      note: "digital / 24h",
-    },
-    {
-      n: "1h 30min",
-      parts: [
-        { text: "eine", guide: "INE-uh", stress: true },
-        { text: "Stunde", guide: "SHTOON-duh" },
-        { text: "dreißig", guide: "DRY-sikh" },
-        { text: "Minuten", guide: "mi-NOO-ten" },
-      ],
-      note: "duration",
-    },
-  ],
-  komma: [
-    {
-      n: "3,14",
-      parts: [
-        { text: "drei", guide: "DRY", stress: true },
-        { text: "Komma", guide: "kaw-mah" },
-        { text: "eins", guide: "ines" },
-        { text: "vier", guide: "feer" },
-      ],
-      note: "Komma, not Punkt",
-    },
-    {
-      n: "0,5",
-      parts: [
-        { text: "null", guide: "nool" },
-        { text: "Komma", guide: "kaw-mah" },
-        { text: "fünf", guide: "fuenf", stress: true },
-      ],
-      note: "",
-    },
-    {
-      n: "12,05",
-      parts: [
-        { text: "zwölf", guide: "TSVUELF", stress: true },
-        { text: "Komma", guide: "kaw-mah" },
-        { text: "null", guide: "nool" },
-        { text: "fünf", guide: "fuenf" },
-      ],
-      note: "",
-    },
-    {
-      n: "2,50",
-      parts: [
-        { text: "zwei", guide: "TSVAI", stress: true },
-        { text: "Komma", guide: "kaw-mah" },
-        { text: "fünf", guide: "fuenf" },
-        { text: "null", guide: "nool" },
-      ],
-      note: "≠ zwei Komma fünfzig",
-    },
-  ],
-  money: [
-    {
-      n: "1,00 €",
-      parts: [
-        { text: "ein", guide: "INE", stress: true },
-        { text: "Euro", guide: "oy-roh" },
-      ],
-      note: "ein, not eins",
-    },
-    {
-      n: "12,00 €",
-      parts: [
-        { text: "zwölf", guide: "TSVUELF", stress: true },
-        { text: "Euro", guide: "oy-roh" },
-      ],
-      note: "",
-    },
-    {
-      n: "12,50 €",
-      parts: [
-        { text: "zwölf", guide: "TSVUELF", stress: true },
-        { text: "Euro", guide: "oy-roh" },
-        { text: "fünfzig", guide: "FUENF-tsikh", stress: true },
-      ],
-      note: "cents as a cardinal",
-    },
-    {
-      n: "0,50 €",
-      parts: [
-        { text: "fünfzig", guide: "FUENF-tsikh", stress: true },
-        { text: "Cent", guide: "tsent" },
-      ],
-      note: "cents only",
-    },
-  ],
-  base: [
-    { n: "0", parts: [{ text: "null", guide: "nool" }], note: "" },
-    { n: "1", parts: [{ text: "eins", guide: "ines" }], note: "→ ein in compounds" },
-    { n: "2", parts: [{ text: "zwei", guide: "tsvai" }], note: "" },
-    { n: "3", parts: [{ text: "drei", guide: "dry" }], note: "" },
-    { n: "4", parts: [{ text: "vier", guide: "feer" }], note: "" },
-    { n: "5", parts: [{ text: "fünf", guide: "fuenf" }], note: "" },
-    { n: "6", parts: [{ text: "sechs", guide: "zex" }], note: "" },
-    {
-      n: "7",
-      parts: [
-        { text: "sie", guide: "ZEE", stress: true },
-        { text: "ben", guide: "ben" },
-      ],
-      note: "",
-    },
-    { n: "8", parts: [{ text: "acht", guide: "ahkht" }], note: "" },
-    { n: "9", parts: [{ text: "neun", guide: "noin" }], note: "" },
-    { n: "10", parts: [{ text: "zehn", guide: "tsayn" }], note: "" },
-    { n: "11", parts: [{ text: "elf", guide: "elf" }], note: "unique" },
-    { n: "12", parts: [{ text: "zwölf", guide: "tsvuelf" }], note: "unique" },
-  ],
-  teens: [
-    {
-      n: "13",
-      parts: [
-        { text: "drei", guide: "DRY", stress: true },
-        { text: "zehn", guide: "tsayn" },
-      ],
-      note: "",
-    },
-    {
-      n: "14",
-      parts: [
-        { text: "vier", guide: "FEER", stress: true },
-        { text: "zehn", guide: "tsayn" },
-      ],
-      note: "",
-    },
-    {
-      n: "15",
-      parts: [
-        { text: "fünf", guide: "FUENF", stress: true },
-        { text: "zehn", guide: "tsayn" },
-      ],
-      note: "",
-    },
-    {
-      n: "16",
-      parts: [
-        { text: "sech", guide: "ZEKH", stress: true },
-        { text: "zehn", guide: "tsayn" },
-      ],
-      note: "drops s from sechs",
-    },
-    {
-      n: "17",
-      parts: [
-        { text: "sieb", guide: "ZEEP", stress: true },
-        { text: "zehn", guide: "tsayn" },
-      ],
-      note: "drops en from sieben",
-    },
-    {
-      n: "18",
-      parts: [
-        { text: "acht", guide: "AHKHT", stress: true },
-        { text: "zehn", guide: "tsayn" },
-      ],
-      note: "",
-    },
-    {
-      n: "19",
-      parts: [
-        { text: "neun", guide: "NOIN", stress: true },
-        { text: "zehn", guide: "tsayn" },
-      ],
-      note: "",
-    },
-  ],
-  tens: [
-    {
-      n: "20",
-      parts: [
-        { text: "zwan", guide: "TSVAN", stress: true },
-        { text: "zig", guide: "tsikh" },
-      ],
-      note: "zwei → zwan",
-    },
-    {
-      n: "30",
-      parts: [
-        { text: "drei", guide: "DRY", stress: true },
-        { text: "ßig", guide: "sikh" },
-      ],
-      note: "ßig, not zig",
-    },
-    {
-      n: "40",
-      parts: [
-        { text: "vier", guide: "FEER", stress: true },
-        { text: "zig", guide: "tsikh" },
-      ],
-      note: "",
-    },
-    {
-      n: "50",
-      parts: [
-        { text: "fünf", guide: "FUENF", stress: true },
-        { text: "zig", guide: "tsikh" },
-      ],
-      note: "",
-    },
-    {
-      n: "60",
-      parts: [
-        { text: "sech", guide: "ZEKH", stress: true },
-        { text: "zig", guide: "tsikh" },
-      ],
-      note: "drops s from sechs",
-    },
-    {
-      n: "70",
-      parts: [
-        { text: "sieb", guide: "ZEEP", stress: true },
-        { text: "zig", guide: "tsikh" },
-      ],
-      note: "drops en from sieben",
-    },
-    {
-      n: "80",
-      parts: [
-        { text: "acht", guide: "AHKHT", stress: true },
-        { text: "zig", guide: "tsikh" },
-      ],
-      note: "",
-    },
-    {
-      n: "90",
-      parts: [
-        { text: "neun", guide: "NOIN", stress: true },
-        { text: "zig", guide: "tsikh" },
-      ],
-      note: "",
-    },
-  ],
-  compounds: [
-    {
-      n: "21",
-      parts: [
-        { text: "ein", guide: "INE", stress: true },
-        { text: "und", guide: "oont" },
-        { text: "zwan", guide: "TSVAN", stress: true },
-        { text: "zig", guide: "tsikh" },
-      ],
-      note: "one-and-twenty",
-    },
-    {
-      n: "24",
-      parts: [
-        { text: "vier", guide: "FEER", stress: true },
-        { text: "und", guide: "oont" },
-        { text: "zwan", guide: "TSVAN", stress: true },
-        { text: "zig", guide: "tsikh" },
-      ],
-      note: "four-and-twenty",
-    },
-    {
-      n: "35",
-      parts: [
-        { text: "fünf", guide: "FUENF", stress: true },
-        { text: "und", guide: "oont" },
-        { text: "drei", guide: "DRY", stress: true },
-        { text: "ßig", guide: "sikh" },
-      ],
-      note: "five-and-thirty",
-    },
-    {
-      n: "99",
-      parts: [
-        { text: "neun", guide: "NOIN", stress: true },
-        { text: "und", guide: "oont" },
-        { text: "neun", guide: "NOIN", stress: true },
-        { text: "zig", guide: "tsikh" },
-      ],
-      note: "nine-and-ninety",
-    },
-  ],
-  hundreds: [
-    {
-      n: "100",
-      parts: [
-        { text: "ein", guide: "INE", stress: true },
-        { text: "hundert", guide: "hoon-dert" },
-      ],
-      note: "ein + hundert",
-    },
-    {
-      n: "200",
-      parts: [
-        { text: "zwei", guide: "TSVAI", stress: true },
-        { text: "hundert", guide: "hoon-dert" },
-      ],
-      note: "",
-    },
-    {
-      n: "221",
-      parts: [
-        { text: "zwei", guide: "TSVAI", stress: true },
-        { text: "hundert", guide: "hoon-dert" },
-        { text: "ein", guide: "INE", stress: true },
-        { text: "und", guide: "oont" },
-        { text: "zwan", guide: "TSVAN", stress: true },
-        { text: "zig", guide: "tsikh" },
-      ],
-      note: "hundreds first, then ones+und+tens",
-    },
-    {
-      n: "342",
-      parts: [
-        { text: "drei", guide: "DRY", stress: true },
-        { text: "hundert", guide: "hoon-dert" },
-        { text: "zwei", guide: "TSVAI", stress: true },
-        { text: "und", guide: "oont" },
-        { text: "vier", guide: "FEER", stress: true },
-        { text: "zig", guide: "tsikh" },
-      ],
-      note: "",
-    },
-    {
-      n: "1000",
-      parts: [
-        { text: "ein", guide: "INE", stress: true },
-        { text: "tausend", guide: "tow-zent" },
-      ],
-      note: "ein + tausend",
-    },
-  ],
-};
+/** Numbers chart — built from generated Reference Markdown. */
+const numbersChart = buildNumbersChart();
 
 /** Look up an exact Numbers chart row (guides + stress). */
 function numbersChartParts(n) {
@@ -1713,50 +715,87 @@ function isWrittenishMeta(meta) {
 /** Values allowed in Listen for the current Cardinals step or mix (cardinal digits only). */
 function listenValuePool() {
   if (state.numbersSessionKind === "mix") {
-    return mixListenValues(state.numbersMixTopic || "cardinals", state.numbersMixSteps);
+    return mixListenValuesFromEntries(currentMixEntries());
   }
   if (state.numbersTopic !== "cardinals") return [];
   const step = getNumbersStep(state.numbersTopic, state.numbersStep);
   return cardinalStepValues(step?.pool || "compounds");
 }
 
-function mixListenValues(topicId, stepIds) {
+/** @returns {{ topicId: string, stepId: string }[]} */
+function currentMixEntries() {
+  if (Array.isArray(state.numbersMixEntries) && state.numbersMixEntries.length) {
+    return state.numbersMixEntries;
+  }
+  const topicId = state.numbersMixTopic || "cardinals";
+  if (topicId === "multi") return [];
+  return (state.numbersMixSteps || []).map((stepId) => ({ topicId, stepId }));
+}
+
+function mixListenValuesFromEntries(entries) {
   const set = new Set();
-  for (const stepId of stepIds) {
+  for (const { topicId, stepId } of entries || []) {
+    if (topicId !== "cardinals") continue;
     const step = getNumbersStep(topicId, stepId);
     const key = step?.pool;
     if (!key) continue;
-    if (topicId === "cardinals") {
-      for (const v of cardinalStepValues(key)) set.add(v);
-    }
+    for (const v of cardinalStepValues(key)) set.add(v);
   }
   return [...set];
 }
 
+function mixListenValues(topicId, stepIds) {
+  return mixListenValuesFromEntries(
+    (stepIds || []).map((stepId) => ({ topicId, stepId }))
+  );
+}
+
 function buildMixDeck(topicId, stepIds, modeId) {
+  return buildMixDeckFromEntries(
+    (stepIds || []).map((stepId) => ({ topicId, stepId })),
+    modeId
+  );
+}
+
+function buildMixDeckFromEntries(entries, modeId) {
   const items = [];
   const caps = navCaps();
   const resolved = mixModeForCaps(modeId);
   const wantBuild = resolved === "build" || resolved === "either";
   const wantListen =
-    caps.audio && (resolved === "listen" || resolved === "either");
+    capEnabled(caps.audio) && (resolved === "listen" || resolved === "either");
   const wantConvert =
-    caps.keyboard && (resolved === "convert" || resolved === "either");
+    capEnabled(caps.keyboard) &&
+    (resolved === "convert" || resolved === "either");
   const wantEitherExtras = resolved === "either";
-  const wantNamed = (id) => resolved === id || wantEitherExtras;
+  const wantNamed = (id) => {
+    if (capExclusive(caps.keyboard)) return id === "proofread";
+    if (capExclusive(caps.audio)) return false;
+    return resolved === id || wantEitherExtras;
+  };
+  // Cross-topic Play mixes: cap each step×mode so huge pools (decimals)
+  // don’t drown out Time / Cardinals / etc.
+  const multiTopic = new Set((entries || []).map((e) => e.topicId)).size > 1;
+  const perBucket = multiTopic ? 16 : Infinity;
 
-  for (const stepId of stepIds) {
+  const take = (list) => {
+    if (list.length <= perBucket) return list;
+    return shuffle([...list]).slice(0, perBucket);
+  };
+
+  for (const { topicId, stepId } of entries || []) {
     const modes = filterModesForCaps(modesForStep(topicId, stepId));
-    const pool = numberPools[stepId] || numberPools[getNumbersStep(topicId, stepId)?.pool];
+    const pool =
+      numberPools[stepId] || numberPools[getNumbersStep(topicId, stepId)?.pool];
     if (!pool) continue;
     if (wantBuild && modes.some((m) => m.id === "build")) {
-      for (const meta of pool) {
+      for (const meta of take(pool)) {
         items.push({ ...meta, stepId, mode: "build", topicId });
       }
     }
     if (wantListen && modes.some((m) => m.id === "listen")) {
       if (topicId === "cardinals") {
-        for (const value of mixListenValues(topicId, [stepId])) {
+        for (const value of take(mixListenValues(topicId, [stepId]))) {
           items.push({
             kind: "cardinal",
             value,
@@ -1768,13 +807,13 @@ function buildMixDeck(topicId, stepIds, modeId) {
           });
         }
       } else {
-        for (const meta of pool) {
+        for (const meta of take(pool)) {
           items.push({ ...meta, stepId, mode: "listen", topicId });
         }
       }
     }
     if (wantConvert && modes.some((m) => m.id === "convert")) {
-      for (const meta of pool) {
+      for (const meta of take(pool)) {
         items.push({ ...meta, stepId, mode: "convert", topicId });
       }
     }
@@ -1782,7 +821,7 @@ function buildMixDeck(topicId, stepIds, modeId) {
       if (!wantNamed(extra)) continue;
       if (!modeAllowedByCaps(extra)) continue;
       if (!modes.some((m) => m.id === extra)) continue;
-      for (const meta of pool) {
+      for (const meta of take(pool)) {
         items.push({ ...meta, stepId, mode: extra, topicId });
       }
     }
@@ -1793,16 +832,20 @@ function buildMixDeck(topicId, stepIds, modeId) {
 function ensureMixDeck() {
   const mode = mixModeForCaps(state.numbersMixMode);
   state.numbersMixMode = mode;
-  const topicId = state.numbersMixTopic || "cardinals";
+  const entries = currentMixEntries();
   const caps = navCaps();
-  const key = `${topicId}:${mode}:k${caps.keyboard ? 1 : 0}a${caps.audio ? 1 : 0}:${[...state.numbersMixSteps].sort().join(",")}`;
+  const entryKey = entries
+    .map((e) => `${e.topicId}:${e.stepId}`)
+    .sort()
+    .join(",");
+  const key = `${mode}:k${caps.keyboard}:a${caps.audio}:${entryKey}`;
   if (
     state.numbersMixDeckKey !== key ||
     !Array.isArray(state.numbersMixDeck) ||
     !state.numbersMixDeck.length
   ) {
     state.numbersMixDeckKey = key;
-    state.numbersMixDeck = buildMixDeck(topicId, state.numbersMixSteps, mode);
+    state.numbersMixDeck = buildMixDeckFromEntries(entries, mode);
     state.numbersMixCursor = 0;
   }
   syncMixItemFocus();
@@ -1823,26 +866,33 @@ function listenDigitAllowed(n) {
   return listenValuePool().includes(n);
 }
 
-/** Stable identity for a Numbers pool item (anti-repeat + Back). */
+/** Stable identity for a Numbers pool item (anti-repeat + Back/Forward). */
 function numbersItemKey(meta) {
   if (meta == null) return "";
-  if (typeof meta === "number") return `v:${meta}`;
-  if (meta.value != null && (meta.kind === "cardinal" || !meta.kind))
-    return `v:${meta.value}`;
-  if (meta.kind === "weekday") return `wd:${meta.index}`;
-  if (meta.kind === "month") return `mo:${meta.month}`;
-  if (meta.kind === "ordinal" || meta.kind === "ordinal-am")
-    return `ord:${meta.kind}:${meta.n}`;
-  if (meta.kind === "clock" || meta.kind === "digital-time")
-    return `t:${meta.kind}:${meta.hours}:${meta.minutes}`;
-  if (meta.kind === "duration") return `dur:${meta.hours}:${meta.minutes}`;
-  if (meta.kind === "calendar-date")
-    return `cal:${meta.day}.${meta.month}.${meta.year ?? ""}`;
-  if (meta.kind === "measure")
-    return `meas:${meta.unit}:${meta.value ?? meta.n ?? meta.written}`;
-  if (meta.written != null) return `${meta.kind || "w"}:${meta.written}`;
-  if (meta.form != null) return `${meta.kind || "f"}:${meta.form}`;
-  return `x:${String(meta)}`;
+  let base = "";
+  if (typeof meta === "number") base = `v:${meta}`;
+  else if (meta.value != null && (meta.kind === "cardinal" || !meta.kind))
+    base = `v:${meta.value}`;
+  else if (meta.kind === "weekday") base = `wd:${meta.index}`;
+  else if (meta.kind === "month") base = `mo:${meta.month}`;
+  else if (meta.kind === "ordinal" || meta.kind === "ordinal-am")
+    base = `ord:${meta.kind}:${meta.n}`;
+  else if (meta.kind === "clock" || meta.kind === "digital-time")
+    base = `t:${meta.kind}:${meta.hours}:${meta.minutes}`;
+  else if (meta.kind === "duration") base = `dur:${meta.hours}:${meta.minutes}`;
+  else if (meta.kind === "calendar-date")
+    base = `cal:${meta.day}.${meta.month}.${meta.year ?? ""}`;
+  else if (meta.kind === "measure")
+    base = `meas:${meta.unit}:${meta.value ?? meta.n ?? meta.written}`;
+  else if (meta.written != null) base = `${meta.kind || "w"}:${meta.written}`;
+  else if (meta.form != null) base = `${meta.kind || "f"}:${meta.form}`;
+  else base = `x:${String(meta)}`;
+  // Mix decks often repeat the same value across modes/steps — disambiguate.
+  const topic = meta.topicId || "";
+  const step = meta.stepId || "";
+  const mode = meta.mode || "";
+  if (topic || step || mode) return `${topic}:${step}:${mode}:${base}`;
+  return base;
 }
 
 /** Shuffle, but keep `avoidKey` off the front when the pool has 2+ items. */
@@ -1869,12 +919,10 @@ function currentNumbersAvoidKey() {
 
 function reshuffleListenDeck() {
   const avoid = currentNumbersAvoidKey();
-  if (
-    state.numbersTopic !== "cardinals" ||
-    (state.numbersSessionKind === "mix" &&
-      state.numbersMixTopic &&
-      state.numbersMixTopic !== "cardinals")
-  ) {
+  const mixNonCardinal =
+    state.numbersSessionKind === "mix" &&
+    currentMixEntries().some((e) => e.topicId !== "cardinals");
+  if (state.numbersTopic !== "cardinals" || mixNonCardinal) {
     const pool =
       state.numbersSessionKind === "mix"
         ? (state.numbersMixDeck || []).filter((m) => m.mode === "listen")
@@ -1894,11 +942,10 @@ function ensureListenDeck() {
     state.numbersSessionKind === "mix"
       ? `mix:${state.numbersMixDeckKey || ""}`
       : `${state.numbersTopic}:${state.numbersStep}`;
-  const decimalish =
-    state.numbersTopic !== "cardinals" ||
-    (state.numbersSessionKind === "mix" &&
-      state.numbersMixTopic &&
-      state.numbersMixTopic !== "cardinals");
+  const mixNonCardinal =
+    state.numbersSessionKind === "mix" &&
+    currentMixEntries().some((e) => e.topicId !== "cardinals");
+  const decimalish = state.numbersTopic !== "cardinals" || mixNonCardinal;
   const expected = decimalish
     ? currentNumberPool().length
     : listenValuePool().length;
@@ -2122,12 +1169,16 @@ function currentWrittenishExercise(meta) {
         hint:
           state.numbersDifficulty === "assisted"
             ? readTime
-              ? `Pick the German ${clockFormatLabel(meta)} reading.`
+              ? meta.kind === "digital-time"
+                ? "Pick the formal · 24-hour reading (… Uhr …)."
+                : "Pick the conversational reading (relative to halb when relevant)."
               : meta.kind === "decimal" || meta.kind === "money"
                 ? "Replay if needed. Pick the written form (Komma, not Punkt)."
                 : "Replay if needed. Pick the written form you heard."
             : readTime
-              ? `Type the German ${clockFormatLabel(meta)} reading.`
+              ? meta.kind === "digital-time"
+                ? "Type the formal · 24-hour reading (… Uhr …)."
+                : "Type the conversational reading (relative to halb when relevant)."
               : meta.kind === "decimal" || meta.kind === "money"
                 ? "Replay if needed, then type the written form (use Komma)."
                 : "Replay if needed, then type the written form.",
@@ -2323,24 +1374,47 @@ function currentWrittenishExercise(meta) {
 function listenWrittenChoices(meta) {
   const pool = currentNumberPool();
   const correct = meta.written;
-  const picks = new Set([correct]);
+  const picks = new Set([correct].filter(Boolean));
+  // Decimal/money: skip English point orthography (4.85). Do NOT skip
+  // ordinal/date forms that use a trailing period (12., am 3.).
+  const skipEnglishPoint = meta.kind === "decimal" || meta.kind === "money";
   const candidates = shuffle(
     pool.map((m) => m.written).filter((w) => w && w !== correct)
   );
   for (const w of candidates) {
     if (picks.size >= 4) break;
-    // Only German written (Komma) forms — no English point distractors.
-    if (String(w).includes(".")) continue;
+    if (
+      skipEnglishPoint &&
+      String(w).includes(".") &&
+      !String(w).includes(",")
+    ) {
+      continue;
+    }
     picks.add(w);
   }
-  return shuffle([...picks]).slice(0, 4);
+  // Pad with nearby written ordinals when the pool is thin or filters ate distractors.
+  if (
+    picks.size < 4 &&
+    (meta.kind === "ordinal" || meta.kind === "ordinal-am") &&
+    meta.n != null
+  ) {
+    for (const d of [1, -1, 2, -2, 3, -3, 4, 5, 10, -5]) {
+      if (picks.size >= 4) break;
+      const n = meta.n + d;
+      if (!Number.isInteger(n) || n < 1 || n > 999) continue;
+      const w =
+        meta.kind === "ordinal-am" ? `am ${n}.` : `${n}.`;
+      if (w !== correct) picks.add(w);
+    }
+  }
+  return shuffle([...picks]).slice(0, Math.max(1, Math.min(4, picks.size)));
 }
 
 /** MC choices: German spoken readings (for Read-the-time quizzes). */
 function listenGermanFormChoices(meta) {
   const pool = currentNumberPool();
   const correct = meta.form;
-  const picks = new Set([correct]);
+  const picks = new Set([correct].filter(Boolean));
   const candidates = shuffle(
     pool.map((m) => m.form).filter((f) => f && f !== correct)
   );
@@ -2348,13 +1422,34 @@ function listenGermanFormChoices(meta) {
     if (picks.size >= 4) break;
     picks.add(f);
   }
-  return shuffle([...picks]).slice(0, 4);
+  return shuffle([...picks]).slice(0, Math.max(1, Math.min(4, picks.size)));
 }
 
-/** "12-hour form" vs "24-hour form" label for clock cues. */
+/** Reading register for clock cues (conversational vs formal digital). */
+function clockReadingRegister(meta) {
+  if (meta?.kind === "digital-time") {
+    return {
+      id: "formal-24h",
+      label: "Formal · 24-hour",
+      // Style exemplar — not the item under test.
+      example: "dreizehn Uhr fünfundzwanzig",
+    };
+  }
+  if (meta?.kind === "clock") {
+    return {
+      id: "conversational",
+      label: "Conversational reading",
+      example: "fünf vor halb zwei",
+    };
+  }
+  return null;
+}
+
+/** @deprecated use clockReadingRegister — kept for call sites mid-migration. */
 function clockFormatLabel(meta) {
-  if (meta?.kind === "digital-time") return "24-hour";
-  if (meta?.kind === "clock") return "12-hour";
+  const reg = clockReadingRegister(meta);
+  if (reg?.id === "formal-24h") return "Formal · 24-hour";
+  if (reg?.id === "conversational") return "conversational";
   return "";
 }
 
@@ -2382,9 +1477,9 @@ function convertReadingExample(meta) {
     case "mixed-fraction":
       return "zwei ein halb";
     case "clock":
-      return "Viertel nach drei";
+      return "fünf vor halb zwei";
     case "digital-time":
-      return "dreiundzwanzig Uhr fünfzehn";
+      return "dreizehn Uhr fünfundzwanzig";
     case "duration":
       return "zwei Stunden fünfzehn Minuten";
     case "ordinal":
@@ -2526,6 +1621,46 @@ const NOUN_SINGULAR_PARTS = {
     { text: "Lehr", guide: "LAYR", stress: true },
     { text: "er", guide: "er" },
   ],
+  Wohnung: [
+    { text: "die", guide: "dee" },
+    { text: "Woh", guide: "VOH", stress: true },
+    { text: "nung", guide: "noong" },
+  ],
+  Rechnung: [
+    { text: "die", guide: "dee" },
+    { text: "Rech", guide: "REKH", stress: true },
+    { text: "nung", guide: "noong" },
+  ],
+  Montag: [
+    { text: "der", guide: "dair" },
+    { text: "Mon", guide: "MOHN", stress: true },
+    { text: "tag", guide: "tahk" },
+  ],
+  Zahl: [
+    { text: "die", guide: "dee" },
+    { text: "Zahl", guide: "TSAHL", stress: true },
+  ],
+  Nummer: [
+    { text: "die", guide: "dee" },
+    { text: "Num", guide: "NOOM", stress: true },
+    { text: "mer", guide: "mer" },
+  ],
+  Stunde: [
+    { text: "die", guide: "dee" },
+    { text: "Stun", guide: "SHTOON", stress: true },
+    { text: "de", guide: "duh" },
+  ],
+  Minute: [
+    { text: "die", guide: "dee" },
+    { text: "Mi", guide: "mi" },
+    { text: "nu", guide: "NOO", stress: true },
+    { text: "te", guide: "tuh" },
+  ],
+  Gärtner: [
+    { text: "der", guide: "dair" },
+    { text: "Gärt", guide: "GAIRT", stress: true },
+    { text: "ner", guide: "ner" },
+  ],
   Mädchen: [
     { text: "das", guide: "dahs" },
     { text: "Mäd", guide: "MEHD", stress: true },
@@ -2602,6 +1737,11 @@ const NOUN_PLURAL_PARTS = {
     { text: "Lehr", guide: "LAYR", stress: true },
     { text: "er", guide: "er" },
   ],
+  Gärtner: [
+    { text: "die", guide: "dee" },
+    { text: "Gärt", guide: "GAIRT", stress: true },
+    { text: "ner", guide: "ner" },
+  ],
   Mädchen: [
     { text: "die", guide: "dee" },
     { text: "Mäd", guide: "MEHD", stress: true },
@@ -2639,6 +1779,25 @@ const NOUN_PLURAL_PARTS = {
 function fallbackSingularParts(lemma) {
   const entry = LEXICON[lemma];
   const article = entry ? ARTICLES[entry.gender] : "die";
+  const artGuide =
+    article === "der" ? "dair" : article === "das" ? "dahs" : "dee";
+  return [
+    { text: article, guide: artGuide },
+    { text: lemma, guide: lemma, stress: true },
+  ];
+}
+
+/** Karaoke beats for a vocabulary item (article + lemma when known). */
+function vocabAnswerParts(item) {
+  if (!item) return [];
+  const lemma = item.engine?.lemma || item.surface || "";
+  if (!lemma) return [];
+  if (NOUN_SINGULAR_PARTS[lemma]) return NOUN_SINGULAR_PARTS[lemma];
+  if (LEXICON[lemma]) return fallbackSingularParts(lemma);
+  const heading = String(item.heading || "").trim();
+  const m = heading.match(/^(der|die|das)\s+/i);
+  const article = m ? m[1].toLowerCase() : null;
+  if (!article) return [{ text: lemma, guide: lemma, stress: true }];
   const artGuide =
     article === "der" ? "dair" : article === "das" ? "dahs" : "dee";
   return [
@@ -3988,15 +3147,15 @@ const NUMBERS_INSTRUCTION = {
 };
 
 const NOUNS_INSTRUCTION = {
-  wugs: "Choose the article",
-  "real-words": "Choose the article",
-  articles: "Choose the article",
-  association: "Choose the article",
+  wugs: "Guess the article",
+  "real-words": "Guess the article",
+  articles: "Guess the article",
+  association: "Guess the article",
   plurals: "Build the plural",
   proofread: "Right or wrong?",
   "reverse-mc": "Pick the noun",
   "gender-recognition": "Pick the gender",
-  "article-application": "Choose the article",
+  "article-application": "Guess the article",
   "gender-imposter": "Find the odd one",
   "sentence-validation": "Right or wrong?",
 };
@@ -4004,6 +3163,36 @@ const NOUNS_INSTRUCTION = {
 /** Brief pause so the correct answer can blink before karaoke / advance. */
 let correctFlashTimer = null;
 const CORRECT_FLASH_MS = 1150;
+/** Settle after answer-key TTS ends, then auto-advance. */
+const AFTER_TTS_ADVANCE_MS = 400;
+/** When TTS cannot run — give time to read the answer key, then advance. */
+const NO_TTS_REVEAL_ADVANCE_MS = 1400;
+
+/**
+ * Play answer-key karaoke, then schedule advance.
+ * Advances shortly after TTS completes; if TTS cannot run, after a read pause.
+ * @param {string} spoken
+ * @param {object[]} parts
+ * @param {HTMLElement[]} nodes
+ * @param {(delayMs: number) => void} scheduleAdvance
+ */
+function playAnswerKeyThenAdvance(spoken, parts, nodes, scheduleAdvance) {
+  const canSpeak =
+    !!spoken &&
+    Array.isArray(nodes) &&
+    nodes.length > 0 &&
+    !!window.speechSynthesis &&
+    navCaps().audio;
+  if (!canSpeak) {
+    scheduleAdvance(NO_TTS_REVEAL_ADVANCE_MS);
+    return;
+  }
+  playKaraokeFlow(spoken, parts, nodes, {
+    keepAdvance: true,
+    onEnd: () => scheduleAdvance(AFTER_TTS_ADVANCE_MS),
+    onError: () => scheduleAdvance(NO_TTS_REVEAL_ADVANCE_MS),
+  });
+}
 
 function clearCorrectFlashTimer() {
   if (correctFlashTimer) {
@@ -4075,12 +3264,17 @@ function presentCorrectAnswer({
   choiceEls = [],
   then,
 }) {
+  // Play chime on the same turn as the selection so AudioContext resume
+  // stays tied to the user gesture (fillAnswerReveal runs after the flash).
+  if (reveal) {
+    if (reveal.ok === true) playFeedbackSound("ok");
+    else if (reveal.ok === false) playFeedbackSound("bad");
+  }
   const snapTargets = answerEls.length ? answerEls : choiceEls;
   for (const el of answerEls) applyCorrectFlash(el);
   for (const el of wrongEls) applyWrongFlash(el);
-  if (!answerEls.length && !wrongEls.length) {
-    for (const el of choiceEls) applyCorrectFlash(el);
-  }
+  // Always flash matching MC choices when provided (all multi-choice modes).
+  for (const el of choiceEls) applyCorrectFlash(el);
   // The "Snap": correct field(s) settle into place with a brief spring.
   for (const el of snapTargets) {
     if (!el) continue;
@@ -4091,12 +3285,12 @@ function presentCorrectAnswer({
 
   flashCorrectThen(() => {
     let nodes = [];
-    if (reveal) nodes = fillAnswerReveal(prefix, reveal);
+    if (reveal) nodes = fillAnswerReveal(prefix, { ...reveal, silent: true });
     then?.(nodes);
   });
 }
 
-function fillAnswerReveal(prefix, { word, wordHtml, parts, en, ok, verdictLabel }) {
+function fillAnswerReveal(prefix, { word, wordHtml, parts, en, ok, verdictLabel, silent }) {
   const root = document.getElementById(`${prefix}-reveal`);
   const wordEl = document.getElementById(`${prefix}-reveal-word`);
   const phonEl = document.getElementById(`${prefix}-reveal-phonetic`);
@@ -4112,8 +3306,10 @@ function fillAnswerReveal(prefix, { word, wordHtml, parts, en, ok, verdictLabel 
   root.classList.toggle("is-ok", ok === true);
   root.classList.toggle("is-bad", ok === false);
   setVerdict(prefix, ok, verdictLabel);
-  if (ok === true) playFeedbackSound("ok");
-  else if (ok === false) playFeedbackSound("bad");
+  if (!silent) {
+    if (ok === true) playFeedbackSound("ok");
+    else if (ok === false) playFeedbackSound("bad");
+  }
   wordEl.classList.remove("is-correct-flash");
   wordEl.setAttribute("lang", "de");
   if (wordHtml) wordEl.innerHTML = wordHtml;
@@ -4281,7 +3477,18 @@ const state = {
   /** In-memory attempt log (mock stand-in for persistence). */
   attemptLog: [],
 
-  /** briefing | chart | practice | hub */
+  /** Active vocabulary panel controller (Learn/Practice). */
+  vocabMount: null,
+  /** "learn" | "practice" while phase is vocab-* */
+  vocabMode: "learn",
+  /** Optional Numbers Vocabulary area filter (null = all). */
+  vocabAreas: null,
+  /** Shared Learn/Practice Custom mix playlist (session crumb dropdown). */
+  sessionPlaylist: emptyPlaylistState(),
+  /** @type {{ destroy: Function, refresh: Function } | null} */
+  playlistMount: null,
+
+  /** briefing | chart | practice | hub | vocab-learn | vocab-practice */
   phase: {
     sounds: "briefing",
     numbers: "hub",
@@ -4305,6 +3512,8 @@ const state = {
   /** Custom mix: step ids added via + Mix (Cardinals for now). */
   numbersMixSteps: [],
   numbersMixTopic: "cardinals",
+  /** @type {{ topicId: string, stepId: string }[]} multi-topic mix units */
+  numbersMixEntries: [],
   numbersMixMode: "build",
   /** @type {{ keyboard: boolean, audio: boolean } | null} */
   navCaps: null,
@@ -4321,8 +3530,9 @@ const state = {
   numbersMixDeck: null,
   numbersMixDeckKey: "",
   numbersMixCursor: 0,
-  /** Stack of prior question snapshots for Back (survives reshuffles / Guided). */
-  numbersNavStack: [],
+  /** Visited Numbers questions in order — Back/Forward move an index through this. */
+  numbersHistory: [],
+  numbersHistoryIndex: -1,
   /** Hub: `${topic}:${step}` while Practice mode picker is open. */
   numbersHubPracticePick: "",
   soundsChartTab: "vowels",
@@ -4331,32 +3541,52 @@ const state = {
 };
 
 /** Caps from hub carousel (localStorage) + session Start; default Write+Listen on.
- * Pick-style quizzes (Build / Choose article) are always available. */
+ * Each style: false (off) | true (include) | "only" (exclusive — inverted button).
+ * Pick-style quizzes (Build) stay available unless a style is exclusive. */
+function normalizeCapValue(v) {
+  if (v === "only") return "only";
+  return v !== false;
+}
+
+function capEnabled(v) {
+  return v === true || v === "only";
+}
+
+function capExclusive(v) {
+  return v === "only";
+}
+
 function navCaps() {
   try {
     const raw = localStorage.getItem("schnapp-nav-caps");
     if (raw) {
       const parsed = JSON.parse(raw);
       return {
-        keyboard: parsed.keyboard !== false,
-        audio: parsed.audio !== false,
+        keyboard: normalizeCapValue(parsed.keyboard),
+        audio: normalizeCapValue(parsed.audio),
       };
     }
   } catch (_) {
     /* ignore */
   }
   return {
-    keyboard: state.navCaps?.keyboard !== false,
-    audio: state.navCaps?.audio !== false,
+    keyboard: normalizeCapValue(state.navCaps?.keyboard),
+    audio: normalizeCapValue(state.navCaps?.audio),
   };
 }
 
 function modeAllowedByCaps(modeId) {
   const caps = navCaps();
-  if (modeId === "listen" && !caps.audio) return false;
+  if (capExclusive(caps.keyboard)) {
+    return modeId === "convert" || modeId === "proofread";
+  }
+  if (capExclusive(caps.audio)) {
+    return modeId === "listen";
+  }
+  if (modeId === "listen" && !capEnabled(caps.audio)) return false;
   if (
     (modeId === "convert" || modeId === "proofread") &&
-    !caps.keyboard
+    !capEnabled(caps.keyboard)
   ) {
     return false;
   }
@@ -4370,12 +3600,14 @@ function filterModesForCaps(modes) {
 /** Mix mode id respecting hub caps (build / listen / either / convert). */
 function mixModeForCaps(preferred) {
   const caps = navCaps();
+  if (capExclusive(caps.keyboard)) return "convert";
+  if (capExclusive(caps.audio)) return "listen";
   const p = preferred || "either";
   if (p === "build") return "build";
   if (p === "listen") return modeAllowedByCaps("listen") ? "listen" : firstAllowedModeId();
   if (p === "convert")
     return modeAllowedByCaps("convert") ? "convert" : firstAllowedModeId();
-  if (caps.audio || caps.keyboard) return "either";
+  if (capEnabled(caps.audio) || capEnabled(caps.keyboard)) return "either";
   return "build";
 }
 
@@ -4388,19 +3620,23 @@ function firstAllowedModeId() {
 
 function mixModeOptionsForCaps() {
   const caps = navCaps();
+  if (capExclusive(caps.keyboard)) return [{ id: "convert", label: "Convert" }];
+  if (capExclusive(caps.audio)) return [{ id: "listen", label: "Listen" }];
   const opts = [{ id: "build", label: "Build" }];
-  if (caps.audio) opts.push({ id: "listen", label: "Listen" });
-  if (caps.keyboard) opts.push({ id: "convert", label: "Convert" });
+  if (capEnabled(caps.audio)) opts.push({ id: "listen", label: "Listen" });
+  if (capEnabled(caps.keyboard)) opts.push({ id: "convert", label: "Convert" });
   if (opts.length > 1) opts.push({ id: "either", label: "Either" });
   return opts;
 }
 
 function capsSessionHint() {
   const caps = navCaps();
-  if (caps.keyboard && caps.audio) return "";
+  if (capExclusive(caps.keyboard)) return "write only";
+  if (capExclusive(caps.audio)) return "listen only";
+  if (capEnabled(caps.keyboard) && capEnabled(caps.audio)) return "";
   const parts = [];
-  if (!caps.audio) parts.push("listen off");
-  if (!caps.keyboard) parts.push("write off");
+  if (!capEnabled(caps.audio)) parts.push("listen off");
+  if (!capEnabled(caps.keyboard)) parts.push("write off");
   return parts.join(" · ");
 }
 
@@ -4443,9 +3679,318 @@ const NOUNS_MODE_CRUMB = {
   "sentence-validation": "Sentence Validation",
 };
 
+function destroyPlaylistMount() {
+  state.playlistMount?.destroy?.();
+  state.playlistMount = null;
+  state.playlistMountKind = null;
+  const host = document.getElementById("session-playlist-host");
+  if (host) {
+    host.innerHTML = "";
+    host.hidden = true;
+  }
+}
+
+function clearSessionPlaylist() {
+  destroyPlaylistMount();
+  state.sessionPlaylist = emptyPlaylistState();
+}
+
+function defaultPlaylistSequence() {
+  return state.sessionMode === "play" ? "random" : "order";
+}
+
+function seedNumbersPlaylist(quizUnits, { vocabOnly = false } = {}) {
+  const catalog = buildNumbersCatalog(
+    NUMBERS_TOPICS,
+    vocabularyAreas.numbers || [],
+    curriculumTopicToVocabArea,
+    quizUnits || [],
+    { includeVocab: true, forceAllTopics: false }
+  );
+  const ids = catalogUnitIds(catalog);
+  state.sessionPlaylist = {
+    initialUnitIds: [...ids],
+    enabledUnitIds: [...ids],
+    sequence: defaultPlaylistSequence(),
+    catalog,
+    territory: "numbers",
+    kind: vocabOnly || !(quizUnits || []).length ? "numbers-vocab" : "numbers-quiz",
+  };
+}
+
+function seedNounsPlaylist(familyIds) {
+  let cat = buildNounsCatalog(GENDER_SHORTCUTS_UNITS, familyIds);
+  if (!catalogUnitIds(cat).length && familyIds?.length) {
+    const want = new Set(familyIds);
+    cat = buildNounsCatalog(GENDER_SHORTCUTS_UNITS, null)
+      .map((t) => ({
+        ...t,
+        children: (t.children || []).filter((c) => want.has(c.familyId)),
+      }))
+      .filter((t) => t.children.length);
+  }
+  const ids = catalogUnitIds(cat);
+  state.sessionPlaylist = {
+    initialUnitIds: [...ids],
+    enabledUnitIds: [...ids],
+    sequence: defaultPlaylistSequence(),
+    catalog: cat,
+    territory: "nouns",
+    kind: "nouns",
+  };
+}
+
+function applyPlaylistSequenceToDeck(deck) {
+  if (!Array.isArray(deck) || deck.length < 2) return deck;
+  if (state.sessionPlaylist.sequence === "random") {
+    return shuffleAvoidingKey(deck, numbersItemKey(deck[0]));
+  }
+  return sortMixDeckInOrder(deck);
+}
+
+function sortMixDeckInOrder(deck) {
+  const topicOrder = NUMBERS_TOPICS.map((t) => t.id);
+  const stepOrder = new Map();
+  for (const t of NUMBERS_TOPICS) {
+    (t.steps || []).forEach((s, i) =>
+      stepOrder.set(`${t.id}:${s.id}`, i)
+    );
+  }
+  const modeOrder = [
+    "build",
+    "listen",
+    "convert",
+    "cloze",
+    "proofread",
+    "visual",
+    "sentence",
+  ];
+  return [...deck].sort((a, b) => {
+    const ta = topicOrder.indexOf(a.topicId);
+    const tb = topicOrder.indexOf(b.topicId);
+    if (ta !== tb) return ta - tb;
+    const sa = stepOrder.get(`${a.topicId}:${a.stepId}`) ?? 0;
+    const sb = stepOrder.get(`${b.topicId}:${b.stepId}`) ?? 0;
+    if (sa !== sb) return sa - sb;
+    return modeOrder.indexOf(a.mode) - modeOrder.indexOf(b.mode);
+  });
+}
+
+/** Rebuild active Learn/Practice from sessionPlaylist (immediate). */
+function rebuildSessionFromPlaylist() {
+  const pl = state.sessionPlaylist;
+  if (!pl?.catalog?.length) return;
+
+  if (pl.kind === "numbers-quiz" || pl.kind === "numbers-vocab") {
+    const quiz = enabledQuizEntries(pl);
+    const areas = enabledVocabAreas(pl);
+
+    if (quiz.length) {
+      pl.kind = "numbers-quiz";
+      clearLearnSeries();
+      state.numbersMixEntries = quiz.map((e) => ({
+        topicId: e.topicId,
+        stepId: e.stepId,
+      }));
+      state.numbersMixSteps = quiz.map((e) => e.stepId);
+      const topics = [...new Set(quiz.map((e) => e.topicId))];
+      state.numbersMixTopic = topics.length === 1 ? topics[0] : "multi";
+      state.numbersMixMode = mixModeForCaps(state.numbersMixMode || "either");
+      if (!prepareNumbersMixState()) return;
+      if (state.numbersMixDeck?.length) {
+        state.numbersMixDeck = applyPlaylistSequenceToDeck(state.numbersMixDeck);
+        state.numbersMixCursor = 0;
+        syncMixItemFocus();
+      }
+      state.phase.numbers = "practice";
+      state.preservePractice.numbers = false;
+      destroyVocabMount();
+      showTerritoryPhase("numbers");
+      renderNumbers();
+      updateSessionCrumb("numbers");
+      return;
+    }
+
+    if (areas.length || playlistHasVocab(pl)) {
+      pl.kind = "numbers-vocab";
+      clearLearnSeries();
+      state.vocabAreas = areas.length ? areas : null;
+      state.vocabMode = state.sessionMode === "learn" ? "learn" : "practice";
+      state.phase.numbers =
+        state.vocabMode === "practice" ? "vocab-practice" : "vocab-learn";
+      state.preservePractice.numbers = false;
+      showTerritoryPhase("numbers");
+      updateSessionCrumb("numbers");
+      return;
+    }
+    updateSessionCrumb("numbers");
+    return;
+  }
+
+  if (pl.kind === "nouns") {
+    const fams = enabledNounFamilies(pl);
+    if (!fams.length) {
+      updateSessionCrumb("nouns");
+      return;
+    }
+    clearLearnSeries();
+    const uniqueFamilies = fams.map((f) => f.familyId);
+    state.nounsLearnUnit =
+      fams[0].learnUnitId || unitIdForFamily(uniqueFamilies[0]);
+    if (uniqueFamilies.length === 1) {
+      state.nounsSessionKind = "focus";
+      state.nounsFamilyMix = [];
+      state.nounsMode = uniqueFamilies[0];
+    } else {
+      state.nounsSessionKind = "family-mix";
+      state.nounsFamilyMix =
+        pl.sequence === "random"
+          ? shuffle([...uniqueFamilies])
+          : uniqueFamilies;
+      state.nounsMode = state.nounsFamilyMix[0];
+    }
+    resetNounsDeckForMode();
+    state.phase.nouns = "practice";
+    state.preservePractice.nouns = false;
+    showTerritoryPhase("nouns");
+    updateSessionCrumb("nouns");
+  }
+}
+
+function syncPlaylistDropdown() {
+  const host = document.getElementById("session-playlist-host");
+  if (!host) return;
+  const pl = state.sessionPlaylist;
+  const guided = state.sessionMode === "guided";
+  const hasCatalog = pl?.catalog?.length > 0;
+  const view = state.view;
+  const inSession =
+    (view === "numbers" || view === "nouns") &&
+    state.phase[view] !== "hub" &&
+    state.sessionMode;
+
+  if (!inSession || !hasCatalog || guided) {
+    destroyPlaylistMount();
+    return;
+  }
+
+  if (state.playlistMount && state.playlistMountKind === pl.kind) {
+    state.playlistMount.refresh();
+    return;
+  }
+
+  destroyPlaylistMount();
+  state.playlistMountKind = pl.kind;
+  state.playlistMount = mountSessionPlaylistDropdown(host, {
+    getPlaylist: () => state.sessionPlaylist,
+    disabled: false,
+    getCaps: () => navCaps(),
+    onCaps: (caps) => setNavCaps(caps),
+    getCurrentUnitId: currentPlaylistUnitId,
+    onChange: (next) => {
+      state.sessionPlaylist = { ...state.sessionPlaylist, ...next };
+      rebuildSessionFromPlaylist();
+    },
+  });
+}
+
+function currentPlaylistUnitId() {
+  const pl = state.sessionPlaylist;
+  if (!pl?.kind) return null;
+  if (pl.kind === "numbers-quiz") {
+    if (state.numbersTopic && state.numbersStep) {
+      return `${state.numbersTopic}:${state.numbersStep}`;
+    }
+    return null;
+  }
+  if (pl.kind === "numbers-vocab") {
+    const item = state.vocabMount?.getCurrentItem?.();
+    if (item?.area) return `vocab:numbers:${item.area}`;
+    const areas = enabledVocabAreas(pl);
+    return areas[0] ? `vocab:numbers:${areas[0]}` : null;
+  }
+  if (pl.kind === "nouns" && state.nounsMode) {
+    return `nouns:family:${state.nounsMode}`;
+  }
+  return null;
+}
+
+function setNavCaps({ keyboard, audio }) {
+  const next = {
+    keyboard: normalizeCapValue(keyboard),
+    audio: normalizeCapValue(audio),
+  };
+  if (capExclusive(next.keyboard) && capExclusive(next.audio)) {
+    // Mutual exclusion — keep the one just set by preferring keyboard if both.
+    next.audio = false;
+  }
+  state.navCaps = next;
+  try {
+    localStorage.setItem("schnapp-nav-caps", JSON.stringify(next));
+  } catch (_) {
+    /* ignore */
+  }
+  state.numbersMixMode = mixModeForCaps(state.numbersMixMode || "either");
+  clearNumbersHistory();
+  if (state.sessionPlaylist?.kind === "numbers-quiz") {
+    rebuildSessionFromPlaylist();
+    return;
+  }
+  if (state.view === "numbers" && state.phase.numbers === "practice") {
+    clearNumbersAdvance();
+    stopSpeech();
+    renderNumbers();
+    return;
+  }
+  if (state.view === "nouns" && state.phase.nouns === "practice") {
+    clearNounsAdvance();
+    stopSpeech();
+    renderNouns();
+  }
+}
+
+function syncScaffoldMenu() {
+  const diff = state.numbersDifficulty === "core" ? "core" : "assisted";
+  document.querySelectorAll("[data-scaffold-difficulty]").forEach((btn) => {
+    const on = btn.dataset.scaffoldDifficulty === diff;
+    btn.setAttribute("aria-checked", String(on));
+    const mark = btn.querySelector(".menu-check-mark");
+    if (mark) mark.textContent = on ? "✓" : "";
+  });
+}
+
+function setScaffoldDifficulty(diff) {
+  const next = diff === "core" ? "core" : "assisted";
+  state.numbersDifficulty = next;
+  state.nounsDifficulty = next;
+  state.soundsDifficulty = next;
+  syncScaffoldMenu();
+  if (state.view === "numbers" && state.phase.numbers === "practice") {
+    clearNumbersAdvance();
+    stopSpeech();
+    showTerritoryPhase("numbers");
+    return;
+  }
+  if (state.view === "nouns" && state.phase.nouns === "practice") {
+    clearNounsAdvance();
+    stopSpeech();
+    showTerritoryPhase("nouns");
+    return;
+  }
+  if (state.view === "sounds" && state.phase.sounds === "practice") {
+    setSoundsDifficulty(next);
+    showTerritoryPhase("sounds");
+  }
+}
+
+function refreshPlaylistChrome() {
+  state.playlistMount?.refresh?.();
+}
+
 /** Short breadcrumb segments for the persistent session header. */
 function sessionCrumbParts(view) {
   if (view === "numbers") {
+    if (state.sessionPlaylist?.kind === "numbers-vocab") return ["Vocabulary"];
     if (state.numbersSessionKind === "mix") return ["Custom mix"];
     const step = getNumbersStep(state.numbersTopic, state.numbersStep)?.label;
     // Guided chrome is tight: badge + step + reason — drop Numbers/topic/mode.
@@ -4456,6 +4001,7 @@ function sessionCrumbParts(view) {
     return [topic, step, mode].filter(Boolean);
   }
   if (view === "nouns") {
+    if (state.nounsSessionKind === "family-mix") return ["Custom mix"];
     const unit = getGenderShortcutsUnit(state.nounsLearnUnit)?.label || "Nouns";
     const fam = NOUNS_MODE_CRUMB[state.nounsMode] || "";
     if (state.sessionMode === "guided") return [fam || unit].filter(Boolean);
@@ -4465,7 +4011,7 @@ function sessionCrumbParts(view) {
   return [];
 }
 
-/** Persistent chrome: LEARN/PLAY badge + breadcrumb, shown only in practice. */
+/** Persistent chrome: Guided badge/breadcrumb, or full-width playlist. */
 function updateSessionCrumb(view) {
   const bar = document.getElementById("session-crumb");
   const modeEl = document.getElementById("session-mode");
@@ -4477,13 +4023,22 @@ function updateSessionCrumb(view) {
   const inTerritory = isSession && state.phase[view] !== "hub";
   if (!inTerritory || !state.sessionMode) {
     bar.hidden = true;
+    destroyPlaylistMount();
     return;
   }
 
   const modeKey = state.sessionMode || "play";
   const guided = modeKey === "guided";
+  const hasPlaylist =
+    !guided &&
+    (view === "numbers" || view === "nouns") &&
+    state.sessionPlaylist?.catalog?.length > 0;
+
   modeEl.textContent = SESSION_MODE_LABELS[modeKey] || "Play";
   modeEl.dataset.mode = modeKey;
+  modeEl.hidden = !guided;
+  crumbEl.hidden = hasPlaylist && !guided;
+
   // Guided: mode badge opens the Coach sheet (why this path / progress).
   if (guided) {
     modeEl.setAttribute("role", "button");
@@ -4502,47 +4057,51 @@ function updateSessionCrumb(view) {
     modeEl.classList.remove("is-coach");
   }
 
-  const parts = sessionCrumbParts(view);
-  crumbEl.innerHTML = parts
-    .map(
-      (p, i) =>
-        `<span class="crumb-seg${
-          i === parts.length - 1 ? " is-current" : ""
-        }">${p}</span>`
-    )
-    .join('<span class="crumb-sep" aria-hidden="true">·</span>');
+  if (!crumbEl.hidden) {
+    const parts = sessionCrumbParts(view);
+    crumbEl.innerHTML = parts
+      .map(
+        (p, i) =>
+          `<span class="crumb-seg${
+            i === parts.length - 1 ? " is-current" : ""
+          }">${p}</span>`
+      )
+      .join('<span class="crumb-sep" aria-hidden="true">·</span>');
 
-  // Reason chip = Coach's "why this exercise" signal (Review / New / Continue).
-  // In Guided, it's a button that opens the Coach sheet.
-  const reason = state.currentReasonCode;
-  if (reason && reason.label) {
+    // Reason chip = Coach's "why this exercise" signal (Review / New / Continue).
+    const reason = state.currentReasonCode;
+    if (reason && reason.label) {
+      if (guided) {
+        crumbEl.insertAdjacentHTML(
+          "beforeend",
+          `<button type="button" class="crumb-reason crumb-reason-${
+            reason.code
+          } is-coach" data-coach-open title="Why this exercise?">${
+            reason.label
+          }</button>`
+        );
+      } else {
+        crumbEl.insertAdjacentHTML(
+          "beforeend",
+          `<span class="crumb-reason crumb-reason-${reason.code}" title="${
+            reason.hint || ""
+          }">${reason.label}</span>`
+        );
+      }
+    }
+
     if (guided) {
       crumbEl.insertAdjacentHTML(
         "beforeend",
-        `<button type="button" class="crumb-reason crumb-reason-${
-          reason.code
-        } is-coach" data-coach-open title="Why this exercise?">${
-          reason.label
-        }</button>`
-      );
-    } else {
-      crumbEl.insertAdjacentHTML(
-        "beforeend",
-        `<span class="crumb-reason crumb-reason-${reason.code}" title="${
-          reason.hint || ""
-        }">${reason.label}</span>`
+        `<button type="button" class="crumb-debug" data-guided-debug title="Session Q&amp;A and dealer log">Debug</button>`
       );
     }
-  }
-
-  if (guided) {
-    crumbEl.insertAdjacentHTML(
-      "beforeend",
-      `<button type="button" class="crumb-debug" data-guided-debug title="Session Q&amp;A and dealer log">Debug</button>`
-    );
+  } else {
+    crumbEl.innerHTML = "";
   }
 
   bar.hidden = false;
+  syncPlaylistDropdown();
 }
 
 function navigate(view, opts = {}) {
@@ -4673,6 +4232,23 @@ function makeSylDisplay({ ortho, guide, stress = false }) {
   return el;
 }
 
+/** Wire karaoke play on the example button and the left cue (same utterance). */
+function wireChartRowPlay(exampleBtn, patternEl, play) {
+  exampleBtn.addEventListener("click", play);
+  if (!patternEl) return;
+  patternEl.classList.add("is-playable");
+  patternEl.setAttribute("role", "button");
+  patternEl.tabIndex = 0;
+  patternEl.title = "Tap to hear";
+  const onActivate = (e) => {
+    if (e.type === "keydown" && e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    play();
+  };
+  patternEl.addEventListener("click", onActivate);
+  patternEl.addEventListener("keydown", onActivate);
+}
+
 function renderSoundsChart() {
   const root = document.getElementById("sounds-chart");
   if (!root) return;
@@ -4695,7 +4271,7 @@ function renderSoundsChart() {
   root.innerHTML = `
     <div class="chart-tabs" role="tablist">${tabs}</div>
     <div class="chart-scroll">
-      <p class="chart-note">Curated high-value patterns — not every German sound. Left side is silent reference. Tap an example for the full word; CAPS + underline = stressed syllable.</p>
+      <p class="chart-note">Curated high-value patterns — not every German sound. Tap a cue or example to hear the word; CAPS + underline = stressed syllable.</p>
       ${tabBlurb}
       <div class="chart-list" id="chart-list"></div>
     </div>
@@ -4740,11 +4316,12 @@ function renderSoundsChart() {
     });
     example.appendChild(chips);
 
-    example.addEventListener("click", () => {
+    const play = () => {
       const nodes = [...chips.querySelectorAll(".syl")];
       const tts = parts.map((p) => p.text).join("");
       playKaraokeFlow(tts, parts, nodes);
-    });
+    };
+    wireChartRowPlay(example, parts.length ? pattern : null, play);
 
     row.append(pattern, example);
     list.appendChild(row);
@@ -4896,6 +4473,8 @@ function applyNumbersFocus({ topicId, stepId, modeId, difficulty, lock = true })
   state.numbersStep = stepId;
   state.numbersQuizMode = mode;
   state.numbersFocusLocked = !!lock;
+  state.numbersMixEntries = [];
+  state.numbersMixSteps = [];
   if (difficulty) state.numbersDifficulty = difficulty;
   state.numbersIndex = 0;
   state.numbersStepDeck = null;
@@ -4908,10 +4487,24 @@ function applyNumbersFocus({ topicId, stepId, modeId, difficulty, lock = true })
 
 function startNumbersPractice(focus) {
   clearCrossTerritoryMix();
-  if (!applyNumbersFocus(focus)) return;
-  state.phase.numbers = "practice";
-  state.preservePractice.numbers = false;
-  showTerritoryPhase("numbers");
+  state.sessionMode = state.sessionMode || "play";
+  seedNumbersPlaylist([{ topicId: focus.topicId, stepId: focus.stepId }]);
+  state.numbersMixMode = mixModeForCaps(focus.modeId || "either");
+  // Prefer mix session so Custom mix can expand units; seed with this step
+  state.numbersMixEntries = [{ topicId: focus.topicId, stepId: focus.stepId }];
+  state.numbersMixSteps = [focus.stepId];
+  state.numbersMixTopic = focus.topicId;
+  if (focus.modeId && focus.modeId !== "either") {
+    // Single-modality focus when user picked a specific mode chip
+    if (!applyNumbersFocus(focus)) return;
+    state.phase.numbers = "practice";
+    state.preservePractice.numbers = false;
+    showTerritoryPhase("numbers");
+    syncPlaylistDropdown();
+    return;
+  }
+  rebuildSessionFromPlaylist();
+  navigate("numbers", { keepPhase: true });
 }
 
 function startNumbersMix() {
@@ -4995,6 +4588,7 @@ function openNounsStepLearn(units) {
 
 function startNounsFamily(familyId, { mix = false } = {}) {
   clearCrossTerritoryMix();
+  state.sessionMode = state.sessionMode === "learn" ? "learn" : "play";
   const unitId = unitIdForFamily(familyId);
   state.nounsLearnUnit = unitId;
   state.nounsModality =
@@ -5004,10 +4598,12 @@ function startNounsFamily(familyId, { mix = false } = {}) {
     state.nounsSessionKind = "family-mix";
     state.nounsFamilyMix = familiesForUnit(unitId).map((f) => f.id);
     state.nounsMode = state.nounsFamilyMix[0] || familyId;
+    seedNounsPlaylist(state.nounsFamilyMix);
   } else {
     state.nounsSessionKind = "focus";
     state.nounsFamilyMix = [];
     state.nounsMode = familyId;
+    seedNounsPlaylist([familyId]);
   }
   resetNounsDeckForMode();
   state.phase.nouns = "practice";
@@ -5034,8 +4630,11 @@ function goNumbersHub() {
   clearCrossTerritoryMix();
   clearLearnSeries();
   stopSpeech();
+  destroyVocabMount();
+  state.numbersHubPracticePick = "";
   state.preservePractice.numbers = false;
-  navigate("hub");
+  state.phase.numbers = "hub";
+  navigate("numbers", { keepPhase: true });
 }
 
 function softAfterLabel(topicId, step) {
@@ -5066,6 +4665,116 @@ function numbersSessionLabel() {
   );
 }
 
+function destroyVocabMount() {
+  if (state.vocabMount) {
+    state.vocabMount.destroy?.();
+    state.vocabMount = null;
+  }
+}
+
+function openVocabulary(territoryId, mode, opts = {}) {
+  destroyVocabMount();
+  state.sessionMode = mode === "practice" ? "play" : "learn";
+  state.vocabMode = mode === "practice" ? "practice" : "learn";
+  if (opts.areas !== undefined) {
+    state.vocabAreas =
+      Array.isArray(opts.areas) && opts.areas.length ? opts.areas : null;
+  } else if (
+    territoryId === "numbers" &&
+    state.sessionPlaylist?.kind?.startsWith("numbers")
+  ) {
+    const areas = enabledVocabAreas(state.sessionPlaylist);
+    state.vocabAreas = areas.length ? areas : null;
+  } else {
+    state.vocabAreas = null;
+  }
+  if (
+    territoryId === "numbers" &&
+    !(state.sessionPlaylist?.catalog?.length)
+  ) {
+    seedNumbersPlaylist([], { vocabOnly: true });
+    state.vocabAreas = enabledVocabAreas(state.sessionPlaylist);
+  }
+  state.phase[territoryId] =
+    mode === "practice" ? "vocab-practice" : "vocab-learn";
+  state.preservePractice[territoryId] = false;
+  navigate(territoryId, { keepPhase: true });
+}
+
+function renderVocabularyPanel(territoryId) {
+  const root = document.getElementById(`${territoryId}-vocab`);
+  if (!root) return;
+  destroyVocabMount();
+  const topic = territoryId === "nouns" ? "nouns" : "numbers";
+  state.vocabMount = mountVocabularyPanel(root, {
+    topic,
+    mode: state.vocabMode || "learn",
+    areas: topic === "numbers" ? state.vocabAreas : null,
+    onItemChange: () => refreshPlaylistChrome(),
+    onBack: () => {
+      stopSpeech({ keepAdvance: true });
+      destroyVocabMount();
+      state.phase[territoryId] = "hub";
+      showTerritoryPhase(territoryId);
+    },
+    openReference: (id, territory) => {
+      if (id) openReferenceBrowse({ id });
+      else openReferenceBrowse({ territory });
+    },
+    answerPartsForItem: vocabAnswerParts,
+    playFeedback: playFeedbackSound,
+    playReveal: (spoken, parts, nodes, onDone) => {
+      playAnswerKeyThenAdvance(spoken, parts, nodes, (ms) => {
+        if (!onDone) return;
+        window.setTimeout(() => onDone(), ms);
+      });
+    },
+    stopSpeech: () => stopSpeech({ keepAdvance: true }),
+  });
+}
+
+function vocabHubSectionHtml(territoryId) {
+  const topic = territoryId === "nouns" ? "nouns" : "numbers";
+  if (!topicHasVocabulary(topic)) return "";
+  return `
+    <section class="numbers-browse vocab-hub-section" aria-label="Vocabulary">
+      <h2 class="numbers-browse-title">Vocabulary</h2>
+      <p class="numbers-step-note">Topic-level lexical items — Learn introduces; Practice retrieves (multiple question types from the same item).</p>
+      <ul class="numbers-step-list">
+        <li class="numbers-step-row">
+          <div class="numbers-step-copy">
+            <strong>Vocabulary</strong>
+            <span class="numbers-step-blurb">Supporting lexicon by area (Core → Time → Money → …) — Learn introduces in order; Practice draws from the selected scope.</span>
+          </div>
+          <div class="numbers-step-actions">
+            <div class="numbers-step-actions-main">
+              <button type="button" class="btn" data-vocab-open data-vocab-mode="learn" data-vocab-territory="${territoryId}">Learn</button>
+              <button type="button" class="btn btn-primary" data-vocab-open data-vocab-mode="practice" data-vocab-territory="${territoryId}">Practice</button>
+            </div>
+          </div>
+        </li>
+      </ul>
+    </section>`;
+}
+
+/** Single hub row matching Suffixes / Categories / Plurals styling. */
+function vocabHubRowHtml(territoryId) {
+  const topic = territoryId === "nouns" ? "nouns" : "numbers";
+  if (!topicHasVocabulary(topic)) return "";
+  return `<li class="numbers-step-row vocab-hub-row">
+      <div class="numbers-step-copy">
+        <strong>Vocabulary</strong>
+        <span class="numbers-step-blurb">Supporting lexicon by area — Learn in curriculum order; Practice by selected scope (not number forms).</span>
+      </div>
+      <div class="numbers-step-actions">
+        <div class="numbers-step-actions-main">
+          <button type="button" class="btn" data-vocab-open data-vocab-mode="learn" data-vocab-territory="${territoryId}">Learn</button>
+          <button type="button" class="btn btn-primary" data-vocab-open data-vocab-mode="practice" data-vocab-territory="${territoryId}">Practice</button>
+        </div>
+      </div>
+    </li>`;
+}
+
 function renderNumbersHub() {
   const root = document.getElementById("numbers-hub");
   if (!root) return;
@@ -5079,16 +4788,6 @@ function renderNumbersHub() {
   const suggestLabel = formatNumbersFocusLabel(suggestion);
   const openId = state.numbersHubTopic;
   const pickKey = state.numbersHubPracticePick;
-  state.numbersMixMode = mixModeForCaps(state.numbersMixMode);
-  const mixMode = state.numbersMixMode;
-  const mixTopic = state.numbersHubTopic || "cardinals";
-  const mixEligibleIds = new Set(
-    mixableSteps(mixTopic, mixMode).map((s) => s.id)
-  );
-  const mixSelected = state.numbersMixSteps.filter((id) =>
-    mixEligibleIds.has(id)
-  );
-  const mixCount = mixSelected.length;
 
   const topicBlocks = NUMBERS_TOPICS.map((t) => {
     const open = t.id === openId;
@@ -5099,8 +4798,6 @@ function renderNumbersHub() {
         const modes = filterModesForCaps(modesForStep(t.id, s.id));
         const rowKey = `${t.id}:${s.id}`;
         const picking = pickKey === rowKey;
-        const canMix = t.id === mixTopic && mixEligibleIds.has(s.id);
-        const inMix = canMix && state.numbersMixSteps.includes(s.id);
 
         if (!s.playable) {
           return `<li class="numbers-step-row is-preview">
@@ -5131,19 +4828,10 @@ function renderNumbersHub() {
               }">${m.label}${suggested ? " · first" : ""}</button>`;
             })
             .join("");
-          const mixModesChip = `<button type="button" class="chip chip-mix-modes" data-hub-mix-modes data-topic="${t.id}" data-step="${s.id}" title="Interleave modalities on this unit">Mix modes</button>`;
-          practiceActions = `${modeChips}${mixModesChip}`;
+          practiceActions = modeChips;
         } else {
           practiceActions = `<button type="button" class="btn btn-primary" data-hub-practice data-topic="${t.id}" data-step="${s.id}">Practice</button>`;
         }
-
-        const mixBtn = canMix
-          ? `<button type="button" class="btn numbers-step-mix${
-              inMix ? " is-on" : ""
-            }" data-mix-toggle data-topic="${t.id}" data-step="${s.id}" aria-pressed="${inMix}" title="${
-              inMix ? "Remove from custom mix" : "Add to custom mix"
-            }">Mix</button>`
-          : "";
 
         return `<li class="numbers-step-row">
           <div class="numbers-step-copy">
@@ -5156,7 +4844,6 @@ function renderNumbersHub() {
               <button type="button" class="btn" data-hub-learn data-topic="${t.id}" data-step="${s.id}">Learn</button>
               ${practiceActions}
             </div>
-            ${mixBtn}
           </div>
         </li>`;
       })
@@ -5176,7 +4863,7 @@ function renderNumbersHub() {
             ? `<p class="numbers-step-note">${
                 soon
                   ? "Preview only — not playable yet."
-                  : "Learn is per unit (shared reference). Practice picks a modality or mixes them — not separate Learn pages."
+                  : "Learn is per unit. Practice starts a session — use Custom mix in the header to narrow units or switch In-order / Random."
               }</p>
         <ul class="numbers-step-list">${stepRows}</ul>`
             : ""
@@ -5185,31 +4872,15 @@ function renderNumbersHub() {
     </div>`;
   }).join("");
 
-  const mixModesHtml = mixModeOptionsForCaps()
-    .map(
-      (m) =>
-        `<button type="button" class="numbers-mix-toggle${
-          mixMode === m.id ? " is-on" : ""
-        }" data-mix-mode="${m.id}" aria-pressed="${mixMode === m.id}">${m.label}</button>`
-    )
-    .join("");
-
   const capsHint = capsSessionHint();
   const capsBanner = capsHint
     ? `<p class="numbers-caps-banner" role="status">Session caps: ${capsHint}. Unavailable modes are hidden.</p>`
     : "";
 
-  const mixSummary =
-    mixCount === 0
-      ? `<p class="numbers-mix-empty">Tap <strong>Mix</strong> on steps in Browse to add them here.</p>`
-      : `<p class="numbers-mix-summary">${mixSelected
-          .map((id) => getNumbersStep(mixTopic, id)?.label || id)
-          .join(" · ")}</p>`;
-
   root.innerHTML = `
     <header class="numbers-hub-hero">
       <h1>Numbers</h1>
-      <p class="numbers-hub-lede">Browse by unit. Learn opens that unit’s reference. Practice focuses or mixes quiz modalities — you can skip ahead anytime.</p>
+      <p class="numbers-hub-lede">Browse by unit. Learn opens that unit’s reference. Practice starts a session — refine the playlist anytime via Custom mix in the header.</p>
     </header>
     ${capsBanner}
 
@@ -5226,25 +4897,14 @@ function renderNumbersHub() {
         data-difficulty="${suggestion.difficulty}">Start guided</button>
     </section>
 
+    <section class="numbers-browse" aria-label="Vocabulary">
+      <h2 class="numbers-browse-title">Vocabulary</h2>
+      <ul class="numbers-step-list">${vocabHubRowHtml("numbers")}</ul>
+    </section>
+
     <section class="numbers-browse" aria-label="Browse topics">
       <h2 class="numbers-browse-title">Browse</h2>
       <div class="numbers-topic-accordion">${topicBlocks}</div>
-    </section>
-
-    <section class="numbers-mix" aria-label="Custom mix">
-      <div class="numbers-path-head">
-        <h2 class="numbers-browse-title">Custom mix</h2>
-        <span class="numbers-path-hint">You choose</span>
-      </div>
-      <p class="numbers-mix-lede">Mark units with Mix, then choose a modality — or <strong>Either</strong> to interleave modalities for interest and difficulty.</p>
-      ${mixSummary}
-      <div class="numbers-mix-block">
-        <p class="numbers-mix-label" id="numbers-mix-mode-label">Mode</p>
-        <div class="numbers-mix-modes" role="radiogroup" aria-labelledby="numbers-mix-mode-label">${mixModesHtml}</div>
-      </div>
-      <button type="button" class="btn btn-primary numbers-mix-start" id="numbers-mix-start" ${
-        mixCount ? "" : "disabled"
-      }>Start custom mix${mixCount ? ` · ${mixCount}` : ""}</button>
     </section>
   `;
 }
@@ -5311,7 +4971,7 @@ function renderNounsHub() {
     <section class="numbers-browse" aria-label="Gender Shortcuts">
       <h2 class="numbers-browse-title">Gender Shortcuts</h2>
       <p class="numbers-step-note">Learn opens reference. Practice starts the soft-first family (Wugs or Gender Recognition).</p>
-      <ul class="numbers-step-list">${unitRows}</ul>
+      <ul class="numbers-step-list">${vocabHubRowHtml("nouns")}${unitRows}</ul>
     </section>
 
     <section class="numbers-browse" aria-label="More Nouns topics">
@@ -5332,6 +4992,7 @@ function showTerritoryPhase(territoryId) {
   const briefing = document.getElementById(`${territoryId}-briefing`);
   const stage = document.getElementById(`${territoryId}-stage`);
   const hub = document.getElementById(`${territoryId}-hub`);
+  const vocab = document.getElementById(`${territoryId}-vocab`);
   const soundsChartEl = document.getElementById("sounds-chart");
   const numbersChartEl = document.getElementById("numbers-chart");
   const nounsChartEl = document.getElementById("nouns-chart");
@@ -5340,10 +5001,28 @@ function showTerritoryPhase(territoryId) {
   if (numbersChartEl) numbersChartEl.hidden = true;
   if (nounsChartEl) nounsChartEl.hidden = true;
   if (hub) hub.hidden = true;
+  if (vocab) vocab.hidden = true;
 
   syncTerritoryMenu(territoryId);
 
+  if (
+    (territoryId === "numbers" || territoryId === "nouns") &&
+    (phase === "vocab-learn" || phase === "vocab-practice")
+  ) {
+    if (briefing) briefing.hidden = true;
+    if (stage) stage.hidden = true;
+    if (hub) hub.hidden = true;
+    if (vocab) {
+      vocab.hidden = false;
+      state.vocabMode = phase === "vocab-practice" ? "practice" : "learn";
+      renderVocabularyPanel(territoryId);
+    }
+    stopSpeech();
+    return;
+  }
+
   if (territoryId === "numbers" && phase === "hub") {
+    destroyVocabMount();
     if (briefing) briefing.hidden = true;
     if (stage) stage.hidden = true;
     if (hub) {
@@ -5355,6 +5034,7 @@ function showTerritoryPhase(territoryId) {
   }
 
   if (territoryId === "nouns" && phase === "hub") {
+    destroyVocabMount();
     if (briefing) briefing.hidden = true;
     if (stage) stage.hidden = true;
     if (hub) {
@@ -5430,7 +5110,7 @@ function renderNumbersChart() {
     ${learnSeriesChromeHtml()}
     <div class="chart-tabs" role="tablist">${tabs}</div>
     <div class="chart-scroll">
-      <p class="chart-note">Tap an example to hear the German form with syllable highlight. Left side is silent reference.</p>
+      <p class="chart-note">Tap a cue or example to hear the German form with syllable highlight.</p>
       ${tabBlurb}
       <div class="chart-list" id="numbers-chart-list"></div>
     </div>
@@ -5470,10 +5150,11 @@ function renderNumbersChart() {
     });
     example.appendChild(chips);
 
-    example.addEventListener("click", () => {
+    const play = () => {
       const nodes = [...chips.querySelectorAll(".syl")];
       playKaraokeFlow(word, parts, nodes);
-    });
+    };
+    wireChartRowPlay(example, parts.length ? pattern : null, play);
 
     row.append(pattern, example);
     list.appendChild(row);
@@ -5509,7 +5190,7 @@ function renderNounsChart() {
     ${learnSeriesChromeHtml()}
     <div class="chart-tabs" role="tablist">${tabs}</div>
     <div class="chart-scroll">
-      <p class="chart-note">Left = pattern cue (silent). Tap the example to hear article + noun.</p>
+      <p class="chart-note">Tap a cue or example to hear article + noun.</p>
       ${tabBlurb}
       <div class="chart-list" id="nouns-chart-list"></div>
     </div>
@@ -5565,10 +5246,11 @@ function renderNounsChart() {
     });
     example.appendChild(chips);
 
-    example.addEventListener("click", () => {
+    const play = () => {
       const nodes = [...chips.querySelectorAll(".syl")];
       playKaraokeFlow(ttsWord, parts, nodes);
-    });
+    };
+    wireChartRowPlay(example, pattern, play);
 
     row.append(pattern, example);
     list.appendChild(row);
@@ -5582,23 +5264,67 @@ function renderNounsChart() {
   });
 }
 
+function isVocabNavUnit(u) {
+  return !!(u && (u.kind === "vocabulary" || u.vocabTopic));
+}
+
 function handleNavCarouselStart({ mode, units, keyboard, audio, practice, guided }) {
   // Guided: bypass manual playlist — Dealer picks the next rep directly.
   if (guided) {
+    clearSessionPlaylist();
     startGuidedSession();
     return;
   }
 
-  const numbersUnits = units.filter((u) => u.territory === "numbers" && u.topicId && u.stepId);
-  const nounsUnits = units.filter((u) => u.territory === "nouns");
+  const vocabUnits = units.filter(isVocabNavUnit);
+  const numbersUnits = units.filter(
+    (u) => u.territory === "numbers" && u.topicId && u.stepId && !isVocabNavUnit(u)
+  );
+  const nounsUnits = units.filter(
+    (u) => u.territory === "nouns" && !isVocabNavUnit(u)
+  );
 
   state.navCaps = { keyboard, audio };
   state.sessionMode = mode === "learn" ? "learn" : "play";
   state.currentReasonCode = null;
   clearCrossTerritoryMix();
   clearLearnSeries();
+  destroyPlaylistMount();
+
+  // Vocabulary-only selection → Vocabulary Learn/Practice panel
+  if (vocabUnits.length && !numbersUnits.length && !nounsUnits.length) {
+    const topic = vocabUnits[0].vocabTopic || vocabUnits[0].territory || "nouns";
+    const territoryId = topic === "nouns" ? "nouns" : "numbers";
+    if (territoryId === "numbers") {
+      seedNumbersPlaylist([], { vocabOnly: true });
+      state.vocabAreas = enabledVocabAreas(state.sessionPlaylist);
+      openVocabulary("numbers", mode === "learn" ? "learn" : "practice", {
+        areas: state.vocabAreas,
+      });
+    } else {
+      clearSessionPlaylist();
+      openVocabulary("nouns", mode === "learn" ? "learn" : "practice", {
+        areas: null,
+      });
+    }
+    return;
+  }
 
   if (mode === "learn") {
+    // Seed playlist for Numbers Learn when Numbers units present
+    if (numbersUnits.length) {
+      seedNumbersPlaylist(numbersUnits.map((u) => ({
+        topicId: u.topicId,
+        stepId: u.stepId,
+      })));
+    } else if (nounsUnits.length) {
+      const fams = [];
+      for (const u of nounsUnits) {
+        const learnId = u.learnUnitId || unitIdForFamily(nounsFamilyForNavUnit(u));
+        for (const f of familiesForUnit(learnId)) fams.push(f.id);
+      }
+      seedNounsPlaylist(fams);
+    }
     startLearnSeries(units);
     return;
   }
@@ -5606,10 +5332,32 @@ function handleNavCarouselStart({ mode, units, keyboard, audio, practice, guided
   const hasNumbers = numbersUnits.length > 0;
   const hasNouns = nounsUnits.length > 0;
 
+  // Play → Numbers (quiz units; vocab nested in Custom mix under topics)
+  if (hasNumbers && !hasNouns) {
+    seedNumbersPlaylist(
+      numbersUnits.map((u) => ({ topicId: u.topicId, stepId: u.stepId }))
+    );
+    state.numbersMixMode = mixModeForCaps(
+      (practice?.numbersModes || [])[0] || "either"
+    );
+    rebuildSessionFromPlaylist();
+    navigate("numbers", { keepPhase: true });
+    return;
+  }
+
   // Play → randomly interleave Numbers and Nouns when both are selected
   if (hasNumbers && hasNouns) {
+    seedNumbersPlaylist(
+      numbersUnits.map((u) => ({ topicId: u.topicId, stepId: u.stepId }))
+    );
     if (!prepareNumbersFromPlaylist(numbersUnits, practice)) return;
     if (!prepareNounsFromPlaylist(nounsUnits, practice)) return;
+    const fams = [];
+    for (const u of nounsUnits) {
+      const learnId = u.learnUnitId || unitIdForFamily(nounsFamilyForNavUnit(u));
+      for (const f of familiesForUnit(learnId)) fams.push(f.id);
+    }
+    // Prefer numbers playlist in crumb when both; nouns still run via cross-mix
     state.crossTerritoryMix = {
       active: true,
       territories: shuffle(["numbers", "nouns"]),
@@ -5623,16 +5371,17 @@ function handleNavCarouselStart({ mode, units, keyboard, audio, practice, guided
     return;
   }
 
-  if (hasNumbers) {
-    if (!prepareNumbersFromPlaylist(numbersUnits, practice)) return;
-    state.phase.numbers = "practice";
-    state.preservePractice.numbers = false;
-    navigate("numbers", { keepPhase: true });
-    return;
-  }
-
   if (hasNouns) {
-    startNounsFromPlaylist(nounsUnits, practice);
+    if (!prepareNounsFromPlaylist(nounsUnits, practice)) return;
+    const fams = [];
+    for (const u of nounsUnits) {
+      const learnId = u.learnUnitId || unitIdForFamily(nounsFamilyForNavUnit(u));
+      for (const f of familiesForUnit(learnId)) fams.push(f.id);
+    }
+    seedNounsPlaylist(fams);
+    state.phase.nouns = "practice";
+    state.preservePractice.nouns = false;
+    navigate("nouns", { keepPhase: true });
   }
 }
 
@@ -5678,12 +5427,13 @@ function guidedCandidates() {
 function startGuidedSession() {
   state.navCaps = state.navCaps || { keyboard: true, audio: true };
   state.sessionMode = "guided";
+  clearSessionPlaylist();
   clearCrossTerritoryMix();
   clearLearnSeries();
   state.guidedSeen = new Set();
   state.guidedStats = {};
   state.guidedCurrentKey = null;
-  state.numbersNavStack = [];
+  clearNumbersHistory();
   state.guidedDealLog = [];
   state.guidedQaLog = [];
   state.guidedAttemptStartIndex = (state.attemptLog || []).length;
@@ -5760,6 +5510,7 @@ function guidedDealAndGo() {
 function configureGuidedNumbers(c) {
   state.numbersSessionKind = "step";
   state.numbersMixSteps = [];
+  state.numbersMixEntries = [];
   state.numbersTopic = c.topicId;
   state.numbersStep = c.stepId;
   state.numbersQuizMode = c.mode;
@@ -5794,12 +5545,8 @@ function configureGuidedNouns(c) {
 function continueGuided() {
   if (state.sessionMode !== "guided") return false;
   recordGuidedResult();
-  // Preserve the question we are leaving so Back still works across deals.
-  try {
-    if (state.view === "numbers") pushNumbersNavSnapshot();
-  } catch {
-    /* no current meta yet */
-  }
+  // Current question stays in history; past-the-end index so the next deal appends.
+  state.numbersHistoryIndex = (state.numbersHistory || []).length;
   guidedDealAndGo();
   return true;
 }
@@ -6161,6 +5908,11 @@ function openLearnSeriesUnit() {
   const u = series.units[series.cursor];
   if (!u) return;
   closeSheet();
+  if (isVocabNavUnit(u)) {
+    const topic = u.vocabTopic || u.territory || "nouns";
+    openVocabulary(topic === "nouns" ? "nouns" : "numbers", "learn");
+    return;
+  }
   if (u.territory === "numbers" && u.topicId && u.stepId) {
     navigate("numbers", { keepPhase: true });
     openNumbersStepLearn(u.topicId, u.stepId);
@@ -6238,23 +5990,11 @@ function continueCrossTerritoryMix(fromTerritory) {
 
 /**
  * Set up Numbers mix/practice from carousel units. Does not navigate.
+ * Includes every selected topic×step (not just the largest topic).
  * @returns {boolean}
  */
 function prepareNumbersFromPlaylist(numbersUnits, practice) {
-  state.numbersNavStack = [];
-  const byTopic = new Map();
-  for (const u of numbersUnits) {
-    if (!byTopic.has(u.topicId)) byTopic.set(u.topicId, []);
-    byTopic.get(u.topicId).push(u.stepId);
-  }
-  let topicId = "cardinals";
-  let stepIds = [];
-  for (const [tid, ids] of byTopic) {
-    if (ids.length > stepIds.length) {
-      topicId = tid;
-      stepIds = ids;
-    }
-  }
+  clearNumbersHistory();
 
   const prefModes = (practice?.numbersModes || []).filter((id) =>
     modeAllowedByCaps(id)
@@ -6263,10 +6003,21 @@ function prepareNumbersFromPlaylist(numbersUnits, practice) {
   if (prefModes.length === 1) mixMode = prefModes[0];
   else mixMode = mixModeForCaps("either");
 
-  const eligible = new Set(mixableSteps(topicId, mixMode).map((s) => s.id));
-  const selected = stepIds.filter((id) => eligible.has(id));
-  if (!selected.length) {
+  const seen = new Set();
+  const entries = [];
+  for (const u of numbersUnits) {
+    if (!u?.topicId || !u?.stepId) continue;
+    const key = `${u.topicId}:${u.stepId}`;
+    if (seen.has(key)) continue;
+    const eligible = mixableSteps(u.topicId, mixMode);
+    if (!eligible.some((s) => s.id === u.stepId)) continue;
+    seen.add(key);
+    entries.push({ topicId: u.topicId, stepId: u.stepId });
+  }
+
+  if (!entries.length) {
     const u = numbersUnits[0];
+    if (!u?.topicId || !u?.stepId) return false;
     const modes = filterModesForCaps(modesForStep(u.topicId, u.stepId));
     const modeId =
       prefModes.find((id) => modes.some((m) => m.id === id)) ||
@@ -6281,10 +6032,12 @@ function prepareNumbersFromPlaylist(numbersUnits, practice) {
     });
   }
 
-  state.numbersMixTopic = topicId;
-  state.numbersMixSteps = selected;
+  const topics = [...new Set(entries.map((e) => e.topicId))];
+  state.numbersMixEntries = entries;
+  state.numbersMixTopic = topics.length === 1 ? topics[0] : "multi";
+  state.numbersMixSteps = entries.map((e) => e.stepId);
   state.numbersMixMode = mixMode;
-  state.numbersHubTopic = topicId;
+  state.numbersHubTopic = topics[0] || "cardinals";
   return prepareNumbersMixState();
 }
 
@@ -6292,23 +6045,33 @@ function prepareNumbersFromPlaylist(numbersUnits, practice) {
 function prepareNumbersMixState() {
   const mode = mixModeForCaps(state.numbersMixMode);
   state.numbersMixMode = mode;
-  const topicId = state.numbersMixTopic || state.numbersHubTopic || "cardinals";
-  const eligible = mixableSteps(topicId, mode);
-  const selected = state.numbersMixSteps.filter((id) =>
-    eligible.some((s) => s.id === id)
-  );
-  if (!selected.length) return false;
 
-  state.numbersMixSteps = selected;
-  state.numbersMixTopic = topicId;
+  let entries = currentMixEntries();
+  // Hub path may only have topic+steps set — rebuild entries.
+  if (!entries.length && state.numbersMixTopic && state.numbersMixTopic !== "multi") {
+    entries = (state.numbersMixSteps || []).map((stepId) => ({
+      topicId: state.numbersMixTopic,
+      stepId,
+    }));
+  }
+  entries = entries.filter(({ topicId, stepId }) =>
+    mixableSteps(topicId, mode).some((s) => s.id === stepId)
+  );
+  if (!entries.length) return false;
+
+  const topics = [...new Set(entries.map((e) => e.topicId))];
+  state.numbersMixEntries = entries;
+  state.numbersMixTopic = topics.length === 1 ? topics[0] : "multi";
+  state.numbersMixSteps = entries.map((e) => e.stepId);
   state.numbersSessionKind = "mix";
   state.numbersFocusLocked = false;
-  state.numbersTopic = topicId;
-  state.numbersStep = selected[0];
+  state.numbersTopic = entries[0].topicId;
+  state.numbersStep = entries[0].stepId;
   state.numbersMixDeckKey = "";
   state.numbersMixDeck = null;
   state.numbersMixCursor = 0;
   state.numbersHubPracticePick = "";
+  clearNumbersHistory();
   ensureMixDeck();
   return !!(state.numbersMixDeck?.length);
 }
@@ -6414,11 +6177,13 @@ function shuffle(arr) {
 
 function renderNumbers() {
   if (state.numbersSessionKind === "mix") syncMixItemFocus();
+  rememberNumbersPosition();
   setActionInstruction(
     "numbers",
     numbersInstruction(state.numbersQuizMode, currentNumberMeta())
   );
   clearExerciseFeedback("numbers");
+  refreshPlaylistChrome();
   if (state.numbersQuizMode === "listen") {
     renderNumbersListen();
     return;
@@ -6477,11 +6242,17 @@ function finishNumbersOk(exercise, revealForm) {
     meta?.kind === "weekday" || meta?.kind === "month"
       ? meta.english || meta.englishWritten || ""
       : meta?.english || meta?.written || "";
+  const answerEls = [
+    ...document.querySelectorAll("#numbers-slots .slot.is-ok"),
+    ...document.querySelectorAll(
+      "#numbers-tray input.is-ok, #numbers-tray .numbers-convert-input.is-ok, #numbers-tray .numbers-listen-input.is-ok"
+    ),
+  ];
   presentCorrectAnswer({
     prefix: "numbers",
-    answerEls: [],
+    answerEls,
     wrongEls: [],
-    choiceEls: document.querySelectorAll("#numbers-tray .choice, #numbers-tray .piece"),
+    choiceEls: correctNumbersChoiceEls(form),
     reveal: {
       word: form,
       parts,
@@ -6489,18 +6260,40 @@ function finishNumbersOk(exercise, revealForm) {
       ok: true,
     },
     then: (nodes) => {
-      const afterPlay = () => scheduleNumbersAdvance(1500);
-      if (!window.speechSynthesis || !nodes?.length) {
-        afterPlay();
-        return;
-      }
-      playKaraokeFlow(spoken, parts, nodes, {
-        keepAdvance: true,
-        onEnd: afterPlay,
-        onError: afterPlay,
-      });
+      playAnswerKeyThenAdvance(spoken, parts, nodes, scheduleNumbersAdvance);
     },
   });
+}
+
+/** Only the matching choice/piece — do not green-flash the whole tray. */
+function correctNumbersChoiceEls(form) {
+  const all = [
+    ...document.querySelectorAll("#numbers-tray .choice, #numbers-tray .piece"),
+  ];
+  const want = String(form || "").trim();
+  if (want) {
+    const matched = all.filter((el) => {
+      const raw =
+        el.dataset.value ??
+        el.dataset.text ??
+        el.textContent ??
+        "";
+      return String(raw).trim() === want;
+    });
+    if (matched.length) return matched;
+  }
+  // Cloze / marked selection: blank token ≠ full form — use is-ok mark.
+  return all.filter((el) => el.classList.contains("is-ok"));
+}
+
+/**
+ * One-column MC when any choice is a phrase or longer than a half-width button.
+ * @param {Iterable<string>} choices
+ */
+function choiceGridClass(choices) {
+  const list = [...(choices || [])].map((c) => String(c ?? "").trim());
+  const long = list.some((t) => t.length >= 16 || /\s/.test(t));
+  return "choice-grid" + (long ? " is-stacked" : "");
 }
 
 /**
@@ -6563,16 +6356,9 @@ function revealNumbersThenAdvance(opts = {}) {
       verdictLabel: opts.verdictLabel || "Answer",
     },
     then: (nodes) => {
-      const afterPlay = () => scheduleNumbersAdvance(opts.delayMs ?? 1400);
-      if (!window.speechSynthesis || !nodes?.length) {
-        afterPlay();
-        return;
-      }
-      playKaraokeFlow(spoken, parts, nodes, {
-        keepAdvance: true,
-        onEnd: afterPlay,
-        onError: afterPlay,
-      });
+      playAnswerKeyThenAdvance(spoken, parts, nodes, (ms) =>
+        scheduleNumbersAdvance(opts.delayMs ?? ms)
+      );
     },
   });
 }
@@ -6635,7 +6421,7 @@ function renderNumbersCloze() {
   exercise.materials.parts.forEach((p, i) => {
     const slot = document.createElement("div");
     const isBlank = i === exercise.materials.blankIndex;
-    slot.className = isBlank ? "slot is-blank" : "slot is-given";
+    slot.className = isBlank ? "slot is-blank" : "slot is-filled is-given";
     slot.dataset.index = String(i);
     slot.textContent = isBlank ? "…" : p;
     slots.appendChild(slot);
@@ -6657,8 +6443,11 @@ function renderNumbersCloze() {
         const slot = slots.querySelector(`[data-index="${bi}"]`);
         if (slot) slot.textContent = label;
         const ok = label === exercise.materials.blank;
-        if (ok) finishNumbersOk(exercise, exercise.resolution.form);
-        else {
+        if (ok) {
+          btn.classList.add("is-ok");
+          if (slot) slot.classList.add("is-ok");
+          finishNumbersOk(exercise, exercise.resolution.form);
+        } else {
           showAttemptFeedback("numbers", "Try again");
           if (slot) {
             slot.classList.add("is-bad");
@@ -6769,16 +6558,7 @@ function renderNumbersProofread() {
           ok: false,
         },
         then: (nodes) => {
-          const afterPlay = () => scheduleNumbersAdvance(1500);
-          if (!window.speechSynthesis || !nodes?.length) {
-            afterPlay();
-            return;
-          }
-          playKaraokeFlow(spoken, parts, nodes, {
-            keepAdvance: true,
-            onEnd: afterPlay,
-            onError: afterPlay,
-          });
+          playAnswerKeyThenAdvance(spoken, parts, nodes, scheduleNumbersAdvance);
         },
       });
     }
@@ -6811,6 +6591,12 @@ function renderNumbersVisual() {
   }
   const stage = document.getElementById("numbers-stage");
   if (stage) stage.dataset.mode = "visual";
+
+  // Analog / digital clock face → MC full readings (long phrases stack in one column).
+  if (isClockMeta(meta)) {
+    renderNumbersVisualClockMc(meta, visual);
+    return;
+  }
 
   let exercise;
   if (isWrittenishMeta(meta)) {
@@ -6884,6 +6670,124 @@ function renderNumbersVisual() {
   syncTerritoryMenu("numbers");
 }
 
+/** Clock-face visual: pick the full German reading (register-labeled). */
+function renderNumbersVisualClockMc(meta, visual) {
+  const saved = state.numbersQuizMode;
+  state.numbersQuizMode = "build";
+  const exercise = currentWrittenishExercise(meta);
+  state.numbersQuizMode = saved;
+  if (!exercise) {
+    state.numbersQuizMode = "convert";
+    renderNumbersConvert();
+    return;
+  }
+
+  const answer = exercise.resolution.form || meta.form;
+  const choices = clockReadingChoices(meta, answer);
+  const parts =
+    exercise.materials?.answerParts ||
+    meta.answerParts ||
+    (answer || "")
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((t) => ({ text: t, guide: t }));
+
+  state.currentExercise = {
+    ...exercise,
+    templateId: "numbers.visual.clock",
+    materials: {
+      ...exercise.materials,
+      form: answer,
+      choices,
+      answerParts: parts,
+    },
+    resolution: {
+      ...exercise.resolution,
+      form: answer,
+    },
+  };
+  state.numbersChecked = false;
+  state.numbersFilled = [];
+  ensureSessionChip();
+
+  const reg = clockReadingRegister(meta);
+  const eg = reg?.example
+    ? `, e.g. <span lang="de">${reg.example}</span>`
+    : "";
+  const ask = reg ? `${reg.label}${eg}` : visual.ask || "State the time on the clock";
+
+  document.getElementById("numbers-prompt").innerHTML = `
+    <div class="quiz-visual">${visual.html}</div>
+    <span class="convert-ask">${ask}</span>
+  `;
+  clearAnswerReveal("numbers");
+  const back = document.getElementById("numbers-back");
+  if (back) back.disabled = numbersBackDisabled();
+
+  const slots = document.getElementById("numbers-slots");
+  slots.hidden = true;
+  slots.innerHTML = "";
+
+  const tray = document.getElementById("numbers-tray");
+  tray.className = choiceGridClass(choices);
+  tray.innerHTML = "";
+  choices.forEach((choice) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "choice";
+    btn.dataset.value = choice;
+    btn.textContent = choice;
+    btn.addEventListener("click", () => {
+      if (state.numbersChecked) return;
+      const ok = choice === answer;
+      if (ok) {
+        btn.classList.add("is-ok");
+        finishNumbersOk(state.currentExercise, answer);
+      } else {
+        btn.classList.add("is-bad");
+        btn.disabled = true;
+        showAttemptFeedback("numbers", "Try again");
+      }
+    });
+    tray.appendChild(btn);
+  });
+  syncTerritoryMenu("numbers");
+}
+
+/** Full-reading MC distractors for clock / digital visual. */
+function clockReadingChoices(meta, correctForm) {
+  const correct = String(correctForm || meta?.form || "").trim();
+  const picks = new Set(correct ? [correct] : []);
+  const pool = currentNumberPool();
+  for (const m of shuffle(pool)) {
+    if (picks.size >= 4) break;
+    const f = String(m?.form || "").trim();
+    if (f && f !== correct) picks.add(f);
+  }
+  // Nearby minute offsets when the step pool is thin.
+  if (picks.size < 4 && meta?.hours != null && meta?.minutes != null) {
+    for (const d of [5, -5, 10, -10, 15, -15, 20, 30]) {
+      if (picks.size >= 4) break;
+      let mins = meta.minutes + d;
+      let hrs = meta.hours;
+      while (mins < 0) {
+        mins += 60;
+        hrs = (hrs + 23) % 24;
+      }
+      while (mins >= 60) {
+        mins -= 60;
+        hrs = (hrs + 1) % 24;
+      }
+      const f =
+        meta.kind === "digital-time"
+          ? digitalTimeForm(hrs, mins)
+          : clockForm(hrs, mins);
+      if (f && f !== correct) picks.add(f);
+    }
+  }
+  return shuffle([...picks]).slice(0, Math.max(1, Math.min(4, picks.size)));
+}
+
 function renderNumbersSentence() {
   clearNumbersAdvance();
   stopSpeech();
@@ -6912,18 +6816,22 @@ function renderNumbersSentence() {
   slots.hidden = true;
   slots.innerHTML = "";
   const tray = document.getElementById("numbers-tray");
-  tray.className = "choice-grid";
+  const choices = exercise.materials.choices || [];
+  tray.className = choiceGridClass(choices);
   tray.innerHTML = "";
-  exercise.materials.choices.forEach((choice) => {
+  choices.forEach((choice) => {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "choice";
+    btn.dataset.value = choice;
     btn.textContent = choice;
     btn.addEventListener("click", () => {
       if (state.numbersChecked) return;
       const ok = choice === exercise.resolution.form;
-      if (ok) finishNumbersOk(exercise, exercise.resolution.form);
-      else {
+      if (ok) {
+        btn.classList.add("is-ok");
+        finishNumbersOk(exercise, exercise.resolution.form);
+      } else {
         btn.classList.add("is-bad");
         showAttemptFeedback("numbers", "Try again");
       }
@@ -6946,6 +6854,54 @@ function numbersPromptAsk(meta) {
   return "";
 }
 
+/** English gloss for ordinal prompts: "the 89th". */
+function ordinalEnglishGloss(meta) {
+  const raw = String(meta?.english || "").trim();
+  if (!raw) return "";
+  return /^the\s+/i.test(raw) ? raw : `the ${raw}`;
+}
+
+/**
+ * EN-flagged task line under the DE cue for Build / Type.
+ * @param {"build"|"convert"} mode
+ * @param {object} meta
+ */
+function numbersEnTaskAsk(mode, meta) {
+  const verb = mode === "build" ? "Build" : "Write out";
+  if (meta?.kind === "ordinal") {
+    const gloss = ordinalEnglishGloss(meta);
+    return gloss
+      ? `${verb} the German ordinal (${gloss})`
+      : `${verb} the German ordinal`;
+  }
+  if (meta?.kind === "ordinal-am") {
+    const gloss = ordinalEnglishGloss(meta);
+    return gloss
+      ? `${verb} the day-of-month form (${gloss})`
+      : `${verb} the day-of-month form`;
+  }
+  if (isClockMeta(meta)) {
+    const reg = clockReadingRegister(meta);
+    if (!reg) {
+      return mode === "build"
+        ? "Build the German reading"
+        : "Write out the German reading";
+    }
+    const eg = reg.example
+      ? `, e.g. <span lang="de">${reg.example}</span>`
+      : "";
+    return `${reg.label}${eg}`;
+  }
+  if (meta?.english && !isWrittenDecimalMeta(meta)) {
+    return mode === "build"
+      ? `Build the German form (${meta.english})`
+      : `Write out the German form (${meta.english})`;
+  }
+  return mode === "build"
+    ? "Build the German form"
+    : "Write out the German form";
+}
+
 /** Clock-face reading (has a HH:MM cue), as opposed to spoken durations. */
 function isClockMeta(meta) {
   return meta?.kind === "clock" || meta?.kind === "digital-time";
@@ -6963,9 +6919,12 @@ function numbersLead(meta, fallback = "") {
   return isClockMeta(meta) ? formatClockWritten(base) : base;
 }
 
-/** Action instruction — clock builds/listens read "Read the time", not "Build …". */
+/** Action instruction — clock face / listen / build read "Read the time". */
 function numbersInstruction(mode, meta) {
-  if (isClockMeta(meta) && (mode === "build" || mode === "listen")) {
+  if (
+    isClockMeta(meta) &&
+    (mode === "build" || mode === "listen" || mode === "visual")
+  ) {
     return "Read the time";
   }
   return NUMBERS_INSTRUCTION[mode] || "";
@@ -7023,7 +6982,6 @@ function renderNumbersBuild() {
   ensureSessionChip();
 
   const promptLead = numbersLead(meta, exercise.materials?.written || "");
-  const ask = numbersPromptAsk(meta);
   let promptHtml;
   if (isWrittenDecimalMeta(meta)) {
     // 4,85 / 4.85 — written decimals (Komma vs point), not spoken forms.
@@ -7032,15 +6990,10 @@ function renderNumbersBuild() {
       meta.english || exercise.prompt?.english || ""
     );
   } else {
-    const en =
-      exercise.prompt.english && !isClockMeta(meta)
-        ? promptEnHtml(exercise.prompt.english)
-        : "";
-    promptHtml = `${promptDeHtml(promptLead)}${en}`;
+    const enAsk = numbersEnTaskAsk("build", meta);
+    promptHtml = `${promptDeHtml(promptLead)}${promptEnHtml(enAsk)}`;
   }
-  document.getElementById("numbers-prompt").innerHTML = `
-    ${promptHtml}${ask ? `<span class="convert-ask">${ask}</span>` : ""}
-  `;
+  document.getElementById("numbers-prompt").innerHTML = promptHtml;
 
   clearAnswerReveal("numbers");
   const back = document.getElementById("numbers-back");
@@ -7121,17 +7074,20 @@ function renderNumbersListen() {
     (listenKind === "decimal" || listenKind === "money");
   const listenSelect =
     state.numbersDifficulty === "assisted" || !navCaps().keyboard;
-  const formatBit = clockFormatLabel(meta);
-  const formatCue = formatBit ? ` (${formatBit} form)` : "";
+  const clockReg = listenReadTime ? clockReadingRegister(meta) : null;
   if (listenReadTime) {
     const lead = numbersLead(meta, exercise.materials?.written || "");
+    const eg = clockReg?.example
+      ? `, e.g. <span lang="de">${clockReg.example}</span>`
+      : "";
+    const ask = clockReg
+      ? `${listenSelect ? "Pick" : "Type"} · ${clockReg.label}${eg}`
+      : listenSelect
+        ? "Pick the German reading"
+        : "Type the German reading";
     document.getElementById("numbers-prompt").innerHTML = `
       ${promptDeHtml(lead)}
-      <span class="convert-ask">${
-        listenSelect
-          ? `Pick the German${formatCue}`
-          : `Type the German reading${formatCue}`
-      }</span>`;
+      <span class="convert-ask">${ask}</span>`;
   } else {
     document.getElementById("numbers-prompt").innerHTML = listenWritten
       ? listenIsDecimalish
@@ -7187,7 +7143,7 @@ function renderNumbersListen() {
   tray.innerHTML = "";
 
   if (state.numbersDifficulty === "assisted" || !navCaps().keyboard) {
-    tray.className = "choice-grid";
+    tray.className = choiceGridClass(exercise.materials.choices || []);
     tray.setAttribute(
       "aria-label",
       listenReadTime
@@ -7372,35 +7328,30 @@ function renderNumbersConvert() {
   ensureSessionChip();
 
   const convertLead = numbersLead(meta);
-  const example = convertReadingExample(meta);
-  const formatBit = clockFormatLabel(meta);
-  const convertAsk = (() => {
-    if (meta.kind === "ordinal") return "Type the German ordinal";
-    if (meta.kind === "ordinal-am") return "Type the day-of-month form";
-    if (isClockMeta(meta)) {
-      const fmt = formatBit ? ` (${formatBit} form)` : "";
-      const ex = example
-        ? ` — e.g. <span lang="de">${example}</span>`
-        : "";
-      return `Type the German reading${fmt}${ex}`;
-    }
-    if (isWrittenishMeta(meta)) {
-      const ex = example
-        ? ` — e.g. <span lang="de">${example}</span>`
-        : "";
-      return `Type the German reading${ex}`;
-    }
-    return "Type the German form";
-  })();
   // Written-decimal cues: show Komma vs point as written forms; answer is spoken.
   // No English *gloss* of the spoken reading — point form is orthography, not a translation.
-  const leadHtml = isWrittenDecimalMeta(meta)
-    ? promptWrittenDecimalHtml(convertLead, meta.english || "")
-    : promptDeHtml(convertLead);
-  document.getElementById("numbers-prompt").innerHTML = `
-    ${leadHtml}
-    <span class="convert-ask">${convertAsk}</span>
-  `;
+  let promptHtml;
+  if (isWrittenDecimalMeta(meta)) {
+    const example = convertReadingExample(meta);
+    const convertAsk = (() => {
+      if (isWrittenishMeta(meta)) {
+        const ex = example
+          ? ` — e.g. <span lang="de">${example}</span>`
+          : "";
+        return `Write out the German reading${ex}`;
+      }
+      return "Write out the German form";
+    })();
+    promptHtml = `${promptWrittenDecimalHtml(
+      convertLead,
+      meta.english || ""
+    )}<span class="convert-ask">${convertAsk}</span>`;
+  } else {
+    promptHtml = `${promptDeHtml(convertLead)}${promptEnHtml(
+      numbersEnTaskAsk("convert", meta)
+    )}`;
+  }
+  document.getElementById("numbers-prompt").innerHTML = promptHtml;
 
   clearAnswerReveal("numbers");
   const back = document.getElementById("numbers-back");
@@ -7611,17 +7562,8 @@ function checkNumbersConvert(raw, opts = {}) {
       ok,
     },
     then: (nodes) => {
-      const afterPlay = () => scheduleNumbersAdvance(1500);
       const tts = exercise.materials.spoken || exercise.resolution.form;
-      if (!window.speechSynthesis || !nodes?.length) {
-        afterPlay();
-        return;
-      }
-      playKaraokeFlow(tts, parts, nodes, {
-        keepAdvance: true,
-        onEnd: afterPlay,
-        onError: afterPlay,
-      });
+      playAnswerKeyThenAdvance(tts, parts, nodes, scheduleNumbersAdvance);
     },
   });
 }
@@ -7719,17 +7661,21 @@ function checkNumbersListen(answer) {
 
   const answerEls = [];
   const choiceEls = [];
+  const stringChoice = writtenMode || readTimeMode;
   if (state.numbersDifficulty === "assisted") {
     document.querySelectorAll("#numbers-tray .choice").forEach((el) => {
       el.disabled = true;
-      const sameAns = writtenMode
+      const sameAns = stringChoice
         ? String(el.dataset.value) === String(answer)
         : Number(el.dataset.value) === Number(answer);
-      const sameTarget = writtenMode
+      const sameTarget = stringChoice
         ? String(el.dataset.value) === String(target)
         : Number(el.dataset.value) === Number(target);
       if (sameAns && !ok) el.classList.add("is-bad");
-      if (sameTarget) choiceEls.push(el);
+      if (sameTarget) {
+        el.classList.add("is-ok");
+        choiceEls.push(el);
+      }
     });
   } else {
     const input = document.getElementById("numbers-listen-input");
@@ -7739,6 +7685,7 @@ function checkNumbersListen(answer) {
       input.disabled = true;
       input.classList.remove("is-ok", "is-bad");
       input.value = String(target);
+      if (ok) input.classList.add("is-ok");
       answerEls.push(input);
     }
   }
@@ -7765,16 +7712,7 @@ function checkNumbersListen(answer) {
       ok,
     },
     then: (nodes) => {
-      const afterPlay = () => scheduleNumbersAdvance(1500);
-      if (!window.speechSynthesis || !nodes?.length) {
-        afterPlay();
-        return;
-      }
-      playKaraokeFlow(form, parts, nodes, {
-        keepAdvance: true,
-        onEnd: afterPlay,
-        onError: afterPlay,
-      });
+      playAnswerKeyThenAdvance(form, parts, nodes, scheduleNumbersAdvance);
     },
   });
 }
@@ -7877,17 +7815,17 @@ function scheduleNumbersAdvance(delayMs = 1500) {
 }
 
 function numbersBackDisabled() {
-  if ((state.numbersNavStack || []).length > 0) return false;
-  if (state.numbersSessionKind === "mix") return state.numbersMixCursor <= 0;
-  if (state.numbersQuizMode === "listen") return state.numbersListenCursor <= 0;
-  return state.numbersIndex <= 0;
+  return (state.numbersHistoryIndex ?? -1) <= 0;
 }
 
-/** Snapshot current question so Back can restore it (survives reshuffle / Guided). */
-function pushNumbersNavSnapshot() {
+function clearNumbersHistory() {
+  state.numbersHistory = [];
+  state.numbersHistoryIndex = -1;
+}
+
+function captureNumbersSnapshot() {
   const meta = currentNumberMeta();
-  const stack = state.numbersNavStack || (state.numbersNavStack = []);
-  stack.push({
+  return {
     sessionKind: state.numbersSessionKind,
     topic: state.numbersTopic,
     step: state.numbersStep,
@@ -7900,8 +7838,43 @@ function pushNumbersNavSnapshot() {
     guidedKey: state.guidedCurrentKey,
     reasonCode: state.currentReasonCode,
     focusLocked: state.numbersFocusLocked,
-  });
-  if (stack.length > 40) stack.shift();
+  };
+}
+
+function snapsMatch(a, b) {
+  if (!a || !b) return false;
+  return (
+    a.itemKey === b.itemKey &&
+    a.mode === b.mode &&
+    a.step === b.step &&
+    a.topic === b.topic &&
+    a.sessionKind === b.sessionKind
+  );
+}
+
+/** Record the live question in history (seed / refresh current slot / append). */
+function rememberNumbersPosition() {
+  let snap;
+  try {
+    snap = captureNumbersSnapshot();
+  } catch {
+    return;
+  }
+  if (!snap?.itemKey) return;
+  const hist = state.numbersHistory || (state.numbersHistory = []);
+  const i = state.numbersHistoryIndex ?? -1;
+
+  if (i >= 0 && i < hist.length) {
+    if (!snapsMatch(hist[i], snap)) hist[i] = snap;
+    return;
+  }
+
+  hist.push(snap);
+  state.numbersHistoryIndex = hist.length - 1;
+  if (hist.length > 40) {
+    hist.shift();
+    state.numbersHistoryIndex -= 1;
+  }
 }
 
 /** Jump deck cursor to an item key; return false if not found. */
@@ -8014,31 +7987,24 @@ function advanceNumbersCursor() {
 }
 
 function advanceNumbersItem() {
-  pushNumbersNavSnapshot();
+  const hist = state.numbersHistory || [];
+  const i = state.numbersHistoryIndex ?? -1;
+  // Redo a previously visited forward question exactly.
+  if (i >= 0 && i < hist.length - 1) {
+    state.numbersHistoryIndex = i + 1;
+    restoreNumbersNavSnapshot(hist[state.numbersHistoryIndex]);
+    return;
+  }
   advanceNumbersCursor();
+  // Past-the-end index so rememberNumbersPosition appends the new live item.
+  state.numbersHistoryIndex = hist.length;
 }
 
 function retreatNumbersItem() {
-  const stack = state.numbersNavStack || [];
-  if (stack.length) {
-    const snap = stack.pop();
-    return restoreNumbersNavSnapshot(snap);
-  }
-  // Fallback: step the cursor back within the current deck.
-  if (state.numbersSessionKind === "mix") {
-    if (state.numbersMixCursor <= 0) return false;
-    state.numbersMixCursor -= 1;
-    syncMixItemFocus();
-    return true;
-  }
-  if (state.numbersQuizMode === "listen") {
-    if (state.numbersListenCursor <= 0) return false;
-    state.numbersListenCursor -= 1;
-    return true;
-  }
-  if (state.numbersIndex <= 0) return false;
-  state.numbersIndex -= 1;
-  return true;
+  const i = state.numbersHistoryIndex ?? -1;
+  if (i <= 0) return false;
+  state.numbersHistoryIndex = i - 1;
+  return restoreNumbersNavSnapshot(state.numbersHistory[state.numbersHistoryIndex]);
 }
 
 function checkNumbers() {
@@ -8132,16 +8098,7 @@ function checkNumbers() {
       ok: accepted,
     },
     then: (nodes) => {
-      const afterPlay = () => scheduleNumbersAdvance(1500);
-      if (!window.speechSynthesis || !nodes?.length) {
-        afterPlay();
-        return;
-      }
-      playKaraokeFlow(word, answerParts, nodes, {
-        keepAdvance: true,
-        onEnd: afterPlay,
-        onError: afterPlay,
-      });
+      playAnswerKeyThenAdvance(word, answerParts, nodes, scheduleNumbersAdvance);
     },
   });
 }
@@ -8207,6 +8164,7 @@ function renderNouns() {
   clearExerciseFeedback("nouns");
 
   syncTerritoryMenu("nouns");
+  refreshPlaylistChrome();
 
   const help = document.getElementById("nouns-help");
   const translationEl = document.getElementById("nouns-translation");
@@ -8463,31 +8421,30 @@ function renderNounsCategory() {
   }
   const translationEl = document.getElementById("nouns-translation");
   if (translationEl) {
-    if (exercise.prompt.description) {
-      translationEl.hidden = false;
-      translationEl.textContent = exercise.prompt.description;
-    } else if (exercise.prompt.header) {
-      translationEl.hidden = false;
-      translationEl.textContent = exercise.prompt.header;
-    } else {
-      translationEl.hidden = true;
-      translationEl.textContent = "";
-    }
+    translationEl.hidden = true;
+    translationEl.textContent = "";
   }
 
   const fam = document.getElementById("nouns-family-progress");
   if (fam) {
-    fam.hidden = false;
-    const cat = exercise.resolution.categoryName || "";
-    fam.textContent = cat
-      ? `${categoryModeLabel()} · ${cat}`
-      : categoryModeLabel();
+    fam.hidden = true;
+    fam.textContent = "";
   }
 
   const prompt = document.getElementById("nouns-prompt");
   if (prompt) {
     prompt.hidden = false;
-    prompt.textContent = exercise.prompt.text;
+    if (state.nounsMode === "gender-recognition") {
+      prompt.textContent = "";
+      prompt.hidden = true;
+    } else if (state.nounsMode === "article-application") {
+      prompt.hidden = true;
+      prompt.textContent = "";
+    } else if (state.nounsMode === "sentence-validation") {
+      prompt.textContent = exercise.prompt.text;
+    } else {
+      prompt.textContent = exercise.prompt.text;
+    }
   }
 
   clearAnswerReveal("nouns");
@@ -8508,7 +8465,6 @@ function renderNounsCategory() {
     status.textContent = exercise.prompt.categoryName;
   } else if (state.nounsMode === "article-application") {
     status.textContent = exercise.prompt.text;
-    if (prompt) prompt.hidden = true;
   } else if (state.nounsMode === "sentence-validation") {
     status.textContent = exercise.prompt.sentence;
   } else {
@@ -8814,16 +8770,7 @@ function revealNounDiscriminate(exercise, ok) {
     ok,
     verdictLabel: ok ? "Correct" : "Answer",
   });
-  const afterPlay = () => scheduleNounsAdvance(1600);
-  if (!window.speechSynthesis || !nodes.length) {
-    afterPlay();
-    return;
-  }
-  playKaraokeFlow(phrase, parts, nodes, {
-    keepAdvance: true,
-    onEnd: afterPlay,
-    onError: afterPlay,
-  });
+  playAnswerKeyThenAdvance(phrase, parts, nodes, scheduleNounsAdvance);
 }
 
 function checkNounsCategory() {
@@ -8908,7 +8855,9 @@ function revealNounCategory(exercise, ok) {
       : [];
   } else if (state.nounsMode === "gender-imposter") {
     word = res.expected || "";
-    en = `Imposter · ${en}`;
+    en = res.feedbackOk || res.feedbackBad || `Imposter · ${en}`;
+    if (!ok && res.feedbackBad) en = res.feedbackBad;
+    if (ok && res.feedbackOk) en = res.feedbackOk;
     parts = word ? [{ text: word, guide: word }] : [];
   } else {
     // gender-recognition
@@ -8930,25 +8879,15 @@ function revealNounCategory(exercise, ok) {
     ok,
     verdictLabel: ok ? "Correct" : "Answer",
   });
-  const afterPlay = () => scheduleNounsAdvance(1600);
   const tts =
     state.nounsMode === "article-application"
       ? `${res.expected || ""} ${res.lemma || ""}`.trim()
       : word;
-  if (
-    !tts ||
-    state.nounsMode === "gender-recognition" ||
-    !window.speechSynthesis ||
-    !nodes.length
-  ) {
-    afterPlay();
+  if (!tts || state.nounsMode === "gender-recognition") {
+    scheduleNounsAdvance(NO_TTS_REVEAL_ADVANCE_MS);
     return;
   }
-  playKaraokeFlow(tts, parts, nodes, {
-    keepAdvance: true,
-    onEnd: afterPlay,
-    onError: afterPlay,
-  });
+  playAnswerKeyThenAdvance(tts, parts, nodes, scheduleNounsAdvance);
 }
 
 function renderNounsPlurals() {
@@ -9255,7 +9194,7 @@ function revealNounAnswer(exercise, ok = true) {
       ok,
       verdictLabel: ok ? "Right call" : "Answer",
     });
-    scheduleNounsAdvance(1600);
+    scheduleNounsAdvance(NO_TTS_REVEAL_ADVANCE_MS);
     return;
   }
 
@@ -9284,18 +9223,11 @@ function revealNounAnswer(exercise, ok = true) {
     ok,
     verdictLabel: isInsufficient ? "Right call" : ok ? "Correct" : "Answer",
   });
-  const afterPlay = () => scheduleNounsAdvance(1500);
-
-  if (isInsufficient || !window.speechSynthesis || !nodes.length) {
-    afterPlay();
+  if (isInsufficient) {
+    scheduleNounsAdvance(NO_TTS_REVEAL_ADVANCE_MS);
     return;
   }
-
-  playKaraokeFlow(phrase, parts, nodes, {
-    keepAdvance: true,
-    onEnd: afterPlay,
-    onError: afterPlay,
-  });
+  playAnswerKeyThenAdvance(phrase, parts, nodes, scheduleNounsAdvance);
 }
 
 function checkNounsArticles() {
@@ -9462,16 +9394,7 @@ function checkNounsPlurals() {
       ok: accepted,
     },
     then: (nodes) => {
-      const afterPlay = () => scheduleNounsAdvance(1500);
-      if (!window.speechSynthesis || !nodes?.length) {
-        afterPlay();
-        return;
-      }
-      playKaraokeFlow(phrase, parts, nodes, {
-        keepAdvance: true,
-        onEnd: afterPlay,
-        onError: afterPlay,
-      });
+      playAnswerKeyThenAdvance(phrase, parts, nodes, scheduleNounsAdvance);
     },
   });
 }
@@ -9702,17 +9625,42 @@ function closeSheet() {
   sheet.style.zIndex = "";
 }
 
+/** Open Reference browse/entry in the sheet without touching Practice state. */
+function openReferenceBrowse(opts = {}) {
+  const { id = null, territory = null } = opts;
+  const show = () => {
+    let html;
+    let title = "Reference";
+    if (id) {
+      html = renderReferenceEntryHtml(id);
+      title = "Reference";
+    } else {
+      html = renderReferenceLandingHtml(territory);
+    }
+    openSheet(title, html);
+    const body = document.getElementById("sheet-body");
+    wireReferenceNav(body, {
+      openId: (rid) => openReferenceBrowse({ id: rid }),
+      openTerritory: (tid) => openReferenceBrowse({ territory: tid }),
+      openHome: () => openReferenceBrowse({}),
+    });
+  };
+  show();
+}
+
+function openContextualReference(ctx) {
+  const id = referenceIdForPracticeContext(ctx);
+  if (id) openReferenceBrowse({ id });
+  else openReferenceBrowse({ territory: ctx?.territory || null });
+}
+
 function showSoundsHint() {
   const item = currentSoundsItem();
   openSheet("Hint", `<p>${item.hint}</p>`);
 }
 
 function showSoundsReference() {
-  const item = currentSoundsItem();
-  openSheet(
-    item.reference?.title || "Reference",
-    item.reference?.html || "<p>No reference for this item.</p>"
-  );
+  openContextualReference({ territory: "sounds" });
 }
 
 function appendSoundsSupportActions(actions, extraButtons = []) {
@@ -9909,16 +9857,7 @@ function checkSoundsDiscriminate(item) {
       ok,
     },
     then: (nodes) => {
-      const afterPlay = () => scheduleSoundsAdvance(1500);
-      if (!window.speechSynthesis || !nodes?.length) {
-        afterPlay();
-        return;
-      }
-      playKaraokeFlow(item.play, parts, nodes, {
-        keepAdvance: true,
-        onEnd: afterPlay,
-        onError: afterPlay,
-      });
+      playAnswerKeyThenAdvance(item.play, parts, nodes, scheduleSoundsAdvance);
     },
   });
 }
@@ -10044,12 +9983,6 @@ function closeAllMenus() {
 
 function openMenuPanel(panel, btn) {
   closeAllMenus();
-  if (panel.closest('[data-territory="numbers"]')) {
-    syncNumbersCurriculumMenu(
-      panel.closest(".territory-menu"),
-      state.phase.numbers || "hub"
-    );
-  }
   panel.hidden = false;
   btn.setAttribute("aria-expanded", "true");
   bringOverlayFront(topbarEl());
@@ -10127,50 +10060,12 @@ function bind() {
     openSheet("Hint", `<p>${ex.materials.hint}</p>`);
   });
   document.getElementById("numbers-ref-btn").addEventListener("click", () => {
-    const step = getNumbersStep(state.numbersTopic, state.numbersStep);
-    const mode = getNumbersMode(state.numbersQuizMode);
-    const blurb =
-      state.numbersQuizMode === "listen"
-        ? `<ul>
-        <li>Hear the German form (TTS), then give the digit</li>
-        <li><strong>Assisted</strong> — multiple choice; <strong>Core</strong> — type the number</li>
-        <li>Step filters the pool (${step?.label || state.numbersStep})</li>
-        <li>Answer key shows orthography + phonetic beats</li>
-        <li>Recognition practice — not the same mastery as building</li>
-        <li>TTS is a helper; replay freely if audio is unclear</li>
-      </ul>`
-        : state.numbersQuizMode === "convert"
-          ? `<ul>
-        <li>See the digit, type the full German form</li>
-        <li><strong>Assisted</strong> — checks as you type (prefix stay green); auto-checks when complete</li>
-        <li><strong>Core</strong> — type the whole form, then Check</li>
-        <li><em>ß</em> or <em>ss</em> both accepted while typing</li>
-        <li>Production practice — different from Build (no chips) and Listen (no audio cue)</li>
-        <li>Step filters the pool (${step?.label || state.numbersStep})</li>
-      </ul>`
-        : state.numbersStep === "teens"
-          ? `<ul>
-        <li>13–19: base + <em>zehn</em> (dreizehn, vierzehn…)</li>
-        <li>Shortenings: sechs → <em>sech</em>zehn, sieben → <em>sieb</em>zehn</li>
-        <li>11 and 12 are unique words (elf, zwölf) — see 0–12 step</li>
-      </ul>`
-          : state.numbersStep === "tens"
-            ? `<ul>
-        <li>20–90: stem + <em>zig</em> (zwanzig, vierzig…)</li>
-        <li>dreißig uses <em>ßig</em>; sechzig / siebzig drop -s / -en</li>
-        <li>Build the split — don’t drop in the whole tens word as one chip</li>
-      </ul>`
-            : state.numbersStep === "base"
-              ? `<ul>
-        <li>0–12 foundational forms (null … zwölf)</li>
-        <li>11 and 12 are unique; eins → <em>ein</em> in compounds</li>
-      </ul>`
-              : `<ul>
-        <li>Compound: ones + <em>und</em> + tens → vierundzwanzig</li>
-        <li>eins → <em>ein</em> in compounds; chips stay reusable</li>
-        <li>Mode: ${mode?.label || "Build"} · Topic: Cardinals</li>
-      </ul>`;
-    openSheet("Reference", blurb);
+    openContextualReference({
+      territory: "numbers",
+      stepId: state.numbersStep,
+      topicId: state.numbersTopic,
+      mode: state.numbersQuizMode,
+    });
   });
   document.getElementById("numbers-back").addEventListener("click", () => {
     clearNumbersAdvance();
@@ -10179,6 +10074,16 @@ function bind() {
     renderNumbers();
   });
   document.getElementById("numbers-skip").addEventListener("click", () => {
+    clearNumbersAdvance();
+    stopSpeech();
+    const hist = state.numbersHistory || [];
+    const i = state.numbersHistoryIndex ?? -1;
+    if (i >= 0 && i < hist.length - 1) {
+      state.numbersHistoryIndex = i + 1;
+      restoreNumbersNavSnapshot(hist[state.numbersHistoryIndex]);
+      renderNumbers();
+      return;
+    }
     skipNumbersShowingAnswer();
   });
 
@@ -10208,7 +10113,7 @@ function bind() {
         "article-application":
           "Retrieve the category’s gender, then pick the matching article.",
         "gender-imposter":
-          "Three nouns match the category’s expected gender; one does not.",
+          "Mentally assign der/die/das to each noun. Three share a gender — pick the odd one.",
         "sentence-validation":
           "Does the article match the category’s gender shortcut?",
       };
@@ -10232,66 +10137,10 @@ function bind() {
     );
   });
   document.getElementById("nouns-ref-btn").addEventListener("click", () => {
-    if (state.nounsMode === "plurals") {
-      openSheet(
-        "Reference",
-        `<ul>
-          <li>Nominative plural always starts with <em>die</em> (given — number, not gender)</li>
-          <li>Build the stem + ending: -en/-n, -e, -er, -s, or — (no change)</li>
-          <li>Ending tendencies track the <em>singular</em> noun’s gender</li>
-          <li>Umlaut is often lexical — use the stem chip as given</li>
-        </ul>`
-      );
-      return;
-    }
-    if (state.nounsMode === "wugs") {
-      openSheet(
-        "Reference",
-        `<ul>
-          <li>Wugs test productive suffix → gender mapping</li>
-          <li>Strong cues (-ung, -heit, -chen, -ling…) → pick der/die/das</li>
-          <li>No strong cue → choose <strong>?</strong> (insufficient information)</li>
-        </ul>`
-      );
-      return;
-    }
-    if (isNounDiscriminateMode()) {
-      openSheet(
-        "Reference",
-        `<ul>
-          <li><strong>Proofread</strong> — judge whether the article+noun pair is correct</li>
-          <li><strong>Reverse</strong> — article shown; pick the lemma that takes it</li>
-          <li>Same suffix-cued lexicon as Real Words</li>
-        </ul>`
-      );
-      return;
-    }
-    if (isNounCategoryMode()) {
-      openSheet(
-        "Reference",
-        `<ul>
-          <li><strong>Gender Recognition</strong> — named category → associated gender</li>
-          <li><strong>Article Application</strong> — use that gender to pick der/die/das or ein/eine</li>
-          <li><strong>Gender Imposter</strong> — find the noun whose gender violates the shortcut</li>
-          <li><strong>Sentence Validation</strong> — is the article in context correct?</li>
-          <li>Category association predicts; lexical gender is authoritative</li>
-        </ul>`
-      );
-      return;
-    }
-    if (state.nounsMode === "association") {
-      openSheet(
-        "Reference",
-        `<ul>
-          <li>Same nominative-singular task as Real Words, grouped by suffix family</li>
-          <li>Aim ~80% on a family before plurals feel natural for that pattern</li>
-          <li>This is a soft readiness signal — Plurals stays a separate topic</li>
-        </ul>`
-      );
-      return;
-    }
-    const ex = state.currentExercise || currentNounArticleExercise();
-    openSheet("Pattern", `<p>${ex.materials.patternBlurb}</p>`);
+    openContextualReference({
+      territory: "nouns",
+      mode: state.nounsMode,
+    });
   });
   document.getElementById("nouns-back").addEventListener("click", () => {
     clearNounsAdvance();
@@ -10328,38 +10177,15 @@ function bind() {
     renderNouns();
   });
 
-  const numbersMenu = document.querySelector(
-    '.territory-menu[data-territory="numbers"] .menu-panel'
-  );
-  numbersMenu?.addEventListener("click", (e) => {
-    const change = e.target.closest("[data-numbers-change-focus]");
-    const home = e.target.closest("[data-numbers-hub]");
-    const resume = e.target.closest("[data-numbers-resume]");
-    if (resume) {
-      e.stopPropagation();
-      closeAllMenus();
-      state.phase.numbers = "practice";
-      showTerritoryPhase("numbers");
-      return;
-    }
-    if (change || home) {
-      e.stopPropagation();
-      closeAllMenus();
-      goNumbersHub();
-      return;
-    }
-    const openTopic = e.target.closest("[data-numbers-open-topic]");
-    if (openTopic) {
-      e.stopPropagation();
-      closeAllMenus();
-      state.numbersHubTopic = openTopic.dataset.numbersOpenTopic;
-      state.phase.numbers = "hub";
-      state.preservePractice.numbers = false;
-      showTerritoryPhase("numbers");
-    }
-  });
-
   document.getElementById("numbers-hub")?.addEventListener("click", (e) => {
+    const vocabOpen = e.target.closest("[data-vocab-open]");
+    if (vocabOpen) {
+      openVocabulary(
+        vocabOpen.dataset.vocabTerritory || "numbers",
+        vocabOpen.dataset.vocabMode || "learn"
+      );
+      return;
+    }
     const go = e.target.closest("#numbers-hub-go");
     if (go) {
       startNumbersPractice({
@@ -10417,54 +10243,17 @@ function bind() {
       });
       return;
     }
-    const mixModes = e.target.closest("[data-hub-mix-modes]");
-    if (mixModes) {
-      const topicId = mixModes.dataset.topic;
-      const stepId = mixModes.dataset.step;
-      state.numbersMixTopic = topicId;
-      state.numbersMixSteps = [stepId];
-      state.numbersMixMode = mixModeForCaps("either");
-      state.numbersHubPracticePick = "";
-      startNumbersMix();
-      return;
-    }
-    const mixToggle = e.target.closest("[data-mix-toggle]");
-    if (mixToggle) {
-      const id = mixToggle.dataset.step;
-      const topicId = mixToggle.dataset.topic || state.numbersHubTopic || "cardinals";
-      if (state.numbersMixTopic && state.numbersMixTopic !== topicId) {
-        state.numbersMixSteps = [];
-      }
-      state.numbersMixTopic = topicId;
-      const set = new Set(state.numbersMixSteps);
-      if (set.has(id)) set.delete(id);
-      else set.add(id);
-      state.numbersMixSteps = [...set];
-      renderNumbersHub();
-      return;
-    }
-    const mixModeBtn = e.target.closest("[data-mix-mode]");
-    if (mixModeBtn && mixModeBtn.classList.contains("numbers-mix-toggle")) {
-      state.numbersMixMode = mixModeForCaps(mixModeBtn.dataset.mixMode);
-      const topicId = state.numbersMixTopic || state.numbersHubTopic || "cardinals";
-      const eligible = new Set(
-        mixableSteps(topicId, state.numbersMixMode).map((s) => s.id)
-      );
-      // Keep steps still valid for the new mode; don't auto-fill.
-      state.numbersMixSteps = state.numbersMixSteps.filter((id) =>
-        eligible.has(id)
-      );
-      renderNumbersHub();
-      return;
-    }
-    const mixStart = e.target.closest("#numbers-mix-start");
-    if (mixStart) {
-      startNumbersMix();
-      return;
-    }
   });
 
   document.getElementById("nouns-hub")?.addEventListener("click", (e) => {
+    const vocabOpen = e.target.closest("[data-vocab-open]");
+    if (vocabOpen) {
+      openVocabulary(
+        vocabOpen.dataset.vocabTerritory || "nouns",
+        vocabOpen.dataset.vocabMode || "learn"
+      );
+      return;
+    }
     const learn = e.target.closest("[data-nouns-learn]");
     if (learn) {
       const unitId = learn.dataset.unit;
@@ -10485,21 +10274,13 @@ function bind() {
     }
   });
 
-  document.querySelectorAll("[data-numbers-difficulty]").forEach((btn) => {
+  document.querySelectorAll("[data-scaffold-difficulty]").forEach((btn) => {
     btn.addEventListener("click", () => {
       closeAllMenus();
-      state.numbersDifficulty = btn.dataset.numbersDifficulty;
-      // Preference only on hub; in practice, re-render with new scaffolding.
-      if (state.phase.numbers === "practice") {
-        clearNumbersAdvance();
-        stopSpeech();
-        showTerritoryPhase("numbers");
-      } else {
-        syncTerritoryMenu("numbers");
-        if (state.phase.numbers === "hub") renderNumbersHub();
-      }
+      setScaffoldDifficulty(btn.dataset.scaffoldDifficulty);
     });
   });
+  syncScaffoldMenu();
 
   document.querySelectorAll("[data-nouns-hub]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -10508,6 +10289,19 @@ function bind() {
     });
   });
 
+  document
+    .querySelector('.territory-menu[data-territory="nouns"] .menu-panel')
+    ?.addEventListener("click", (e) => {
+      const vocabOpen = e.target.closest("[data-vocab-open]");
+      if (!vocabOpen) return;
+      e.stopPropagation();
+      closeAllMenus();
+      openVocabulary(
+        vocabOpen.dataset.vocabTerritory || "nouns",
+        vocabOpen.dataset.vocabMode || "learn"
+      );
+    });
+
   document.querySelectorAll("[data-nouns-unit]").forEach((btn) => {
     btn.addEventListener("click", () => {
       closeAllMenus();
@@ -10515,34 +10309,10 @@ function bind() {
     });
   });
 
-  document.querySelectorAll("[data-nouns-difficulty]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      closeAllMenus();
-      state.nounsDifficulty = btn.dataset.nounsDifficulty;
-      if (state.phase.nouns === "practice") {
-        clearNounsAdvance();
-        stopSpeech();
-        showTerritoryPhase("nouns");
-      } else {
-        syncTerritoryMenu("nouns");
-        if (state.phase.nouns === "hub") renderNounsHub();
-      }
-    });
-  });
-
   document.querySelectorAll("[data-sounds-mode]").forEach((btn) => {
     btn.addEventListener("click", () => {
       closeAllMenus();
       setSoundsMode(btn.dataset.soundsMode);
-      state.phase.sounds = "practice";
-      showTerritoryPhase("sounds");
-    });
-  });
-
-  document.querySelectorAll("[data-sounds-difficulty]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      closeAllMenus();
-      setSoundsDifficulty(btn.dataset.soundsDifficulty);
       state.phase.sounds = "practice";
       showTerritoryPhase("sounds");
     });
@@ -10571,6 +10341,15 @@ function bind() {
       state.phase[id] = "chart";
       if (state.view !== id) navigate(id, { keepPhase: true });
       else showTerritoryPhase(id);
+    });
+  });
+
+  document.querySelectorAll("[data-open-reference]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      closeAllMenus();
+      const territory = btn.dataset.openReference;
+      // Overlay only — do not change Practice phase or Dealer state.
+      openReferenceBrowse({ territory });
     });
   });
 

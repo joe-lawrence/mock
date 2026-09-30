@@ -3,7 +3,7 @@
  * Lexical gender/plural are authoritative; patterns are predictive only.
  */
 
-export const DATA_VERSION = "0.5.0";
+export const DATA_VERSION = "0.5.1";
 
 export const ARTICLES = Object.freeze({
   masculine: "der",
@@ -88,6 +88,20 @@ export const SUFFIX_PATTERNS = Object.freeze([
     gender: "masculine",
     strength: "strong",
     note: "strong masculine clue",
+  }),
+  Object.freeze({
+    id: "suf.ner",
+    suffix: "ner",
+    gender: "masculine",
+    strength: "strong",
+    note: "often masculine (agent nouns in -ner)",
+  }),
+  Object.freeze({
+    id: "suf.er",
+    suffix: "er",
+    gender: "masculine",
+    strength: "strong",
+    note: "often masculine (esp. agent nouns)",
   }),
 ]);
 
@@ -442,6 +456,7 @@ export const LEXICON = Object.freeze({
   Arzt: Object.freeze({ gender: "masculine", gloss: "doctor" }),
   Lehrer: Object.freeze({ gender: "masculine", gloss: "teacher" }),
   Schüler: Object.freeze({ gender: "masculine", gloss: "student / pupil" }),
+  Gärtner: Object.freeze({ gender: "masculine", gloss: "gardener" }),
   Koch: Object.freeze({ gender: "masculine", gloss: "cook / chef" }),
 
   // —— Chart plural exemplars (no strong gender suffix; plurals mode / reference) ——
@@ -523,6 +538,21 @@ export const WUGS = Object.freeze([
   Object.freeze({ form: "Blimmismus", patternId: "suf.ismus", intendedGender: "masculine", note: "strong -ismus cue" }),
   Object.freeze({ form: "Norkismus", patternId: "suf.ismus", intendedGender: "masculine", note: "strong -ismus cue" }),
   Object.freeze({ form: "Trechismus", patternId: "suf.ismus", intendedGender: "masculine", note: "strong -ismus cue" }),
+
+  // -ner → M (agents; longer match than -er)
+  Object.freeze({ form: "Glnorner", patternId: "suf.ner", intendedGender: "masculine", note: "agent -ner → masculine" }),
+  Object.freeze({ form: "Plörtner", patternId: "suf.ner", intendedGender: "masculine", note: "agent -ner → masculine" }),
+  Object.freeze({ form: "Zwibner", patternId: "suf.ner", intendedGender: "masculine", note: "agent -ner → masculine" }),
+  Object.freeze({ form: "Krumftner", patternId: "suf.ner", intendedGender: "masculine", note: "agent -ner → masculine" }),
+  Object.freeze({ form: "Snarfner", patternId: "suf.ner", intendedGender: "masculine", note: "agent -ner → masculine" }),
+
+  // -er → M (agents)
+  Object.freeze({ form: "Klopfer", patternId: "suf.er", intendedGender: "masculine", note: "agent -er → masculine" }),
+  Object.freeze({ form: "Drösser", patternId: "suf.er", intendedGender: "masculine", note: "agent -er → masculine" }),
+  Object.freeze({ form: "Quorfler", patternId: "suf.er", intendedGender: "masculine", note: "agent -er → masculine" }),
+  Object.freeze({ form: "Blimmer", patternId: "suf.er", intendedGender: "masculine", note: "agent -er → masculine" }),
+  Object.freeze({ form: "Norker", patternId: "suf.er", intendedGender: "masculine", note: "agent -er → masculine" }),
+  Object.freeze({ form: "Trecher", patternId: "suf.er", intendedGender: "masculine", note: "agent -er → masculine" }),
 
   // -chen → N
   Object.freeze({ form: "Blöndchen", patternId: "suf.chen", intendedGender: "neuter", note: "diminutive -chen → neuter" }),

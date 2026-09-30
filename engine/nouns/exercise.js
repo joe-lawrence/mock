@@ -141,8 +141,79 @@ export function categoryArticleApplicationExercise(itemId) {
 }
 
 /**
- * Gender Imposter: 3 matching-gender members + 1 wrong-gender noun.
- * @param {string} categoryId
+ * Pick up to `count` lemmas of `gender` from practice categories, preferring
+ * distinct categories so the set is not a thematic odd-one-out.
+ * @param {string} gender
+ * @param {number} count
+ * @param {string} seed
+ * @param {Set<string>} [exclude]
+ * @returns {{ lemmas: string[], categoryIds: string[] }}
+ */
+function pickDiverseGenderLemmas(gender, count, seed, exclude = new Set()) {
+  const pools = practiceCategories()
+    .filter((c) => c.association === gender)
+    .map((c) => ({
+      id: c.id,
+      members: categoryMatchingMembers(c.id).filter((m) => !exclude.has(m)),
+    }))
+    .filter((p) => p.members.length);
+
+  const lemmas = [];
+  const categoryIds = [];
+  const usedCats = new Set();
+  let guard = 0;
+  while (lemmas.length < count && guard < 80) {
+    guard += 1;
+    let candidates = pools.filter(
+      (p) =>
+        !usedCats.has(p.id) &&
+        p.members.some((m) => !lemmas.includes(m) && !exclude.has(m))
+    );
+    if (!candidates.length) {
+      candidates = pools.filter((p) =>
+        p.members.some((m) => !lemmas.includes(m) && !exclude.has(m))
+      );
+    }
+    if (!candidates.length) break;
+    const pool = candidates[stableIndex(`${seed}:cat:${lemmas.length}`, candidates.length)];
+    const avail = pool.members.filter((m) => !lemmas.includes(m) && !exclude.has(m));
+    const lemma = avail[stableIndex(`${seed}:lem:${lemmas.length}`, avail.length)];
+    lemmas.push(lemma);
+    categoryIds.push(pool.id);
+    usedCats.add(pool.id);
+    exclude.add(lemma);
+  }
+
+  // Lexicon fallback if not enough category-backed members.
+  if (lemmas.length < count) {
+    const extras = Object.keys(LEXICON)
+      .filter(
+        (lemma) =>
+          LEXICON[lemma]?.gender === gender &&
+          !exclude.has(lemma) &&
+          !lemmas.includes(lemma)
+      )
+      .sort();
+    let i = 0;
+    while (lemmas.length < count && i < extras.length) {
+      const start = stableIndex(`${seed}:lex:${lemmas.length}`, extras.length);
+      const lemma = extras[(start + i) % extras.length];
+      i += 1;
+      if (lemmas.includes(lemma) || exclude.has(lemma)) continue;
+      lemmas.push(lemma);
+      categoryIds.push("");
+      exclude.add(lemma);
+    }
+  }
+
+  return { lemmas, categoryIds };
+}
+
+/**
+ * Gender Imposter: 3 same-gender nouns from diverse categories + 1 other-gender
+ * noun. Skill = spot the odd gender — not the odd semantic category, and never
+ * by reading a “Category / Expected gender” spoiler.
+ * @param {string} categoryId — focus category; its association is the majority gender
  */
 export function categoryGenderImposterExercise(categoryId) {
   const cat = getGenderCategory(categoryId);
@@ -150,34 +221,55 @@ export function categoryGenderImposterExercise(categoryId) {
   if (!practiceCategories().some((c) => c.id === categoryId)) {
     throw new Error(`categoryGenderImposterExercise: not practice-eligible ${categoryId}`);
   }
-  const matching = categoryMatchingMembers(categoryId);
-  if (matching.length < 3) {
+  const majorityGender = cat.association;
+  if (
+    majorityGender !== "masculine" &&
+    majorityGender !== "feminine" &&
+    majorityGender !== "neuter"
+  ) {
     throw new Error(
-      `categoryGenderImposterExercise: need ≥3 matching members for ${categoryId}`
+      `categoryGenderImposterExercise: no concrete gender for ${categoryId}`
     );
   }
-  const matchStart = stableIndex(`${categoryId}:match`, matching.length);
-  const matches = [];
-  for (let i = 0; i < matching.length && matches.length < 3; i++) {
-    matches.push(matching[(matchStart + i) % matching.length]);
+
+  const exclude = new Set();
+  const majority = pickDiverseGenderLemmas(
+    majorityGender,
+    3,
+    `${categoryId}:maj`,
+    exclude
+  );
+  if (majority.lemmas.length < 3) {
+    throw new Error(
+      `categoryGenderImposterExercise: need ≥3 ${majorityGender} nouns (got ${majority.lemmas.length})`
+    );
   }
 
-  const memberSet = new Set(categoryMembers(categoryId));
-  const imposters = Object.keys(LEXICON)
-    .filter(
-      (lemma) =>
-        !memberSet.has(lemma) &&
-        LEXICON[lemma]?.gender &&
-        LEXICON[lemma].gender !== cat.association
-    )
-    .sort();
-  if (!imposters.length) {
-    throw new Error(`categoryGenderImposterExercise: no imposters for ${categoryId}`);
+  const otherGenders = ["masculine", "feminine", "neuter"].filter(
+    (g) => g !== majorityGender
+  );
+  const impGender =
+    otherGenders[stableIndex(`${categoryId}:impG`, otherGenders.length)];
+  const impPick = pickDiverseGenderLemmas(
+    impGender,
+    1,
+    `${categoryId}:imp`,
+    exclude
+  );
+  if (!impPick.lemmas.length) {
+    throw new Error(
+      `categoryGenderImposterExercise: no ${impGender} imposter for ${categoryId}`
+    );
   }
-  const imposter = imposters[stableIndex(`${categoryId}:imp`, imposters.length)];
+  const imposter = impPick.lemmas[0];
 
-  const lemmas = rotateList([...matches, imposter], `${categoryId}:order`);
+  const lemmas = rotateList(
+    [...majority.lemmas, imposter],
+    `${categoryId}:order`
+  );
   const displays = Object.fromEntries(lemmas.map((lemma) => [lemma, lemma]));
+  const majorityLabel = associationChoiceLabel(majorityGender);
+  const imposterLabel = associationChoiceLabel(LEXICON[imposter].gender);
 
   return {
     categoryId: cat.id,
@@ -186,13 +278,18 @@ export function categoryGenderImposterExercise(categoryId) {
     strength: cat.strength,
     expectedAssociation: cat.association,
     expectedLemma: imposter,
-    matches,
+    matches: majority.lemmas,
+    matchCategoryIds: majority.categoryIds,
     imposter,
     imposterGender: LEXICON[imposter].gender,
+    majorityGender,
     choices: lemmas,
     choiceLabels: displays,
-    choiceLabel: associationChoiceLabel(cat.association),
-    header: `Category: ${cat.name} · Expected gender: ${associationChoiceLabel(cat.association)}`,
+    choiceLabel: majorityLabel,
+    // No pre-answer spoiler — category/gender revealed only in feedback.
+    header: "",
+    feedbackOk: `Correct — ${imposter} is ${imposterLabel.toLowerCase()}; the others are ${majorityLabel.toLowerCase()}.`,
+    feedbackBad: `The imposter is ${imposter} (${imposterLabel.toLowerCase()}). The other three are ${majorityLabel.toLowerCase()}.`,
   };
 }
 

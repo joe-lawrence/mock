@@ -23,32 +23,32 @@
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Sora:wght@500;600&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,500&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./css/mock.css?v=20260930-dmo17" />
+    <link rel="stylesheet" href="./css/mock.css?v=20260930-vocab17" />
     <link rel="stylesheet" href="./css/nav-carousel.css?v=20260929-nc33" />
     <script type="importmap">
       {
         "imports": {
-          "/engine/numbers/decimal.js": "/engine/numbers/decimal.js?v=20260930-dmo17",
-          "/engine/numbers/fraction.js": "/engine/numbers/fraction.js?v=20260930-dmo17",
-          "/engine/numbers/time.js": "/engine/numbers/time.js?v=20260930-dmo17",
-          "/engine/numbers/ordinal.js": "/engine/numbers/ordinal.js?v=20260930-dmo17",
-          "/engine/numbers/date.js": "/engine/numbers/date.js?v=20260930-dmo17",
-          "/engine/numbers/measure.js": "/engine/numbers/measure.js?v=20260930-dmo17",
-          "/engine/numbers/cardinal.js": "/engine/numbers/cardinal.js?v=20260930-dmo17",
-          "/engine/numbers/data.js": "/engine/numbers/data.js?v=20260930-dmo17",
-          "/engine/numbers/exercise.js": "/engine/numbers/exercise.js?v=20260930-dmo17",
-          "/engine/numbers/evaluate.js": "/engine/numbers/evaluate.js?v=20260930-dmo17",
-          "/engine/numbers/attempt.js": "/engine/numbers/attempt.js?v=20260930-dmo17",
-          "/engine/numbers/index.js": "/engine/numbers/index.js?v=20260930-dmo17",
-          "/engine/exercise/index.js": "/engine/exercise/index.js?v=20260929-dmo4",
-          "/engine/exercise/create.js": "/engine/exercise/create.js?v=20260929-dmo4",
-          "/engine/exercise/modes.js": "/engine/exercise/modes.js?v=20260929-dmo4",
-          "/engine/exercise/submit.js": "/engine/exercise/submit.js?v=20260929-dmo4",
-          "/engine/nouns/index.js": "/engine/nouns/index.js?v=20260928-nouns12",
-          "/engine/nouns/categories.js": "/engine/nouns/categories.js?v=20260928-nouns12",
-          "/engine/nouns/data.js": "/engine/nouns/data.js?v=20260928-nouns12",
-          "/engine/nouns/exercise.js": "/engine/nouns/exercise.js?v=20260928-nouns12",
-          "/engine/nouns/category-practice.js": "/engine/nouns/category-practice.js?v=20260928-nouns12"
+          "/engine/numbers/decimal.js": "/engine/numbers/decimal.js?v=20260930-ref1",
+          "/engine/numbers/fraction.js": "/engine/numbers/fraction.js?v=20260930-ref1",
+          "/engine/numbers/time.js": "/engine/numbers/time.js?v=20260930-ref1",
+          "/engine/numbers/ordinal.js": "/engine/numbers/ordinal.js?v=20260930-ref1",
+          "/engine/numbers/date.js": "/engine/numbers/date.js?v=20260930-ref1",
+          "/engine/numbers/measure.js": "/engine/numbers/measure.js?v=20260930-ref1",
+          "/engine/numbers/cardinal.js": "/engine/numbers/cardinal.js?v=20260930-ref1",
+          "/engine/numbers/data.js": "/engine/numbers/data.js?v=20260930-ref1",
+          "/engine/numbers/exercise.js": "/engine/numbers/exercise.js?v=20260930-ref1",
+          "/engine/numbers/evaluate.js": "/engine/numbers/evaluate.js?v=20260930-ref1",
+          "/engine/numbers/attempt.js": "/engine/numbers/attempt.js?v=20260930-ref1",
+          "/engine/numbers/index.js": "/engine/numbers/index.js?v=20260930-ref1",
+          "/engine/exercise/index.js": "/engine/exercise/index.js?v=20260930-nouns13",
+          "/engine/exercise/create.js": "/engine/exercise/create.js?v=20260930-nouns13",
+          "/engine/exercise/modes.js": "/engine/exercise/modes.js?v=20260930-nouns13",
+          "/engine/exercise/submit.js": "/engine/exercise/submit.js?v=20260930-nouns13",
+          "/engine/nouns/index.js": "/engine/nouns/index.js?v=20260930-nouns13",
+          "/engine/nouns/categories.js": "/engine/nouns/categories.js?v=20260930-nouns13",
+          "/engine/nouns/data.js": "/engine/nouns/data.js?v=20260930-nouns13",
+          "/engine/nouns/exercise.js": "/engine/nouns/exercise.js?v=20260930-nouns13",
+          "/engine/nouns/category-practice.js": "/engine/nouns/category-practice.js?v=20260930-nouns13"
         }
       }
     </script>
@@ -117,54 +117,13 @@
               <span class="menu-check-mark" aria-hidden="true">✓</span>
               <span class="menu-check-label">Answer sounds</span>
             </button>
-          </div>
-        </div>
-
-        <div class="menu territory-menu" data-territory="numbers" hidden>
-          <button
-            type="button"
-            class="territory-menu-btn"
-            aria-expanded="false"
-            aria-haspopup="true"
-          >
-            Numbers
-          </button>
-          <div class="menu-panel" role="menu" hidden>
-            <button type="button" role="menuitem" data-numbers-hub>
-              Numbers home
-            </button>
-            <button type="button" role="menuitem" data-show-briefing="numbers">
-              Briefing
-            </button>
-            <button type="button" role="menuitem" data-open-chart="numbers">
-              Reference Chart
-            </button>
             <hr class="menu-sep" />
-            <button
-              type="button"
-              role="menuitem"
-              data-numbers-change-focus
-              hidden
-            >
-              Change focus…
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              data-numbers-resume
-              hidden
-            >
-              Back to practice
-            </button>
-            <hr class="menu-sep" />
-            <div id="numbers-menu-body" hidden></div>
-            <hr class="menu-sep" id="numbers-menu-diff-sep" />
             <button
               type="button"
               role="menuitemradio"
               class="menu-check"
               aria-checked="true"
-              data-numbers-difficulty="assisted"
+              data-scaffold-difficulty="assisted"
             >
               <span class="menu-check-mark" aria-hidden="true">✓</span>
               <span class="menu-check-label">Assisted</span>
@@ -174,7 +133,7 @@
               role="menuitemradio"
               class="menu-check"
               aria-checked="false"
-              data-numbers-difficulty="core"
+              data-scaffold-difficulty="core"
             >
               <span class="menu-check-mark" aria-hidden="true"></span>
               <span class="menu-check-label">Core</span>
@@ -198,9 +157,15 @@
             <button type="button" role="menuitem" data-open-chart="nouns">
               Reference Chart
             </button>
+            <button type="button" role="menuitem" data-open-reference="nouns">
+              Browse Reference
+            </button>
             <hr class="menu-sep" />
             <button type="button" role="menuitem" data-nouns-hub>
               Nouns home
+            </button>
+            <button type="button" role="menuitem" data-vocab-open data-vocab-mode="learn" data-vocab-territory="nouns">
+              Vocabulary
             </button>
             <hr class="menu-sep" />
             <p class="menu-group-label">Gender Shortcuts</p>
@@ -226,27 +191,6 @@
             <button type="button" role="menuitem" disabled>
               Articles
             </button>
-            <hr class="menu-sep" />
-            <button
-              type="button"
-              role="menuitemradio"
-              class="menu-check"
-              aria-checked="true"
-              data-nouns-difficulty="assisted"
-            >
-              <span class="menu-check-mark" aria-hidden="true">✓</span>
-              <span class="menu-check-label">Assisted</span>
-            </button>
-            <button
-              type="button"
-              role="menuitemradio"
-              class="menu-check"
-              aria-checked="false"
-              data-nouns-difficulty="core"
-            >
-              <span class="menu-check-mark" aria-hidden="true"></span>
-              <span class="menu-check-label">Core</span>
-            </button>
           </div>
         </div>
 
@@ -266,6 +210,9 @@
             <button type="button" role="menuitem" data-open-chart="sounds">
               Reference Chart
             </button>
+            <button type="button" role="menuitem" data-open-reference="sounds">
+              Browse Reference
+            </button>
             <hr class="menu-sep" />
             <button
               type="button"
@@ -282,27 +229,6 @@
             >
               Discriminate
             </button>
-            <hr class="menu-sep" />
-            <button
-              type="button"
-              role="menuitemradio"
-              class="menu-check"
-              aria-checked="true"
-              data-sounds-difficulty="assisted"
-            >
-              <span class="menu-check-mark" aria-hidden="true">✓</span>
-              <span class="menu-check-label">Assisted</span>
-            </button>
-            <button
-              type="button"
-              role="menuitemradio"
-              class="menu-check"
-              aria-checked="false"
-              data-sounds-difficulty="core"
-            >
-              <span class="menu-check-mark" aria-hidden="true"></span>
-              <span class="menu-check-label">Core</span>
-            </button>
           </div>
         </div>
 
@@ -315,6 +241,7 @@
       <div class="session-crumb" id="session-crumb" hidden>
         <span class="session-mode" id="session-mode" data-mode=""></span>
         <nav class="session-breadcrumb" id="session-breadcrumb" aria-label="Location"></nav>
+        <div class="session-playlist-host" id="session-playlist-host" hidden></div>
       </div>
 
       <main>
@@ -331,6 +258,7 @@
           hidden
         >
           <div class="numbers-hub" id="numbers-hub" hidden></div>
+          <div class="vocab-panel" id="numbers-vocab" hidden></div>
           <div class="briefing" id="numbers-briefing" hidden></div>
           <div class="sound-chart" id="numbers-chart" hidden></div>
           <div class="stage stage-fill" id="numbers-stage" hidden>
@@ -414,6 +342,7 @@
         >
           <div class="briefing" id="nouns-briefing"></div>
           <div class="numbers-hub" id="nouns-hub" hidden></div>
+          <div class="vocab-panel" id="nouns-vocab" hidden></div>
           <div class="sound-chart" id="nouns-chart" hidden></div>
           <div class="stage stage-fill" id="nouns-stage" hidden>
             <p class="legend legend-text" id="nouns-legend" aria-label="Gender key">
@@ -589,6 +518,6 @@
       </div>
     </div>
 
-    <script type="module" src="./js/mock.js?v=20260930-dmo17"></script>
+    <script type="module" src="./js/mock.js?v=20260930-vocab17"></script>
   </body>
 </html>

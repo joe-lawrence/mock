@@ -173,7 +173,7 @@ export function createNounCategoryGenderRecognitionExercise(categoryId, opts = {
       categoryId: truth.categoryId,
       categoryName: truth.categoryName,
       text: "What gender is associated with this category?",
-      description: scaffolding.showEnglish ? truth.description : null,
+      description: null,
     },
     materials: {
       choices: [...truth.choices],
@@ -221,7 +221,7 @@ export function createNounCategoryArticleApplicationExercise(itemId, opts = {}) 
       categoryName: truth.categoryName,
       lemma: truth.lemma,
       text: truth.promptText,
-      header: `${truth.categoryName} → ${truth.choiceLabel}`,
+      header: "",
     },
     materials: {
       choices: [...truth.choices],
@@ -241,7 +241,7 @@ export function createNounCategoryArticleApplicationExercise(itemId, opts = {}) 
 }
 
 /**
- * Categories — Gender Imposter: find the noun whose gender violates the shortcut.
+ * Categories — Gender Imposter: find the noun with the odd lexical gender.
  * @param {string} categoryId
  * @param {{ mode?: import("./modes.js").DifficultyMode }} [opts]
  */
@@ -267,13 +267,14 @@ export function createNounCategoryGenderImposterExercise(categoryId, opts = {}) 
     prompt: {
       kind: "category-gender-imposter",
       categoryId: truth.categoryId,
-      categoryName: truth.categoryName,
-      text: "Which noun is the gender imposter?",
-      header: truth.header,
+      // Deliberately omit categoryName/header — those spoil the odd-gender task.
+      text: "Three nouns share the same gender. Which is the imposter?",
+      header: "",
     },
     materials: {
       choices: [...truth.choices],
       choiceLabels: { ...truth.choiceLabels },
+      hint: "Assign der/die/das to each noun (suffix or lexical knowledge). Find the one that doesn’t match the other three.",
     },
     resolution: {
       expected: truth.expectedLemma,
@@ -283,8 +284,9 @@ export function createNounCategoryGenderImposterExercise(categoryId, opts = {}) 
       strength: truth.strength,
       categoryName: truth.categoryName,
       imposterGender: truth.imposterGender,
-      feedbackOk: `Correct. Category expected ${truth.choiceLabel.toLowerCase()}, but ${truth.imposter} is ${truth.imposterGender} — learn that lexical fact.`,
-      feedbackBad: `The imposter is ${truth.imposter} (${truth.imposterGender}). Category ${truth.categoryName} expects ${truth.choiceLabel.toLowerCase()}.`,
+      majorityGender: truth.majorityGender,
+      feedbackOk: truth.feedbackOk,
+      feedbackBad: truth.feedbackBad,
     },
   };
 }
@@ -320,7 +322,7 @@ export function createNounCategorySentenceValidationExercise(itemId, opts = {}) 
       lemma: truth.lemma,
       text: "Is this sentence correct?",
       sentence: truth.sentence,
-      header: `${truth.categoryName} → ${truth.choiceLabel}`,
+      header: "",
     },
     materials: {
       choices: [...truth.choices],

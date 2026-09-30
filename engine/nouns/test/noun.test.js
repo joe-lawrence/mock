@@ -24,6 +24,8 @@ describe("suffix patterns", () => {
     assert.equal(matchSuffixPattern("Möglichkeit").suffix, "keit");
     assert.equal(matchSuffixPattern("Zeitung").suffix, "ung");
     assert.equal(matchSuffixPattern("Mädchen").suffix, "chen");
+    assert.equal(matchSuffixPattern("Lehrer").suffix, "er");
+    assert.equal(matchSuffixPattern("Gärtner").suffix, "ner");
   });
 
   it("returns null when no high-confidence cue", () => {
@@ -45,6 +47,14 @@ describe("lexical gender authority", () => {
     assert.equal(nounAnalysis("Zeitung").patternAgrees, true);
     assert.equal(nounAnalysis("Mädchen").patternAgrees, true);
     assert.equal(nounAnalysis("Frühling").patternAgrees, true);
+    assert.equal(nounAnalysis("Lehrer").patternAgrees, true);
+    assert.equal(nounAnalysis("Gärtner").patternAgrees, true);
+  });
+
+  it("pattern may conflict with lexical gender for broad -er", () => {
+    assert.equal(nounAnalysis("Oder").pattern?.suffix, "er");
+    assert.equal(nounAnalysis("Oder").patternAgrees, false);
+    assert.equal(nounAnalysis("Silber").patternAgrees, false);
   });
 
   it("definiteArticle plural nominative is die", () => {

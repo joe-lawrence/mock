@@ -3,8 +3,9 @@
  * Standalone page or embedded hub in the main mock.
  */
 
-import { NUMBERS_TOPICS, modesForStep } from "./numbers-curriculum.js?v=20260930-dmo17";
+import { NUMBERS_TOPICS, modesForStep } from "./numbers-curriculum.js?v=20260930-dmo18";
 import { genderShortcutsNavUnits, modalitiesForUnit } from "./nouns-curriculum.js?v=20260929-dmo4";
+import { topicHasVocabulary } from "./vocabulary-ui.js?v=20260930-vocab16";
 
 const CAPS_KEY = "schnapp-nav-caps";
 const LONG_MS = 500;
@@ -19,18 +20,26 @@ const GAME_SVG = `<svg viewBox="0 0 16 16" width="52" height="52" fill="currentC
 
 const PLAY_SVG = `<svg viewBox="0 0 16 16" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M11.596 8.697l-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>`;
 
-/* Fluent Edit — © 2020 Microsoft Corporation, MIT License */
-const KEY_SVG = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M20.0626 8.44532C21.319 9.70247 21.3183 11.7401 20.0612 12.9964L12.938 20.1076C12.675 20.3701 12.3511 20.5634 11.9952 20.6703L7.70221 21.9589C7.17324 22.1177 6.61571 21.8176 6.45694 21.2886C6.3987 21.0946 6.40076 20.8874 6.46285 20.6946L7.82425 16.4666C7.93389 16.1261 8.12313 15.8166 8.37628 15.5639L15.5091 8.44272C16.7674 7.18646 18.8058 7.18762 20.0626 8.44532ZM16.5689 9.50425L9.43607 16.6254C9.35168 16.7096 9.2886 16.8128 9.25206 16.9263L8.18228 20.2487L11.564 19.2336C11.6826 19.198 11.7906 19.1336 11.8782 19.046L19.0002 11.9361C19.6721 11.2647 19.6724 10.1768 19.0016 9.50564C18.3301 8.83371 17.2412 8.83309 16.5689 9.50425ZM8.15104 2.36975L8.20152 2.47487L11.454 10.724L10.297 11.879L9.556 10H5.443L4.44768 12.5209C4.30809 12.874 3.93033 13.0621 3.57164 12.9737L3.47447 12.9426C3.12137 12.803 2.93328 12.4253 3.02168 12.0666L3.05272 11.9694L6.80633 2.47427C7.04172 1.87883 7.84884 1.84415 8.15104 2.36975ZM7.50294 4.79226L6.036 8.5H8.964L7.50294 4.79226Z" fill="currentColor"/></svg>`;
-
-const HEAD_SVG = `<svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M8 3a5 5 0 0 0-5 5v1h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a6 6 0 1 1 12 0v5a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1V8a5 5 0 0 0-5-5z"/></svg>`;
-
-/** Nouns territory: Gender Shortcuts learn units; Plurals / Articles stubbed. */
+/** Nouns territory: Vocabulary + Gender Shortcuts; Plurals / Articles stubbed. */
 const NOUNS_BRANCH = {
   id: "nouns",
   title: "Nouns",
   type: "topic",
   territory: "nouns",
   children: [
+    ...(topicHasVocabulary("nouns")
+      ? [
+          {
+            id: "nouns:vocabulary",
+            title: "Vocabulary",
+            type: "unit",
+            territory: "nouns",
+            playable: true,
+            kind: "vocabulary",
+            vocabTopic: "nouns",
+          },
+        ]
+      : []),
     {
       id: "nouns:gender-shortcuts",
       title: "Gender Shortcuts",
@@ -76,23 +85,38 @@ const NOUNS_BRANCH = {
  * Unit ids are `topicId:stepId` for Numbers.
  */
 export function buildNavTree() {
-  const numbersChildren = NUMBERS_TOPICS.map((t) => ({
-    id: `numbers:${t.id}`,
-    title: t.label,
-    type: "subtopic",
-    territory: "numbers",
-    topicId: t.id,
-    playable: t.playable,
-    children: (t.steps || []).map((s) => ({
-      id: `${t.id}:${s.id}`,
-      title: s.label,
-      type: "unit",
+  const numbersChildren = [
+    ...(topicHasVocabulary("numbers")
+      ? [
+          {
+            id: "numbers:vocabulary",
+            title: "Vocabulary",
+            type: "unit",
+            territory: "numbers",
+            playable: true,
+            kind: "vocabulary",
+            vocabTopic: "numbers",
+          },
+        ]
+      : []),
+    ...NUMBERS_TOPICS.map((t) => ({
+      id: `numbers:${t.id}`,
+      title: t.label,
+      type: "subtopic",
       territory: "numbers",
       topicId: t.id,
-      stepId: s.id,
-      playable: !!s.playable,
+      playable: t.playable,
+      children: (t.steps || []).map((s) => ({
+        id: `${t.id}:${s.id}`,
+        title: s.label,
+        type: "unit",
+        territory: "numbers",
+        topicId: t.id,
+        stepId: s.id,
+        playable: !!s.playable,
+      })),
     })),
-  }));
+  ];
 
   return [
     {
@@ -163,10 +187,6 @@ function shellHtml({ embedded }) {
             <span class="nc-start-icon">${PLAY_SVG}</span>
             <span class="nc-start-label">Start (<span data-nc-count>0</span>)</span>
           </button>
-          <div class="nc-bar-caps" role="group" aria-label="Practice styles">
-            <button type="button" class="nc-cap" data-nc-cap="keyboard" aria-pressed="true" aria-label="Write practice style" title="Write — free-form text">${KEY_SVG}</button>
-            <button type="button" class="nc-cap" data-nc-cap="audio" aria-pressed="true" aria-label="Listen practice style" title="Listen — audio in">${HEAD_SVG}</button>
-          </div>
         </footer>
         <div class="nc-playlist-sheet" data-nc-playlist-sheet hidden>
           <div class="nc-cfg-backdrop" data-nc-playlist-close tabindex="-1"></div>
@@ -216,8 +236,10 @@ export function mountNavCarousel(container, options = {}) {
     const raw = localStorage.getItem(CAPS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (typeof parsed.keyboard === "boolean") state.keyboard = parsed.keyboard;
-      if (typeof parsed.audio === "boolean") state.audio = parsed.audio;
+      if (parsed.keyboard === "only" || typeof parsed.keyboard === "boolean")
+        state.keyboard = parsed.keyboard;
+      if (parsed.audio === "only" || typeof parsed.audio === "boolean")
+        state.audio = parsed.audio;
     }
   } catch (_) {}
 
@@ -242,9 +264,6 @@ export function mountNavCarousel(container, options = {}) {
   const startBtn = root.querySelector("[data-nc-start]");
   const countEl = root.querySelector("[data-nc-count]");
   const toastEl = root.querySelector("[data-nc-toast]");
-  const keyBtn = root.querySelector('[data-nc-cap="keyboard"]');
-  const audioBtn = root.querySelector('[data-nc-cap="audio"]');
-  const capsGroup = root.querySelector(".nc-bar-caps");
   const playlistSheet = root.querySelector("[data-nc-playlist-sheet]");
   const playlistBody = root.querySelector("[data-nc-playlist-body]");
 
@@ -268,31 +287,51 @@ export function mountNavCarousel(container, options = {}) {
     };
   }
 
+  function capOn(v) {
+    return v === true || v === "only";
+  }
+
   /**
    * Unit supports practice under current caps.
    * Pick-style (Build / Choose article) is always available when the unit allows it;
-   * Write/Listen only when those caps are on.
+   * Write/Listen only when those caps are on (or exclusive).
    */
   function unitMatchesCaps(u, c = caps()) {
     if (!u || u.playable === false) return false;
     if (u.territory === "numbers" && u.topicId && u.stepId) {
+      if (c.keyboard === "only") {
+        return modesForStep(u.topicId, u.stepId).some(
+          (m) => m.id === "convert" || m.id === "proofread"
+        );
+      }
+      if (c.audio === "only") {
+        return modesForStep(u.topicId, u.stepId).some((m) => m.id === "listen");
+      }
       return modesForStep(u.topicId, u.stepId).some(
         (m) =>
           m.id === "build" ||
           m.id === "cloze" ||
           m.id === "visual" ||
           m.id === "sentence" ||
-          (m.id === "listen" && c.audio) ||
-          ((m.id === "convert" || m.id === "proofread") && c.keyboard)
+          (m.id === "listen" && capOn(c.audio)) ||
+          ((m.id === "convert" || m.id === "proofread") && capOn(c.keyboard))
       );
     }
+    if (u.kind === "vocabulary" || u.vocabTopic) {
+      return topicHasVocabulary(u.vocabTopic || u.territory);
+    }
     if (u.territory === "nouns" && u.learnUnitId) {
+      if (c.keyboard === "only") {
+        return modalitiesForUnit(u.learnUnitId).some(
+          (m) => m.playable && m.id === "type-article"
+        );
+      }
       return modalitiesForUnit(u.learnUnitId).some(
         (m) =>
           m.playable &&
           (m.id === "choose-article" ||
             m.id === "category-gender" ||
-            (m.id === "type-article" && c.keyboard))
+            (m.id === "type-article" && capOn(c.keyboard)))
       );
     }
     return false;
@@ -302,12 +341,6 @@ export function mountNavCarousel(container, options = {}) {
   function eligibleUnits() {
     if (state.mode === "learn") return selectedUnits();
     return selectedUnits().filter((u) => unitMatchesCaps(u));
-  }
-
-  function toggleCap(key) {
-    state[key] = !state[key];
-    saveCaps();
-    renderNav();
   }
 
   function closePlaylist() {
@@ -325,6 +358,20 @@ export function mountNavCarousel(container, options = {}) {
   /** Derive Start practice buckets — Pick always on; Write/Listen from caps. */
   function practiceFromCaps() {
     const c = caps();
+    if (c.keyboard === "only") {
+      return {
+        numbersModes: ["convert"],
+        nounsFamilies: [],
+        nounsModalities: ["type-article"],
+      };
+    }
+    if (c.audio === "only") {
+      return {
+        numbersModes: ["listen"],
+        nounsFamilies: [],
+        nounsModalities: ["choose-article", "category-gender"],
+      };
+    }
     const numbersModes = ["build"];
     if (c.audio) numbersModes.push("listen");
     if (c.keyboard) numbersModes.push("convert");
@@ -602,15 +649,6 @@ export function mountNavCarousel(container, options = {}) {
     const n = eligibleUnits().length;
     if (startBtn) startBtn.disabled = n === 0;
     updateStartMeta();
-    if (capsGroup) capsGroup.hidden = state.mode !== "play";
-    if (keyBtn) {
-      keyBtn.setAttribute("aria-pressed", String(state.keyboard));
-      keyBtn.classList.toggle("is-off", !state.keyboard);
-    }
-    if (audioBtn) {
-      audioBtn.setAttribute("aria-pressed", String(state.audio));
-      audioBtn.classList.toggle("is-off", !state.audio);
-    }
   }
 
   function enterMode(mode) {
@@ -734,8 +772,6 @@ export function mountNavCarousel(container, options = {}) {
       showToast("Guided start — Dealer picks your next rep.");
     }
   });
-  keyBtn?.addEventListener("click", () => toggleCap("keyboard"));
-  audioBtn?.addEventListener("click", () => toggleCap("audio"));
   playlistSheet?.querySelectorAll("[data-nc-playlist-close]").forEach((el) => {
     el.addEventListener("click", () => {
       closePlaylist();

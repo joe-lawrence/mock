@@ -91,7 +91,7 @@ export const GENDER_SHORTCUTS_UNITS = [
         id: "gender-imposter",
         label: "Gender Imposter",
         playable: true,
-        blurb: "Find the noun whose gender violates the category shortcut.",
+        blurb: "Three nouns share a gender — find the odd gender out.",
       },
       {
         id: "sentence-validation",

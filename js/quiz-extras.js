@@ -293,7 +293,7 @@ export function visualForMeta(meta) {
   ) {
     return {
       html: clockSvg(meta.hours, meta.minutes),
-      ask: "State the time on the clock",
+      ask: "Conversational reading, e.g. fünf vor halb zwei",
       lead: "",
     };
   }
