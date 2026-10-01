@@ -109,7 +109,7 @@ import {
   buildHelpModel,
   renderHelpSheetHtml,
   wireHelpSheet,
-} from "./help-sheet.js?v=20261001-help7";
+} from "./help-sheet.js?v=20261001-ios1";
 import {
   mountVocabularyPanel,
   topicHasVocabulary,

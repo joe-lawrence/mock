@@ -97,12 +97,14 @@ html[data-theme="dark"] {
 html {
   color-scheme: light;
   -webkit-text-size-adjust: 100%;
+  height: 100%;
 }
 
 body {
   margin: 0;
+  height: 100%;
+  min-height: 100vh;
   min-height: 100dvh;
-  height: 100dvh;
   overflow: hidden;
   font-family: var(--font-body);
   font-size: 17px;
@@ -112,6 +114,12 @@ body {
     radial-gradient(900px 500px at 100% 0%, var(--bg-spot-2), transparent 50%),
     var(--wash);
   line-height: 1.5;
+}
+
+@supports (height: 100svh) {
+  body {
+    min-height: 100svh;
+  }
 }
 
 button,
@@ -153,12 +161,27 @@ button {
   max-width: none;
   margin: 0;
   padding: 0;
-  height: 100dvh;
-  height: 100svh;
-  min-height: 0;
+  height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  max-height: 100%;
+  max-height: 100dvh;
   display: flex;
   flex-direction: column;
-  overflow: visible;
+  overflow: hidden;
+}
+
+@supports (height: 100svh) {
+  .app {
+    min-height: 100svh;
+    max-height: 100svh;
+  }
+}
+
+@supports (height: -webkit-fill-available) {
+  .app {
+    min-height: -webkit-fill-available;
+  }
 }
 
 .topbar {
@@ -180,11 +203,12 @@ button {
 }
 
 main {
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
 
 .menu {
@@ -369,7 +393,14 @@ span.territory-menu-btn {
 
 /* Session = quiz fullscreen chrome (hub uses the same app/topbar shell) */
 body.is-session .app {
-  height: 100dvh;
+  height: 100%;
+  max-height: 100dvh;
+}
+
+@supports (height: 100svh) {
+  body.is-session .app {
+    max-height: 100svh;
+  }
 }
 
 body.is-session .chip {
@@ -927,10 +958,12 @@ body.is-session .view.is-active.view-session {
 }
 
 .view.is-active.nc-hub {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
+  /* height comes from --nc-embed-h in nav-carousel.css (definite; %-height collapses on iOS) */
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 @keyframes fade {

@@ -830,10 +830,16 @@ html[data-theme="dark"] .nc-phone {
 }
 
 
-/* Embedded in main mock hub — fill remaining viewport under shared player topbar */
+/* Embedded in main mock hub — absolute .nc-screen need a real height
+   (height:auto + abs children → 0 on iOS flex → only Schnapp header visible). */
 .nc-hub {
-  flex: 1 1 0;
+  --nc-topbar-h: 3.25rem;
+  --nc-embed-h: calc(100vh - var(--nc-topbar-h));
+  --nc-embed-h: calc(100dvh - var(--nc-topbar-h) - env(safe-area-inset-bottom, 0px));
+  --nc-embed-h: calc(100svh - var(--nc-topbar-h) - env(safe-area-inset-bottom, 0px));
+  flex: 1 1 auto;
   min-height: 0;
+  height: var(--nc-embed-h);
   display: flex;
   flex-direction: column;
   padding: 0;
@@ -841,15 +847,17 @@ html[data-theme="dark"] .nc-phone {
 }
 
 .nc-hub #nav-carousel-root {
-  flex: 1 1 0;
-  min-height: 16rem;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
   position: relative;
   display: flex;
   flex-direction: column;
 }
 
 .nc-hub #nav-carousel-root > .nc-phone.is-embedded {
-  flex: 1 1 0;
+  flex: 1 1 auto;
+  height: 100%;
   min-height: 0;
 }
 
