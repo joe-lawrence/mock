@@ -1809,6 +1809,7 @@ button.syl:disabled,
   box-shadow: 0 -8px 32px rgba(28, 36, 48, 0.12);
   padding: 0.85rem 1.1rem 1.25rem;
   animation: sheet-up 0.28s ease;
+  overflow: hidden;
 }
 
 @keyframes sheet-up {
@@ -1850,6 +1851,8 @@ button.syl:disabled,
 }
 
 .sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   font-size: 0.95rem;
@@ -3751,6 +3754,220 @@ html[data-theme="dark"] .quiz-visual-svg {
   padding-left: 1.1rem;
 }
 
+/* —— Session Help sheet (Hint / Vocab / Pattern / Full Reference) —— */
+.help-rung {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.sheet-body ul.help-rung {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.help-rung-step {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: hidden;
+}
+
+.help-rung-step + .help-rung-step {
+  border-top: 1px solid var(--line);
+}
+
+.help-rung-step.is-open {
+  background: var(--wash);
+}
+
+.help-rung-face {
+  display: block;
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.9rem 1rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.help-rung-face:hover,
+.help-rung-face:focus-visible {
+  outline: none;
+  background: var(--signal-soft);
+}
+
+.help-rung-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: -0.02em;
+}
+
+.help-rung-body {
+  padding: 0.75rem 1rem 0.95rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--ink);
+  background: var(--wash);
+}
+
+.help-rung-body p {
+  margin: 0;
+  color: var(--ink);
+}
+
+.help-rung-body p + p {
+  margin-top: 0.4rem;
+}
+
+.help-vocab-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.help-dict {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0.5rem 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.help-dict:last-child {
+  border-bottom: 0;
+}
+
+.help-dict:hover,
+.help-dict:focus-visible {
+  outline: none;
+  background: var(--signal-soft);
+}
+
+.help-dict-line {
+  display: block;
+}
+
+.help-dict-art {
+  display: inline-block;
+  font-weight: inherit;
+  font-size: inherit;
+  vertical-align: baseline;
+}
+
+/* Shared article gutter so "den" lines up under "Sonntag", not under "der" */
+.help-vocab-list[data-pad-art="1"] .help-dict-art {
+  width: 3.1ch;
+  margin-right: 0.35ch;
+  text-align: left;
+  box-sizing: content-box;
+}
+
+.help-dict-lemma {
+  display: inline;
+  font-weight: inherit;
+  font-size: inherit;
+}
+
+.help-dict-infl {
+  display: inline;
+  font-weight: inherit;
+  font-size: inherit;
+  color: inherit;
+  white-space: nowrap;
+}
+
+.help-dict-gloss {
+  display: block;
+  min-height: 1.4em;
+  margin: 0;
+  padding: 0;
+  font-size: inherit;
+  line-height: inherit;
+  color: var(--muted);
+}
+
+.help-vocab-list[data-pad-art="1"] .help-dict-gloss {
+  padding-left: calc(3.1ch + 0.35ch);
+}
+
+/* Invisible but still take space so the lemma never shifts */
+.help-dict [data-slot="art"],
+.help-dict [data-slot="gloss"],
+.help-dict [data-slot="infl"] {
+  visibility: hidden;
+}
+
+.help-dict[data-state="1"] [data-slot="gloss"],
+.help-dict[data-state="2"] [data-slot="gloss"],
+.help-dict[data-state="2"] [data-slot="art"],
+.help-dict[data-state="3"] [data-slot="gloss"],
+.help-dict[data-state="3"] [data-slot="art"],
+.help-dict[data-state="3"] [data-slot="infl"] {
+  visibility: visible;
+}
+
+/* Bare tokens (den): keep the empty art gutter visible as space, never as text */
+.help-dict[data-has-art="0"] [data-slot="art"] {
+  visibility: hidden;
+}
+
+.help-gender-m {
+  color: var(--masc-ink);
+}
+
+.help-gender-f {
+  color: var(--fem-ink);
+}
+
+.help-gender-n {
+  color: var(--neut-ink);
+}
+
+.help-ref-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.help-ref-summary {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+}
+
+.help-ref-open {
+  margin-top: 0.55rem;
+}
+
+.help-empty {
+  margin: 0;
+  color: var(--muted);
+}
 
 /* —— Vocabulary Learn / Practice —— */
 .vocab-panel.stage {

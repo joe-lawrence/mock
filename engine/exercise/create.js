@@ -192,7 +192,7 @@ export function createNounCategoryGenderRecognitionExercise(categoryId, opts = {
 }
 
 /**
- * Categories — Article Application: blanked authored sentence → article.
+ * Categories — Article Application: blanked composed sentence → article.
  * @param {string} itemId
  * @param {{ mode?: import("./modes.js").DifficultyMode }} [opts]
  */
@@ -292,7 +292,7 @@ export function createNounCategoryGenderImposterExercise(categoryId, opts = {}) 
 }
 
 /**
- * Categories — Sentence Validation: authored sentence → Correct / Incorrect.
+ * Categories — Sentence Validation: composed sentence → Correct / Incorrect.
  * @param {string} itemId
  * @param {{ mode?: import("./modes.js").DifficultyMode }} [opts]
  */

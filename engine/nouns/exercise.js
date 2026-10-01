@@ -113,7 +113,7 @@ export function categoryGenderRecognitionExercise(categoryId) {
 }
 
 /**
- * Article Application: authored blanked sentence → article choice.
+ * Article Application: composed blanked sentence → article choice.
  * @param {string} itemId
  */
 export function categoryArticleApplicationExercise(itemId) {
@@ -294,7 +294,7 @@ export function categoryGenderImposterExercise(categoryId) {
 }
 
 /**
- * Sentence Validation: authored sentence → correct / incorrect.
+ * Sentence Validation: composed sentence → correct / incorrect.
  * @param {string} itemId
  */
 export function categorySentenceValidationExercise(itemId) {

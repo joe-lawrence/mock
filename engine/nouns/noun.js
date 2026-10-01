@@ -2,9 +2,16 @@
  * Noun lookup: lexical gender (truth) vs suffix pattern (prediction).
  */
 
-import { ARTICLES, LEXICON, SUFFIX_PATTERNS, DATA_VERSION } from "./data.js";
+import {
+  DEFINITE_ARTICLES,
+  INDEFINITE_ARTICLES,
+  PLURAL_ARTICLE,
+  LEXICON,
+  SUFFIX_PATTERNS,
+  DATA_VERSION,
+} from "./data.js";
 
-export const ENGINE_VERSION = "0.1.0";
+export const ENGINE_VERSION = "0.2.0";
 export { DATA_VERSION };
 
 function normalizeLemma(lemma) {
@@ -28,22 +35,68 @@ export function matchSuffixPattern(lemma) {
 
 /**
  * @param {"masculine"|"feminine"|"neuter"} gender
- * @param {{ number?: "singular"|"plural", case?: string }} [opts]
+ * @param {{ number?: "singular"|"plural", case?: "nominative"|"accusative" }} [opts]
  */
 export function definiteArticle(gender, opts = {}) {
   const number = opts.number || "singular";
   const grammaticalCase = opts.case || "nominative";
-  if (number === "plural" && grammaticalCase === "nominative") {
-    return "die";
-  }
-  if (number !== "singular" || grammaticalCase !== "nominative") {
+  if (number === "plural") {
+    if (grammaticalCase === "nominative" || grammaticalCase === "accusative") {
+      return PLURAL_ARTICLE;
+    }
     throw new RangeError(
-      `definiteArticle: only nominative singular/plural supported (got ${grammaticalCase} ${number})`
+      `definiteArticle: plural only nominative/accusative supported (got ${grammaticalCase})`
     );
   }
-  const article = ARTICLES[gender];
+  if (number !== "singular") {
+    throw new RangeError(`definiteArticle: unknown number ${number}`);
+  }
+  const byCase = DEFINITE_ARTICLES[grammaticalCase];
+  if (!byCase) {
+    throw new RangeError(
+      `definiteArticle: unsupported case ${grammaticalCase}`
+    );
+  }
+  const article = byCase[gender];
   if (!article) throw new RangeError(`unknown gender: ${gender}`);
   return article;
+}
+
+/**
+ * @param {"masculine"|"feminine"|"neuter"} gender
+ * @param {{ case?: "nominative"|"accusative" }} [opts]
+ */
+export function indefiniteArticle(gender, opts = {}) {
+  const grammaticalCase = opts.case || "nominative";
+  const byCase = INDEFINITE_ARTICLES[grammaticalCase];
+  if (!byCase) {
+    throw new RangeError(
+      `indefiniteArticle: unsupported case ${grammaticalCase}`
+    );
+  }
+  const article = byCase[gender];
+  if (!article) throw new RangeError(`unknown gender: ${gender}`);
+  return article;
+}
+
+/**
+ * Resolve article form from authoritative tables.
+ * @param {"masculine"|"feminine"|"neuter"} gender
+ * @param {{ kind?: "definite"|"indefinite", number?: "singular"|"plural", case?: string }} [opts]
+ */
+export function articleForm(gender, opts = {}) {
+  const kind = opts.kind || "definite";
+  const number = opts.number || "singular";
+  if (kind === "indefinite") {
+    if (number !== "singular") {
+      throw new RangeError("indefiniteArticle: plural not supported");
+    }
+    return indefiniteArticle(gender, { case: opts.case || "nominative" });
+  }
+  return definiteArticle(gender, {
+    number,
+    case: opts.case || "nominative",
+  });
 }
 
 /**

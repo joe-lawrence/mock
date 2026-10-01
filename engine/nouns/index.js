@@ -3,6 +3,8 @@ export {
   DATA_VERSION,
   matchSuffixPattern,
   definiteArticle,
+  indefiniteArticle,
+  articleForm,
   nounAnalysis,
   nounArticle,
 } from "./noun.js";
@@ -33,6 +35,8 @@ export {
 export {
   ARTICLES,
   PLURAL_ARTICLE,
+  DEFINITE_ARTICLES,
+  INDEFINITE_ARTICLES,
   SUFFIX_PATTERNS,
   LEXICON,
   WUGS,
@@ -59,4 +63,17 @@ export {
   categoryValidationItems,
   getCategoryArticleItem,
   getCategoryValidationItem,
+  resetCategoryPracticePools,
 } from "./category-practice.js";
+
+export {
+  COMPOSE_VERSION,
+  PRACTICE_CONTEXTS,
+  articleChoices,
+  validateComposition,
+  wrongGenderArticle,
+  composeArticleItem,
+  composeValidationPair,
+  composeArticleApplicationItems,
+  composeSentenceValidationItems,
+} from "./practice-compose.js";

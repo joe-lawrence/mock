@@ -106,6 +106,11 @@ import {
   referenceIdForPracticeContext,
 } from "./reference-ui.js?v=20260930-ref1";
 import {
+  buildHelpModel,
+  renderHelpSheetHtml,
+  wireHelpSheet,
+} from "./help-sheet.js?v=20261001-help7";
+import {
   mountVocabularyPanel,
   topicHasVocabulary,
   vocabAreasFromCurriculumTopics,
@@ -6409,10 +6414,11 @@ function renderNumbersCloze() {
   clearAnswerReveal("numbers");
   const back = document.getElementById("numbers-back");
   if (back) back.disabled = numbersBackDisabled();
-  const hintBtn = document.getElementById("numbers-hint");
-  const refBtn = document.getElementById("numbers-ref-btn");
-  if (hintBtn) hintBtn.hidden = !exercise.scaffolding.showHintButton;
-  if (refBtn) refBtn.hidden = !exercise.scaffolding.showReferenceButton;
+  const helpBtn = document.getElementById("numbers-help");
+  if (helpBtn) {
+    const sc = exercise.scaffolding || {};
+    helpBtn.hidden = !(sc.showHintButton || sc.showReferenceButton);
+  }
 
   const slots = document.getElementById("numbers-slots");
   slots.hidden = false;
@@ -6999,10 +7005,11 @@ function renderNumbersBuild() {
   const back = document.getElementById("numbers-back");
   if (back) back.disabled = numbersBackDisabled();
 
-  const hintBtn = document.getElementById("numbers-hint");
-  const refBtn = document.getElementById("numbers-ref-btn");
-  if (hintBtn) hintBtn.hidden = !exercise.scaffolding.showHintButton;
-  if (refBtn) refBtn.hidden = !exercise.scaffolding.showReferenceButton;
+  const helpBtn = document.getElementById("numbers-help");
+  if (helpBtn) {
+    const sc = exercise.scaffolding || {};
+    helpBtn.hidden = !(sc.showHintButton || sc.showReferenceButton);
+  }
 
   const slots = document.getElementById("numbers-slots");
   slots.hidden = false;
@@ -7110,10 +7117,11 @@ function renderNumbersListen() {
   const back = document.getElementById("numbers-back");
   if (back) back.disabled = numbersBackDisabled();
 
-  const hintBtn = document.getElementById("numbers-hint");
-  const refBtn = document.getElementById("numbers-ref-btn");
-  if (hintBtn) hintBtn.hidden = !exercise.scaffolding.showHintButton;
-  if (refBtn) refBtn.hidden = !exercise.scaffolding.showReferenceButton;
+  const helpBtn = document.getElementById("numbers-help");
+  if (helpBtn) {
+    const sc = exercise.scaffolding || {};
+    helpBtn.hidden = !(sc.showHintButton || sc.showReferenceButton);
+  }
 
   const slots = document.getElementById("numbers-slots");
   slots.className = "numbers-listen-play";
@@ -7357,10 +7365,11 @@ function renderNumbersConvert() {
   const back = document.getElementById("numbers-back");
   if (back) back.disabled = numbersBackDisabled();
 
-  const hintBtn = document.getElementById("numbers-hint");
-  const refBtn = document.getElementById("numbers-ref-btn");
-  if (hintBtn) hintBtn.hidden = !exercise.scaffolding.showHintButton;
-  if (refBtn) refBtn.hidden = !exercise.scaffolding.showReferenceButton;
+  const helpBtn = document.getElementById("numbers-help");
+  if (helpBtn) {
+    const sc = exercise.scaffolding || {};
+    helpBtn.hidden = !(sc.showHintButton || sc.showReferenceButton);
+  }
 
   const slots = document.getElementById("numbers-slots");
   slots.hidden = true;
@@ -8166,7 +8175,7 @@ function renderNouns() {
   syncTerritoryMenu("nouns");
   refreshPlaylistChrome();
 
-  const help = document.getElementById("nouns-help");
+  const help = document.getElementById("nouns-help-line");
   const translationEl = document.getElementById("nouns-translation");
   if (translationEl) {
     translationEl.hidden = true;
@@ -8218,12 +8227,10 @@ function applyNounScaffoldingChrome(exercise) {
   // the gender answer — keep it hidden during drills.
   const legend = document.getElementById("nouns-legend");
   if (legend) legend.hidden = true;
-  const hintBtn = document.getElementById("nouns-hint");
-  const refBtn = document.getElementById("nouns-ref-btn");
-  if (hintBtn) hintBtn.hidden = !sc.showHintButton;
-  if (refBtn) refBtn.hidden = !sc.showReferenceButton;
+  const helpBtn = document.getElementById("nouns-help");
+  if (helpBtn) helpBtn.hidden = !(sc.showHintButton || sc.showReferenceButton);
 
-  const help = document.getElementById("nouns-help");
+  const help = document.getElementById("nouns-help-line");
   if (help) {
     help.hidden = true;
     help.textContent = "";
@@ -8409,12 +8416,10 @@ function renderNounsCategory() {
 
   const legend = document.getElementById("nouns-legend");
   if (legend) legend.hidden = true;
-  const hintBtn = document.getElementById("nouns-hint");
-  const refBtn = document.getElementById("nouns-ref-btn");
-  if (hintBtn) hintBtn.hidden = false;
-  if (refBtn) refBtn.hidden = false;
+  const helpBtn = document.getElementById("nouns-help");
+  if (helpBtn) helpBtn.hidden = false;
 
-  const help = document.getElementById("nouns-help");
+  const help = document.getElementById("nouns-help-line");
   if (help) {
     help.hidden = true;
     help.textContent = "";
@@ -8558,7 +8563,11 @@ function renderNounsDiscriminate() {
     choices = pack.options;
     expected = pack.answer;
     state.currentExercise = {
-      materials: { hint: `Look for a ${article}-gender suffix cue.`, answerParts },
+      materials: {
+        hint: `Look for a ${article}-gender suffix cue.`,
+        answerParts,
+        choices: [...choices],
+      },
       resolution: {
         expected,
         feedbackOk: `Yes — ${article} ${item.lemma}.`,
@@ -8580,12 +8589,10 @@ function renderNounsDiscriminate() {
 
   const legend = document.getElementById("nouns-legend");
   if (legend) legend.hidden = true;
-  const hintBtn = document.getElementById("nouns-hint");
-  const refBtn = document.getElementById("nouns-ref-btn");
-  if (hintBtn) hintBtn.hidden = false;
-  if (refBtn) refBtn.hidden = false;
+  const helpBtn = document.getElementById("nouns-help");
+  if (helpBtn) helpBtn.hidden = false;
 
-  const help = document.getElementById("nouns-help");
+  const help = document.getElementById("nouns-help-line");
   if (help) {
     help.hidden = true;
     help.textContent = "";
@@ -9625,6 +9632,115 @@ function closeSheet() {
   sheet.style.zIndex = "";
 }
 
+/** Hint text for the active Numbers exercise. */
+function numbersHelpHint(exercise) {
+  return exercise?.materials?.hint || "";
+}
+
+/** Hint text for the active Nouns exercise / mode. */
+function nounsHelpHint(exercise) {
+  if (state.nounsMode === "plurals") {
+    return exercise?.materials?.hint || "";
+  }
+  if (state.nounsMode === "wugs") {
+    return exercise?.materials?.hint || "";
+  }
+  if (isNounDiscriminateMode()) {
+    return (
+      exercise?.materials?.hint ||
+      "Use the suffix cue to judge the article."
+    );
+  }
+  if (isNounCategoryMode()) {
+    const hints = {
+      "gender-recognition":
+        "Retrieve the category’s gender shortcut — masculine, feminine, or neuter.",
+      "article-application":
+        "Retrieve the category’s gender, then pick the matching article.",
+      "gender-imposter":
+        "Mentally assign der/die/das to each noun. Three share a gender — pick the odd one.",
+      "sentence-validation":
+        "Does the article match the category’s gender shortcut?",
+    };
+    return hints[state.nounsMode] || exercise?.materials?.hint || "";
+  }
+  const cue = exercise?.materials?.cue || exercise?.prompt?.cue;
+  if (cue) return `Nominative singular. Look at the ending ${cue}.`;
+  return (
+    exercise?.materials?.hint ||
+    exercise?.materials?.patternBlurb ||
+    ""
+  );
+}
+
+/**
+ * Open unified Help sheet for the active question.
+ * @param {{
+ *   territory: string,
+ *   exercise?: object|null,
+ *   hint?: string,
+ *   mode?: string,
+ *   stepId?: string,
+ *   topicId?: string,
+ * }} opts
+ */
+function openSessionHelp(opts) {
+  const model = buildHelpModel({
+    hint: opts.hint || "",
+    exercise: opts.exercise || null,
+    territory: opts.territory,
+    mode: opts.mode,
+    stepId: opts.stepId,
+    topicId: opts.topicId,
+    referenceId: opts.referenceId || null,
+    lexicon: LEXICON,
+  });
+  openSheet("Help", renderHelpSheetHtml(model));
+  wireHelpSheet(document.getElementById("sheet-body"), {
+    onOpenFullReference: (id) => openReferenceBrowse({ id }),
+  });
+}
+
+function openNumbersHelp() {
+  const ex = state.currentExercise || currentNumberExercise();
+  openSessionHelp({
+    territory: "numbers",
+    exercise: ex,
+    hint: numbersHelpHint(ex),
+    stepId: state.numbersStep,
+    topicId: state.numbersTopic,
+    mode: state.numbersQuizMode,
+  });
+}
+
+function openNounsHelp() {
+  let ex = state.currentExercise;
+  if (!ex) {
+    if (state.nounsMode === "plurals") ex = currentNounPluralExercise();
+    else if (state.nounsMode === "wugs") ex = currentNounWugExercise();
+    else if (state.nounsMode === "association")
+      ex = currentNounAssociationExercise();
+    else if (!isNounCategoryMode() && !isNounDiscriminateMode())
+      ex = currentNounArticleExercise();
+  }
+  openSessionHelp({
+    territory: "nouns",
+    exercise: ex,
+    hint: nounsHelpHint(ex),
+    mode: state.nounsMode,
+  });
+}
+
+function openSoundsHelp() {
+  const item = currentSoundsItem();
+  openSessionHelp({
+    territory: "sounds",
+    exercise: null,
+    hint: item?.hint || "",
+    referenceId: null,
+  });
+}
+
 /** Open Reference browse/entry in the sheet without touching Practice state. */
 function openReferenceBrowse(opts = {}) {
   const { id = null, territory = null } = opts;
@@ -9655,19 +9771,17 @@ function openContextualReference(ctx) {
 }
 
 function showSoundsHint() {
-  const item = currentSoundsItem();
-  openSheet("Hint", `<p>${item.hint}</p>`);
+  openSoundsHelp();
 }
 
 function showSoundsReference() {
-  openContextualReference({ territory: "sounds" });
+  openSoundsHelp();
 }
 
 function appendSoundsSupportActions(actions, extraButtons = []) {
   actions.append(
     ...extraButtons,
-    actionBtn("Hint", showSoundsHint, "btn", null, false, "lightbulb"),
-    actionBtn("Reference", showSoundsReference, "btn", null, false, "book")
+    actionBtn("Help", openSoundsHelp, "btn", null, false, "lightbulb")
   );
 }
 
@@ -9765,8 +9879,7 @@ function renderSounds() {
     });
 
     const mid = [
-      actionBtn("Hint", showSoundsHint, "btn", null, false, "lightbulb"),
-      actionBtn("Reference", showSoundsReference, "btn", null, false, "book"),
+      actionBtn("Help", openSoundsHelp, "btn", null, false, "lightbulb"),
     ];
     actions.appendChild(soundsNavRow(backBtn, skipBtn, mid));
     return;
@@ -9800,8 +9913,7 @@ function renderSounds() {
     });
 
     const mid = [
-      actionBtn("Hint", showSoundsHint, "btn", null, false, "lightbulb"),
-      actionBtn("Reference", showSoundsReference, "btn", null, false, "book"),
+      actionBtn("Help", openSoundsHelp, "btn", null, false, "lightbulb"),
     ];
     actions.appendChild(soundsNavRow(backBtn, nextBtn, mid));
   }
@@ -10055,17 +10167,8 @@ function bind() {
     );
   });
 
-  document.getElementById("numbers-hint").addEventListener("click", () => {
-    const ex = state.currentExercise || currentNumberExercise();
-    openSheet("Hint", `<p>${ex.materials.hint}</p>`);
-  });
-  document.getElementById("numbers-ref-btn").addEventListener("click", () => {
-    openContextualReference({
-      territory: "numbers",
-      stepId: state.numbersStep,
-      topicId: state.numbersTopic,
-      mode: state.numbersQuizMode,
-    });
+  document.getElementById("numbers-help").addEventListener("click", () => {
+    openNumbersHelp();
   });
   document.getElementById("numbers-back").addEventListener("click", () => {
     clearNumbersAdvance();
@@ -10087,60 +10190,8 @@ function bind() {
     skipNumbersShowingAnswer();
   });
 
-  document.getElementById("nouns-hint").addEventListener("click", () => {
-    if (state.nounsMode === "plurals") {
-      const ex = state.currentExercise || currentNounPluralExercise();
-      openSheet("Hint", `<p>${ex.materials.hint}</p>`);
-      return;
-    }
-    if (state.nounsMode === "wugs") {
-      const ex = state.currentExercise || currentNounWugExercise();
-      openSheet("Hint", `<p>${ex.materials.hint}</p>`);
-      return;
-    }
-    if (isNounDiscriminateMode()) {
-      const ex = state.currentExercise;
-      openSheet(
-        "Hint",
-        `<p>${ex?.materials?.hint || "Use the suffix cue to judge the article."}</p>`
-      );
-      return;
-    }
-    if (isNounCategoryMode()) {
-      const hints = {
-        "gender-recognition":
-          "Retrieve the category’s gender shortcut — masculine, feminine, or neuter.",
-        "article-application":
-          "Retrieve the category’s gender, then pick the matching article.",
-        "gender-imposter":
-          "Mentally assign der/die/das to each noun. Three share a gender — pick the odd one.",
-        "sentence-validation":
-          "Does the article match the category’s gender shortcut?",
-      };
-      openSheet(
-        "Hint",
-        `<p>${hints[state.nounsMode] || ""}</p>`
-      );
-      return;
-    }
-    const ex =
-      state.currentExercise ||
-      (state.nounsMode === "association"
-        ? currentNounAssociationExercise()
-        : currentNounArticleExercise());
-    const cue = ex.materials.cue || ex.prompt.cue;
-    openSheet(
-      "Hint",
-      cue
-        ? `<p>Nominative singular. Look at the ending <strong>${cue}</strong>.</p>`
-        : `<p>${ex.materials.patternBlurb}</p>`
-    );
-  });
-  document.getElementById("nouns-ref-btn").addEventListener("click", () => {
-    openContextualReference({
-      territory: "nouns",
-      mode: state.nounsMode,
-    });
+  document.getElementById("nouns-help").addEventListener("click", () => {
+    openNounsHelp();
   });
   document.getElementById("nouns-back").addEventListener("click", () => {
     clearNounsAdvance();
