@@ -492,6 +492,10 @@ export function measureExercise(value, unit, opts = {}) {
     kind: a.kind,
     grain: "construction",
     parts,
+    alternates: a.alternates.map((alt) => ({
+      form: alt.form,
+      parts: [...alt.parts],
+    })),
     distractors: measureDistractors(parts),
     hint: `${parts.join(" + ")} — number + unit.`,
     rules: a.rules,

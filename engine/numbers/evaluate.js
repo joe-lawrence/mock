@@ -36,6 +36,11 @@ function normalizeParts(parts) {
   return (parts || []).map((p) => String(p).trim());
 }
 
+/** Fold ß ↔ ss for orthography compare (canonical display still uses ß). */
+function foldSz(s) {
+  return String(s || "").replace(/ß/g, "ss");
+}
+
 /**
  * @param {{ value: number, parts: string[], grain?: "construction" | "morph" }} input
  */
@@ -48,21 +53,28 @@ export function evaluateCardinalConstruction({ value, parts, grain = "constructi
   const normalized = normalizeParts(parts);
   const built = normalized.join("");
   const canonical = analysis.form;
+  const builtFolded = foldSz(built);
+  const canonicalFolded = foldSz(canonical);
+  const expectedFolded = expected.map(foldSz);
+  const normalizedFolded = normalized.map(foldSz);
 
   const evidenceIds = [...analysis.rules, "eval.cardinal.construction"];
 
-  if (built === canonical && partsEqual(normalized, expected)) {
+  if (
+    builtFolded === canonicalFolded &&
+    partsEqual(normalizedFolded, expectedFolded)
+  ) {
     return {
       status: "correct",
       canonicalAnswers: [canonical],
       matchedAnswer: canonical,
       explanation: "Construction matches the canonical segmentation.",
       evidenceIds,
-      slotMatch: normalized.map((p, i) => p === expected[i]),
+      slotMatch: normalizedFolded.map((p, i) => p === expectedFolded[i]),
     };
   }
 
-  if (built === canonical) {
+  if (builtFolded === canonicalFolded) {
     return {
       status: "accepted-alternative",
       canonicalAnswers: [canonical],
@@ -97,7 +109,7 @@ export function evaluateCardinalConstruction({ value, parts, grain = "constructi
       explanation: `Form is a valid cardinal for ${parsed}, not ${value}.`,
       evidenceIds: [...evidenceIds, "eval.wrong-target", `parsed.${parsed}`],
       parsedValue: parsed,
-      slotMatch: expected.map((p, i) => normalized[i] === p),
+      slotMatch: expectedFolded.map((p, i) => normalizedFolded[i] === p),
     };
   }
 
@@ -106,7 +118,7 @@ export function evaluateCardinalConstruction({ value, parts, grain = "constructi
     canonicalAnswers: [canonical],
     explanation: `Does not form the cardinal for ${value} (${canonical}).`,
     evidenceIds: [...evidenceIds, "eval.incorrect"],
-    slotMatch: expected.map((p, i) => normalized[i] === p),
+    slotMatch: expectedFolded.map((p, i) => normalizedFolded[i] === p),
   };
 }
 
@@ -410,10 +422,41 @@ export function evaluateCalendarDateConstruction({
  */
 export function evaluateMeasureConstruction({ value, unit, parts }) {
   const a = measureAnalysis(value, unit);
-  return evaluateSegmentedForm({
+  const allForms = [a.form, ...a.alternates.map((alt) => alt.form)];
+  const primary = evaluateSegmentedForm({
     parts,
     expected: a.segments.construction,
     form: a.form,
     rules: a.rules,
   });
+  if (
+    primary.status === "correct" ||
+    primary.status === "accepted-alternative"
+  ) {
+    return { ...primary, canonicalAnswers: allForms };
+  }
+
+  for (const alt of a.alternates) {
+    const altEval = evaluateSegmentedForm({
+      parts,
+      expected: [...alt.parts],
+      form: alt.form,
+      rules: [...a.rules, alt.reason],
+    });
+    if (
+      altEval.status === "correct" ||
+      altEval.status === "accepted-alternative"
+    ) {
+      return {
+        status: "accepted-alternative",
+        canonicalAnswers: allForms,
+        matchedAnswer: altEval.matchedAnswer || alt.form,
+        explanation: "Accepted alternate unit phrasing.",
+        evidenceIds: [...a.rules, alt.reason, "eval.alt.measure"],
+        slotMatch: null,
+      };
+    }
+  }
+
+  return { ...primary, canonicalAnswers: allForms };
 }

@@ -2768,6 +2768,14 @@ button.crumb-reason:focus-visible,
   border-left-color: var(--bad, #b4453a);
 }
 
+.dbg-qa.is-retry {
+  border-left-color: var(--muted, #8b95a3);
+}
+
+.dbg-qa.is-skip {
+  border-left-color: var(--line-strong, #c5ccd6);
+}
+
 .dbg-qa-head {
   display: flex;
   flex-wrap: wrap;
@@ -3017,6 +3025,14 @@ button.crumb-reason:focus-visible,
   font-size: 0.95rem;
 }
 
+.prompt-task {
+  display: block;
+  margin-top: 0.35rem;
+  font-weight: 500;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
 .lang-flag {
   flex: 0 0 auto;
   width: 1.35rem;
@@ -3069,7 +3085,7 @@ button.crumb-reason:focus-visible,
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .numbers-listen-play {
@@ -3080,24 +3096,31 @@ button.crumb-reason:focus-visible,
 
 .numbers-listen-entry {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 0.65rem;
   margin-bottom: 1rem;
   padding: 0.85rem;
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   border: 1px dashed var(--line-strong);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.numbers-listen-entry .btn {
+  align-self: center;
 }
 
 .numbers-listen-input {
-  width: 5.5rem;
-  min-width: 4.5rem;
-  max-width: 7.5rem;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
   min-height: var(--touch);
   text-align: center;
-  font-size: 1.35rem;
+  font-size: 1rem;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
@@ -3106,10 +3129,6 @@ button.crumb-reason:focus-visible,
   background: var(--surface);
   color: var(--ink);
   padding: 0.35rem 0.5rem;
-}
-
-.stage[data-mode="listen"] .numbers-listen-input {
-  width: 6.5rem;
 }
 
 .numbers-listen-input:focus-visible {
@@ -3129,24 +3148,31 @@ button.crumb-reason:focus-visible,
 
 .numbers-convert-entry {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 0.65rem;
   margin-bottom: 1rem;
   padding: 0.85rem;
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   border: 1px dashed var(--line-strong);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.numbers-convert-entry .btn {
+  align-self: center;
 }
 
 .numbers-convert-input {
-  flex: 1 1 12rem;
-  min-width: 10rem;
-  max-width: 22rem;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
   min-height: var(--touch);
   text-align: left;
-  font-size: 1.2rem;
+  font-size: 1rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   border: 1.5px solid var(--line-strong);
@@ -3267,6 +3293,11 @@ html[data-theme="dark"] .quiz-visual-svg {
   color: var(--faint);
   transition: background var(--ease), border-color var(--ease);
   box-sizing: border-box;
+  padding: 0.35rem 0.45rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
 }
 
 .slot.is-hot {
@@ -3280,10 +3311,12 @@ html[data-theme="dark"] .quiz-visual-svg {
   background: var(--surface);
   border-style: solid;
   border-color: var(--line-strong);
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 650;
   letter-spacing: 0;
   text-transform: none;
+  line-height: 1.25;
+  text-align: center;
 }
 
 /* Filled slots keep gender channel when a formatted chip is placed */
@@ -3349,6 +3382,29 @@ html[data-theme="dark"] .quiz-visual-svg {
   user-select: none;
   transition: border-color var(--ease), background var(--ease), transform var(--ease);
   box-sizing: border-box;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+.piece.piece-judgment {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+}
+
+.piece.piece-judgment .piece-icon {
+  width: 1.15em;
+  height: 1.15em;
+  flex: 0 0 auto;
+}
+
+.piece.piece-judgment .piece-label {
+  line-height: 1.1;
 }
 
 .piece:hover,
@@ -3627,6 +3683,28 @@ html[data-theme="dark"] .quiz-visual-svg {
   .stage-fill {
     padding: 1.1rem 1rem 1.15rem;
     border-radius: 14px;
+  }
+
+  /* Many-part Builds (calendar dates) — denser slots on SE-width phones */
+  .slot-row {
+    gap: 0.35rem;
+  }
+
+  .slot {
+    min-width: min(4.25rem, 100%);
+    flex: 1 1 3.5rem;
+    min-height: 2.75rem;
+    font-size: 0.68rem;
+    padding: 0.28rem 0.35rem;
+  }
+
+  .slot.is-filled {
+    font-size: 0.92rem;
+  }
+
+  .piece {
+    font-size: 0.95rem;
+    padding: 0.45rem 0.7rem;
   }
 
   .territory-grid {

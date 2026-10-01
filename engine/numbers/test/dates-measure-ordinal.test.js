@@ -13,6 +13,7 @@ import {
   evaluateCalendarDateConstruction,
   measureForm,
   measureParts,
+  measureAcceptedForms,
   evaluateMeasureConstruction,
 } from "../index.js";
 
@@ -96,5 +97,29 @@ describe("measurement", () => {
       }).status,
       "correct"
     );
+  });
+
+  it("accepts Stundenkilometer and Kilometer pro Stunde", () => {
+    assert.equal(measureForm(30, "Stundenkilometer"), "dreißig Stundenkilometer");
+    assert.deepEqual(measureAcceptedForms(30, "Stundenkilometer"), [
+      "dreißig Stundenkilometer",
+      "dreißig Kilometer pro Stunde",
+    ]);
+    assert.equal(
+      evaluateMeasureConstruction({
+        value: 30,
+        unit: "Stundenkilometer",
+        parts: ["dreißig", "Stundenkilometer"],
+      }).status,
+      "correct"
+    );
+    const alt = evaluateMeasureConstruction({
+      value: 30,
+      unit: "Stundenkilometer",
+      parts: ["dreißig", "Kilometer", "pro", "Stunde"],
+    });
+    assert.equal(alt.status, "accepted-alternative");
+    assert.ok(alt.canonicalAnswers.includes("dreißig Stundenkilometer"));
+    assert.ok(alt.canonicalAnswers.includes("dreißig Kilometer pro Stunde"));
   });
 });

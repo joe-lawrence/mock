@@ -35,6 +35,22 @@ export const MONTHS = Object.freeze([
   "Dezember",
 ]);
 
+const MONTHS_EN = Object.freeze([
+  "",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+]);
+
 /**
  * @param {number} index — 0=Montag … 6=Sonntag
  */
@@ -181,7 +197,11 @@ export function calendarDateAnalysis({ day, month, year } = {}) {
     kind: year != null ? "calendar-date-year" : "calendar-date",
     form: spoken.join(" "),
     written,
-    englishWritten: written,
+    // Calendar-day English — "on the 9th of November…" (German: am + dative ordinal).
+    englishWritten:
+      year != null
+        ? `${am.englishWritten} of ${MONTHS_EN[month]}, ${year}`
+        : `${am.englishWritten} of ${MONTHS_EN[month]}`,
     segments: { construction: parts, spoken },
     rules,
   };

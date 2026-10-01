@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   createNounArticleExercise,
   createNounAssociationExercise,
+  createNounCategoryGenderImposterExercise,
   createNounWugExercise,
   createNounPluralExercise,
   createNumberConstructionExercise,
@@ -11,6 +12,11 @@ import {
   scaffoldingFor,
   TEMPLATES,
 } from "../index.js";
+import {
+  practiceCategories,
+  categoryGenderImposterExercise,
+  GENDER_IMPOSTER_VARIANTS,
+} from "../../nouns/index.js";
 
 describe("scaffolding modes", () => {
   it("Assisted marks suffix + gender; Core is plain lemma", () => {
@@ -173,6 +179,48 @@ describe("association and wugs", () => {
     assert.equal(
       submitExerciseAttempt(bare, { article: "insufficient" }).accepted,
       true
+    );
+  });
+});
+
+describe("gender imposter variety", () => {
+  it("variants differ and no single lemma monopolizes imposters", () => {
+    const cats = practiceCategories();
+    assert.ok(cats.length >= 8);
+    const counts = new Map();
+    const pairs = new Set();
+    for (const cat of cats) {
+      const seenImp = new Set();
+      for (let v = 0; v < GENDER_IMPOSTER_VARIANTS; v++) {
+        const truth = categoryGenderImposterExercise(cat.id, { variant: v });
+        assert.equal(truth.choices.length, 4);
+        assert.ok(truth.choices.includes(truth.imposter));
+        seenImp.add(truth.imposter);
+        counts.set(truth.imposter, (counts.get(truth.imposter) || 0) + 1);
+        pairs.add(`${cat.id}:${v}:${truth.imposter}`);
+        const ex = createNounCategoryGenderImposterExercise(cat.id, {
+          mode: "assisted",
+          variant: v,
+        });
+        assert.equal(ex.resolution.expectedLemma, truth.imposter);
+        assert.match(ex.id, new RegExp(`\\.v${v}\\.`));
+      }
+      // Variants for one focus category should not all share the same imposter.
+      assert.ok(
+        seenImp.size >= 2,
+        `${cat.id} imposters too sticky: ${[...seenImp]}`
+      );
+    }
+    const total = cats.length * GENDER_IMPOSTER_VARIANTS;
+    assert.equal(pairs.size, total);
+    const maxShare = Math.max(...counts.values()) / total;
+    assert.ok(
+      maxShare <= 0.25,
+      `top imposter share ${maxShare.toFixed(2)} of ${total}: ${JSON.stringify(Object.fromEntries(counts))}`
+    );
+    assert.ok(
+      (counts.get("Gold") || 0) / total <= 0.2,
+      `Gold still too frequent: ${counts.get("Gold") || 0}/${total}`
     );
   });
 });

@@ -134,6 +134,39 @@ export function numberConversionForToken(raw) {
   const parsed = parseCardinalForm(key);
   if (parsed != null) return { value: parsed, gloss: String(parsed) };
 
+  // Spoken ordinals inside sentence frames (zwölfte, dreiundfünfzigste, …).
+  const ORDINAL_IRREG = Object.freeze({
+    erste: 1,
+    erster: 1,
+    erstes: 1,
+    ersten: 1,
+    dritte: 3,
+    dritter: 3,
+    drittes: 3,
+    dritten: 3,
+    siebte: 7,
+    siebter: 7,
+    siebtes: 7,
+    siebten: 7,
+    achte: 8,
+    achter: 8,
+    achtes: 8,
+    achten: 8,
+  });
+  if (ORDINAL_IRREG[key] != null) {
+    const n = ORDINAL_IRREG[key];
+    return { value: n, gloss: `${n}.` };
+  }
+  let stem = key;
+  if (/ste$/.test(stem)) stem = stem.slice(0, -3);
+  else if (/te$/.test(stem)) stem = stem.slice(0, -2);
+  if (stem && stem !== key) {
+    const ordChip = numberChipIndex().get(stem);
+    if (ordChip != null) return { value: ordChip, gloss: `${ordChip}.` };
+    const ordParsed = parseCardinalForm(stem);
+    if (ordParsed != null) return { value: ordParsed, gloss: `${ordParsed}.` };
+  }
+
   return { value: null, gloss: "" };
 }
 
@@ -142,6 +175,14 @@ export function numberConversionForToken(raw) {
  * @param {object|null} exercise
  * @returns {string[]}
  */
+/** True for full utterances / MC sentence keys — not dict lemmas. */
+function looksLikePhrase(s) {
+  const t = String(s || "").trim();
+  if (!t) return false;
+  // Multi-word, or a single token that is clearly a punctuated sentence.
+  return /\s/.test(t) || /[.!?…]$/.test(t);
+}
+
 export function lemmasOnExercise(exercise) {
   if (!exercise) return [];
   const out = [];
@@ -149,6 +190,8 @@ export function lemmasOnExercise(exercise) {
     if (raw == null) return;
     const s = String(raw).trim();
     if (!s || SKIP_CHOICE.has(s.toLowerCase())) return;
+    // Sentence / phrase answers are not vocab lemmas (e.g. sentence-ordinal MC).
+    if (looksLikePhrase(s)) return;
     // Prefer capitalized German nouns / known surfaces; allow lowercase number words.
     if (!out.includes(s)) out.push(s);
   };
@@ -242,6 +285,23 @@ function enrichNounRow(lemma, base, lexicon) {
   };
 }
 
+function articleFromHeading(heading, surface) {
+  const h = String(heading || "").trim();
+  const m = h.match(/^(der|die|das)\s+(.+)$/i);
+  if (!m) return null;
+  if (surface && m[2] !== surface) return null;
+  const article = m[1].toLowerCase();
+  const gender =
+    article === "der"
+      ? "masculine"
+      : article === "die"
+        ? "feminine"
+        : article === "das"
+          ? "neuter"
+          : null;
+  return { article, gender };
+}
+
 /**
  * @param {string[]} lemmas
  * @param {string[]} [extraParts] number chips
@@ -262,7 +322,9 @@ export function buildVocabEntries(lemmas, extraParts = [], opts = {}) {
   for (const lemma of lemmas || []) {
     const v = lookupVocabByLemma(lemma);
     if (v) {
-      const gender = v.derived?.gender || lexicon[lemma]?.gender || null;
+      const fromHeading = articleFromHeading(v.heading, v.surface);
+      const gender =
+        v.derived?.gender || lexicon[lemma]?.gender || fromHeading?.gender || null;
       const lex = lexicon[lemma] || null;
       pushRow({
         de: v.surface || lemma,
@@ -270,7 +332,11 @@ export function buildVocabEntries(lemmas, extraParts = [], opts = {}) {
         en: v.gloss || v.derived?.gloss || lex?.gloss || "",
         gloss: v.gloss || v.derived?.gloss || lex?.gloss || "",
         number: null,
-        article: v.derived?.article || articleForGender(gender),
+        article:
+          v.derived?.article ||
+          articleForGender(gender) ||
+          fromHeading?.article ||
+          "",
         gender,
         genitive: gender ? genitiveEndingForGender(gender) : "",
         pluralEnding: pluralEndingFor(
@@ -322,15 +388,21 @@ export function buildVocabEntries(lemmas, extraParts = [], opts = {}) {
     const v = lookupVocabByLemma(part);
     const num = numberConversionForToken(part);
     const lex = lexicon[part] || null;
-    if (v && (v.derived?.gender || lex?.gender)) {
-      const gender = v.derived?.gender || lex?.gender || null;
+    const fromHeading = v ? articleFromHeading(v.heading, v.surface) : null;
+    const gender =
+      v?.derived?.gender || lex?.gender || fromHeading?.gender || null;
+    if (v && (gender || v.gloss || fromHeading)) {
       pushRow({
         de: v.surface || part,
         lemma: v.engine?.lemma || part,
         en: num.gloss || v.gloss || v.derived?.gloss || "",
         gloss: v.gloss || v.derived?.gloss || num.gloss || "",
         number: num.value,
-        article: v.derived?.article || articleForGender(gender),
+        article:
+          v.derived?.article ||
+          articleForGender(gender) ||
+          fromHeading?.article ||
+          "",
         gender,
         genitive: gender ? genitiveEndingForGender(gender) : "",
         pluralEnding: pluralEndingFor(v.engine?.lemma || part, lex, v),

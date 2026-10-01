@@ -140,9 +140,42 @@ export function categoryArticleApplicationExercise(itemId) {
   };
 }
 
+/** How many distinct imposter cards to deal per focus category. */
+export const GENDER_IMPOSTER_VARIANTS = 4;
+
 /**
- * Pick up to `count` lemmas of `gender` from practice categories, preferring
- * distinct categories so the set is not a thematic odd-one-out.
+ * Curriculum-level lemmas of `gender` for Imposter:
+ * practice-category members + suffix-cued lexicon (Gender Shortcuts).
+ * @param {string} gender
+ * @param {Set<string>} [exclude]
+ * @returns {{ lemma: string, sourceId: string }[]}
+ */
+function curriculumLemmasForGender(gender, exclude = new Set()) {
+  /** @type {Map<string, string>} */
+  const byLemma = new Map();
+  for (const c of practiceCategories()) {
+    if (c.association !== gender) continue;
+    for (const m of categoryMatchingMembers(c.id)) {
+      if (exclude.has(m) || byLemma.has(m)) continue;
+      byLemma.set(m, c.id);
+    }
+  }
+  for (const row of associationLemmas()) {
+    const lex = LEXICON[row.lemma];
+    if (!lex || lex.gender !== gender) continue;
+    if (exclude.has(row.lemma) || byLemma.has(row.lemma)) continue;
+    byLemma.set(row.lemma, `suffix:${row.suffix}`);
+  }
+  return [...byLemma.entries()]
+    .map(([lemma, sourceId]) => ({ lemma, sourceId }))
+    .sort((a, b) => a.lemma.localeCompare(b.lemma, "de"));
+}
+
+/**
+ * Pick up to `count` lemmas of `gender` from the curriculum pool, preferring
+ * distinct sources so the set is not a thematic odd-one-out.
+ * Picks from a flattened lemma list (not category-first) so list-order
+ * exemplars like Gold do not dominate.
  * @param {string} gender
  * @param {number} count
  * @param {string} seed
@@ -150,41 +183,34 @@ export function categoryArticleApplicationExercise(itemId) {
  * @returns {{ lemmas: string[], categoryIds: string[] }}
  */
 function pickDiverseGenderLemmas(gender, count, seed, exclude = new Set()) {
-  const pools = practiceCategories()
-    .filter((c) => c.association === gender)
-    .map((c) => ({
-      id: c.id,
-      members: categoryMatchingMembers(c.id).filter((m) => !exclude.has(m)),
-    }))
-    .filter((p) => p.members.length);
-
+  const pool = curriculumLemmasForGender(gender, exclude);
   const lemmas = [];
   const categoryIds = [];
-  const usedCats = new Set();
+  const usedSources = new Set();
   let guard = 0;
-  while (lemmas.length < count && guard < 80) {
+  while (lemmas.length < count && guard < 120) {
     guard += 1;
-    let candidates = pools.filter(
+    let candidates = pool.filter(
       (p) =>
-        !usedCats.has(p.id) &&
-        p.members.some((m) => !lemmas.includes(m) && !exclude.has(m))
+        !usedSources.has(p.sourceId) &&
+        !lemmas.includes(p.lemma) &&
+        !exclude.has(p.lemma)
     );
     if (!candidates.length) {
-      candidates = pools.filter((p) =>
-        p.members.some((m) => !lemmas.includes(m) && !exclude.has(m))
+      candidates = pool.filter(
+        (p) => !lemmas.includes(p.lemma) && !exclude.has(p.lemma)
       );
     }
     if (!candidates.length) break;
-    const pool = candidates[stableIndex(`${seed}:cat:${lemmas.length}`, candidates.length)];
-    const avail = pool.members.filter((m) => !lemmas.includes(m) && !exclude.has(m));
-    const lemma = avail[stableIndex(`${seed}:lem:${lemmas.length}`, avail.length)];
-    lemmas.push(lemma);
-    categoryIds.push(pool.id);
-    usedCats.add(pool.id);
-    exclude.add(lemma);
+    const pick =
+      candidates[stableIndex(`${seed}:lem:${lemmas.length}`, candidates.length)];
+    lemmas.push(pick.lemma);
+    categoryIds.push(pick.sourceId.startsWith("suffix:") ? "" : pick.sourceId);
+    usedSources.add(pick.sourceId);
+    exclude.add(pick.lemma);
   }
 
-  // Lexicon fallback if not enough category-backed members.
+  // Full-lexicon fallback if curriculum pool is still short.
   if (lemmas.length < count) {
     const extras = Object.keys(LEXICON)
       .filter(
@@ -193,7 +219,7 @@ function pickDiverseGenderLemmas(gender, count, seed, exclude = new Set()) {
           !exclude.has(lemma) &&
           !lemmas.includes(lemma)
       )
-      .sort();
+      .sort((a, b) => a.localeCompare(b, "de"));
     let i = 0;
     while (lemmas.length < count && i < extras.length) {
       const start = stableIndex(`${seed}:lex:${lemmas.length}`, extras.length);
@@ -210,12 +236,15 @@ function pickDiverseGenderLemmas(gender, count, seed, exclude = new Set()) {
 }
 
 /**
- * Gender Imposter: 3 same-gender nouns from diverse categories + 1 other-gender
+ * Gender Imposter: 3 same-gender nouns from diverse sources + 1 other-gender
  * noun. Skill = spot the odd gender — not the odd semantic category, and never
  * by reading a “Category / Expected gender” spoiler.
+ *
  * @param {string} categoryId — focus category; its association is the majority gender
+ * @param {{ variant?: number }} [opts] — card variant (0..GENDER_IMPOSTER_VARIANTS-1)
  */
-export function categoryGenderImposterExercise(categoryId) {
+export function categoryGenderImposterExercise(categoryId, opts = {}) {
+  const variant = Math.max(0, Number(opts.variant) || 0);
   const cat = getGenderCategory(categoryId);
   if (!cat) throw new Error(`categoryGenderImposterExercise: unknown ${categoryId}`);
   if (!practiceCategories().some((c) => c.id === categoryId)) {
@@ -236,7 +265,7 @@ export function categoryGenderImposterExercise(categoryId) {
   const majority = pickDiverseGenderLemmas(
     majorityGender,
     3,
-    `${categoryId}:maj`,
+    `${categoryId}:maj:v${variant}`,
     exclude
   );
   if (majority.lemmas.length < 3) {
@@ -248,12 +277,16 @@ export function categoryGenderImposterExercise(categoryId) {
   const otherGenders = ["masculine", "feminine", "neuter"].filter(
     (g) => g !== majorityGender
   );
+  // Cycle imposter gender across variants so one hash bucket cannot monopolize.
   const impGender =
-    otherGenders[stableIndex(`${categoryId}:impG`, otherGenders.length)];
+    otherGenders[
+      (stableIndex(`${categoryId}:impG`, otherGenders.length) + variant) %
+        otherGenders.length
+    ];
   const impPick = pickDiverseGenderLemmas(
     impGender,
     1,
-    `${categoryId}:imp`,
+    `${categoryId}:imp:v${variant}`,
     exclude
   );
   if (!impPick.lemmas.length) {
@@ -265,7 +298,7 @@ export function categoryGenderImposterExercise(categoryId) {
 
   const lemmas = rotateList(
     [...majority.lemmas, imposter],
-    `${categoryId}:order`
+    `${categoryId}:order:v${variant}`
   );
   const displays = Object.fromEntries(lemmas.map((lemma) => [lemma, lemma]));
   const majorityLabel = associationChoiceLabel(majorityGender);
@@ -276,6 +309,7 @@ export function categoryGenderImposterExercise(categoryId) {
     categoryName: cat.name,
     association: cat.association,
     strength: cat.strength,
+    variant,
     expectedAssociation: cat.association,
     expectedLemma: imposter,
     matches: majority.lemmas,
@@ -313,7 +347,7 @@ export function categorySentenceValidationExercise(itemId) {
     correct: item.correct,
     expected: item.correct ? "correct" : "incorrect",
     choices: ["correct", "incorrect"],
-    choiceLabels: Object.freeze({ correct: "Correct", incorrect: "Incorrect" }),
+    choiceLabels: Object.freeze({ correct: "Richtig", incorrect: "Falsch" }),
     choiceLabel: associationChoiceLabel(cat.association),
   };
 }

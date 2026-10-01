@@ -74,9 +74,14 @@ export function corruptForm(form) {
   const s = String(form || "").trim();
   if (!s) return s + "x";
   const variants = [];
-  if (s.includes("ß")) variants.push(s.replace(/ß/g, "ss"));
-  if (s.includes("ss") && !s.includes("ß")) variants.push(s.replace(/ss/, "ß"));
-  if (s.includes("und")) variants.push(s.replace("und", ""));
+  // Never foil ß ↔ ss — both are accepted orthographies in this product.
+  // Prefer real letter slips over -en (drei→dreien is a real dative form — confusing).
+  if (/ei/.test(s)) variants.push(s.replace(/ei/g, "ie"));
+  if (/ie/.test(s) && !/ei/.test(s)) variants.push(s.replace(/ie/g, "ei"));
+  // Compound linker "und" only (not the "und" inside hundert).
+  if (/(^|[^a-zäöü])und([^a-zäöü]|$)/i.test(s)) {
+    variants.push(s.replace(/\bund\b/i, ""));
+  }
   if (s.includes("zig")) variants.push(s.replace("zig", "ßig"));
   if (s.includes("ßig")) variants.push(s.replace("ßig", "zig"));
   if (s.includes("Komma")) variants.push(s.replace("Komma", "Punkt"));
@@ -92,9 +97,10 @@ export function corruptForm(form) {
       variants.push(bits.slice(0, -1).join(" "));
     }
   }
-  variants.push(s + "en");
-  variants.push(s.replace(/e$/, "en") || s + "n");
-  const pick = variants.find((v) => v && v !== s);
+  if (s.length > 4) variants.push(s + "en");
+  if (s.length > 4) variants.push(s.replace(/e$/, "en") || s + "n");
+  if (s.length <= 4) variants.push(s + "i");
+  const pick = variants.find((v) => v && v !== s && v.replace(/\s+/g, "") !== s.replace(/\s+/g, ""));
   return pick || `${s}x`;
 }
 
@@ -181,12 +187,23 @@ export function makeProofreadExercise(meta, opts = {}) {
   if (!form) return null;
   const wrong = corruptForm(form);
   const difficulty = opts.difficulty || "assisted";
+  const parts = answerPartsForMeta(meta);
+  const english = String(meta.english || meta.englishWritten || "").trim();
+  const ask = english
+    ? `Fix the spelling of ${english}`
+    : "Fix the spelling";
+  const lemma = parts.length === 1 ? parts[0] : null;
   return {
     id: `ex.numbers.proofread.${meta.written || meta.value || form}`,
-    templateId: "numbers.proofread.fix",
+    templateId: "numbers.proofread.form",
     territoryId: "numbers",
     mode: difficulty,
-    target: { kind: "proofread" },
+    target: {
+      kind: "proofread",
+      value: meta.value,
+      // Help Vocab: correct token — never the misspelled surface.
+      lemma,
+    },
     scaffolding: {
       mode: difficulty,
       showEnglish: difficulty === "assisted",
@@ -195,21 +212,26 @@ export function makeProofreadExercise(meta, opts = {}) {
       allowRetryWrongChoice: true,
     },
     prompt: {
-      kind: "proofread-fix",
+      kind: "proofread-form",
       wrong,
       written: meta.written || (meta.value != null ? String(meta.value) : ""),
-      english: meta.english || "",
-      ask: "Fix the spelling",
+      english,
+      ask,
     },
     materials: {
       form,
       wrong,
-      hint: "One piece is wrong — type the correct German form.",
+      // Correct construction chips for Help Vocab (never the typo).
+      parts: parts.length ? parts : [form],
+      hint: english
+        ? `Type the correct German for “${english}”. The prompt shows a misspelling.`
+        : "One piece is wrong — type the correct German form.",
     },
     resolution: {
       kind: "proofread",
       form,
       wrong,
+      english,
       value: meta.value,
       written: meta.written,
       whole: meta.whole,
@@ -219,9 +241,11 @@ export function makeProofreadExercise(meta, opts = {}) {
       n: meta.n,
       hours: meta.hours,
       minutes: meta.minutes,
+      lemma,
     },
   };
 }
+
 
 function pieSvg(numer, denom) {
   const size = 128;
@@ -325,7 +349,7 @@ export function makeSentenceOrdinalExercise(meta, opts = {}) {
     templateId: "numbers.sentence.ordinal",
     territoryId: "numbers",
     mode: difficulty,
-    target: { kind: "sentence-ordinal", n },
+    target: { kind: "sentence-ordinal", n, lemma: noun },
     scaffolding: {
       mode: difficulty,
       showEnglish: difficulty === "assisted",
@@ -338,10 +362,13 @@ export function makeSentenceOrdinalExercise(meta, opts = {}) {
       written: writtenCue,
       ask: "Read the sentence aloud in German",
       english: meta.english || "",
+      lemma: noun,
     },
     materials: {
       form: answer,
       choices: shuffle([answer, ...distractors.slice(0, 3)]),
+      // Help Vocab: spoken ordinal + frame noun — not the MC sentence strings.
+      parts: [ord],
       hint: "Turn the written ordinal (12.) into the spoken form inside the sentence.",
     },
     resolution: {
@@ -349,6 +376,7 @@ export function makeSentenceOrdinalExercise(meta, opts = {}) {
       form: answer,
       n,
       written: writtenCue,
+      lemma: noun,
     },
   };
 }

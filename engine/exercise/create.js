@@ -243,22 +243,24 @@ export function createNounCategoryArticleApplicationExercise(itemId, opts = {}) 
 /**
  * Categories — Gender Imposter: find the noun with the odd lexical gender.
  * @param {string} categoryId
- * @param {{ mode?: import("./modes.js").DifficultyMode }} [opts]
+ * @param {{ mode?: import("./modes.js").DifficultyMode, variant?: number }} [opts]
  */
 export function createNounCategoryGenderImposterExercise(categoryId, opts = {}) {
   const mode = opts.mode || "assisted";
-  const truth = categoryGenderImposterExercise(categoryId);
+  const variant = Math.max(0, Number(opts.variant) || 0);
+  const truth = categoryGenderImposterExercise(categoryId, { variant });
   const templateId = TEMPLATES.NOUN_CATEGORY_GENDER_IMPOSTER;
   const scaffolding = scaffoldingFor(templateId, mode);
 
   return {
-    id: `ex.${templateId}.${truth.categoryId}.${truth.imposter}.${mode}`,
+    id: `ex.${templateId}.${truth.categoryId}.v${variant}.${truth.imposter}.${mode}`,
     templateId,
     territoryId: "nouns",
     mode,
     layerVersion: EXERCISE_LAYER_VERSION,
     target: {
       categoryId: truth.categoryId,
+      variant,
       expectedLemma: truth.expectedLemma,
       expectedAssociation: truth.expectedAssociation,
       imposterGender: truth.imposterGender,
@@ -267,6 +269,7 @@ export function createNounCategoryGenderImposterExercise(categoryId, opts = {}) 
     prompt: {
       kind: "category-gender-imposter",
       categoryId: truth.categoryId,
+      variant,
       // Deliberately omit categoryName/header — those spoil the odd-gender task.
       text: "Three nouns share the same gender. Which is the imposter?",
       header: "",
@@ -283,6 +286,7 @@ export function createNounCategoryGenderImposterExercise(categoryId, opts = {}) 
       association: truth.association,
       strength: truth.strength,
       categoryName: truth.categoryName,
+      variant,
       imposterGender: truth.imposterGender,
       majorityGender: truth.majorityGender,
       feedbackOk: truth.feedbackOk,
@@ -292,7 +296,7 @@ export function createNounCategoryGenderImposterExercise(categoryId, opts = {}) 
 }
 
 /**
- * Categories — Sentence Validation: composed sentence → Correct / Incorrect.
+ * Categories — Sentence Validation: composed sentence → Richtig / Falsch.
  * @param {string} itemId
  * @param {{ mode?: import("./modes.js").DifficultyMode }} [opts]
  */
@@ -1040,6 +1044,7 @@ export function createExercise(spec) {
     case TEMPLATES.NOUN_CATEGORY_GENDER_IMPOSTER:
       return createNounCategoryGenderImposterExercise(spec.target.categoryId, {
         mode,
+        variant: spec.target.variant,
       });
     case TEMPLATES.NOUN_CATEGORY_SENTENCE_VALIDATION:
       return createNounCategorySentenceValidationExercise(spec.target.itemId, {

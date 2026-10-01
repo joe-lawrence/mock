@@ -15,8 +15,24 @@ import {
   categoryMatchingMembers,
   getGenderCategory,
 } from "./categories.js";
+import {
+  gateContextCompatibility,
+} from "./context-compatibility.js";
 
-export const COMPOSE_VERSION = "0.1.0";
+export const COMPOSE_VERSION = "0.2.0";
+
+export {
+  CONTEXT_FAILURE,
+  LEXEME_CONTEXT_RESTRICTIONS,
+  resolveContextRestrictions,
+  assessContextCompatibility,
+  gateContextCompatibility,
+  previewCompositionCandidate,
+  recordComposeDiscard,
+  getComposeDiscards,
+  clearComposeDiscards,
+  contextVerbFrame,
+} from "./context-compatibility.js";
 
 const GENDERS = Object.freeze(["masculine", "feminine", "neuter"]);
 
@@ -32,6 +48,61 @@ const GENDERS = Object.freeze(["masculine", "feminine", "neuter"]);
  * @property {(nounForm: string) => string} after — text after the article
  * @property {(article: string, nounForm: string) => string} sentence
  */
+
+/**
+ * Concepts unlocked for Gender Shortcuts → Categories practice.
+ * Accusative / plural / verb frames stay out until Articles & Case (and Plurals) teach them.
+ * @type {readonly string[]}
+ */
+export const CATEGORIES_PRACTICE_CONCEPTS = Object.freeze([
+  "nominative",
+  "definite_article",
+  "indefinite_article",
+  "wo_ist",
+  "hier_ist",
+  "das_ist",
+]);
+
+/**
+ * @typedef {object} ContextEligibility
+ * @property {Iterable<string>} [concepts] — context eligible iff every `requires` tag is present
+ * @property {Iterable<"nominative"|"accusative">} [cases]
+ * @property {Iterable<"singular"|"plural">} [numbers]
+ */
+
+/**
+ * Whether a practice context is eligible under the given curriculum gates.
+ * @param {PracticeContext} ctx
+ * @param {ContextEligibility} [opts]
+ */
+export function contextIsEligible(ctx, opts = {}) {
+  if (!ctx) return false;
+  if (opts.concepts) {
+    const have = opts.concepts instanceof Set ? opts.concepts : new Set(opts.concepts);
+    if (!ctx.requires.every((r) => have.has(r))) return false;
+  }
+  if (opts.cases) {
+    const allowed = opts.cases instanceof Set ? opts.cases : new Set(opts.cases);
+    if (!allowed.has(ctx.case)) return false;
+  }
+  if (opts.numbers) {
+    const allowed = opts.numbers instanceof Set ? opts.numbers : new Set(opts.numbers);
+    if (!allowed.has(ctx.number)) return false;
+  }
+  return true;
+}
+
+/**
+ * Filter PRACTICE_CONTEXTS by case / number / required concepts.
+ * @param {ContextEligibility} [opts]
+ * @returns {readonly PracticeContext[]}
+ */
+export function eligiblePracticeContexts(opts = {}) {
+  if (!opts.concepts && !opts.cases && !opts.numbers) {
+    return PRACTICE_CONTEXTS;
+  }
+  return Object.freeze(PRACTICE_CONTEXTS.filter((ctx) => contextIsEligible(ctx, opts)));
+}
 
 /** @type {readonly PracticeContext[]} */
 export const PRACTICE_CONTEXTS = Object.freeze([
@@ -62,6 +133,17 @@ export const PRACTICE_CONTEXTS = Object.freeze([
     label: "That is a …",
     requires: ["nominative", "indefinite_article", "das_ist"],
     articleKind: "indefinite",
+    case: "nominative",
+    number: "singular",
+    before: "Das ist ",
+    after: (n) => ` ${n}.`,
+    sentence: (a, n) => `Das ist ${a} ${n}.`,
+  }),
+  Object.freeze({
+    id: "das_ist_def",
+    label: "That is the …",
+    requires: ["nominative", "definite_article", "das_ist"],
+    articleKind: "definite",
     case: "nominative",
     number: "singular",
     before: "Das ist ",
@@ -236,13 +318,17 @@ export function wrongGenderArticle(gender, ctx) {
 }
 
 /**
- * Compose one Article Application item, or null if validation fails.
+ * Compose one Article Application item, or null if validation / suitability fails.
+ * Suitability failures are silent to the learner; discards are recorded for tests/dev.
  */
 export function composeArticleItem(categoryId, lemma, contextId) {
   const ctx = PRACTICE_CONTEXTS.find((c) => c.id === contextId);
   if (!ctx) return null;
   const cat = getGenderCategory(categoryId);
   if (!cat) return null;
+
+  const suit = gateContextCompatibility(categoryId, lemma, ctx);
+  if (!suit.ok) return null;
 
   const v = validateComposition(lemma, ctx);
   if (!v.ok) return null;
@@ -272,6 +358,9 @@ export function composeValidationPair(categoryId, lemma, contextId) {
   if (!ctx) return { ok: null, bad: null };
   const cat = getGenderCategory(categoryId);
   if (!cat) return { ok: null, bad: null };
+
+  const suit = gateContextCompatibility(categoryId, lemma, ctx);
+  if (!suit.ok) return { ok: null, bad: null };
 
   const v = validateComposition(lemma, ctx);
   if (!v.ok) return { ok: null, bad: null };
@@ -311,17 +400,20 @@ export function composeValidationPair(categoryId, lemma, contextId) {
 }
 
 /**
- * Build the full validated Article Application pool for practice categories.
+ * Build a validated Article Application pool for practice categories.
+ * Pass `{ concepts: CATEGORIES_PRACTICE_CONCEPTS }` (or cases/numbers) to gate frames.
+ * @param {ContextEligibility} [eligibility]
  * @returns {readonly object[]}
  */
-export function composeArticleApplicationItems() {
+export function composeArticleApplicationItems(eligibility = {}) {
+  const contexts = eligiblePracticeContexts(eligibility);
   const out = [];
   const seen = new Set();
   for (const cat of practiceCategories()) {
     const members = categoryMatchingMembers(cat.id);
     for (const lemma of members) {
       if (!LEXICON[lemma]) continue;
-      for (const ctx of PRACTICE_CONTEXTS) {
+      for (const ctx of contexts) {
         const item = composeArticleItem(cat.id, lemma, ctx.id);
         if (!item || seen.has(item.id)) continue;
         seen.add(item.id);
@@ -333,17 +425,19 @@ export function composeArticleApplicationItems() {
 }
 
 /**
- * Build the full validated Sentence Validation pool.
+ * Build a validated Sentence Validation pool.
+ * @param {ContextEligibility} [eligibility]
  * @returns {readonly object[]}
  */
-export function composeSentenceValidationItems() {
+export function composeSentenceValidationItems(eligibility = {}) {
+  const contexts = eligiblePracticeContexts(eligibility);
   const out = [];
   const seen = new Set();
   for (const cat of practiceCategories()) {
     const members = categoryMatchingMembers(cat.id);
     for (const lemma of members) {
       if (!LEXICON[lemma]) continue;
-      for (const ctx of PRACTICE_CONTEXTS) {
+      for (const ctx of contexts) {
         const { ok, bad } = composeValidationPair(cat.id, lemma, ctx.id);
         if (ok && !seen.has(ok.id)) {
           seen.add(ok.id);

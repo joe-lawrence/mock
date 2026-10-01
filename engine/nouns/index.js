@@ -30,6 +30,7 @@ export {
   categoryArticleApplicationExercise,
   categoryGenderImposterExercise,
   categorySentenceValidationExercise,
+  GENDER_IMPOSTER_VARIANTS,
 } from "./exercise.js";
 
 export {
@@ -69,6 +70,9 @@ export {
 export {
   COMPOSE_VERSION,
   PRACTICE_CONTEXTS,
+  CATEGORIES_PRACTICE_CONCEPTS,
+  contextIsEligible,
+  eligiblePracticeContexts,
   articleChoices,
   validateComposition,
   wrongGenderArticle,
@@ -76,4 +80,14 @@ export {
   composeValidationPair,
   composeArticleApplicationItems,
   composeSentenceValidationItems,
+  CONTEXT_FAILURE,
+  LEXEME_CONTEXT_RESTRICTIONS,
+  resolveContextRestrictions,
+  assessContextCompatibility,
+  gateContextCompatibility,
+  previewCompositionCandidate,
+  recordComposeDiscard,
+  getComposeDiscards,
+  clearComposeDiscards,
+  contextVerbFrame,
 } from "./practice-compose.js";

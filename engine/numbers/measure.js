@@ -61,6 +61,21 @@ const UNIT_ABBR = Object.freeze({
 });
 
 /**
+ * Analytic speed phrasing accepted alongside compound Stundenkilometer.
+ * @param {number} value
+ * @param {string[]} numParts
+ * @param {string} numSpoken
+ */
+function speedProStundeAlternate(value, numParts, numSpoken) {
+  const parts = [...numParts, "Kilometer", "pro", "Stunde"];
+  return Object.freeze({
+    form: `${numSpoken} Kilometer pro Stunde`,
+    parts: Object.freeze(parts),
+    reason: "measure.alt.kilometer_pro_stunde",
+  });
+}
+
+/**
  * @param {number} value — integer ≥ 1 (pools stay modest)
  * @param {MeasureUnit} unit
  */
@@ -80,6 +95,14 @@ export function measureAnalysis(value, unit) {
   const abbr = UNIT_ABBR[unit] || unit;
   const written = `${value} ${abbr}`;
 
+  /** @type {readonly { form: string, parts: readonly string[], reason: string }[]} */
+  const alternates =
+    unit === "Stundenkilometer"
+      ? Object.freeze([
+          speedProStundeAlternate(value, numParts, numSpoken),
+        ])
+      : Object.freeze([]);
+
   return {
     value,
     unit,
@@ -92,6 +115,7 @@ export function measureAnalysis(value, unit) {
       construction: parts,
       spoken: [numSpoken, unitWord],
     },
+    alternates,
     rules: [`measure.${unit}`, `measure.value.${value}`],
   };
 }
@@ -102,4 +126,15 @@ export function measureForm(value, unit) {
 
 export function measureParts(value, unit) {
   return [...measureAnalysis(value, unit).segments.construction];
+}
+
+/**
+ * Canonical + accepted alternate spoken forms (Type / Convert).
+ * @param {number} value
+ * @param {MeasureUnit|string} unit
+ * @returns {string[]}
+ */
+export function measureAcceptedForms(value, unit) {
+  const a = measureAnalysis(value, unit);
+  return [a.form, ...a.alternates.map((alt) => alt.form)];
 }

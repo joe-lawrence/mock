@@ -5,7 +5,7 @@
 import {
   ordinalAnalysis,
   ordinalAmAnalysis,
-} from "../engine/numbers/index.js?v=20260930-dmo16";
+} from "../engine/numbers/index.js?v=20261001-ordam1";
 
 function ordinalMeta(n) {
   const a = ordinalAnalysis(n);

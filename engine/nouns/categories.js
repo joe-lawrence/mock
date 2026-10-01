@@ -26,6 +26,11 @@ import { ARTICLES } from "./data.js";
  * @property {string[]} [exceptionLexemeIds]
  * @property {boolean} [chartOnly]
  * @property {string} [chartNote]
+ * @property {readonly ("definite"|"indefinite")[]} [articleKinds] — context suitability: allowed article kinds
+ * @property {readonly string[]} [denyContexts] — context ids never suitable for this category
+ * @property {readonly string[]} [allowContexts] — if set, only these context ids
+ * @property {readonly string[]} [denyVerbFrames] — e.g. "verb.haben" (extensible; unused in v1)
+ * @property {boolean} [composeEligible] — false: exclude from generic article/sentence compose
  */
 
 /** @type {readonly GenderCategory[]} */
@@ -38,6 +43,8 @@ export const GENDER_CATEGORIES = Object.freeze([
     association: "masculine",
     strength: "very_strong",
     applyNounLabel: "weekday",
+    // Calendar names are unique referents — indefinite frames are unnatural.
+    articleKinds: Object.freeze(["definite"]),
     memberLexemeIds: Object.freeze([
       "Montag",
       "Dienstag",
@@ -58,6 +65,11 @@ export const GENDER_CATEGORIES = Object.freeze([
     association: "masculine",
     strength: "very_strong",
     applyNounLabel: "month",
+    // Calendar names — not ordinary nouns for generic “Guess the article”
+    // sentences (Das ist ___ April). Gender Recognition / Imposter still apply;
+    // article sentences wait for calendar-specific contexts (im April, …).
+    composeEligible: false,
+    articleKinds: Object.freeze(["definite"]),
     memberLexemeIds: Object.freeze([
       "Januar",
       "Februar",
@@ -83,6 +95,9 @@ export const GENDER_CATEGORIES = Object.freeze([
     association: "masculine",
     strength: "very_strong",
     applyNounLabel: "season",
+    // Calendar / time-of-year names — "Das ist ein Frühling" is awkward;
+    // prefer definite identification / location frames.
+    articleKinds: Object.freeze(["definite"]),
     memberLexemeIds: Object.freeze([
       "Frühling",
       "Sommer",
@@ -112,6 +127,9 @@ export const GENDER_CATEGORIES = Object.freeze([
     association: "masculine",
     strength: "moderate",
     applyNounLabel: "weather noun",
+    // Mass / phenomenon nouns — "Das ist ein Regen" is unnatural for beginners;
+    // prefer definite identification / location frames.
+    articleKinds: Object.freeze(["definite"]),
     memberLexemeIds: Object.freeze([
       "Regen",
       "Schnee",
@@ -162,6 +180,8 @@ export const GENDER_CATEGORIES = Object.freeze([
     association: "feminine",
     strength: "moderate",
     applyNounLabel: "river",
+    // Unique proper names — indefinite frames ("Das ist eine Elbe") are unnatural.
+    articleKinds: Object.freeze(["definite"]),
     memberLexemeIds: Object.freeze([
       "Elbe",
       "Donau",
@@ -207,6 +227,8 @@ export const GENDER_CATEGORIES = Object.freeze([
     association: "neuter",
     strength: "strong",
     applyNounLabel: "metal / element",
+    // Mass / substance nouns — "Das ist ein Gold" is unnatural; prefer definite.
+    articleKinds: Object.freeze(["definite"]),
     memberLexemeIds: Object.freeze([
       "Gold",
       "Silber",

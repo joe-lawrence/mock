@@ -155,11 +155,16 @@ export function cardinalAnalysis(n) {
  */
 export function parseCardinalForm(raw) {
   if (raw == null) return null;
-  const s = String(raw).trim().toLowerCase().replace(/\s+/g, "");
+  const s = String(raw)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/ß/g, "ss");
   if (!s) return null;
 
   for (let n = 0; n <= 1000; n++) {
-    if (cardinalForm(n) === s) return n;
+    const form = cardinalForm(n).toLowerCase().replace(/ß/g, "ss");
+    if (form === s) return n;
   }
   return null;
 }

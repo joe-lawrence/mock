@@ -27,7 +27,7 @@ import {
   createCalendarDateConstructionExercise,
   createMeasureConstructionExercise,
   submitExerciseAttempt,
-} from "../engine/exercise/index.js?v=20260930-nouns13";
+} from "../engine/exercise/index.js?v=20261001-richtig1";
 import {
   associationLemmas,
   wugForms,
@@ -38,7 +38,8 @@ import {
   practiceCategories,
   categoryArticleItems,
   categoryValidationItems,
-} from "../engine/nouns/index.js?v=20260930-nouns13";
+  GENDER_IMPOSTER_VARIANTS,
+} from "../engine/nouns/index.js?v=20261001-richtig1";
 import {
   cardinalForm,
   parseCardinalForm,
@@ -49,10 +50,12 @@ import {
   parseMoneyForm,
   parseFractionForm,
   parseOrdinalForm,
+  mixedFractionForm,
+  measureAcceptedForms,
   clockFormAlternates,
   clockForm,
   digitalTimeForm,
-} from "../engine/numbers/index.js?v=20260930-ref1";
+} from "../engine/numbers/index.js?v=20261001-meas1";
 import {
   NUMBERS_TOPICS,
   getNumbersTopic,
@@ -87,7 +90,7 @@ import {
   canonicalFormForMeta,
   makeNounProofreadChoices,
   makeNounReverseChoices,
-} from "./quiz-extras.js?v=20260930-numui3";
+} from "./quiz-extras.js?v=20261001-proof1";
 import { mountNavCarousel } from "./nav-carousel.js?v=20260930-vocab17";
 import {
   dealExercise,
@@ -109,7 +112,7 @@ import {
   buildHelpModel,
   renderHelpSheetHtml,
   wireHelpSheet,
-} from "./help-sheet.js?v=20261001-ios1";
+} from "./help-sheet.js?v=20261001-meas1";
 import {
   mountVocabularyPanel,
   topicHasVocabulary,
@@ -995,11 +998,17 @@ function enrichNumberMeta(meta) {
   if (!meta) return meta;
   if (isWrittenishMeta(meta)) {
     const parts = meta.parts || [];
+    let answerParts;
+    if (meta.kind === "weekday" || meta.kind === "month") {
+      answerParts = calendarNameAnswerParts(meta.form);
+    } else {
+      answerParts = parts.map((t) =>
+        typeof t === "string" ? { text: t, guide: t } : t
+      );
+    }
     return {
       ...meta,
-      answerParts: parts.map((t) =>
-        typeof t === "string" ? { text: t, guide: t } : t
-      ),
+      answerParts,
     };
   }
   const value = meta.value;
@@ -1015,45 +1024,169 @@ function enrichNumberMeta(meta) {
   };
 }
 
+/** Syllable karaoke for weekday / month answer keys. */
+const WEEKDAY_ANSWER_PARTS = Object.freeze({
+  Montag: [
+    { text: "Mon", guide: "MOHN", stress: true },
+    { text: "tag", guide: "tahk" },
+  ],
+  Dienstag: [
+    { text: "Diens", guide: "DEENS", stress: true },
+    { text: "tag", guide: "tahk" },
+  ],
+  Mittwoch: [
+    { text: "Mitt", guide: "MIT", stress: true },
+    { text: "woch", guide: "vokh" },
+  ],
+  Donnerstag: [
+    { text: "Don", guide: "DON", stress: true },
+    { text: "ners", guide: "ners" },
+    { text: "tag", guide: "tahk" },
+  ],
+  Freitag: [
+    { text: "Frei", guide: "FRY", stress: true },
+    { text: "tag", guide: "tahk" },
+  ],
+  Samstag: [
+    { text: "Sams", guide: "ZAMS", stress: true },
+    { text: "tag", guide: "tahk" },
+  ],
+  Sonntag: [
+    { text: "Sonn", guide: "ZON", stress: true },
+    { text: "tag", guide: "tahk" },
+  ],
+});
+
+const MONTH_ANSWER_PARTS = Object.freeze({
+  Januar: [
+    { text: "Ja", guide: "ya" },
+    { text: "nu", guide: "NOO", stress: true },
+    { text: "ar", guide: "ar" },
+  ],
+  Februar: [
+    { text: "Fe", guide: "fay" },
+    { text: "bru", guide: "BROO", stress: true },
+    { text: "ar", guide: "ar" },
+  ],
+  März: [{ text: "März", guide: "MEHRTS", stress: true }],
+  April: [
+    { text: "A", guide: "a" },
+    { text: "pril", guide: "PRIL", stress: true },
+  ],
+  Mai: [{ text: "Mai", guide: "MY", stress: true }],
+  Juni: [
+    { text: "Ju", guide: "YOO", stress: true },
+    { text: "ni", guide: "nee" },
+  ],
+  Juli: [
+    { text: "Ju", guide: "YOO", stress: true },
+    { text: "li", guide: "lee" },
+  ],
+  August: [
+    { text: "Au", guide: "ow" },
+    { text: "gust", guide: "GOOST", stress: true },
+  ],
+  September: [
+    { text: "Sep", guide: "zep" },
+    { text: "tem", guide: "TEM", stress: true },
+    { text: "ber", guide: "ber" },
+  ],
+  Oktober: [
+    { text: "Ok", guide: "ok" },
+    { text: "to", guide: "TOH", stress: true },
+    { text: "ber", guide: "ber" },
+  ],
+  November: [
+    { text: "No", guide: "no" },
+    { text: "vem", guide: "VEM", stress: true },
+    { text: "ber", guide: "ber" },
+  ],
+  Dezember: [
+    { text: "De", guide: "day" },
+    { text: "zem", guide: "TSEM", stress: true },
+    { text: "ber", guide: "ber" },
+  ],
+});
+
+function calendarNameAnswerParts(form) {
+  const key = String(form || "").trim();
+  return (
+    WEEKDAY_ANSWER_PARTS[key] ||
+    MONTH_ANSWER_PARTS[key] || [{ text: key, guide: key, stress: true }]
+  );
+}
+
+function decimalAnswerParts(meta) {
+  if (meta?.kind === "weekday" || meta?.kind === "month") {
+    return calendarNameAnswerParts(meta.form);
+  }
+  if (Array.isArray(meta?.answerParts) && meta.answerParts.length) {
+    return meta.answerParts.map((t) =>
+      typeof t === "string" ? { text: t, guide: t } : t
+    );
+  }
+  return (meta?.parts || []).map((t) =>
+    typeof t === "string" ? { text: t, guide: t } : t
+  );
+}
+
 function currentNumberMeta() {
+  if (state.numbersPinnedMeta) {
+    return enrichNumberMeta(state.numbersPinnedMeta);
+  }
+  return enrichNumberMeta(liveNumberMetaRaw());
+}
+
+/** Live deck item (ignores history pin) — used when capturing / seeking. */
+function liveNumberMetaRaw() {
   if (state.numbersQuizMode === "listen") {
     if (state.numbersSessionKind === "mix") {
       ensureMixDeck();
       const deck = state.numbersMixDeck;
-      const item = deck[state.numbersMixCursor % Math.max(1, deck.length)];
-      return enrichNumberMeta(item);
+      return deck[state.numbersMixCursor % Math.max(1, deck.length)] ?? null;
     }
     ensureListenDeck();
     const entry =
       state.numbersListenDeck[
         state.numbersListenCursor % state.numbersListenDeck.length
       ];
-    if (entry != null && typeof entry === "object") {
-      return enrichNumberMeta(entry);
-    }
-    return enrichNumberMeta({
+    if (entry != null && typeof entry === "object") return entry;
+    if (entry == null) return null;
+    return {
       kind: "cardinal",
       value: entry,
       english: englishCardinal(entry),
       grain: "construction",
-    });
+    };
   }
   if (state.numbersSessionKind === "mix") {
     ensureMixDeck();
     const deck = state.numbersMixDeck;
-    const meta = deck[state.numbersMixCursor % Math.max(1, deck.length)];
-    return enrichNumberMeta(meta);
+    return deck[state.numbersMixCursor % Math.max(1, deck.length)] ?? null;
   }
   ensureStepDeck();
   const deck = state.numbersStepDeck;
-  const meta = deck[state.numbersIndex % Math.max(1, deck.length)];
-  return enrichNumberMeta(meta);
+  return deck[state.numbersIndex % Math.max(1, deck.length)] ?? null;
 }
 
-function decimalAnswerParts(meta) {
-  return (meta.parts || meta.answerParts || []).map((t) =>
-    typeof t === "string" ? { text: t, guide: t } : t
-  );
+function cloneNumberHistoryMeta(meta) {
+  if (meta == null) return null;
+  if (typeof meta === "number") {
+    return {
+      kind: "cardinal",
+      value: meta,
+      english: englishCardinal(meta),
+      grain: "construction",
+    };
+  }
+  const out = { ...meta };
+  if (Array.isArray(meta.parts)) out.parts = [...meta.parts];
+  if (Array.isArray(meta.answerParts)) {
+    out.answerParts = meta.answerParts.map((p) =>
+      p && typeof p === "object" ? { ...p } : p
+    );
+  }
+  return out;
 }
 
 function currentNumberExercise() {
@@ -1407,8 +1540,7 @@ function listenWrittenChoices(meta) {
       if (picks.size >= 4) break;
       const n = meta.n + d;
       if (!Number.isInteger(n) || n < 1 || n > 999) continue;
-      const w =
-        meta.kind === "ordinal-am" ? `am ${n}.` : `${n}.`;
+      const w = `${n}.`;
       if (w !== correct) picks.add(w);
     }
   }
@@ -1464,23 +1596,129 @@ function acceptedConvertForms(meta) {
   if (meta.kind === "clock" && meta.hours != null && meta.minutes != null) {
     return clockFormAlternates(meta.hours, meta.minutes);
   }
+  if (meta.kind === "measure" && meta.value != null && meta.unit) {
+    return measureAcceptedForms(meta.value, meta.unit);
+  }
   return meta.form ? [meta.form] : [];
 }
 
-/** Static format exemplars for “Type the German reading” asks (not the answer). */
+/** Fused N+½ exemplar for mixed-fraction asks — never spaced “zwei ein halb”. */
+function mixedFractionReadingExample(meta) {
+  const form = String(meta?.form || "").trim();
+  const candidates = [
+    mixedFractionForm(2, 1, 2),
+    mixedFractionForm(1, 1, 2),
+    mixedFractionForm(3, 1, 2),
+    "drei und ein Viertel",
+  ];
+  return candidates.find((c) => c !== form) || mixedFractionForm(2, 1, 2);
+}
+
+/**
+ * Pedagogical written-form exemplar for Listen asks — never the item under test.
+ * @param {object} meta
+ * @returns {string}
+ */
+function listenWrittenExample(meta) {
+  const written = String(meta?.written || "").trim();
+  const byKind = {
+    ordinal: ["10.", "3.", "21."],
+    "ordinal-am": ["10.", "3.", "1."],
+    measure: ["10 °C", "3 m", "5 km/h", "250 g", "2 l"],
+    "calendar-date": ["3.10.", "1.5.", "12.6."],
+    "calendar-date-year": ["3.10.2020", "1.5.1999"],
+    fraction: ["1/4", "3/4", "1/2"],
+    "fraction-half": ["1/2", "1/4"],
+    "fraction-unit": ["1/4", "1/3"],
+    "fraction-proper": ["2/3", "3/4"],
+    "mixed-fraction": ["2 1/2", "1 1/4"],
+    duration: ["2h 15min", "1h", "30min"],
+    weekday: ["Monday", "Friday"],
+    month: ["January", "March"],
+    decimal: ["16,42", "3,14"],
+    money: ["12,50 €", "3,00 €", "0,50 €"],
+  };
+  for (const a of byKind[meta?.kind] || []) {
+    if (a !== written) return a;
+  }
+  if (meta?.kind === "measure") {
+    const byUnit = {
+      Grad: "10 °C",
+      Meter: "3 m",
+      Zentimeter: "5 cm",
+      Kilometer: "2 km",
+      Gramm: "250 g",
+      Kilo: "2 kg",
+      Kilogramm: "2 kg",
+      Liter: "2 l",
+      Milliliter: "250 ml",
+      Stundenkilometer: "50 km/h",
+    };
+    const sample = byUnit[meta.unit];
+    if (sample && sample !== written) return sample;
+  }
+  return "";
+}
+
+/**
+ * Listen task line — what to pick/type, with a concrete format example.
+ * @param {object} meta
+ * @param {{ select?: boolean }} [opts]
+ */
+function numbersListenTaskAsk(meta, opts = {}) {
+  const select = !!opts.select;
+  const verb = select ? "Pick" : "Type";
+  const eg = listenWrittenExample(meta);
+  const englishEg = meta?.kind === "weekday" || meta?.kind === "month";
+  const egHtml = eg
+    ? englishEg
+      ? ` (e.g. ${eg})`
+      : ` (e.g. <span lang="de">${eg}</span>)`
+    : "";
+  switch (meta?.kind) {
+    case "ordinal":
+    case "ordinal-am":
+      return `${verb} the written ordinal${egHtml}`;
+    case "measure":
+      return `${verb} the written amount${egHtml}`;
+    case "calendar-date":
+    case "calendar-date-year":
+      return `${verb} the written date${egHtml}`;
+    case "fraction":
+    case "fraction-half":
+    case "fraction-unit":
+    case "fraction-proper":
+    case "mixed-fraction":
+      return `${verb} the written fraction${egHtml}`;
+    case "duration":
+      return `${verb} the written duration${egHtml}`;
+    case "weekday":
+      return `${verb} the English weekday name${egHtml}`;
+    case "month":
+      return `${verb} the English month name${egHtml}`;
+    case "decimal":
+      return `${verb} the German Komma form${egHtml}`;
+    case "money":
+      return `${verb} the written euro amount${egHtml}`;
+    default:
+      return `${verb} the written form you heard${egHtml}`;
+  }
+}
+
+/** Static format exemplars for “Type/Build the German reading” asks (not the answer). */
 function convertReadingExample(meta) {
   switch (meta?.kind) {
     case "decimal":
       return "vier Komma acht fünf";
     case "money":
-      return "zwei Euro fünfzig";
+      return "ein Euro …";
     case "fraction":
     case "fraction-half":
     case "fraction-unit":
     case "fraction-proper":
-      return "drei Viertel";
+      return "ein Viertel";
     case "mixed-fraction":
-      return "zwei ein halb";
+      return mixedFractionForm(2, 1, 2);
     case "clock":
       return "fünf vor halb zwei";
     case "digital-time":
@@ -1496,12 +1734,51 @@ function convertReadingExample(meta) {
     case "month":
       return "Januar";
     case "calendar-date":
-      return "der dritte Oktober";
+    case "calendar-date-year":
+      return "am dritten Oktober";
     case "measure":
-      return "drei Meter";
+      return "ein Liter";
     default:
       return meta?.form || "";
   }
+}
+
+/**
+ * Pedagogical e.g. for the ask line — never the item under test.
+ * @param {object} meta
+ * @returns {string}
+ */
+function askExampleNotAnswer(meta) {
+  const form = String(meta?.form || "").trim();
+  const primary = convertReadingExample(meta);
+  if (primary && primary !== form) return primary;
+  const alts = {
+    decimal: ["vier Komma acht fünf", "drei Komma null"],
+    money: ["ein Euro …", "zwei Euro fünfzig", "drei Euro"],
+    fraction: ["ein Viertel", "drei Viertel", "ein Drittel", "zwei Drittel"],
+    "fraction-half": ["ein Viertel", "drei Viertel", "ein Drittel"],
+    "fraction-unit": ["ein Viertel", "drei Viertel", "ein Drittel"],
+    "fraction-proper": ["ein Viertel", "drei Viertel", "zwei Drittel"],
+    "mixed-fraction": [
+      mixedFractionForm(2, 1, 2),
+      mixedFractionForm(1, 1, 2),
+      "drei und ein Viertel",
+    ],
+    clock: ["fünf vor halb zwei", "zehn nach drei"],
+    "digital-time": ["dreizehn Uhr fünfundzwanzig", "acht Uhr null null"],
+    duration: ["zwei Stunden fünfzehn Minuten", "eine Stunde"],
+    ordinal: ["zwölfte", "erste", "zwanzigste"],
+    "ordinal-am": ["am zwölften", "am ersten"],
+    weekday: ["Montag", "Freitag"],
+    month: ["Januar", "März"],
+    "calendar-date": ["am dritten Oktober", "am ersten Mai"],
+    "calendar-date-year": ["am dritten Oktober", "am ersten Mai"],
+    measure: ["ein Liter", "drei Meter", "fünf Grad"],
+  };
+  for (const a of alts[meta?.kind] || []) {
+    if (a !== form) return a;
+  }
+  return primary || "";
 }
 
 /**
@@ -1895,7 +2172,12 @@ const nounCategoryGenderRecognitionPool = () =>
 const nounCategoryArticleApplicationPool = () =>
   categoryArticleItems().map((x) => ({ itemId: x.id }));
 const nounCategoryGenderImposterPool = () =>
-  practiceCategories().map((c) => ({ categoryId: c.id }));
+  practiceCategories().flatMap((c) =>
+    Array.from({ length: GENDER_IMPOSTER_VARIANTS }, (_, variant) => ({
+      categoryId: c.id,
+      variant,
+    }))
+  );
 const nounCategorySentenceValidationPool = () =>
   categoryValidationItems().map((x) => ({ itemId: x.id }));
 
@@ -1926,6 +2208,16 @@ function reshuffleNounDeck(kind) {
 }
 
 function currentNounArticleExercise() {
+  const pin = state.nounsPinnedSnap;
+  if (pin?.mode === "real-words" || pin?.mode === "articles") {
+    const meta = pin.item;
+    if (meta?.lemma) {
+      return createNounArticleExercise(meta.lemma, {
+        mode: state.nounsDifficulty,
+        answerParts: meta.parts,
+      });
+    }
+  }
   const deck = ensureNounDeck("Article");
   const meta = deck[state.nounsIndex % deck.length];
   return createNounArticleExercise(meta.lemma, {
@@ -1935,6 +2227,12 @@ function currentNounArticleExercise() {
 }
 
 function currentNounAssociationExercise() {
+  const pin = state.nounsPinnedSnap;
+  if (pin?.mode === "association" && pin.item?.lemma) {
+    return createNounAssociationExercise(pin.item.lemma, {
+      mode: state.nounsDifficulty,
+    });
+  }
   const deck = ensureNounDeck("Association");
   const item = deck[state.nounsAssociationIndex % Math.max(1, deck.length)];
   return createNounAssociationExercise(item.lemma, {
@@ -1943,6 +2241,12 @@ function currentNounAssociationExercise() {
 }
 
 function currentNounCategoryGenderRecognitionExercise() {
+  const pin = state.nounsPinnedSnap;
+  if (pin?.mode === "gender-recognition" && pin.item?.categoryId) {
+    return createNounCategoryGenderRecognitionExercise(pin.item.categoryId, {
+      mode: state.nounsDifficulty,
+    });
+  }
   const deck = ensureNounDeck("CategoryGenderRecognition");
   const item =
     deck[state.nounsCategoryGenderRecognitionIndex % Math.max(1, deck.length)];
@@ -1952,6 +2256,12 @@ function currentNounCategoryGenderRecognitionExercise() {
 }
 
 function currentNounCategoryArticleApplicationExercise() {
+  const pin = state.nounsPinnedSnap;
+  if (pin?.mode === "article-application" && pin.item?.itemId) {
+    return createNounCategoryArticleApplicationExercise(pin.item.itemId, {
+      mode: state.nounsDifficulty,
+    });
+  }
   const deck = ensureNounDeck("CategoryArticleApplication");
   const item =
     deck[state.nounsCategoryArticleApplicationIndex % Math.max(1, deck.length)];
@@ -1961,15 +2271,29 @@ function currentNounCategoryArticleApplicationExercise() {
 }
 
 function currentNounCategoryGenderImposterExercise() {
+  const pin = state.nounsPinnedSnap;
+  if (pin?.mode === "gender-imposter" && pin.item?.categoryId) {
+    return createNounCategoryGenderImposterExercise(pin.item.categoryId, {
+      mode: state.nounsDifficulty,
+      variant: pin.item.variant ?? 0,
+    });
+  }
   const deck = ensureNounDeck("CategoryGenderImposter");
   const item =
     deck[state.nounsCategoryGenderImposterIndex % Math.max(1, deck.length)];
   return createNounCategoryGenderImposterExercise(item.categoryId, {
     mode: state.nounsDifficulty,
+    variant: item.variant ?? 0,
   });
 }
 
 function currentNounCategorySentenceValidationExercise() {
+  const pin = state.nounsPinnedSnap;
+  if (pin?.mode === "sentence-validation" && pin.item?.itemId) {
+    return createNounCategorySentenceValidationExercise(pin.item.itemId, {
+      mode: state.nounsDifficulty,
+    });
+  }
   const deck = ensureNounDeck("CategorySentenceValidation");
   const item =
     deck[state.nounsCategorySentenceValidationIndex % Math.max(1, deck.length)];
@@ -1979,12 +2303,25 @@ function currentNounCategorySentenceValidationExercise() {
 }
 
 function currentNounWugExercise() {
+  const pin = state.nounsPinnedSnap;
+  if (pin?.mode === "wugs" && pin.item != null) {
+    return createNounWugExercise(pin.item, { mode: state.nounsDifficulty });
+  }
   const deck = ensureNounDeck("Wug");
   const form = deck[state.nounsWugIndex % Math.max(1, deck.length)];
   return createNounWugExercise(form, { mode: state.nounsDifficulty });
 }
 
 function currentNounPluralExercise() {
+  const pin = state.nounsPinnedSnap;
+  if (pin?.mode === "plurals" && pin.item?.lemma) {
+    const meta = pin.item;
+    return createNounPluralExercise(meta.lemma, {
+      mode: state.nounsDifficulty,
+      translation: meta.translation,
+      answerParts: meta.answerParts,
+    });
+  }
   const deck = ensureNounDeck("Plural");
   const meta = deck[state.nounsPluralIndex % deck.length];
   return createNounPluralExercise(meta.lemma, {
@@ -3444,6 +3781,8 @@ const state = {
   numbersListenChoice: null,
   /** Listen Assisted: one retry after a wrong pick, then reveal. */
   numbersListenRetryUsed: false,
+  /** First try missed this item — 2nd-try correct does not help Guided score. */
+  itemFirstMiss: false,
   nounsConvertRetryUsed: false,
   nounsDiscriminateRetryUsed: false,
   soundsMode: "karaoke",
@@ -3538,6 +3877,13 @@ const state = {
   /** Visited Numbers questions in order — Back/Forward move an index through this. */
   numbersHistory: [],
   numbersHistoryIndex: -1,
+  /** When set, currentNumberMeta uses this history snapshot item. */
+  numbersPinnedMeta: null,
+  /** Visited Nouns questions in appearance order — Back/Forward walk this list. */
+  nounsHistory: [],
+  nounsHistoryIndex: -1,
+  /** When set, current*Exercise builders use this history snapshot item. */
+  nounsPinnedSnap: null,
   /** Hub: `${topic}:${step}` while Practice mode picker is open. */
   numbersHubPracticePick: "",
   soundsChartTab: "vowels",
@@ -4098,7 +4444,7 @@ function updateSessionCrumb(view) {
     if (guided) {
       crumbEl.insertAdjacentHTML(
         "beforeend",
-        `<button type="button" class="crumb-debug" data-guided-debug title="Session Q&amp;A and dealer log">Debug</button>`
+        `<button type="button" class="crumb-debug" data-guided-debug title="Session Q&amp;A and dealer log">Audit</button>`
       );
     }
   } else {
@@ -4114,6 +4460,10 @@ function navigate(view, opts = {}) {
   state.selectedPiece = null;
   document.body.classList.toggle("is-session", view !== "hub");
   stopSpeech();
+  // Drop pending auto-advance from the territory we left — otherwise a timer
+  // can call renderNumbers/renderNouns and overwrite currentExercise mid-click.
+  clearNumbersAdvance();
+  clearNounsAdvance();
   closeSheet();
   closeAllMenus();
   syncTerritoryChrome(view);
@@ -5295,6 +5645,7 @@ function handleNavCarouselStart({ mode, units, keyboard, audio, practice, guided
   clearCrossTerritoryMix();
   clearLearnSeries();
   destroyPlaylistMount();
+  resetSessionAuditLogs();
 
   // Vocabulary-only selection → Vocabulary Learn/Practice panel
   if (vocabUnits.length && !numbersUnits.length && !nounsUnits.length) {
@@ -5439,10 +5790,15 @@ function startGuidedSession() {
   state.guidedStats = {};
   state.guidedCurrentKey = null;
   clearNumbersHistory();
+  resetSessionAuditLogs();
+  guidedDealAndGo();
+}
+
+/** Clear Session Q&A + Dealer logs (Schnapp menu audit). */
+function resetSessionAuditLogs() {
   state.guidedDealLog = [];
   state.guidedQaLog = [];
   state.guidedAttemptStartIndex = (state.attemptLog || []).length;
-  guidedDealAndGo();
 }
 
 /**
@@ -5550,8 +5906,8 @@ function configureGuidedNouns(c) {
 function continueGuided() {
   if (state.sessionMode !== "guided") return false;
   recordGuidedResult();
-  // Current question stays in history; past-the-end index so the next deal appends.
-  state.numbersHistoryIndex = (state.numbersHistory || []).length;
+  // Leave history indexes on the current tip — never past-the-end, or Back
+  // re-opens the same question.
   guidedDealAndGo();
   return true;
 }
@@ -5563,53 +5919,205 @@ function recordGuidedResult() {
   const log = state.attemptLog || [];
   const last = log[log.length - 1];
   const status = last?.evaluation?.status || last?.status || null;
-  // Unknown outcome (mode didn't log) counts as a neutral correct rep so the
-  // Dealer keeps progressing rather than looping.
-  const correct = status ? status === "correct" : true;
+  // First-try miss locks the item as incorrect — a later correct retry is practice only.
+  let correct;
+  if (state.itemFirstMiss) correct = false;
+  else if (status)
+    correct = status === "correct" || status === "accepted-alternative";
+  else correct = true; // unknown → progress rather than loop
   const stats = state.guidedStats || (state.guidedStats = {});
   const s = stats[key] || (stats[key] = { correct: 0, total: 0 });
   s.total += 1;
   if (correct) s.correct += 1;
+  state.itemFirstMiss = false;
 }
 
-/** Prompt cue shown to the learner (not syllable chips). */
+/** Clear first-miss lock when painting a new question. */
+function clearItemFirstMiss() {
+  state.itemFirstMiss = false;
+}
+
+/**
+ * Record a first-try miss for audit + score lock.
+ * Second tries are practice only — not scored, not logged again.
+ */
+function noteFirstMiss({ question, answer, expected } = {}) {
+  if (state.itemFirstMiss) return;
+  state.itemFirstMiss = true;
+  logGuidedQa({
+    question: question != null ? question : currentGuidedQuestionCue(),
+    answer: answer != null ? answer : "—",
+    expected: expected != null ? expected : "",
+    status: "incorrect",
+  });
+}
+
+/**
+ * Final Q&A row for the item. After a first miss, practice retries are not
+ * scored and must not appear in the audit log (first miss already logged).
+ */
+function logGuidedQaFinal({ question, answer, expected, status, note } = {}) {
+  if (state.itemFirstMiss) return;
+  logGuidedQa({ question, answer, expected, status, note });
+}
+
+/** Push a scored attempt — skip practice retries after a first miss. */
+function pushScoredAttempt(entry) {
+  if (state.itemFirstMiss) return;
+  (state.attemptLog || (state.attemptLog = [])).push(entry);
+}
+
+/** Strip tags/entities for plain-text audit lines. */
+function stripHtmlToText(html) {
+  return String(html || "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Cue + task for Q&A so the log is readable without the live UI. */
+function joinQaCue(lead, task) {
+  const L = stripHtmlToText(lead);
+  const T = stripHtmlToText(task);
+  if (!L && !T) return "—";
+  if (!T) return L;
+  if (!L) return T;
+  if (T === L || T.includes(L)) return T;
+  return `${L} — ${T}`;
+}
+
+/** Prompt cue + form/task shown to the learner (full context for audit). */
 function currentGuidedQuestionCue() {
   if (state.view === "nouns") {
     const ex = state.currentExercise;
-    if (!ex) return "—";
-    if (state.nounsMode === "proofread")
-      return ex.resolution?.form || ex.prompt?.text || "—";
-    if (state.nounsMode === "reverse-mc")
-      return ex.resolution?.article || ex.prompt?.text || "—";
-    return (
+    const instr = NOUNS_INSTRUCTION[state.nounsMode] || "";
+    if (!ex) return joinQaCue("—", instr);
+    if (state.nounsMode === "proofread") {
+      const statement =
+        document.getElementById("nouns-noun-slot")?.textContent ||
+        ex.resolution?.form ||
+        ex.prompt?.text ||
+        "—";
+      return joinQaCue(statement, instr || "Richtig oder Falsch?");
+    }
+    if (state.nounsMode === "reverse-mc") {
+      const art = ex.resolution?.article || ex.prompt?.text || "—";
+      return joinQaCue(art, instr || "Pick the noun");
+    }
+    if (state.nounsMode === "sentence-validation") {
+      const sentence =
+        ex.prompt?.sentence ||
+        document.getElementById("nouns-noun-slot")?.textContent ||
+        "—";
+      return joinQaCue(sentence, instr || "Richtig oder Falsch?");
+    }
+    if (state.nounsMode === "article-application") {
+      const blank =
+        ex.prompt?.text ||
+        document.getElementById("nouns-noun-slot")?.textContent ||
+        "—";
+      return joinQaCue(blank, instr || "Guess the article");
+    }
+    if (state.nounsMode === "gender-recognition") {
+      const cat =
+        ex.prompt?.categoryName ||
+        document.getElementById("nouns-noun-slot")?.textContent ||
+        "—";
+      return joinQaCue(cat, instr || "Pick the gender");
+    }
+    if (state.nounsMode === "gender-imposter") {
+      const lemmas = (ex.materials?.choices || []).join(", ");
+      return joinQaCue(lemmas || "—", instr || "Find the odd one");
+    }
+    if (state.nounsMode === "plurals") {
+      return joinQaCue(
+        ex.target?.lemma || ex.prompt?.lemma || "—",
+        instr || "Build the plural"
+      );
+    }
+    const cue =
       ex.prompt?.text ||
       ex.prompt?.cue ||
       ex.prompt?.sentence ||
       ex.target?.lemma ||
       ex.materials?.cue ||
-      "—"
-    );
+      "—";
+    return joinQaCue(cue, instr);
   }
+
   const meta = currentNumberMeta();
   const ex = state.currentExercise;
-  if (state.numbersQuizMode === "listen") {
-    return ex?.resolution?.form || meta?.form || "(audio)";
-  }
-  if (state.numbersQuizMode === "proofread") {
-    return ex?.prompt?.wrong || meta?.form || "—";
-  }
-  if (state.numbersQuizMode === "sentence") {
-    return ex?.prompt?.written || ex?.prompt?.sentence || "—";
-  }
-  return numbersLead(meta, meta?.form || String(meta?.value ?? "—"));
+  const mode = state.numbersQuizMode;
+  const lead = (() => {
+    if (mode === "listen") {
+      return ex?.resolution?.form || meta?.form || "(audio)";
+    }
+    if (mode === "proofread") {
+      return ex?.prompt?.wrong || meta?.form || "—";
+    }
+    if (mode === "sentence") {
+      return ex?.prompt?.written || ex?.prompt?.sentence || "—";
+    }
+    if (mode === "visual") {
+      return (
+        numbersLead(meta, meta?.form || "") ||
+        ex?.prompt?.written ||
+        "—"
+      );
+    }
+    return numbersLead(meta, meta?.form || String(meta?.value ?? "—"));
+  })();
+
+  const task = (() => {
+    if (mode === "build" || mode === "convert") {
+      if (meta?.kind === "decimal" && mode === "convert") {
+        const example = convertReadingExample(meta);
+        const exBit = example ? ` — e.g. ${example}` : "";
+        return isWrittenishMeta(meta)
+          ? `Write out the German reading${exBit}`
+          : "Write out the German form";
+      }
+      return numbersEnTaskAsk(mode, meta);
+    }
+    if (mode === "proofread") {
+      return ex?.prompt?.ask || "Fix the spelling";
+    }
+    if (mode === "cloze") {
+      return ex?.prompt?.ask || "Fill the gap";
+    }
+    if (mode === "visual") {
+      return ex?.prompt?.ask || "Name what you see";
+    }
+    if (mode === "sentence") {
+      return ex?.prompt?.ask || "Read the sentence aloud in German";
+    }
+    if (mode === "listen") {
+      if (isClockMeta(meta)) {
+        return numbersInstruction("listen", meta) || "Read the time";
+      }
+      if (isWrittenishMeta(meta)) {
+        const select =
+          state.numbersDifficulty === "assisted" || !navCaps().keyboard;
+        return stripHtmlToText(numbersListenTaskAsk(meta, { select }));
+      }
+      return "Listen & choose";
+    }
+    return numbersInstruction(mode, meta) || "";
+  })();
+
+  return joinQaCue(lead, task);
 }
 
 /**
- * Guided debug: one row per finished question — cue + final orthographic answer
- * (never syllable/parts beats).
+ * Session audit: one row per finished question — full cue+task + final answer
+ * (never syllable/parts beats). Used by Schnapp menu + Guided crumb Debug.
  */
-function logGuidedQa({ question, answer, expected, status } = {}) {
-  if (state.sessionMode !== "guided") return;
+function logGuidedQa({ question, answer, expected, status, note } = {}) {
   const log = state.guidedQaLog || (state.guidedQaLog = []);
   const q = question != null ? question : currentGuidedQuestionCue();
   const a = answer != null ? answer : "";
@@ -5617,11 +6125,12 @@ function logGuidedQa({ question, answer, expected, status } = {}) {
   log.push({
     n: log.length + 1,
     at: Date.now(),
-    dealKey: state.guidedCurrentKey || "",
+    dealKey: state.guidedCurrentKey || state.sessionMode || "",
     question: String(q || "—"),
     answer: String(a || "—"),
     expected: String(exp || ""),
     status: status || "?",
+    note: note ? String(note) : "",
   });
 }
 
@@ -5632,6 +6141,36 @@ function escapeHtml(s) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+/*
+ * Material Design Icons — thumb_up / thumb_down (Apache License 2.0).
+ * https://www.apache.org/licenses/LICENSE-2.0
+ * https://github.com/google/material-design-icons
+ */
+const ICON_THUMBS_UP = `<svg xmlns="http://www.w3.org/2000/svg" class="piece-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M13.11 5.72l-.57 2.89c-.12.59.04 1.2.42 1.66.38.46.94.73 1.54.73H20v1.08L17.43 18H9.34c-.18 0-.34-.16-.34-.34V9.82l4.11-4.1M14 2L7.59 8.41C7.21 8.79 7 9.3 7 9.83v7.83C7 18.95 8.05 20 9.34 20h8.1c.71 0 1.36-.37 1.72-.97l2.67-6.15c.11-.25.17-.52.17-.8V11c0-1.1-.9-2-2-2h-5.5l.92-4.65c.05-.22.02-.46-.08-.66-.23-.45-.52-.86-.88-1.22L14 2zM4 9H2v11h2c.55 0 1-.45 1-1v-9c0-.55-.45-1-1-1z"/></svg>`;
+
+const ICON_THUMBS_DOWN = `<svg xmlns="http://www.w3.org/2000/svg" class="piece-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h24v24H0V0z" fill="none" opacity=".87"/><path d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.58-6.59c.37-.36.59-.86.59-1.41V5c0-1.1-.9-2-2-2zm0 12l-4.34 4.34L11.77 14H3v-2l3-7h9v10zm4-12h4v12h-4z"/></svg>`;
+
+/** Richtig/Falsch (and legacy EN synonyms) judgment chips. */
+function isJudgmentChoiceLabel(id, label) {
+  const s = `${id || ""} ${label || ""}`.toLowerCase();
+  return /\b(richtig|falsch|correct|incorrect|true|false)\b/.test(s);
+}
+
+function isPositiveJudgmentLabel(id, label) {
+  const s = `${id || ""} ${label || ""}`.toLowerCase();
+  return /\b(richtig|correct|true)\b/.test(s);
+}
+
+/** Icon + German label for Richtig / Falsch buttons. */
+function fillJudgmentPiece(piece, id, label) {
+  const text = label || id;
+  piece.classList.add("piece-judgment");
+  piece.innerHTML = `${
+    isPositiveJudgmentLabel(id, text) ? ICON_THUMBS_UP : ICON_THUMBS_DOWN
+  }<span class="piece-label" lang="de">${escapeHtml(text)}</span>`;
+  piece.setAttribute("aria-label", text);
 }
 
 /** Human label for a guided candidate key / descriptor. */
@@ -5774,17 +6313,37 @@ function openGuidedCoachSheet() {
   );
 }
 
-/** Format one Guided debug Q&A row (final answer only). */
+/** Format one Session audit Q&A row. */
 function formatGuidedQaRow(row) {
+  const afterRetry = row.status === "correct-after-retry";
+  const alt = row.status === "accepted-alternative";
   const ok = row.status === "correct";
+  const skipped = row.status === "skipped";
+  const cls = ok || alt
+    ? "is-ok"
+    : afterRetry
+      ? "is-retry"
+      : skipped
+        ? "is-skip"
+        : "is-bad";
+  const statusLabel = afterRetry
+    ? "corrected (no credit)"
+    : alt
+      ? "accepted (alt)"
+      : row.status || "?";
+  // Always surface canonical when the logged answer is not the exact form
+  // (ss for ß, chip-join spacing, accepted alternates, wrong answers).
   const showExp =
     row.expected &&
     row.expected !== row.answer &&
     row.status !== "correct";
-  return `<li class="dbg-qa ${ok ? "is-ok" : "is-bad"}">
+  const noteHtml = row.note
+    ? ` <span class="dbg-soft">(${escapeHtml(row.note)})</span>`
+    : "";
+  return `<li class="dbg-qa ${cls}">
     <div class="dbg-qa-head">
       <span class="dbg-n">#${row.n}</span>
-      <span class="dbg-status">${escapeHtml(row.status)}</span>
+      <span class="dbg-status">${escapeHtml(statusLabel)}</span>
       <span class="dbg-soft"><code>${escapeHtml(row.dealKey || "")}</code></span>
     </div>
     <div><span class="dbg-k">Q</span> ${escapeHtml(row.question)}</div>
@@ -5792,7 +6351,7 @@ function formatGuidedQaRow(row) {
       showExp
         ? ` <span class="dbg-soft">→ ${escapeHtml(row.expected)}</span>`
         : ""
-    }</div>
+    }${noteHtml}</div>
   </li>`;
 }
 
@@ -5835,12 +6394,12 @@ function formatGuidedDealRow(d) {
   </li>`;
 }
 
-/** Guided Debug sheet — session Q&A + dealer determinations. */
+/** Session audit sheet — full Q&A + dealer determinations (Schnapp menu / Guided Debug). */
 function openGuidedDebugSheet() {
-  if (state.sessionMode !== "guided") return;
   const qa = state.guidedQaLog || [];
   const deals = state.guidedDealLog || [];
   const stats = state.guidedStats || {};
+  const guided = state.sessionMode === "guided";
   const statsRows = Object.entries(stats)
     .map(([key, s]) => {
       const acc = s.total ? Math.round((100 * s.correct) / s.total) : 0;
@@ -5852,18 +6411,27 @@ function openGuidedDebugSheet() {
     ? `<ol class="dbg-list">${qa.map(formatGuidedQaRow).join("")}</ol>`
     : `<p class="coach-soft">No finished answers yet this session.</p>`;
 
-  const dealHtml = deals.length
-    ? `<ol class="dbg-list">${deals.map(formatGuidedDealRow).join("")}</ol>`
-    : `<p class="coach-soft">No dealer determinations yet.</p>`;
+  let dealHtml;
+  if (deals.length) {
+    dealHtml = `<ol class="dbg-list">${deals.map(formatGuidedDealRow).join("")}</ol>`;
+  } else if (guided) {
+    dealHtml = `<p class="coach-soft">No dealer determinations yet.</p>`;
+  } else {
+    dealHtml = `<p class="coach-soft">Dealer determinations appear in <strong>Guided</strong> practice.</p>`;
+  }
 
   openSheet(
-    "Guided debug",
+    "Session audit",
     `<div class="coach-sheet dbg-sheet">
       <section class="coach-block">
         <h4 class="coach-h">Session Q&amp;A</h4>
         <p class="coach-soft">${qa.length} finished question${
           qa.length === 1 ? "" : "s"
-        } (final answers only).</p>
+        } (final answers only)${
+          state.sessionMode
+            ? ` · mode <code>${escapeHtml(state.sessionMode)}</code>`
+            : ""
+        }.</p>
         ${qaHtml}
       </section>
       <section class="coach-block">
@@ -5880,7 +6448,11 @@ function openGuidedDebugSheet() {
         ${
           statsRows
             ? `<ul class="coach-list">${statsRows}</ul>`
-            : `<p class="coach-soft">No competency stats yet.</p>`
+            : `<p class="coach-soft">${
+                guided
+                  ? "No competency stats yet."
+                  : "Unit stats are tracked in Guided practice."
+              }</p>`
         }
       </section>
     </div>`
@@ -6216,20 +6788,22 @@ function renderNumbers() {
   renderNumbersBuild();
 }
 
-function finishNumbersOk(exercise, revealForm) {
+function finishNumbersOk(exercise, revealForm, opts = {}) {
   state.numbersChecked = true;
   const meta = currentNumberMeta();
   const form =
     revealForm ||
     exercise.resolution.form ||
     (meta?.kind === "weekday" || meta?.kind === "month" ? meta.form : "");
-  logGuidedQa({
-    question: currentGuidedQuestionCue(),
-    answer: form,
-    expected: form,
-    status: "correct",
-  });
-  // Prefer real phonetic beats: explicit answerParts → synthesized cardinal
+  if (!opts.skipQaLog) {
+    logGuidedQaFinal({
+      question: currentGuidedQuestionCue(),
+      answer: opts.qaAnswer != null ? opts.qaAnswer : form,
+      expected: opts.qaExpected != null ? opts.qaExpected : form,
+      status: opts.qaStatus || "correct",
+      note: opts.qaNote || "",
+    });
+  }  // Prefer real phonetic beats: explicit answerParts → synthesized cardinal
   // morphs (when a plain value is available) → per-token fallback.
   const value = exercise?.resolution?.value ?? meta?.value;
   const parts =
@@ -6454,6 +7028,10 @@ function renderNumbersCloze() {
           if (slot) slot.classList.add("is-ok");
           finishNumbersOk(exercise, exercise.resolution.form);
         } else {
+          noteFirstMiss({
+            answer: label,
+            expected: exercise.materials.blank,
+          });
           showAttemptFeedback("numbers", "Try again");
           if (slot) {
             slot.classList.add("is-bad");
@@ -6475,7 +7053,15 @@ function renderNumbersCloze() {
 function renderNumbersProofread() {
   clearNumbersAdvance();
   stopSpeech();
-  const meta = currentNumberMeta();
+  const rawMeta = currentNumberMeta();
+  const meta = {
+    ...rawMeta,
+    english:
+      rawMeta?.english ||
+      rawMeta?.englishWritten ||
+      (rawMeta?.value != null ? englishCardinal(rawMeta.value) : "") ||
+      "",
+  };
   const exercise = makeProofreadExercise(meta, {
     difficulty: state.numbersDifficulty,
   });
@@ -6487,6 +7073,7 @@ function renderNumbersProofread() {
   state.currentExercise = exercise;
   state.numbersChecked = false;
   state.numbersConvertRetryUsed = false;
+  clearItemFirstMiss();
 
   const stage = document.getElementById("numbers-stage");
   if (stage) stage.dataset.mode = "proofread";
@@ -6520,21 +7107,35 @@ function renderNumbersProofread() {
     const ok = typed === target;
     if (ok) {
       input.classList.add("is-ok");
-      finishNumbersOk(exercise, exercise.resolution.form);
+      const audit = convertAnswerAudit(
+        input.value,
+        exercise.resolution.form,
+        []
+      );
+      finishNumbersOk(exercise, exercise.resolution.form, {
+        qaAnswer: audit.answer,
+        qaExpected: audit.expected,
+        qaStatus: audit.status,
+        qaNote: audit.note,
+      });
     } else if (!state.numbersConvertRetryUsed) {
       state.numbersConvertRetryUsed = true;
+      noteFirstMiss({
+        answer: input.value.trim() || "—",
+        expected: exercise.resolution.form,
+      });
       input.classList.add("is-bad");
       showAttemptFeedback("numbers", "Try again");
       window.setTimeout(() => {
         if (state.numbersChecked) return;
-        input.value = "";
+        // Keep the first guess for editing on the second try.
         input.classList.remove("is-bad");
         input.focus();
       }, 400);
     } else {
       state.numbersChecked = true;
       input.classList.add("is-bad");
-      logGuidedQa({
+      logGuidedQaFinal({
         question: currentGuidedQuestionCue(),
         answer: input.value.trim() || "—",
         expected: exercise.resolution.form,
@@ -6752,6 +7353,7 @@ function renderNumbersVisualClockMc(meta, visual) {
       } else {
         btn.classList.add("is-bad");
         btn.disabled = true;
+        noteFirstMiss({ answer: choice, expected: answer });
         showAttemptFeedback("numbers", "Try again");
       }
     });
@@ -6839,6 +7441,10 @@ function renderNumbersSentence() {
         finishNumbersOk(exercise, exercise.resolution.form);
       } else {
         btn.classList.add("is-bad");
+        noteFirstMiss({
+          answer: choice,
+          expected: exercise.resolution.form,
+        });
         showAttemptFeedback("numbers", "Try again");
       }
     });
@@ -6855,36 +7461,84 @@ function ensureSessionChip() {
 }
 
 function numbersPromptAsk(meta) {
-  if (meta?.kind === "ordinal") return "Write the German ordinal";
-  if (meta?.kind === "ordinal-am") return "Write the day-of-month form";
+  if (meta?.kind === "ordinal") return "Write the ordinal form";
+  if (meta?.kind === "ordinal-am") return "Write the calendar day (am + …)";
+  if (meta?.kind === "calendar-date" || meta?.kind === "calendar-date-year") {
+    return "Write the spoken German date";
+  }
   return "";
 }
 
-/** English gloss for ordinal prompts: "the 89th". */
-function ordinalEnglishGloss(meta) {
+/**
+ * Citation-ordinal gloss: "9th" (not "the 9th" — neunte is the form, not a NP).
+ * @param {object} meta
+ */
+function ordinalCitationGloss(meta) {
   const raw = String(meta?.english || "").trim();
   if (!raw) return "";
-  return /^the\s+/i.test(raw) ? raw : `the ${raw}`;
+  return raw.replace(/^the\s+/i, "");
 }
 
 /**
- * EN-flagged task line under the DE cue for Build / Type.
+ * Calendar-day gloss: "on the 9th" (Dates curriculum → am + dative).
+ * @param {object} meta
+ */
+function ordinalCalendarGloss(meta) {
+  const raw = String(meta?.english || "").trim();
+  if (!raw) return "";
+  if (/^on the\s+/i.test(raw)) return raw;
+  const nth = raw.replace(/^the\s+/i, "");
+  return `on the ${nth}`;
+}
+
+/**
+ * Task line under the DE cue for Build / Type.
  * @param {"build"|"convert"} mode
  * @param {object} meta
  */
 function numbersEnTaskAsk(mode, meta) {
   const verb = mode === "build" ? "Build" : "Write out";
   if (meta?.kind === "ordinal") {
-    const gloss = ordinalEnglishGloss(meta);
+    const gloss = ordinalCitationGloss(meta);
+    // Cue "9." → base/citation ordinal form "neunte" (not a standalone NP for "the 9th").
     return gloss
-      ? `${verb} the German ordinal (${gloss})`
-      : `${verb} the German ordinal`;
+      ? `${verb} the ordinal form (${gloss})`
+      : `${verb} the ordinal form`;
   }
   if (meta?.kind === "ordinal-am") {
-    const gloss = ordinalEnglishGloss(meta);
+    const gloss = ordinalCalendarGloss(meta);
+    // Calendar day: English "on the 9th" → German am + dative (Dates curriculum).
     return gloss
-      ? `${verb} the day-of-month form (${gloss})`
-      : `${verb} the day-of-month form`;
+      ? `${verb} the calendar day with am (${gloss})`
+      : `${verb} the calendar day with am`;
+  }
+  if (meta?.kind === "calendar-date" || meta?.kind === "calendar-date-year") {
+    const gloss = String(meta?.english || "").trim();
+    // Target is the oral German reading (am + …), not Tag.Monat.Jahr digits.
+    return gloss
+      ? `${verb} the spoken German date (${gloss})`
+      : `${verb} the spoken German date`;
+  }
+  if (meta?.kind === "money") {
+    const eg = askExampleNotAnswer(meta);
+    const egHtml = eg ? ` (e.g. <span lang="de">${eg}</span>)` : "";
+    return `${verb} the spoken German amount${egHtml}`;
+  }
+  if (
+    meta?.kind === "fraction" ||
+    meta?.kind === "fraction-half" ||
+    meta?.kind === "fraction-unit" ||
+    meta?.kind === "fraction-proper" ||
+    meta?.kind === "mixed-fraction"
+  ) {
+    const eg = askExampleNotAnswer(meta);
+    const egHtml = eg ? ` (e.g. <span lang="de">${eg}</span>)` : "";
+    return `${verb} the German form${egHtml}`;
+  }
+  if (meta?.kind === "measure") {
+    const eg = askExampleNotAnswer(meta);
+    const egHtml = eg ? ` (e.g. <span lang="de">${eg}</span>)` : "";
+    return `${verb} the German form${egHtml}`;
   }
   if (isClockMeta(meta)) {
     const reg = clockReadingRegister(meta);
@@ -6906,6 +7560,57 @@ function numbersEnTaskAsk(mode, meta) {
   return mode === "build"
     ? "Build the German form"
     : "Write out the German form";
+}
+
+/** English cue (weekday/month names) — show EN flag, not DE. */
+function isEnglishCueMeta(meta) {
+  return meta?.kind === "weekday" || meta?.kind === "month";
+}
+
+/**
+ * Task line is an English instruction (not a bilingual gloss) — no EN flag.
+ * Includes cardinals (digit cue + “Write out … (thirty-five)”), ordinals/dates,
+ * and other digit/orthography cues where EN would only repeat the lead.
+ */
+function isInstructionTaskMeta(meta) {
+  const k = meta?.kind;
+  // Plain cardinals often omit kind until enrich; treat as instruction either way.
+  if (!k || k === "cardinal") return true;
+  return (
+    k === "ordinal" ||
+    k === "ordinal-am" ||
+    k === "calendar-date" ||
+    k === "calendar-date-year" ||
+    k === "weekday" ||
+    k === "month" ||
+    k === "fraction" ||
+    k === "fraction-half" ||
+    k === "fraction-unit" ||
+    k === "fraction-proper" ||
+    k === "mixed-fraction" ||
+    k === "measure" ||
+    k === "money" ||
+    k === "clock" ||
+    k === "digital-time" ||
+    k === "duration"
+  );
+}
+
+/** English task/gloss without an EN flag (instructions, not bilingual cues). */
+function promptTaskHtml(text) {
+  if (!text) return "";
+  return `<span class="en prompt-task"><span class="prompt-lang-text">${text}</span></span>`;
+}
+
+/** Cue + task pair for Build / Convert prompts. */
+function numbersPromptPairHtml(lead, ask, meta) {
+  const cue = isEnglishCueMeta(meta)
+    ? promptEnHtml(lead)
+    : promptDeHtml(lead);
+  const task = isInstructionTaskMeta(meta)
+    ? promptTaskHtml(ask)
+    : promptEnHtml(ask);
+  return `${cue}${task}`;
 }
 
 /** Clock-face reading (has a HH:MM cue), as opposed to spoken durations. */
@@ -6953,10 +7658,16 @@ function promptEnHtml(text) {
 }
 
 /**
- * Written-decimal cue pair: DE Komma orthography + EN point orthography.
- * (Not “spoken German” — numerals in each locale’s decimal notation.)
+ * Written-decimal cue: DE Komma orthography only (spoken answer is separate).
+ * Money drops the redundant “written” tag and EN point form.
  */
-function promptWrittenDecimalHtml(deWritten, enWritten) {
+function promptWrittenDecimalHtml(deWritten, enWritten, opts = {}) {
+  const { money = false } = opts;
+  if (money) {
+    return deWritten
+      ? `<strong class="prompt-lang prompt-de" lang="de">${FLAG_DE_SVG}<span class="prompt-lang-text">${deWritten}</span></strong>`
+      : "";
+  }
   const de = deWritten
     ? `<strong class="prompt-lang prompt-de" lang="de">${FLAG_DE_SVG}<span class="prompt-format-tag">written</span><span class="prompt-lang-text">${deWritten}</span></strong>`
     : "";
@@ -6989,7 +7700,12 @@ function renderNumbersBuild() {
 
   const promptLead = numbersLead(meta, exercise.materials?.written || "");
   let promptHtml;
-  if (isWrittenDecimalMeta(meta)) {
+  if (meta?.kind === "money") {
+    // Amount cue + spoken-build ask (no WRITTEN / EN orthography pair).
+    promptHtml =
+      promptWrittenDecimalHtml(promptLead, "", { money: true }) +
+      promptTaskHtml(numbersEnTaskAsk("build", meta));
+  } else if (meta?.kind === "decimal") {
     // 4,85 / 4.85 — written decimals (Komma vs point), not spoken forms.
     promptHtml = promptWrittenDecimalHtml(
       promptLead,
@@ -6997,7 +7713,7 @@ function renderNumbersBuild() {
     );
   } else {
     const enAsk = numbersEnTaskAsk("build", meta);
-    promptHtml = `${promptDeHtml(promptLead)}${promptEnHtml(enAsk)}`;
+    promptHtml = numbersPromptPairHtml(promptLead, enAsk, meta);
   }
   document.getElementById("numbers-prompt").innerHTML = promptHtml;
 
@@ -7045,7 +7761,7 @@ function renderNumbersBuild() {
     piece.className = "piece";
     piece.dataset.id = `n${i}`;
     piece.dataset.text = text;
-    piece.textContent = text;
+    piece.textContent = softHyphenateGerman(text);
     piece.addEventListener("click", () => {
       if (state.numbersChecked) return;
       const next = state.numbersFilled.findIndex((x) => !x);
@@ -7067,6 +7783,7 @@ function renderNumbersListen() {
   state.numbersChecked = false;
   state.numbersListenChoice = null;
   state.numbersListenRetryUsed = false;
+  clearItemFirstMiss();
 
   const stage = document.getElementById("numbers-stage");
   if (stage) stage.dataset.mode = "listen";
@@ -7095,22 +7812,12 @@ function renderNumbersListen() {
     document.getElementById("numbers-prompt").innerHTML = `
       ${promptDeHtml(lead)}
       <span class="convert-ask">${ask}</span>`;
+  } else if (listenWritten) {
+    const ask = numbersListenTaskAsk(meta, { select: listenSelect });
+    document.getElementById("numbers-prompt").innerHTML = `What did you hear?
+       <span class="convert-ask">${ask}</span>`;
   } else {
-    document.getElementById("numbers-prompt").innerHTML = listenWritten
-      ? listenIsDecimalish
-        ? `What did you hear?
-         <span class="convert-ask">${
-           listenSelect
-             ? `Select the German Komma form (e.g. <span lang="de">16,42</span>).`
-             : `Type the German Komma form (e.g. <span lang="de">16,42</span>).`
-         }</span>`
-        : `What did you hear?
-         <span class="convert-ask">${
-           listenSelect
-             ? "Select the German written form you heard."
-             : "Type the German written form you heard."
-         }</span>`
-      : `What number did you hear?`;
+    document.getElementById("numbers-prompt").innerHTML = `What number did you hear?`;
   }
 
   clearAnswerReveal("numbers");
@@ -7201,18 +7908,15 @@ function renderNumbersListen() {
     input.placeholder = listenReadTime
       ? "German reading"
       : listenWritten
-        ? listenIsDecimalish
-          ? "e.g. 16,42"
-          : "German written form"
+        ? listenWrittenExample(meta) ||
+          (listenIsDecimalish ? "e.g. 16,42" : "written form")
         : "";
     input.setAttribute(
       "aria-label",
       listenReadTime
         ? "German reading"
         : listenWritten
-          ? listenIsDecimalish
-            ? "German Komma form"
-            : "Written form you heard"
+          ? stripHtmlToText(numbersListenTaskAsk(meta, { select: false }))
           : "Number you heard"
     );
     const checkBtn = document.createElement("button");
@@ -7298,6 +8002,132 @@ function normalizeAnswerCandidate(raw) {
     .replace(/\./g, ",");
 }
 
+/**
+ * How a typed convert answer matched the canonical / accepted forms.
+ * @returns {{ ok: boolean, status: string, answer: string, expected: string, note: string }}
+ */
+function convertAnswerAudit(raw, canonical, acceptedForms = []) {
+  const display = String(raw || "")
+    .trim()
+    .replace(/\s+/g, " ");
+  const expected = String(canonical || "").trim();
+  const forms = [
+    expected,
+    ...acceptedForms.map((f) => String(f || "").trim()).filter(Boolean),
+  ];
+  const uniqForms = [...new Set(forms)];
+
+  // Exact surface match (no orthography fold).
+  for (const form of uniqForms) {
+    if (display === form) {
+      return {
+        ok: true,
+        status: form === expected ? "correct" : "accepted-alternative",
+        answer: display,
+        expected,
+        note: form === expected ? "" : "accepted alternate form",
+      };
+    }
+  }
+
+  const displayFolded = normalizeAnswerCandidate(display);
+  for (const form of uniqForms) {
+    if (displayFolded !== normalizeAnswerCandidate(form)) continue;
+    let note = "orthographic alternate";
+    if (/ß/.test(form) && /ss/i.test(display) && !/ß/.test(display)) {
+      note = "ss accepted for ß";
+    } else if (/ß/.test(display) && /ss/i.test(form) && !/ß/.test(form)) {
+      note = "ß accepted for ss";
+    }
+    return {
+      ok: true,
+      status: "accepted-alternative",
+      answer: display,
+      expected,
+      note,
+    };
+  }
+
+  return {
+    ok: false,
+    status: "incorrect",
+    answer: display || "—",
+    expected,
+    note: "",
+  };
+}
+
+/**
+ * Build/chip answers for the audit log — always show implied spaces between
+ * chips (learners cannot type spaces in Build). Prefer chip join over the
+ * engine's often-fused citation form (fünfzehnte → fünf zehn te).
+ */
+function buildAnswerForAudit(built, evaluation, canonicalForm) {
+  const chips = (built || []).map((p) => String(p || "").trim()).filter(Boolean);
+  const spaced = chips.join(" ");
+  const canonical = String(
+    canonicalForm || evaluation?.canonicalAnswers?.[0] || ""
+  )
+    .replace(/\s+/g, " ")
+    .trim();
+  const status = evaluation?.status || "";
+  // When chips spell the same orthography as the citation form, log the
+  // chip-spaced surface (Build's implied spaces), not the fused word.
+  const sameOrtho =
+    spaced &&
+    canonical &&
+    spaced.replace(/\s+/g, "") === canonical.replace(/\s+/g, "");
+  const spacedCanonical = sameOrtho ? spaced : canonical;
+
+  if (status === "correct") {
+    return {
+      answer: spaced || spacedCanonical || "—",
+      expected: spacedCanonical || spaced || "—",
+      status: "correct",
+      note: "",
+    };
+  }
+
+  if (status === "accepted-alternative") {
+    const matchedRaw = String(evaluation?.matchedAnswer || spaced)
+      .replace(/\s+/g, " ")
+      .trim();
+    // Prefer chip spacing when matchedAnswer is a fused orthography twin.
+    const matched =
+      spaced &&
+      matchedRaw &&
+      spaced.replace(/\s+/g, "") === matchedRaw.replace(/\s+/g, "")
+        ? spaced
+        : matchedRaw || spaced;
+    let note = "accepted alternate form";
+    if (evaluation?.evidenceIds?.includes("eval.alt.segmentation")) {
+      note = "alternate chip boundaries";
+    } else if (
+      /ß/.test(canonical) &&
+      /ss/i.test(matched) &&
+      !/ß/.test(matched)
+    ) {
+      note = "ss accepted for ß";
+    } else if (evaluation?.explanation) {
+      note = stripHtmlToText(evaluation.explanation).slice(0, 80);
+    }
+    return {
+      answer: matched || spaced || "—",
+      expected: spacedCanonical || matched || "—",
+      status: "accepted-alternative",
+      note,
+    };
+  }
+
+  // Incorrect / other — still space chips so the log is readable.
+  return {
+    answer: spaced || "—",
+    expected: spacedCanonical || spaced || "—",
+    status: status === "valid-but-unintended" ? "incorrect" : status || "incorrect",
+    note: "",
+  };
+}
+
 /** Assisted: live prefix check. Core: only used on submit. */
 function convertInputMatches(typed, targetForm, acceptedForms) {
   const t = normalizeConvertInput(typed);
@@ -7329,6 +8159,7 @@ function renderNumbersConvert() {
   state.numbersFilled = [];
   state.numbersChecked = false;
   state.numbersConvertRetryUsed = false;
+  clearItemFirstMiss();
 
   const stage = document.getElementById("numbers-stage");
   if (stage) stage.dataset.mode = "convert";
@@ -7339,7 +8170,11 @@ function renderNumbersConvert() {
   // Written-decimal cues: show Komma vs point as written forms; answer is spoken.
   // No English *gloss* of the spoken reading — point form is orthography, not a translation.
   let promptHtml;
-  if (isWrittenDecimalMeta(meta)) {
+  if (meta?.kind === "money") {
+    promptHtml =
+      promptWrittenDecimalHtml(convertLead, "", { money: true }) +
+      promptTaskHtml(numbersEnTaskAsk("convert", meta));
+  } else if (meta?.kind === "decimal") {
     const example = convertReadingExample(meta);
     const convertAsk = (() => {
       if (isWrittenishMeta(meta)) {
@@ -7355,9 +8190,8 @@ function renderNumbersConvert() {
       meta.english || ""
     )}<span class="convert-ask">${convertAsk}</span>`;
   } else {
-    promptHtml = `${promptDeHtml(convertLead)}${promptEnHtml(
-      numbersEnTaskAsk("convert", meta)
-    )}`;
+    const convertAsk = numbersEnTaskAsk("convert", meta);
+    promptHtml = numbersPromptPairHtml(convertLead, convertAsk, meta);
   }
   document.getElementById("numbers-prompt").innerHTML = promptHtml;
 
@@ -7470,10 +8304,12 @@ function checkNumbersConvert(raw, opts = {}) {
 
   const accepted =
     exercise.resolution?.acceptedForms || acceptedConvertForms(meta);
-  const { isComplete } = convertInputMatches(typed, form, accepted);
-  // Case-sensitive exact match against canonical + accepted alternates only
-  // (no case-folding parse shortcuts that would accept "vier komma…").
-  let ok = isComplete;
+  const audit = convertAnswerAudit(
+    raw,
+    exercise.resolution.form || form,
+    accepted
+  );
+  let ok = audit.ok;
   // Cardinal compounds: allow value-parse only when casing already matches
   // the all-lowercase cardinal orthography (no capitals to police).
   if (
@@ -7485,19 +8321,28 @@ function checkNumbersConvert(raw, opts = {}) {
       !/\s/.test(form) || /\s/.test(String(raw || "").trim());
     if (spacingOk && typed === typed.toLowerCase()) {
       const parsed = parseCardinalForm(typed.replace(/\s+/g, ""));
-      ok = parsed === exercise.resolution.value;
+      if (parsed === exercise.resolution.value) {
+        ok = true;
+        audit.ok = true;
+        audit.status = "accepted-alternative";
+        audit.answer = String(raw || "").trim().replace(/\s+/g, " ") || typed;
+        audit.expected = exercise.resolution.form;
+        audit.note = "accepted via value parse";
+      }
     }
   }
 
-  state.attemptLog.push({
+  pushScoredAttempt({
     territoryId: "numbers",
     templateId: "numbers.convert.form",
     mode: exercise.mode,
     target: { value: exercise.resolution.value, form: exercise.resolution.form },
     rawInput: { text: raw },
     evaluation: {
-      status: ok ? "correct" : "incorrect",
+      status: ok ? audit.status : "incorrect",
       canonicalAnswers: [exercise.resolution.form],
+      matchedAnswer: audit.answer,
+      note: audit.note,
     },
     appVersion: "mock",
   });
@@ -7507,14 +8352,18 @@ function checkNumbersConvert(raw, opts = {}) {
 
   if (!ok && exercise.scaffolding.allowRetryWrongChoice && !state.numbersConvertRetryUsed) {
     state.numbersConvertRetryUsed = true;
+    noteFirstMiss({
+      answer: audit.answer || "—",
+      expected: exercise.resolution.form,
+    });
     if (input) {
       input.classList.remove("is-ok", "is-prefix-ok");
       void input.offsetWidth;
       input.classList.add("is-bad");
+      // Keep the first guess — learner edits in place on the second try.
       if (!opts.fromLive) {
         window.setTimeout(() => {
           if (state.numbersChecked) return;
-          input.value = "";
           input.classList.remove("is-bad");
           input.focus();
         }, 450);
@@ -7537,11 +8386,12 @@ function checkNumbersConvert(raw, opts = {}) {
     input.value = exercise.resolution.form;
   }
 
-  logGuidedQa({
+  logGuidedQaFinal({
     question: currentGuidedQuestionCue(),
-    answer: typed || "—",
-    expected: exercise.resolution.form,
-    status: ok ? "correct" : "incorrect",
+    answer: audit.answer || "—",
+    expected: audit.expected || exercise.resolution.form,
+    status: ok ? audit.status : "incorrect",
+    note: ok ? audit.note : "",
   });
 
   const parts =
@@ -7598,7 +8448,7 @@ function checkNumbersListen(answer) {
     ok = Number(answer) === Number(target);
   }
 
-  state.attemptLog.push({
+  pushScoredAttempt({
     territoryId: "numbers",
     templateId: exercise.templateId,
     mode: exercise.mode,
@@ -7622,6 +8472,12 @@ function checkNumbersListen(answer) {
   // One second chance (Assisted choices or Core typed entry).
   if (!ok && exercise.scaffolding.allowRetryWrongChoice && !state.numbersListenRetryUsed) {
     state.numbersListenRetryUsed = true;
+    noteFirstMiss({
+      answer: String(answer),
+      expected: writtenMode || readTimeMode
+        ? String(target)
+        : exercise.resolution.form || String(target),
+    });
     state.numbersListenChoice = null;
     if (state.numbersDifficulty === "assisted") {
       document.querySelectorAll("#numbers-tray .choice").forEach((el) => {
@@ -7644,7 +8500,7 @@ function checkNumbersListen(answer) {
         input.classList.add("is-bad");
         window.setTimeout(() => {
           if (state.numbersChecked) return;
-          input.value = "";
+          // Keep the first guess for editing on the second try.
           input.classList.remove("is-bad");
           input.focus();
         }, 450);
@@ -7656,7 +8512,7 @@ function checkNumbersListen(answer) {
 
   state.numbersChecked = true;
 
-  logGuidedQa({
+  logGuidedQaFinal({
     question: currentGuidedQuestionCue(),
     answer: String(answer),
     expected: writtenMode || readTimeMode
@@ -7738,7 +8594,8 @@ function placeNumberText(text, slotIndex) {
   if (slot) {
     slot.classList.add("is-filled");
     slot.classList.remove("is-ok", "is-bad");
-    slot.textContent = text;
+    // Soft-hyphenate long ordinals/compounds so they wrap inside Part N.
+    slot.textContent = softHyphenateGerman(text);
     slot.setAttribute("aria-label", `${text}, tap to remove`);
   }
 
@@ -7815,6 +8672,7 @@ function scheduleNumbersAdvance(delayMs = 1500) {
   state.numbersAdvanceTimer = setTimeout(() => {
     state.numbersAdvanceTimer = null;
     deferHeavy(() => {
+      if (state.view !== "numbers") return;
       if (continueGuided()) return;
       advanceNumbersItem();
       if (continueCrossTerritoryMix("numbers")) return;
@@ -7830,10 +8688,16 @@ function numbersBackDisabled() {
 function clearNumbersHistory() {
   state.numbersHistory = [];
   state.numbersHistoryIndex = -1;
+  state.numbersPinnedMeta = null;
 }
 
 function captureNumbersSnapshot() {
-  const meta = currentNumberMeta();
+  const raw = state.numbersPinnedMeta
+    ? cloneNumberHistoryMeta(state.numbersPinnedMeta)
+    : cloneNumberHistoryMeta(liveNumberMetaRaw());
+  if (!raw) return null;
+  const itemKey = numbersItemKey(raw);
+  if (!itemKey) return null;
   return {
     sessionKind: state.numbersSessionKind,
     topic: state.numbersTopic,
@@ -7843,7 +8707,8 @@ function captureNumbersSnapshot() {
     index: state.numbersIndex,
     listenCursor: state.numbersListenCursor,
     mixCursor: state.numbersMixCursor,
-    itemKey: numbersItemKey(meta),
+    itemKey,
+    meta: raw,
     guidedKey: state.guidedCurrentKey,
     reasonCode: state.currentReasonCode,
     focusLocked: state.numbersFocusLocked,
@@ -7861,7 +8726,10 @@ function snapsMatch(a, b) {
   );
 }
 
-/** Record the live question in history (seed / refresh current slot / append). */
+/**
+ * Record the live question at the history tip.
+ * Mid-history browse never mutates the list (browser-style).
+ */
 function rememberNumbersPosition() {
   let snap;
   try {
@@ -7871,15 +8739,25 @@ function rememberNumbersPosition() {
   }
   if (!snap?.itemKey) return;
   const hist = state.numbersHistory || (state.numbersHistory = []);
-  const i = state.numbersHistoryIndex ?? -1;
+  let i = state.numbersHistoryIndex ?? -1;
+  // Normalize a stale past-the-end index onto the tip before comparing.
+  if (i >= hist.length) i = hist.length - 1;
 
-  if (i >= 0 && i < hist.length) {
-    if (!snapsMatch(hist[i], snap)) hist[i] = snap;
+  // Mid-history browse: leave the list alone; keep pin on the restored item.
+  if (i >= 0 && i < hist.length - 1) {
+    state.numbersPinnedMeta = cloneNumberHistoryMeta(hist[i].meta);
+    return;
+  }
+  // At tip and already matching: keep pin + index.
+  if (i === hist.length - 1 && hist.length > 0 && snapsMatch(hist[i], snap)) {
+    state.numbersHistoryIndex = i;
+    state.numbersPinnedMeta = cloneNumberHistoryMeta(snap.meta);
     return;
   }
 
   hist.push(snap);
   state.numbersHistoryIndex = hist.length - 1;
+  state.numbersPinnedMeta = cloneNumberHistoryMeta(snap.meta);
   if (hist.length > 40) {
     hist.shift();
     state.numbersHistoryIndex -= 1;
@@ -7905,7 +8783,10 @@ function restoreNumbersNavSnapshot(snap) {
   state.numbersFocusLocked = snap.focusLocked !== false;
   state.guidedCurrentKey = snap.guidedKey || state.guidedCurrentKey;
   state.currentReasonCode = snap.reasonCode || null;
+  state.numbersChecked = false;
+  state.numbersPinnedMeta = cloneNumberHistoryMeta(snap.meta);
 
+  // Keep deck cursors aligned so Forward-at-end advances past this item.
   if (snap.sessionKind === "mix") {
     ensureMixDeck();
     if (!seekNumbersDeckToKey(state.numbersMixDeck, "numbersMixCursor", snap.itemKey)) {
@@ -7995,25 +8876,43 @@ function advanceNumbersCursor() {
   }
 }
 
+/**
+ * Forward one step in the appearance sequence, or deal a new tip question.
+ * @returns {"history"|"new"}
+ */
 function advanceNumbersItem() {
   const hist = state.numbersHistory || [];
-  const i = state.numbersHistoryIndex ?? -1;
+  let i = state.numbersHistoryIndex ?? -1;
+  if (i >= hist.length) i = hist.length - 1;
   // Redo a previously visited forward question exactly.
   if (i >= 0 && i < hist.length - 1) {
     state.numbersHistoryIndex = i + 1;
     restoreNumbersNavSnapshot(hist[state.numbersHistoryIndex]);
-    return;
+    return "history";
   }
+  // At tip: deal the next live item. Index stays on tip until remember appends.
+  state.numbersPinnedMeta = null;
   advanceNumbersCursor();
-  // Past-the-end index so rememberNumbersPosition appends the new live item.
-  state.numbersHistoryIndex = hist.length;
+  clearItemFirstMiss();
+  return "new";
 }
 
 function retreatNumbersItem() {
-  const i = state.numbersHistoryIndex ?? -1;
+  const hist = state.numbersHistory || [];
+  if (!hist.length) return false;
+  let i = state.numbersHistoryIndex ?? -1;
+  if (i < 0) return false;
+  if (i >= hist.length) {
+    // Stale past-the-end: step to tip, or over it if tip is already showing.
+    i = hist.length - 1;
+    const liveKey = numbersItemKey(liveNumberMetaRaw());
+    if (liveKey && hist[i]?.itemKey === liveKey && i > 0) i -= 1;
+    state.numbersHistoryIndex = i;
+    return restoreNumbersNavSnapshot(hist[i]);
+  }
   if (i <= 0) return false;
   state.numbersHistoryIndex = i - 1;
-  return restoreNumbersNavSnapshot(state.numbersHistory[state.numbersHistoryIndex]);
+  return restoreNumbersNavSnapshot(hist[state.numbersHistoryIndex]);
 }
 
 function checkNumbers() {
@@ -8030,7 +8929,7 @@ function checkNumbers() {
     { parts: built },
     { appVersion: "mock" }
   );
-  state.attemptLog.push(attempt);
+  pushScoredAttempt(attempt);
 
   // PART slots: highlight + flash. Tray chips: green/red border only (no flash).
   const answerEls = [];
@@ -8053,7 +8952,7 @@ function checkNumbers() {
       "is-wrong-flash"
     );
     slot.classList.add("is-filled");
-    slot.textContent = text;
+    slot.textContent = softHyphenateGerman(text);
     if (good) {
       answerEls.push(slot);
       okTexts.add(text);
@@ -8081,7 +8980,7 @@ function checkNumbers() {
       ? exercise.resolution.form || meta.form
       : evaluation.canonicalAnswers[0] ||
         exercise.resolution.form ||
-        parts.join("");
+        parts.join(" ");
   const answerParts =
     meta.answerParts || parts.map((t) => ({ text: t, guide: t }));
   const en =
@@ -8089,11 +8988,17 @@ function checkNumbers() {
       ? meta.english || meta.englishWritten || ""
       : meta.english || "";
 
-  logGuidedQa({
+  const buildAudit = buildAnswerForAudit(built, evaluation, word);
+  logGuidedQaFinal({
     question: currentGuidedQuestionCue(),
-    answer: built.join("") || built.join(" "),
-    expected: word,
-    status: accepted ? "correct" : "incorrect",
+    answer: buildAudit.answer,
+    expected: buildAudit.expected,
+    status: accepted
+      ? buildAudit.status === "incorrect"
+        ? "correct"
+        : buildAudit.status
+      : "incorrect",
+    note: accepted ? buildAudit.note : "",
   });
 
   presentCorrectAnswer({
@@ -8174,6 +9079,8 @@ function renderNouns() {
 
   syncTerritoryMenu("nouns");
   refreshPlaylistChrome();
+  rememberNounsPosition();
+  setNounsBackDisabled();
 
   const help = document.getElementById("nouns-help-line");
   const translationEl = document.getElementById("nouns-translation");
@@ -8264,15 +9171,7 @@ function renderNounArticleLike(exercise, { familyLine = "" } = {}) {
     }
   }
 
-  const back = document.getElementById("nouns-back");
-  if (back) {
-    back.disabled =
-      state.nounsMode === "real-words" || state.nounsMode === "articles"
-        ? state.nounsIndex <= 0
-        : state.nounsMode === "association"
-          ? state.nounsAssociationIndex <= 0
-          : state.nounsWugIndex <= 0;
-  }
+  setNounsBackDisabled();
 
   const slotsRow = document.getElementById("nouns-slots");
   slotsRow.hidden = false;
@@ -8413,6 +9312,7 @@ function renderNounsCategory() {
   state.nounsChecked = false;
   state.nounsFilled = [];
   state.nounsCategoryRetryUsed = false;
+  clearItemFirstMiss();
 
   const legend = document.getElementById("nouns-legend");
   if (legend) legend.hidden = true;
@@ -8477,10 +9377,7 @@ function renderNounsCategory() {
   }
   slotsRow.appendChild(status);
 
-  const back = document.getElementById("nouns-back");
-  if (back) {
-    back.disabled = state[categoryModeIndexKey()] <= 0;
-  }
+  setNounsBackDisabled();
 
   const tray = document.getElementById("nouns-tray");
   tray.innerHTML = "";
@@ -8489,10 +9386,15 @@ function renderNounsCategory() {
     const piece = document.createElement("button");
     piece.type = "button";
     piece.className = "piece";
-    piece.textContent = labels[id] || id;
+    const label = labels[id] || id;
     piece.dataset.id = id;
     piece.dataset.text = id;
-    piece.setAttribute("aria-label", labels[id] || id);
+    if (isJudgmentChoiceLabel(id, label)) {
+      fillJudgmentPiece(piece, id, label);
+    } else {
+      piece.textContent = label;
+      piece.setAttribute("aria-label", label);
+    }
     piece.addEventListener("click", () => {
       if (piece.disabled || state.nounsChecked) return;
       placeCategoryAssociation(id);
@@ -8512,6 +9414,14 @@ function placeCategoryAssociation(id) {
 
 /** Suffixes Proofread / Reverse — Richtig-Falsch or article→lemma MC. */
 function currentNounDiscriminateItem() {
+  const pin = state.nounsPinnedSnap;
+  if (
+    pin &&
+    (pin.mode === "proofread" || pin.mode === "reverse-mc") &&
+    pin.item
+  ) {
+    return pin.item;
+  }
   const kind = state.nounsMode === "reverse-mc" ? "Reverse" : "Proofread";
   const deck = ensureNounDeck(kind);
   const indexKey =
@@ -8586,6 +9496,7 @@ function renderNounsDiscriminate() {
   state.nounsChecked = false;
   state.nounsFilled = [];
   state.nounsDiscriminateRetryUsed = false;
+  clearItemFirstMiss();
 
   const legend = document.getElementById("nouns-legend");
   if (legend) legend.hidden = true;
@@ -8621,8 +9532,8 @@ function renderNounsDiscriminate() {
       prompt.hidden = false;
       prompt.innerHTML = `
         <div class="proofread-bilingual">
-          ${gloss ? promptEnHtml(`(${gloss})`) : ""}
           ${promptDeHtml(promptText)}
+          ${gloss ? promptEnHtml(`(${gloss})`) : ""}
         </div>
       `;
     }
@@ -8656,13 +9567,7 @@ function renderNounsDiscriminate() {
     feedback.textContent = "";
   }
 
-  const back = document.getElementById("nouns-back");
-  if (back) {
-    back.disabled =
-      state.nounsMode === "reverse-mc"
-        ? state.nounsReverseIndex <= 0
-        : state.nounsProofreadIndex <= 0;
-  }
+  setNounsBackDisabled();
 
   const tray = document.getElementById("nouns-tray");
   tray.innerHTML = "";
@@ -8670,10 +9575,14 @@ function renderNounsDiscriminate() {
     const piece = document.createElement("button");
     piece.type = "button";
     piece.className = "piece";
-    piece.textContent = choice;
     piece.dataset.id = choice;
     piece.dataset.text = choice;
-    piece.setAttribute("aria-label", choice);
+    if (isJudgmentChoiceLabel(choice, choice)) {
+      fillJudgmentPiece(piece, choice, choice);
+    } else {
+      piece.textContent = choice;
+      piece.setAttribute("aria-label", choice);
+    }
     piece.addEventListener("click", () => {
       if (piece.disabled || state.nounsChecked) return;
       placeNounDiscriminate(choice);
@@ -8721,6 +9630,10 @@ function checkNounsDiscriminate() {
     // One retry then answer key + advance.
     if (!state.nounsDiscriminateRetryUsed) {
       state.nounsDiscriminateRetryUsed = true;
+      noteFirstMiss({
+        answer: state.nounsArticle || "—",
+        expected: expected,
+      });
       state.nounsChecked = false;
       state.nounsArticle = null;
       if (feedback) {
@@ -8749,16 +9662,8 @@ function revealNounDiscriminate(exercise, ok) {
   const lemma = res.lemma || "";
   const article = res.article || "";
   const phrase = article ? `${article} ${lemma}` : res.form || lemma;
-  logGuidedQa({
-    question:
-      state.nounsMode === "proofread"
-        ? exercise.resolution?.form
-          ? // Statement judged — use the on-screen statement if we still have it.
-            document.getElementById("nouns-noun-slot")?.textContent ||
-            res.form ||
-            lemma
-          : lemma
-        : article || "—",
+  logGuidedQaFinal({
+    question: currentGuidedQuestionCue(),
     answer: ok
       ? state.nounsArticle || phrase
       : state.nounsArticle || "—",
@@ -8809,6 +9714,10 @@ function checkNounsCategory() {
     // One retry, then answer key — same policy as other quizzes.
     if (!state.nounsCategoryRetryUsed) {
       state.nounsCategoryRetryUsed = true;
+      noteFirstMiss({
+        answer: state.nounsArticle || "—",
+        expected,
+      });
       state.nounsChecked = false;
       state.nounsArticle = null;
       if (feedback) {
@@ -8872,7 +9781,7 @@ function revealNounCategory(exercise, ok) {
     parts = word ? [{ text: word, guide: word }] : [];
   }
 
-  logGuidedQa({
+  logGuidedQaFinal({
     question: currentGuidedQuestionCue(),
     answer: state.nounsArticle || "—",
     expected: res.expected,
@@ -8917,6 +9826,7 @@ function renderNounsPlurals() {
   state.nounsArticle = null;
   state.nounsChecked = false;
   state.nounsPluralRetryUsed = false;
+  clearItemFirstMiss();
 
   applyNounScaffoldingChrome(exercise);
   const legend = document.getElementById("nouns-legend");
@@ -8927,8 +9837,7 @@ function renderNounsPlurals() {
     <strong>${item.lemma}</strong>
   `;
 
-  const back = document.getElementById("nouns-back");
-  if (back) back.disabled = state.nounsPluralIndex <= 0;
+  setNounsBackDisabled();
 
   const slots = document.getElementById("nouns-slots");
   slots.hidden = false;
@@ -9087,7 +9996,221 @@ function clearNounsAdvance() {
   clearCorrectFlashTimer();
 }
 
+function nounsDeckKindForMode(mode = state.nounsMode) {
+  if (
+    mode === "gender-recognition" ||
+    mode === "article-application" ||
+    mode === "gender-imposter" ||
+    mode === "sentence-validation"
+  ) {
+    switch (mode) {
+      case "article-application":
+        return "CategoryArticleApplication";
+      case "gender-imposter":
+        return "CategoryGenderImposter";
+      case "sentence-validation":
+        return "CategorySentenceValidation";
+      default:
+        return "CategoryGenderRecognition";
+    }
+  }
+  if (mode === "plurals") return "Plural";
+  if (mode === "association") return "Association";
+  if (mode === "wugs") return "Wug";
+  if (mode === "proofread") return "Proofread";
+  if (mode === "reverse-mc") return "Reverse";
+  return "Article";
+}
+
+function nounsIndexKeyForMode(mode = state.nounsMode) {
+  switch (mode) {
+    case "article-application":
+      return "nounsCategoryArticleApplicationIndex";
+    case "gender-imposter":
+      return "nounsCategoryGenderImposterIndex";
+    case "sentence-validation":
+      return "nounsCategorySentenceValidationIndex";
+    case "gender-recognition":
+      return "nounsCategoryGenderRecognitionIndex";
+    case "plurals":
+      return "nounsPluralIndex";
+    case "association":
+      return "nounsAssociationIndex";
+    case "wugs":
+      return "nounsWugIndex";
+    case "proofread":
+      return "nounsProofreadIndex";
+    case "reverse-mc":
+      return "nounsReverseIndex";
+    default:
+      return "nounsIndex";
+  }
+}
+
+function cloneNounHistoryItem(item) {
+  if (item == null) return null;
+  if (typeof item === "string" || typeof item === "number") return item;
+  return { ...item };
+}
+
+function nounsAppearanceId(mode, item) {
+  if (item == null) return `${mode}:?`;
+  if (typeof item === "string") return `${mode}:${item}`;
+  if (item.itemId) return `${mode}:${item.itemId}`;
+  if (item.categoryId != null && item.variant != null) {
+    return `${mode}:${item.categoryId}:v${item.variant}`;
+  }
+  if (item.categoryId) return `${mode}:${item.categoryId}`;
+  if (item.lemma) return `${mode}:${item.lemma}`;
+  try {
+    return `${mode}:${JSON.stringify(item)}`;
+  } catch {
+    return `${mode}:obj`;
+  }
+}
+
+function liveNounsDeckItem() {
+  const kind = nounsDeckKindForMode();
+  const indexKey = nounsIndexKeyForMode();
+  const deck = ensureNounDeck(kind);
+  if (!deck.length) return { kind, item: null };
+  const idx = state[indexKey] % deck.length;
+  return { kind, item: cloneNounHistoryItem(deck[idx]) };
+}
+
+function captureNounsSnapshot() {
+  const pinned = state.nounsPinnedSnap;
+  let kind;
+  let item;
+  if (pinned && pinned.mode === state.nounsMode && pinned.item != null) {
+    kind = pinned.kind || nounsDeckKindForMode();
+    item = cloneNounHistoryItem(pinned.item);
+  } else {
+    const live = liveNounsDeckItem();
+    kind = live.kind;
+    item = live.item;
+  }
+  if (item == null) return null;
+  return {
+    id: nounsAppearanceId(state.nounsMode, item),
+    mode: state.nounsMode,
+    sessionKind: state.nounsSessionKind,
+    familyMix: Array.isArray(state.nounsFamilyMix)
+      ? [...state.nounsFamilyMix]
+      : null,
+    kind,
+    item,
+    difficulty: state.nounsDifficulty,
+    guidedKey: state.guidedCurrentKey,
+    reasonCode: state.currentReasonCode,
+  };
+}
+
+function nounsSnapsMatch(a, b) {
+  if (!a || !b) return false;
+  return a.id === b.id && a.mode === b.mode && a.sessionKind === b.sessionKind;
+}
+
+function clearNounsHistory() {
+  state.nounsHistory = [];
+  state.nounsHistoryIndex = -1;
+  state.nounsPinnedSnap = null;
+}
+
+function nounsBackDisabled() {
+  return (state.nounsHistoryIndex ?? -1) <= 0;
+}
+
+function setNounsBackDisabled() {
+  const back = document.getElementById("nouns-back");
+  if (back) back.disabled = nounsBackDisabled();
+}
+
+/** Append-on-appear; Back/Forward move nounsHistoryIndex through this list. */
+function rememberNounsPosition() {
+  let snap;
+  try {
+    snap = captureNounsSnapshot();
+  } catch {
+    return;
+  }
+  if (!snap?.id) return;
+  const hist = state.nounsHistory || (state.nounsHistory = []);
+  let i = state.nounsHistoryIndex ?? -1;
+  if (i >= hist.length) i = hist.length - 1;
+
+  if (i >= 0 && i < hist.length - 1) {
+    state.nounsPinnedSnap = hist[i];
+    return;
+  }
+  if (i === hist.length - 1 && hist.length > 0 && nounsSnapsMatch(hist[i], snap)) {
+    state.nounsHistoryIndex = i;
+    state.nounsPinnedSnap = snap;
+    return;
+  }
+
+  hist.push(snap);
+  state.nounsHistoryIndex = hist.length - 1;
+  state.nounsPinnedSnap = snap;
+  if (hist.length > 60) {
+    hist.shift();
+    state.nounsHistoryIndex -= 1;
+  }
+}
+
+function restoreNounsNavSnapshot(snap) {
+  if (!snap) return false;
+  state.nounsMode = snap.mode;
+  if (snap.sessionKind) state.nounsSessionKind = snap.sessionKind;
+  if (snap.familyMix) state.nounsFamilyMix = [...snap.familyMix];
+  if (snap.difficulty) state.nounsDifficulty = snap.difficulty;
+  state.guidedCurrentKey = snap.guidedKey || state.guidedCurrentKey;
+  state.currentReasonCode = snap.reasonCode || null;
+  state.nounsChecked = false;
+  state.nounsPinnedSnap = snap;
+  return true;
+}
+
+function retreatNounsItem() {
+  const hist = state.nounsHistory || [];
+  if (!hist.length) return false;
+  let i = state.nounsHistoryIndex ?? -1;
+  if (i < 0) return false;
+  if (i >= hist.length) {
+    i = hist.length - 1;
+    const live = liveNounsDeckItem();
+    const liveId = live.item
+      ? nounsAppearanceId(state.nounsMode, live.item)
+      : "";
+    if (liveId && hist[i]?.id === liveId && i > 0) i -= 1;
+    state.nounsHistoryIndex = i;
+    return restoreNounsNavSnapshot(hist[i]);
+  }
+  if (i <= 0) return false;
+  state.nounsHistoryIndex = i - 1;
+  return restoreNounsNavSnapshot(hist[state.nounsHistoryIndex]);
+}
+
+/** Forward through history, or deal a new tip question. */
+function advanceNounsItem() {
+  const hist = state.nounsHistory || [];
+  let i = state.nounsHistoryIndex ?? -1;
+  if (i >= hist.length) i = hist.length - 1;
+  if (i >= 0 && i < hist.length - 1) {
+    state.nounsHistoryIndex = i + 1;
+    restoreNounsNavSnapshot(hist[state.nounsHistoryIndex]);
+    return "history";
+  }
+  state.nounsPinnedSnap = null;
+  advanceNounsIndex();
+  clearItemFirstMiss();
+  // Keep index on tip; rememberNounsPosition appends when live differs.
+  return "new";
+}
+
+
 function advanceNounsIndex() {
+
   if (
     state.nounsSessionKind === "family-mix" &&
     state.nounsFamilyMix.length > 1
@@ -9130,6 +10253,7 @@ function advanceNounsIndex() {
 }
 
 function resetNounsDeckForMode() {
+  clearNounsHistory();
   const kind = isNounCategoryMode()
     ? categoryModeDeckKind()
     : state.nounsMode === "plurals"
@@ -9158,8 +10282,9 @@ function scheduleNounsAdvance(delayMs = 1500) {
   state.nounsAdvanceTimer = setTimeout(() => {
     state.nounsAdvanceTimer = null;
     deferHeavy(() => {
+      if (state.view !== "nouns") return;
       if (continueGuided()) return;
-      advanceNounsIndex();
+      advanceNounsItem();
       if (continueCrossTerritoryMix("nouns")) return;
       renderNouns();
     });
@@ -9171,8 +10296,8 @@ function revealNounAnswer(exercise, ok = true) {
 
   const art = exercise.resolution.article;
   const lemma = exercise.target?.lemma || exercise.prompt?.lemma || "";
-  logGuidedQa({
-    question: lemma || exercise.prompt?.cue || currentGuidedQuestionCue(),
+  logGuidedQaFinal({
+    question: currentGuidedQuestionCue(),
     answer: state.nounsArticle || art || "—",
     expected: art === "insufficient" ? "insufficient" : art,
     status: ok ? "correct" : "incorrect",
@@ -9237,15 +10362,28 @@ function revealNounAnswer(exercise, ok = true) {
   playAnswerKeyThenAdvance(phrase, parts, nodes, scheduleNounsAdvance);
 }
 
-function checkNounsArticles() {
-  if (state.nounsChecked) return;
-  const exercise =
-    state.currentExercise ||
-    (state.nounsMode === "association"
+/** Resolve the live article-like exercise; ignore stale cross-territory state. */
+function resolveNounArticleExercise() {
+  const ex = state.currentExercise;
+  const ok =
+    ex &&
+    (ex.templateId === "nouns.article.choice" ||
+      ex.templateId === "nouns.association.choice" ||
+      ex.templateId === "nouns.wug.choice");
+  if (ok) return ex;
+  const fresh =
+    state.nounsMode === "association"
       ? currentNounAssociationExercise()
       : state.nounsMode === "wugs"
         ? currentNounWugExercise()
-        : currentNounArticleExercise());
+        : currentNounArticleExercise();
+  state.currentExercise = fresh;
+  return fresh;
+}
+
+function checkNounsArticles() {
+  if (state.nounsChecked) return;
+  const exercise = resolveNounArticleExercise();
   if (!state.nounsArticle) return;
 
   const { evaluation, attempt, accepted, complete } = submitExerciseAttempt(
@@ -9253,7 +10391,7 @@ function checkNounsArticles() {
     { article: state.nounsArticle },
     { appVersion: "mock" }
   );
-  state.attemptLog.push(attempt);
+  pushScoredAttempt(attempt);
 
   if (state.nounsMode === "association") {
     recordFamilyAttempt(exercise.materials.patternId, accepted);
@@ -9268,11 +10406,16 @@ function checkNounsArticles() {
       chosen.disabled = true;
       chosen.classList.remove("is-placed");
     }
+    const wrongArt = state.nounsArticle;
     state.nounsArticle = null;
     const slot = document.querySelector('#nouns-slots [data-slot="article"]');
     slot.classList.remove("is-filled", "g-masc", "g-fem", "g-neut");
     slot.textContent = "Article";
     if (!complete && exercise.scaffolding.allowRetryWrongChoice) {
+      noteFirstMiss({
+        answer: wrongArt || "—",
+        expected: exercise.resolution.article,
+      });
       // Actionable nudge instead of a bare red border.
       const cue = exercise.materials.cue || exercise.prompt?.cue;
       showExerciseFeedback(
@@ -9312,7 +10455,11 @@ function checkNounsArticles() {
 
 function checkNounsPlurals() {
   if (state.nounsChecked) return;
-  const exercise = state.currentExercise || currentNounPluralExercise();
+  let exercise = state.currentExercise;
+  if (!exercise || exercise.templateId !== "nouns.plural.construction") {
+    exercise = currentNounPluralExercise();
+    state.currentExercise = exercise;
+  }
   if (state.nounsFilled.some((x) => !x)) return;
 
   const built = state.nounsFilled.slice();
@@ -9322,7 +10469,7 @@ function checkNounsPlurals() {
     { parts: partsForEval },
     { appVersion: "mock" }
   );
-  state.attemptLog.push(attempt);
+  pushScoredAttempt(attempt);
 
   document.querySelectorAll("#nouns-slots .slot").forEach((slot, i) => {
     const fullIndex = i + 1; // skip given die
@@ -9342,6 +10489,12 @@ function checkNounsPlurals() {
     !state.nounsPluralRetryUsed
   ) {
     state.nounsPluralRetryUsed = true;
+    noteFirstMiss({
+      answer: built.join(" ") || "—",
+      expected:
+        exercise.resolution.form ||
+        joinNounPluralParts(exercise.materials.parts.slice(1)),
+    });
     showAttemptFeedback("nouns", "Try again — rebuild the plural");
     window.setTimeout(() => {
       if (state.nounsChecked) return;
@@ -9383,8 +10536,8 @@ function checkNounsPlurals() {
   const construction =
     exercise.resolution.parts || exercise.materials.parts;
 
-  logGuidedQa({
-    question: exercise.target?.lemma || currentGuidedQuestionCue(),
+  logGuidedQaFinal({
+    question: currentGuidedQuestionCue(),
     answer: phrase,
     expected: phrase,
     status: accepted ? "correct" : "incorrect",
@@ -10167,6 +11320,15 @@ function bind() {
     );
   });
 
+  document
+    .querySelectorAll("[data-open-session-audit], #btn-session-audit")
+    .forEach((btn) => {
+      btn.addEventListener("click", () => {
+        closeAllMenus();
+        openGuidedDebugSheet();
+      });
+    });
+
   document.getElementById("numbers-help").addEventListener("click", () => {
     openNumbersHelp();
   });
@@ -10181,12 +11343,13 @@ function bind() {
     stopSpeech();
     const hist = state.numbersHistory || [];
     const i = state.numbersHistoryIndex ?? -1;
+    // Mid-sequence: move forward to the exact next remembered question.
     if (i >= 0 && i < hist.length - 1) {
-      state.numbersHistoryIndex = i + 1;
-      restoreNumbersNavSnapshot(hist[state.numbersHistoryIndex]);
+      advanceNumbersItem();
       renderNumbers();
       return;
     }
+    // At end of sequence: skip / reveal then deal the next new item.
     skipNumbersShowingAnswer();
   });
 
@@ -10195,35 +11358,22 @@ function bind() {
   });
   document.getElementById("nouns-back").addEventListener("click", () => {
     clearNounsAdvance();
-    if (state.nounsMode === "plurals") {
-      if (state.nounsPluralIndex <= 0) return;
-      state.nounsPluralIndex -= 1;
-    } else if (isNounCategoryMode()) {
-      const key = categoryModeIndexKey();
-      if (state[key] <= 0) return;
-      state[key] -= 1;
-    } else if (state.nounsMode === "association") {
-      if (state.nounsAssociationIndex <= 0) return;
-      state.nounsAssociationIndex -= 1;
-    } else if (state.nounsMode === "wugs") {
-      if (state.nounsWugIndex <= 0) return;
-      state.nounsWugIndex -= 1;
-    } else if (state.nounsMode === "proofread") {
-      if (state.nounsProofreadIndex <= 0) return;
-      state.nounsProofreadIndex -= 1;
-    } else if (state.nounsMode === "reverse-mc") {
-      if (state.nounsReverseIndex <= 0) return;
-      state.nounsReverseIndex -= 1;
-    } else {
-      if (state.nounsIndex <= 0) return;
-      state.nounsIndex -= 1;
-    }
+    stopSpeech();
+    if (!retreatNounsItem()) return;
     renderNouns();
   });
   document.getElementById("nouns-skip").addEventListener("click", () => {
     clearNounsAdvance();
+    stopSpeech();
+    const hist = state.nounsHistory || [];
+    const i = state.nounsHistoryIndex ?? -1;
+    if (i >= 0 && i < hist.length - 1) {
+      advanceNounsItem();
+      renderNouns();
+      return;
+    }
     if (continueGuided()) return;
-    advanceNounsIndex();
+    advanceNounsItem();
     if (continueCrossTerritoryMix("nouns")) return;
     renderNouns();
   });
