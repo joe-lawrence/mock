@@ -20,7 +20,7 @@ export function emptyPlaylistState() {
     sequence: "order",
     catalog: [],
     territory: null,
-    kind: null, // "numbers-quiz" | "numbers-vocab" | "nouns"
+    kind: null, // "numbers-quiz" | "numbers-vocab" | "nouns" | "cross"
   };
 }
 
@@ -256,7 +256,13 @@ export function mountSessionPlaylistDropdown(hostEl, opts) {
   const triggerLabel = (pl, currentId) => {
     if (currentId) {
       const hit = findCatalogUnit(pl.catalog, currentId);
-      if (hit?.unit?.label) return hit.unit.label;
+      if (hit?.unit?.label) {
+        const topicLabel = hit.topic?.label;
+        if (topicLabel && topicLabel !== hit.unit.label) {
+          return `${topicLabel} · ${hit.unit.label}`;
+        }
+        return hit.unit.label;
+      }
     }
     return playlistScopeLabel(pl);
   };

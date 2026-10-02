@@ -7,7 +7,7 @@ import {
   reference,
   referenceNav,
   REFERENCE_VERSION,
-} from "./generated/reference.js?v=20260930-ref1";
+} from "./generated/reference.js?v=20261002-ref2";
 
 function esc(s) {
   return String(s || "")

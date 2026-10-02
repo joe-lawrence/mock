@@ -7,7 +7,7 @@
  * Generate with:
  *   npm run reference:build
  */
-export const REFERENCE_VERSION = "20260930-ref1";
+export const REFERENCE_VERSION = "20261002-ref2";
 export const reference = {
   "nouns.categories": {
     "id": "nouns.categories",
@@ -1861,21 +1861,22 @@ export const reference = {
     "territory": "numbers",
     "section": "dates",
     "status": "active",
-    "summary": "Weekdays, months, am dritten, full dates (Tag.Monat).",
+    "summary": "All weekdays and months with karaoke; am + ordinal day; full dates (Tag.Monat).",
     "order": 100,
     "chartTab": "dates",
     "related": [
       "numbers.ordinals"
     ],
     "practice": [
-      "numbers.weekdays.build"
+      "numbers.weekdays.build",
+      "numbers.months.build"
     ],
     "sections": {
-      "summary": "Weekdays, months, am dritten, full dates (Tag.Monat).",
+      "summary": "All weekdays and months with karaoke; am + ordinal day; full dates (Tag.Monat).",
       "pattern": "",
       "rule": "",
       "examples": "",
-      "limitations": "Exemplar-thin in the current chart — curriculum steps go deeper.",
+      "limitations": "Spoken year readings on full dates are practiced in the Full dates step.",
       "notes": "",
       "pronunciation": ""
     },
@@ -1883,12 +1884,97 @@ export const reference = {
       {
         "cue": "Montag",
         "german": "Montag",
-        "note": "weekday"
+        "note": "weekday (der …)"
+      },
+      {
+        "cue": "Dienstag",
+        "german": "Dienstag",
+        "note": ""
+      },
+      {
+        "cue": "Mittwoch",
+        "german": "Mittwoch",
+        "note": ""
+      },
+      {
+        "cue": "Donnerstag",
+        "german": "Donnerstag",
+        "note": ""
+      },
+      {
+        "cue": "Freitag",
+        "german": "Freitag",
+        "note": ""
+      },
+      {
+        "cue": "Samstag",
+        "german": "Samstag",
+        "note": ""
+      },
+      {
+        "cue": "Sonntag",
+        "german": "Sonntag",
+        "note": ""
+      },
+      {
+        "cue": "Januar",
+        "german": "Januar",
+        "note": "month (der …)"
+      },
+      {
+        "cue": "Februar",
+        "german": "Februar",
+        "note": ""
       },
       {
         "cue": "März",
         "german": "März",
-        "note": "month"
+        "note": ""
+      },
+      {
+        "cue": "April",
+        "german": "April",
+        "note": ""
+      },
+      {
+        "cue": "Mai",
+        "german": "Mai",
+        "note": ""
+      },
+      {
+        "cue": "Juni",
+        "german": "Juni",
+        "note": ""
+      },
+      {
+        "cue": "Juli",
+        "german": "Juli",
+        "note": ""
+      },
+      {
+        "cue": "August",
+        "german": "August",
+        "note": ""
+      },
+      {
+        "cue": "September",
+        "german": "September",
+        "note": ""
+      },
+      {
+        "cue": "Oktober",
+        "german": "Oktober",
+        "note": ""
+      },
+      {
+        "cue": "November",
+        "german": "November",
+        "note": ""
+      },
+      {
+        "cue": "Dezember",
+        "german": "Dezember",
+        "note": ""
       },
       {
         "cue": "3.",
@@ -1898,7 +1984,7 @@ export const reference = {
       {
         "cue": "3.3.",
         "german": "am dritten März",
-        "note": ""
+        "note": "Tag.Monat spoken with am"
       }
     ],
     "chart": [
@@ -1906,23 +1992,306 @@ export const reference = {
         "n": "Montag",
         "parts": [
           {
-            "text": "Montag",
-            "guide": "MOHN-tahk",
+            "text": "Mon",
+            "guide": "MOHN",
             "stress": true
+          },
+          {
+            "text": "tag",
+            "guide": "tahk"
           }
         ],
-        "note": "weekday"
+        "note": "weekday (der …)"
+      },
+      {
+        "n": "Dienstag",
+        "parts": [
+          {
+            "text": "Diens",
+            "guide": "DEENS",
+            "stress": true
+          },
+          {
+            "text": "tag",
+            "guide": "tahk"
+          }
+        ],
+        "note": ""
+      },
+      {
+        "n": "Mittwoch",
+        "parts": [
+          {
+            "text": "Mitt",
+            "guide": "MIT",
+            "stress": true
+          },
+          {
+            "text": "woch",
+            "guide": "vokh"
+          }
+        ],
+        "note": ""
+      },
+      {
+        "n": "Donnerstag",
+        "parts": [
+          {
+            "text": "Don",
+            "guide": "DON",
+            "stress": true
+          },
+          {
+            "text": "ners",
+            "guide": "ners"
+          },
+          {
+            "text": "tag",
+            "guide": "tahk"
+          }
+        ],
+        "note": ""
+      },
+      {
+        "n": "Freitag",
+        "parts": [
+          {
+            "text": "Frei",
+            "guide": "FRY",
+            "stress": true
+          },
+          {
+            "text": "tag",
+            "guide": "tahk"
+          }
+        ],
+        "note": ""
+      },
+      {
+        "n": "Samstag",
+        "parts": [
+          {
+            "text": "Sams",
+            "guide": "ZAMS",
+            "stress": true
+          },
+          {
+            "text": "tag",
+            "guide": "tahk"
+          }
+        ],
+        "note": ""
+      },
+      {
+        "n": "Sonntag",
+        "parts": [
+          {
+            "text": "Sonn",
+            "guide": "ZON",
+            "stress": true
+          },
+          {
+            "text": "tag",
+            "guide": "tahk"
+          }
+        ],
+        "note": ""
+      },
+      {
+        "n": "Januar",
+        "parts": [
+          {
+            "text": "Ja",
+            "guide": "ya"
+          },
+          {
+            "text": "nu",
+            "guide": "NOO",
+            "stress": true
+          },
+          {
+            "text": "ar",
+            "guide": "ar"
+          }
+        ],
+        "note": "month (der …)"
+      },
+      {
+        "n": "Februar",
+        "parts": [
+          {
+            "text": "Fe",
+            "guide": "fay"
+          },
+          {
+            "text": "bru",
+            "guide": "BROO",
+            "stress": true
+          },
+          {
+            "text": "ar",
+            "guide": "ar"
+          }
+        ],
+        "note": ""
       },
       {
         "n": "März",
         "parts": [
           {
             "text": "März",
-            "guide": "mairts",
+            "guide": "MEHRTS",
             "stress": true
           }
         ],
-        "note": "month"
+        "note": ""
+      },
+      {
+        "n": "April",
+        "parts": [
+          {
+            "text": "A",
+            "guide": "a"
+          },
+          {
+            "text": "pril",
+            "guide": "PRIL",
+            "stress": true
+          }
+        ],
+        "note": ""
+      },
+      {
+        "n": "Mai",
+        "parts": [
+          {
+            "text": "Mai",
+            "guide": "MY",
+            "stress": true
+          }
+        ],
+        "note": ""
+      },
+      {
+        "n": "Juni",
+        "parts": [
+          {
+            "text": "Ju",
+            "guide": "YOO",
+            "stress": true
+          },
+          {
+            "text": "ni",
+            "guide": "nee"
+          }
+        ],
+        "note": ""
+      },
+      {
+        "n": "Juli",
+        "parts": [
+          {
+            "text": "Ju",
+            "guide": "YOO",
+            "stress": true
+          },
+          {
+            "text": "li",
+            "guide": "lee"
+          }
+        ],
+        "note": ""
+      },
+      {
+        "n": "August",
+        "parts": [
+          {
+            "text": "Au",
+            "guide": "ow"
+          },
+          {
+            "text": "gust",
+            "guide": "GOOST",
+            "stress": true
+          }
+        ],
+        "note": ""
+      },
+      {
+        "n": "September",
+        "parts": [
+          {
+            "text": "Sep",
+            "guide": "zep"
+          },
+          {
+            "text": "tem",
+            "guide": "TEM",
+            "stress": true
+          },
+          {
+            "text": "ber",
+            "guide": "ber"
+          }
+        ],
+        "note": ""
+      },
+      {
+        "n": "Oktober",
+        "parts": [
+          {
+            "text": "Ok",
+            "guide": "ok"
+          },
+          {
+            "text": "to",
+            "guide": "TOH",
+            "stress": true
+          },
+          {
+            "text": "ber",
+            "guide": "ber"
+          }
+        ],
+        "note": ""
+      },
+      {
+        "n": "November",
+        "parts": [
+          {
+            "text": "No",
+            "guide": "no"
+          },
+          {
+            "text": "vem",
+            "guide": "VEM",
+            "stress": true
+          },
+          {
+            "text": "ber",
+            "guide": "ber"
+          }
+        ],
+        "note": ""
+      },
+      {
+        "n": "Dezember",
+        "parts": [
+          {
+            "text": "De",
+            "guide": "day"
+          },
+          {
+            "text": "zem",
+            "guide": "TSEM",
+            "stress": true
+          },
+          {
+            "text": "ber",
+            "guide": "ber"
+          }
+        ],
+        "note": ""
       },
       {
         "n": "3.",
@@ -1953,10 +2322,10 @@ export const reference = {
           },
           {
             "text": "März",
-            "guide": "mairts"
+            "guide": "MEHRTS"
           }
         ],
-        "note": ""
+        "note": "Tag.Monat spoken with am"
       }
     ],
     "flags": [],
@@ -2389,7 +2758,7 @@ export const reference = {
       "pattern": "",
       "rule": "",
       "examples": "",
-      "limitations": "Stundenkilometer mentioned in older blurbs but not yet a chart row.",
+      "limitations": "Answer keys keep `Stundenkilometer` as one token; karaoke splits it from the chart atoms above (and `Kilometer pro Stunde` from Kilometer + pro + Stunde).",
       "notes": "",
       "pronunciation": ""
     },
@@ -2413,6 +2782,16 @@ export const reference = {
         "cue": "20 °C",
         "german": "zwanzig Grad",
         "note": ""
+      },
+      {
+        "cue": "2 km",
+        "german": "zwei Kilo meter",
+        "note": "compound length unit"
+      },
+      {
+        "cue": "50 km/h",
+        "german": "fünfzig Stun den kilo meter",
+        "note": "answer token is one compound; karaoke composes Stunden + Kilometer"
       }
     ],
     "chart": [
@@ -2479,6 +2858,54 @@ export const reference = {
           }
         ],
         "note": ""
+      },
+      {
+        "n": "2 km",
+        "parts": [
+          {
+            "text": "zwei",
+            "guide": "TSVAI",
+            "stress": true
+          },
+          {
+            "text": "Kilo",
+            "guide": "KEE-lo",
+            "stress": true
+          },
+          {
+            "text": "meter",
+            "guide": "MAY-ter"
+          }
+        ],
+        "note": "compound length unit"
+      },
+      {
+        "n": "50 km/h",
+        "parts": [
+          {
+            "text": "fünfzig",
+            "guide": "FUENF-tsikh",
+            "stress": true
+          },
+          {
+            "text": "Stun",
+            "guide": "SHTOON",
+            "stress": true
+          },
+          {
+            "text": "den",
+            "guide": "den"
+          },
+          {
+            "text": "kilo",
+            "guide": "kee-lo"
+          },
+          {
+            "text": "meter",
+            "guide": "MAY-ter"
+          }
+        ],
+        "note": "answer token is one compound; karaoke composes Stunden + Kilometer"
       }
     ],
     "flags": [],
@@ -4076,7 +4503,7 @@ export const referenceNav = {
           {
             "id": "numbers.dates",
             "title": "Dates",
-            "summary": "Weekdays, months, am dritten, full dates (Tag.Monat).",
+            "summary": "All weekdays and months with karaoke; am + ordinal day; full dates (Tag.Monat).",
             "chartTab": "dates"
           }
         ]

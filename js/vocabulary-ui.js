@@ -343,24 +343,38 @@ export function mountVocabularyPanel(root, opts) {
         result?.verdictLabel || (ok ? "Correct" : "Answer");
       revealDe.innerHTML = revealDeHtml(q);
 
-      const parts =
+      const rawParts =
         (item && opts.answerPartsForItem?.(item)) ||
-        [{ text: q.revealDe, guide: q.revealDe, stress: true }];
+        (q.revealDe ? [q.revealDe] : []);
+      const resolved = opts.resolvePronunciation
+        ? opts.resolvePronunciation(rawParts)
+        : { displayParts: [], pronunciationUnavailable: true };
       const spoken = q.revealDe || "";
       const phonNodes = [];
       if (revealPhon) {
         revealPhon.hidden = false;
-        revealPhon.removeAttribute("aria-hidden");
+        revealPhon.classList.toggle(
+          "is-unavailable",
+          !!resolved.pronunciationUnavailable
+        );
         revealPhon.innerHTML = "";
-        revealPhon.setAttribute("lang", "de");
-        parts.forEach((p, i) => {
-          if (i > 0) revealPhon.appendChild(document.createTextNode(" · "));
-          const span = document.createElement("span");
-          span.className = "phon-beat" + (p.stress ? " has-stress" : "");
-          span.textContent = p.guide || p.text || "";
-          revealPhon.appendChild(span);
-          phonNodes.push(span);
-        });
+        if (resolved.pronunciationUnavailable) {
+          revealPhon.removeAttribute("lang");
+          revealPhon.setAttribute("data-pronunciation", "unavailable");
+          revealPhon.innerHTML =
+            '<span class="phon-unavailable">Pronunciation guide unavailable</span>';
+        } else {
+          revealPhon.setAttribute("lang", "de");
+          revealPhon.removeAttribute("data-pronunciation");
+          (resolved.displayParts || []).forEach((p, i) => {
+            if (i > 0) revealPhon.appendChild(document.createTextNode(" · "));
+            const span = document.createElement("span");
+            span.className = "phon-beat" + (p.stress ? " has-stress" : "");
+            span.textContent = p.guide || "";
+            revealPhon.appendChild(span);
+            phonNodes.push(span);
+          });
+        }
       }
       if (q.revealEn) {
         revealEn.hidden = false;
@@ -378,7 +392,7 @@ export function mountVocabularyPanel(root, opts) {
       opts.stopSpeech?.();
       opts.playReveal?.(
         spoken,
-        parts,
+        resolved.displayParts || [],
         phonNodes,
         autoAdvance
           ? () => {
