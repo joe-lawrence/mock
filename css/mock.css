@@ -385,6 +385,62 @@ span.territory-menu-btn {
   color: var(--muted);
 }
 
+.menu-voice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-height: min(40vh, 14rem);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.menu-voice-list > button.menu-check {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 550;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-voice-list > button.menu-check .menu-check-mark {
+  flex: 0 0 1.15rem;
+  width: 1.15rem;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.menu-voice-list > button.menu-check .menu-check-label {
+  flex: 1;
+  text-align: left;
+  line-height: 1.25;
+}
+
+.menu-voice-list > button.menu-check:hover,
+.menu-voice-list > button.menu-check:focus-visible {
+  background: var(--surface-2);
+  outline: none;
+}
+
+.menu-voice-list > .menu-voice-empty {
+  margin: 0;
+  padding: 0.45rem 0.65rem 0.55rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
 .topbar-actions {
   display: flex;
   flex-wrap: wrap;

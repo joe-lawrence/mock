@@ -12845,15 +12845,168 @@ function stopSpeech({ keepAdvance = false } = {}) {
   if (!keepAdvance) clearSoundsAdvance();
 }
 
+/* —— German TTS voice preference (device-local) —— */
+
+const TTS_VOICE_KEY = "schnapp-tts-voice";
+const TTS_DEMO_DE = "Guten Tag. Eins, zwei, drei.";
+/** @type {SpeechSynthesisVoice[]} */
+let ttsVoiceCache = [];
+
+/** @returns {string|null} voiceURI, or null for Automatic */
+function readGermanTtsVoicePref() {
+  try {
+    const v = localStorage.getItem(TTS_VOICE_KEY);
+    if (v == null || v === "" || v === "auto") return null;
+    return v;
+  } catch (_) {
+    return null;
+  }
+}
+
+/** @param {string|null} voiceURI null/auto clears to Automatic */
+function setGermanTtsVoicePref(voiceURI) {
+  try {
+    if (!voiceURI || voiceURI === "auto") {
+      localStorage.removeItem(TTS_VOICE_KEY);
+    } else {
+      localStorage.setItem(TTS_VOICE_KEY, voiceURI);
+    }
+  } catch (_) {
+    /* ignore */
+  }
+  syncTtsVoiceMenu();
+}
+
+function refreshTtsVoiceCache() {
+  if (!window.speechSynthesis) {
+    ttsVoiceCache = [];
+    return ttsVoiceCache;
+  }
+  ttsVoiceCache = window.speechSynthesis.getVoices() || [];
+  return ttsVoiceCache;
+}
+
+function listGermanVoices() {
+  const all = ttsVoiceCache.length
+    ? ttsVoiceCache
+    : refreshTtsVoiceCache();
+  return all.filter((v) => (v.lang || "").toLowerCase().startsWith("de"));
+}
+
+/** Quality score for auto-pick (Enhanced > named OS > Google > compact). */
+function scoreGermanVoice(v) {
+  const name = v.name || "";
+  let score = 0;
+  if (/enhanced/i.test(name)) score += 100;
+  if (/premium/i.test(name)) score += 70;
+  if (/compact/i.test(name)) score -= 25;
+  if (/google/i.test(name)) score += 45;
+  if (/microsoft|desktop/i.test(name)) score -= 35;
+  if (/anna|markus|petra|viktor|helena|yannick|siri/i.test(name)) score += 12;
+  if (/^de-DE/i.test(v.lang || "")) score += 6;
+  else if (/^de-AT|^de-CH/i.test(v.lang || "")) score += 3;
+  if (v.localService) score += 4;
+  return score;
+}
+
+function rankGermanVoices(voices = listGermanVoices()) {
+  return voices
+    .slice()
+    .sort(
+      (a, b) =>
+        scoreGermanVoice(b) - scoreGermanVoice(a) ||
+        (a.name || "").localeCompare(b.name || "")
+    );
+}
+
+function resolveGermanVoice() {
+  const de = listGermanVoices();
+  if (!de.length) return null;
+  const pref = readGermanTtsVoicePref();
+  if (pref) {
+    const match =
+      de.find((v) => v.voiceURI === pref) ||
+      de.find((v) => v.name === pref);
+    if (match) return match;
+  }
+  return rankGermanVoices(de)[0] || null;
+}
+
 function assignGermanVoice(utterance) {
-  const voices = window.speechSynthesis.getVoices();
-  const de = voices.filter((v) => v.lang.toLowerCase().startsWith("de"));
-  // Prefer non-Microsoft voices when present — MS voices often clip the onset on Chromium.
-  const preferred =
-    de.find((v) => /google/i.test(v.name)) ||
-    de.find((v) => !/microsoft|desktop/i.test(v.name)) ||
-    de[0];
+  if (!ttsVoiceCache.length) refreshTtsVoiceCache();
+  const preferred = resolveGermanVoice();
   if (preferred) utterance.voice = preferred;
+}
+
+function playGermanVoiceDemo() {
+  if (!window.speechSynthesis) return;
+  stopSpeech({ keepAdvance: true });
+  withUtterance(TTS_DEMO_DE, { rate: 0.95, lang: "de-DE" });
+}
+
+function syncTtsVoiceMenu() {
+  const root = document.getElementById("tts-voice-menu");
+  if (!root) return;
+  if (!ttsVoiceCache.length) refreshTtsVoiceCache();
+  const de = rankGermanVoices(listGermanVoices());
+  const pref = readGermanTtsVoicePref();
+  const autoOn = !pref;
+  root.innerHTML = "";
+
+  const addRadio = (value, label, on) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "menu-check";
+    btn.setAttribute("role", "menuitemradio");
+    btn.setAttribute("aria-checked", String(on));
+    btn.dataset.ttsVoice = value;
+    btn.innerHTML =
+      `<span class="menu-check-mark" aria-hidden="true">${on ? "✓" : ""}</span>` +
+      `<span class="menu-check-label"></span>`;
+    btn.querySelector(".menu-check-label").textContent = label;
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setGermanTtsVoicePref(value === "auto" ? null : value);
+      playGermanVoiceDemo();
+    });
+    root.appendChild(btn);
+  };
+
+  addRadio("auto", "Automatic (best available)", autoOn);
+
+  if (!de.length) {
+    const empty = document.createElement("p");
+    empty.className = "menu-voice-empty";
+    empty.textContent =
+      "No German voices yet. On iPhone: Settings → Accessibility → Spoken Content → Voices → German → download Enhanced.";
+    root.appendChild(empty);
+    return;
+  }
+
+  for (const v of de) {
+    const on = !!pref && (pref === v.voiceURI || pref === v.name);
+    addRadio(v.voiceURI || v.name, v.name || v.voiceURI || "German", on);
+  }
+}
+
+/** Warm voice list at startup; refresh again on first tap (iOS often needs it). */
+function initTtsVoices() {
+  if (!window.speechSynthesis) return;
+  const refresh = () => {
+    refreshTtsVoiceCache();
+    syncTtsVoiceMenu();
+  };
+  refresh();
+  if (typeof window.speechSynthesis.addEventListener === "function") {
+    window.speechSynthesis.addEventListener("voiceschanged", refresh);
+  } else {
+    window.speechSynthesis.onvoiceschanged = refresh;
+  }
+  const onGesture = () => {
+    refresh();
+    document.removeEventListener("pointerdown", onGesture, true);
+  };
+  document.addEventListener("pointerdown", onGesture, true);
 }
 
 function assignEnglishVoice(utterance) {
@@ -14005,6 +14158,10 @@ function closeAllMenus() {
 
 function openMenuPanel(panel, btn) {
   closeAllMenus();
+  if (panel.id === "brand-menu-panel") {
+    refreshTtsVoiceCache();
+    syncTtsVoiceMenu();
+  }
   panel.hidden = false;
   btn.setAttribute("aria-expanded", "true");
   bringOverlayFront(topbarEl());
@@ -14026,6 +14183,8 @@ function wireMenus() {
 
   document.querySelectorAll(".menu-panel").forEach((panel) => {
     panel.addEventListener("click", (e) => {
+      // Voice radios play a demo and stay open for A/B listening.
+      if (e.target.closest("[data-tts-voice]")) return;
       // Keep open only for non-action clicks; action buttons close via handlers.
       if (e.target.closest("button")) closeAllMenus();
     });
@@ -14390,6 +14549,7 @@ function bind() {
 
 initTheme();
 initSfx();
+initTtsVoices();
 renderHub();
 bind();
 hydrateIconButtons();
