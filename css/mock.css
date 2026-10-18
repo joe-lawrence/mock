@@ -2581,14 +2581,27 @@ button.syl:disabled,
   display: none !important;
 }
 
-/* Speedometer + pill above scrim; Back / Help / Forward stay under it. */
-.actions-mid.is-assist-open > .btn-icon[id$="-difficulty"] {
+/*
+ * Raise the whole actions-nav above the scrim when the pill is open.
+ * iOS (overflow scroll + fixed scrim) otherwise traps the pill under the
+ * scrim for hit-testing — chevrons looked tappable but never received input.
+ * Back / Help / Forward stay visually dimmed and pass taps through to the scrim.
+ */
+.actions-nav.is-assist-open {
   position: relative;
   z-index: 36;
 }
 
-.actions-mid.is-assist-open > .assist-stepper {
-  z-index: 36;
+.actions-nav.is-assist-open > .btn-icon[id$="-back"],
+.actions-nav.is-assist-open > .btn-icon[id$="-skip"],
+.actions-nav.is-assist-open .btn-icon[id$="-help"] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.actions-nav.is-assist-open .assist-stepper,
+.actions-nav.is-assist-open .btn-icon[id$="-difficulty"] {
+  pointer-events: auto;
 }
 
 .assist-stepper {
@@ -2606,6 +2619,7 @@ button.syl:disabled,
   background: var(--surface);
   box-shadow: 0 4px 18px color-mix(in srgb, var(--ink) 12%, transparent);
   white-space: nowrap;
+  touch-action: manipulation;
 }
 
 .assist-stepper[hidden] {
@@ -2616,8 +2630,8 @@ button.syl:disabled,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 2.25rem;
+  height: 2.25rem;
   margin: 0;
   padding: 0;
   border: 0;
@@ -2625,6 +2639,9 @@ button.syl:disabled,
   background: transparent;
   color: var(--ink);
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .assist-stepper-btn:hover,

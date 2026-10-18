@@ -13442,8 +13442,10 @@ function paintFeltDifficultyStepper() {
 function setAssistScrim(on) {
   const scrim = document.getElementById("assist-scrim");
   if (scrim) scrim.hidden = !on;
-  document.querySelectorAll(".actions-mid").forEach((mid) => {
-    mid.classList.toggle("is-assist-open", !!on);
+  // Elevate the full actions-nav (not just mid) so the pill escapes iOS
+  // overflow/fixed stacking and receives chevron taps above the scrim.
+  document.querySelectorAll(".actions-nav").forEach((nav) => {
+    nav.classList.toggle("is-assist-open", !!on);
   });
 }
 
@@ -13478,6 +13480,10 @@ function onAssistStepperOutside(e) {
   const t = e.target;
   if (!(t instanceof Node)) return;
   if (stepper?.contains(t) || btn?.contains(t)) return;
+  // Scrim has its own click handler; ignore it here to avoid double-dismiss races.
+  if (t.id === "assist-scrim" || (t instanceof Element && t.closest?.("#assist-scrim"))) {
+    return;
+  }
   hideAssistStepper();
 }
 
@@ -14094,13 +14100,23 @@ function bind() {
     hideAssistStepper();
   });
   const wireAssistStepper = (id) => {
-    document.getElementById(id)?.addEventListener("click", (e) => {
-      const dirBtn = e.target.closest("[data-assist-dir]");
-      if (!dirBtn) return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    let lastAt = 0;
+    const onDir = (e) => {
+      const dirBtn = e.target.closest?.("[data-assist-dir]");
+      if (!dirBtn || dirBtn.disabled || !el.contains(dirBtn)) return;
       const dir = Number(dirBtn.getAttribute("data-assist-dir"));
       if (!dir) return;
+      const now = Date.now();
+      if (now - lastAt < 320) return; // collapse pointerup+click on iOS
+      lastAt = now;
+      e.preventDefault();
+      e.stopPropagation();
       nudgeAssistPreset(dir);
-    });
+    };
+    el.addEventListener("pointerup", onDir);
+    el.addEventListener("click", onDir);
   };
   wireAssistStepper("numbers-assist-stepper");
   wireAssistStepper("nouns-assist-stepper");
