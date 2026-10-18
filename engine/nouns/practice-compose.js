@@ -19,7 +19,8 @@ import {
   gateContextCompatibility,
 } from "./context-compatibility.js";
 
-export const COMPOSE_VERSION = "0.2.0";
+/** Bump when pool membership / Phase B gates change (cache / deck fingerprint). */
+export const COMPOSE_VERSION = "0.2.1";
 
 export {
   CONTEXT_FAILURE,
@@ -375,6 +376,8 @@ export function composeValidationPair(categoryId, lemma, contextId) {
     case: ctx.case,
     number: ctx.number,
     composeVersion: COMPOSE_VERSION,
+    correctArticle: v.expected,
+    correctSentence: v.sentence,
   });
 
   const foil = wrongGenderArticle(v.gender, ctx);
@@ -394,6 +397,8 @@ export function composeValidationPair(categoryId, lemma, contextId) {
     number: ctx.number,
     composeVersion: COMPOSE_VERSION,
     foilArticle: foil,
+    correctArticle: v.expected,
+    correctSentence: v.sentence,
   });
 
   return { ok: okItem, bad: badItem };

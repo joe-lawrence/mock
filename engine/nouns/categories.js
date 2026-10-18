@@ -45,6 +45,9 @@ export const GENDER_CATEGORIES = Object.freeze([
     applyNounLabel: "weekday",
     // Calendar names are unique referents — indefinite frames are unnatural.
     articleKinds: Object.freeze(["definite"]),
+    // Not located objects — location frames need unstated context; keep
+    // das_ist_def as a provisional beginner fallback (not a grammar ban).
+    denyContexts: Object.freeze(["wo_ist_def", "hier_ist_def"]),
     memberLexemeIds: Object.freeze([
       "Montag",
       "Dienstag",
@@ -95,9 +98,11 @@ export const GENDER_CATEGORIES = Object.freeze([
     association: "masculine",
     strength: "very_strong",
     applyNounLabel: "season",
-    // Calendar / time-of-year names — "Das ist ein Frühling" is awkward;
-    // prefer definite identification / location frames.
+    // Calendar / time-of-year names — indefinite ID is awkward; location
+    // frames are a poor default for unconstrained beginner drills.
+    // Retain das_ist_def provisionally.
     articleKinds: Object.freeze(["definite"]),
+    denyContexts: Object.freeze(["wo_ist_def", "hier_ist_def"]),
     memberLexemeIds: Object.freeze([
       "Frühling",
       "Sommer",
@@ -115,6 +120,9 @@ export const GENDER_CATEGORIES = Object.freeze([
     association: "masculine",
     strength: "strong",
     applyNounLabel: "cardinal direction",
+    // Unique directional concepts — indefinite count ID ("ein Norden") is a
+    // poor beginner default; keep definite location/ID provisionally.
+    articleKinds: Object.freeze(["definite"]),
     memberLexemeIds: Object.freeze(["Norden", "Süden", "Osten", "Westen"]),
     teachingMemberIds: Object.freeze(["Norden", "Süden"]),
     transferMemberIds: Object.freeze(["Osten", "Westen"]),
@@ -127,9 +135,10 @@ export const GENDER_CATEGORIES = Object.freeze([
     association: "masculine",
     strength: "moderate",
     applyNounLabel: "weather noun",
-    // Mass / phenomenon nouns — "Das ist ein Regen" is unnatural for beginners;
-    // prefer definite identification / location frames.
+    // Mass / phenomenon nouns — indefinite ID is unnatural; location frames
+    // need unstated context as a default drill. Retain das_ist_def.
     articleKinds: Object.freeze(["definite"]),
+    denyContexts: Object.freeze(["wo_ist_def", "hier_ist_def"]),
     memberLexemeIds: Object.freeze([
       "Regen",
       "Schnee",
@@ -227,8 +236,10 @@ export const GENDER_CATEGORIES = Object.freeze([
     association: "neuter",
     strength: "strong",
     applyNounLabel: "metal / element",
-    // Mass / substance nouns — "Das ist ein Gold" is unnatural; prefer definite.
+    // Mass / substance nouns — indefinite ID is unnatural; location frames
+    // imply a physical specimen without context. Retain das_ist_def.
     articleKinds: Object.freeze(["definite"]),
+    denyContexts: Object.freeze(["wo_ist_def", "hier_ist_def"]),
     memberLexemeIds: Object.freeze([
       "Gold",
       "Silber",

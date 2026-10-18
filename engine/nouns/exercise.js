@@ -349,6 +349,8 @@ export function categorySentenceValidationExercise(itemId) {
     choices: ["correct", "incorrect"],
     choiceLabels: Object.freeze({ correct: "Richtig", incorrect: "Falsch" }),
     choiceLabel: associationChoiceLabel(cat.association),
+    correctArticle: item.correctArticle || null,
+    correctSentence: item.correctSentence || item.sentence,
   };
 }
 

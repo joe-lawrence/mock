@@ -99,6 +99,22 @@ describe("measurement", () => {
     );
   });
 
+  it("accepts Kilo and Kilogramm for kg", () => {
+    assert.equal(measureForm(1, "Kilogramm"), "ein Kilogramm");
+    assert.deepEqual(measureAcceptedForms(1, "Kilogramm"), [
+      "ein Kilogramm",
+      "ein Kilo",
+    ]);
+    assert.deepEqual(measureAcceptedForms(1, "Kilo"), [
+      "ein Kilo",
+      "ein Kilogramm",
+    ]);
+    assert.deepEqual(measureAcceptedForms(2, "Kilogramm"), [
+      "zwei Kilogramm",
+      "zwei Kilo",
+    ]);
+  });
+
   it("accepts Stundenkilometer and Kilometer pro Stunde", () => {
     assert.equal(measureForm(30, "Stundenkilometer"), "dreißig Stundenkilometer");
     assert.deepEqual(measureAcceptedForms(30, "Stundenkilometer"), [

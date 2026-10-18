@@ -136,13 +136,15 @@ describe("interaction presets (Slice 0–1)", () => {
         }
       }
     }
-    assert.equal(n, 8);
+    assert.equal(n, 9);
   });
 
   it("Nouns launch shape matches Numbers (topic + step + mode)", () => {
     assert.ok(isNounsCellPlayable("categories", "gender-recognition", "choose"));
     assert.ok(isNounsCellPlayable("categories", "sentence-validation", "proofread"));
+    assert.ok(isNounsCellPlayable("categories", "cardinal-directions", "choose"));
     assert.equal(isNounsCellPlayable("suffixes", "wugs", "listen"), false);
     assert.equal(isNounsCellPlayable("plurals", "productive", "build"), false);
   });
 });
+

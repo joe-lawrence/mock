@@ -286,7 +286,60 @@ function clockSvg(hours, minutes) {
 }
 
 /**
- * Visual HTML for fraction / clock metas. Null if unsupported.
+ * German compass bearings (deg clockwise from north). Abbreviations use O for Osten.
+ * @type {ReadonlyArray<{ id: string, abbr: string, deg: number, english: string }>}
+ */
+export const COMPASS_BEARINGS = Object.freeze([
+  Object.freeze({ id: "Norden", abbr: "N", deg: 0, english: "north" }),
+  Object.freeze({ id: "Nordosten", abbr: "NO", deg: 45, english: "northeast" }),
+  Object.freeze({ id: "Osten", abbr: "O", deg: 90, english: "east" }),
+  Object.freeze({ id: "Südosten", abbr: "SO", deg: 135, english: "southeast" }),
+  Object.freeze({ id: "Süden", abbr: "S", deg: 180, english: "south" }),
+  Object.freeze({ id: "Südwesten", abbr: "SW", deg: 225, english: "southwest" }),
+  Object.freeze({ id: "Westen", abbr: "W", deg: 270, english: "west" }),
+  Object.freeze({ id: "Nordwesten", abbr: "NW", deg: 315, english: "northwest" }),
+]);
+
+/** Deck metas for Categories → Cardinal directions (compass naming). */
+export function compassDirectionPool() {
+  return COMPASS_BEARINGS.map((b) =>
+    Object.freeze({
+      kind: "compass",
+      bearing: b.id,
+      lemma: b.id,
+      english: b.english,
+      deg: b.deg,
+    })
+  );
+}
+
+function bearingById(bearingId) {
+  return COMPASS_BEARINGS.find((b) => b.id === bearingId) || null;
+}
+
+/**
+ * Compass face with needle pointing at the target bearing.
+ * @param {string} bearingId — lemma id (e.g. Norden, Nordosten)
+ */
+function compassSvg(bearingId) {
+  const hit = bearingById(bearingId) || COMPASS_BEARINGS[0];
+  const deg = hit.deg;
+  let ticks = "";
+  for (const b of COMPASS_BEARINGS) {
+    const major = b.deg % 90 === 0;
+    ticks += `<line class="compass-tick" x1="64" y1="12" x2="64" y2="${12 + (major ? 10 : 5)}" stroke="var(--clock-hand, #1c2430)" stroke-width="${major ? 2.5 : 1.5}" stroke-linecap="round" transform="rotate(${b.deg} 64 64)"/>`;
+  }
+  return `<svg class="quiz-visual-svg quiz-compass-svg" viewBox="0 0 128 128" width="128" height="128" aria-hidden="true">
+    <circle class="compass-face" cx="64" cy="64" r="58" fill="var(--clock-face, #fff)" stroke="var(--clock-rim, currentColor)" stroke-width="4"/>
+    ${ticks}
+    <polygon class="compass-needle" points="64,22 69,64 64,58 59,64" fill="var(--accent, #2563eb)" transform="rotate(${deg} 64 64)"/>
+    <polygon class="compass-needle-tail" points="64,106 69,64 64,70 59,64" fill="var(--clock-hand, #1c2430)" opacity="0.35" transform="rotate(${deg} 64 64)"/>
+    <circle class="compass-hub" cx="64" cy="64" r="4" fill="var(--clock-hand, currentColor)"/>
+  </svg>`;
+}
+
+/**
+ * Visual HTML for fraction / clock / compass metas. Null if unsupported.
  * @param {object} meta
  */
 export function visualForMeta(meta) {
@@ -317,6 +370,14 @@ export function visualForMeta(meta) {
   ) {
     return {
       html: clockSvg(meta.hours, meta.minutes),
+      ask: "Name what you see",
+      lead: "",
+    };
+  }
+  if (meta?.kind === "compass" && (meta.bearing || meta.lemma)) {
+    const bearing = meta.bearing || meta.lemma;
+    return {
+      html: compassSvg(bearing),
       ask: "Name what you see",
       lead: "",
     };

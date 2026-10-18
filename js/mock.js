@@ -27,7 +27,7 @@ import {
   createCalendarDateConstructionExercise,
   createMeasureConstructionExercise,
   submitExerciseAttempt,
-} from "../engine/exercise/index.js?v=20261001-richtig1";
+} from "../engine/exercise/index.js?v=20261018-practice9";
 import {
   associationLemmas,
   wugForms,
@@ -40,7 +40,7 @@ import {
   categoryValidationItems,
   GENDER_IMPOSTER_VARIANTS,
   matchSuffixPattern,
-} from "../engine/nouns/index.js?v=20261001-richtig1";
+} from "../engine/nouns/index.js?v=20261018-practice9";
 import {
   cardinalForm,
   parseCardinalForm,
@@ -56,7 +56,7 @@ import {
   clockFormAlternates,
   clockForm,
   digitalTimeForm,
-} from "../engine/numbers/index.js?v=20261001-meas1";
+} from "../engine/numbers/index.js?v=20261018-practice9";
 import {
   NUMBERS_TOPICS,
   getNumbersTopic,
@@ -82,7 +82,7 @@ import {
   topicIdForStep,
   introModeForNounsStep,
   modesForNounsStep,
-} from "./nouns-curriculum.js?v=20261018-nouns2";
+} from "./nouns-curriculum.js?v=20261018-compass1";
 import { DECIMAL_POOLS } from "./decimals-pools.js?v=20260930-ref1";
 import { FRACTION_POOLS } from "./fractions-pools.js?v=20260929-dmo4";
 import { TIME_POOLS } from "./time-pools.js?v=20260929-dmo4";
@@ -97,7 +97,9 @@ import {
   canonicalFormForMeta,
   makeNounProofreadChoices,
   makeNounReverseChoices,
-} from "./quiz-extras.js?v=20261018-ui2";
+  compassDirectionPool,
+  COMPASS_BEARINGS,
+} from "./quiz-extras.js?v=20261018-compass2";
 import { mountNavCarousel } from "./nav-carousel.js?v=20260930-vocab17";
 import {
   dealExercise,
@@ -148,7 +150,7 @@ import {
   assistPresetSteps,
   assistPresetLabel,
   layersForAssistPreset,
-} from "./hint-ladders.js?v=20261018-s08s";
+} from "./hint-ladders.js?v=20261018-practice9";
 import {
   FELT_DIFFICULTY,
   FELT_DIFFICULTY_STEPS,
@@ -178,7 +180,7 @@ import {
   recordProfileAttempt,
   recordProfileDealerReason,
   updateActivePrefs,
-} from "./profiles.js?v=20261018-s07";
+} from "./profiles.js?v=20261018-practice9";
 import {
   reportCardJson,
   fullAuditJson,
@@ -1510,6 +1512,22 @@ const ARTICLE_PHON_GUIDES = Object.freeze({
   einer: { guide: "INE-er", stress: true },
 });
 
+/** High-frequency sentence frame words for category validation karaoke. */
+const SENTENCE_FRAME_GUIDES = Object.freeze({
+  Das: { guide: "dahs" },
+  das: { guide: "dahs" },
+  Wo: { guide: "voh" },
+  Hier: { guide: "heer" },
+  Ich: { guide: "ikh" },
+  ist: { guide: "ist" },
+  sehe: { guide: "ZAY-uh", stress: true },
+  habe: { guide: "HAH-buh", stress: true },
+  mag: { guide: "mahk" },
+  gibt: { guide: "gipt" },
+  Es: { guide: "es" },
+  es: { guide: "es" },
+});
+
 /** Lazy morph→guide index from Numbers chart + articles + calendar tables. */
 let _morphGuideIndex = null;
 function morphGuideIndex() {
@@ -2617,6 +2635,50 @@ const NOUN_SINGULAR_PARTS = {
     { text: "Sil", guide: "ZIL", stress: true },
     { text: "ber", guide: "ber" },
   ],
+  Norden: [
+    { text: "der", guide: "dair" },
+    { text: "Nor", guide: "NOR", stress: true },
+    { text: "den", guide: "den" },
+  ],
+  Süden: [
+    { text: "der", guide: "dair" },
+    { text: "Sü", guide: "ZUE", stress: true },
+    { text: "den", guide: "den" },
+  ],
+  Osten: [
+    { text: "der", guide: "dair" },
+    { text: "Os", guide: "OS", stress: true },
+    { text: "ten", guide: "ten" },
+  ],
+  Westen: [
+    { text: "der", guide: "dair" },
+    { text: "Wes", guide: "VES", stress: true },
+    { text: "ten", guide: "ten" },
+  ],
+  Nordosten: [
+    { text: "der", guide: "dair" },
+    { text: "Nord", guide: "NORT", stress: true },
+    { text: "os", guide: "os" },
+    { text: "ten", guide: "ten" },
+  ],
+  Südosten: [
+    { text: "der", guide: "dair" },
+    { text: "Süd", guide: "ZUET", stress: true },
+    { text: "os", guide: "os" },
+    { text: "ten", guide: "ten" },
+  ],
+  Südwesten: [
+    { text: "der", guide: "dair" },
+    { text: "Süd", guide: "ZUET", stress: true },
+    { text: "wes", guide: "ves" },
+    { text: "ten", guide: "ten" },
+  ],
+  Nordwesten: [
+    { text: "der", guide: "dair" },
+    { text: "Nord", guide: "NORT", stress: true },
+    { text: "wes", guide: "ves" },
+    { text: "ten", guide: "ten" },
+  ],
   Museum: [
     { text: "das", guide: "dahs" },
     { text: "Mu", guide: "moo" },
@@ -2726,6 +2788,251 @@ const NOUN_SINGULAR_PARTS = {
     { text: "das", guide: "dahs" },
     { text: "Au", guide: "OW", stress: true },
     { text: "to", guide: "toh" },
+  ],
+  // —— Categories practice: close karaoke gaps (lemma was "—") ——
+  // Seasons
+  Sommer: [
+    { text: "der", guide: "dair" },
+    { text: "Som", guide: "ZOM", stress: true },
+    { text: "mer", guide: "mer" },
+  ],
+  Winter: [
+    { text: "der", guide: "dair" },
+    { text: "Win", guide: "VIN", stress: true },
+    { text: "ter", guide: "ter" },
+  ],
+  Herbst: [
+    { text: "der", guide: "dair" },
+    { text: "Herbst", guide: "HAIRPST", stress: true },
+  ],
+  // Weather
+  Regen: [
+    { text: "der", guide: "dair" },
+    { text: "Re", guide: "RAY", stress: true },
+    { text: "gen", guide: "gen" },
+  ],
+  Schnee: [
+    { text: "der", guide: "dair" },
+    { text: "Schnee", guide: "SHNAY", stress: true },
+  ],
+  Sturm: [
+    { text: "der", guide: "dair" },
+    { text: "Sturm", guide: "SHTOORM", stress: true },
+  ],
+  Wind: [
+    { text: "der", guide: "dair" },
+    { text: "Wind", guide: "VINT", stress: true },
+  ],
+  Frost: [
+    { text: "der", guide: "dair" },
+    { text: "Frost", guide: "FROST", stress: true },
+  ],
+  Hagel: [
+    { text: "der", guide: "dair" },
+    { text: "Ha", guide: "HAH", stress: true },
+    { text: "gel", guide: "gel" },
+  ],
+  Nebel: [
+    { text: "der", guide: "dair" },
+    { text: "Ne", guide: "NAY", stress: true },
+    { text: "bel", guide: "bel" },
+  ],
+  // Metals
+  Gold: [
+    { text: "das", guide: "dahs" },
+    { text: "Gold", guide: "GOLT", stress: true },
+  ],
+  Zinn: [
+    { text: "das", guide: "dahs" },
+    { text: "Zinn", guide: "TSIN", stress: true },
+  ],
+  Blei: [
+    { text: "das", guide: "dahs" },
+    { text: "Blei", guide: "BLY", stress: true },
+  ],
+  Eisen: [
+    { text: "das", guide: "dahs" },
+    { text: "Ei", guide: "EYE", stress: true },
+    { text: "sen", guide: "zen" },
+  ],
+  Kupfer: [
+    { text: "das", guide: "dahs" },
+    { text: "Kup", guide: "KOOP", stress: true },
+    { text: "fer", guide: "fer" },
+  ],
+  // Rivers
+  Donau: [
+    { text: "die", guide: "dee" },
+    { text: "Do", guide: "DOH", stress: true },
+    { text: "nau", guide: "now" },
+  ],
+  Elbe: [
+    { text: "die", guide: "dee" },
+    { text: "El", guide: "EL", stress: true },
+    { text: "be", guide: "buh" },
+  ],
+  Rhein: [
+    { text: "der", guide: "dair" },
+    { text: "Rhein", guide: "RINE", stress: true },
+  ],
+  Main: [
+    { text: "der", guide: "dair" },
+    { text: "Main", guide: "MINE", stress: true },
+  ],
+  Isar: [
+    { text: "die", guide: "dee" },
+    { text: "I", guide: "ee" },
+    { text: "sar", guide: "ZAHR", stress: true },
+  ],
+  Mosel: [
+    { text: "die", guide: "dee" },
+    { text: "Mo", guide: "MOH", stress: true },
+    { text: "sel", guide: "zel" },
+  ],
+  Oder: [
+    { text: "die", guide: "dee" },
+    { text: "O", guide: "OH", stress: true },
+    { text: "der", guide: "der" },
+  ],
+  Spree: [
+    { text: "die", guide: "dee" },
+    { text: "Spree", guide: "SHPRAY", stress: true },
+  ],
+  Weser: [
+    { text: "die", guide: "dee" },
+    { text: "We", guide: "VAY", stress: true },
+    { text: "ser", guide: "zer" },
+  ],
+  // Occupations
+  Arzt: [
+    { text: "der", guide: "dair" },
+    { text: "Arzt", guide: "ARTST", stress: true },
+  ],
+  Koch: [
+    { text: "der", guide: "dair" },
+    { text: "Koch", guide: "KOKH", stress: true },
+  ],
+  Arbeiter: [
+    { text: "der", guide: "dair" },
+    { text: "Ar", guide: "AR", stress: true },
+    { text: "bei", guide: "bye" },
+    { text: "ter", guide: "ter" },
+  ],
+  Bäcker: [
+    { text: "der", guide: "dair" },
+    { text: "Bä", guide: "BEH", stress: true },
+    { text: "cker", guide: "ker" },
+  ],
+  Fahrer: [
+    { text: "der", guide: "dair" },
+    { text: "Fah", guide: "FAH", stress: true },
+    { text: "rer", guide: "rer" },
+  ],
+  Kellner: [
+    { text: "der", guide: "dair" },
+    { text: "Kell", guide: "KEL", stress: true },
+    { text: "ner", guide: "ner" },
+  ],
+  Partner: [
+    { text: "der", guide: "dair" },
+    { text: "Part", guide: "PART", stress: true },
+    { text: "ner", guide: "ner" },
+  ],
+  Rentner: [
+    { text: "der", guide: "dair" },
+    { text: "Rent", guide: "RENT", stress: true },
+    { text: "ner", guide: "ner" },
+  ],
+  Schüler: [
+    { text: "der", guide: "dair" },
+    { text: "Schü", guide: "SHUE", stress: true },
+    { text: "ler", guide: "ler" },
+  ],
+  Verkäufer: [
+    { text: "der", guide: "dair" },
+    { text: "Ver", guide: "fair" },
+    { text: "käu", guide: "KOY", stress: true },
+    { text: "fer", guide: "fer" },
+  ],
+  // Flowers
+  Rose: [
+    { text: "die", guide: "dee" },
+    { text: "Ro", guide: "ROH", stress: true },
+    { text: "se", guide: "zuh" },
+  ],
+  Lilie: [
+    { text: "die", guide: "dee" },
+    { text: "Li", guide: "LEE", stress: true },
+    { text: "li", guide: "lee" },
+    { text: "e", guide: "uh" },
+  ],
+  Tulpe: [
+    { text: "die", guide: "dee" },
+    { text: "Tul", guide: "TOOL", stress: true },
+    { text: "pe", guide: "puh" },
+  ],
+  Nelke: [
+    { text: "die", guide: "dee" },
+    { text: "Nel", guide: "NEL", stress: true },
+    { text: "ke", guide: "kuh" },
+  ],
+  Narzisse: [
+    { text: "die", guide: "dee" },
+    { text: "Nar", guide: "nar" },
+    { text: "zis", guide: "TSIS", stress: true },
+    { text: "se", guide: "uh" },
+  ],
+  Orchidee: [
+    { text: "die", guide: "dee" },
+    { text: "Or", guide: "or" },
+    { text: "chi", guide: "KEE", stress: true },
+    { text: "dee", guide: "day" },
+  ],
+  Sonnenblume: [
+    { text: "die", guide: "dee" },
+    { text: "Son", guide: "ZON", stress: true },
+    { text: "nen", guide: "nen" },
+    { text: "blu", guide: "bloo" },
+    { text: "me", guide: "muh" },
+  ],
+  // Venues
+  Hotel: [
+    { text: "das", guide: "dahs" },
+    { text: "Ho", guide: "ho" },
+    { text: "tel", guide: "TEL", stress: true },
+  ],
+  Büro: [
+    { text: "das", guide: "dahs" },
+    { text: "Bü", guide: "BUE", stress: true },
+    { text: "ro", guide: "roh" },
+  ],
+  Café: [
+    { text: "das", guide: "dahs" },
+    { text: "Ca", guide: "ka" },
+    { text: "fé", guide: "FAY", stress: true },
+  ],
+  Kino: [
+    { text: "das", guide: "dahs" },
+    { text: "Ki", guide: "KEE", stress: true },
+    { text: "no", guide: "noh" },
+  ],
+  Theater: [
+    { text: "das", guide: "dahs" },
+    { text: "The", guide: "tay" },
+    { text: "a", guide: "AH", stress: true },
+    { text: "ter", guide: "ter" },
+  ],
+  Restaurant: [
+    { text: "das", guide: "dahs" },
+    { text: "Res", guide: "res" },
+    { text: "tau", guide: "TOH", stress: true },
+    { text: "rant", guide: "rahng" },
+  ],
+  Krankenhaus: [
+    { text: "das", guide: "dahs" },
+    { text: "Kran", guide: "KRAHN", stress: true },
+    { text: "ken", guide: "ken" },
+    { text: "haus", guide: "hows" },
   ],
 };
 
@@ -3305,6 +3612,89 @@ function vocabAnswerParts(item) {
   ];
 }
 
+/** Lemma body beats (no leading article) for sentence / NP karaoke. */
+function lemmaBodyAnswerParts(lemma) {
+  const full =
+    NOUN_SINGULAR_PARTS[lemma] ||
+    (LEXICON[lemma] ? fallbackSingularParts(lemma) : []);
+  if (!full.length) return resolvePhonToken(lemma);
+  return full.filter(
+    (p) =>
+      !/^(der|die|das|ein|eine|einen|einem|einer)$/i.test(
+        String(p.text || "")
+      )
+  );
+}
+
+/**
+ * Karaoke for article + lemma citation (der Montag / ein Arzt).
+ * Prefer this over full-sentence karaoke in Categories answer mode.
+ */
+function citationAnswerParts(article, lemma) {
+  const art = String(article || "").trim();
+  const word = String(lemma || "").trim();
+  const body = word ? lemmaBodyAnswerParts(word) : [];
+  if (!art) return body;
+  const info = ARTICLE_PHON_GUIDES[art.toLowerCase()];
+  const artBeat = info
+    ? {
+        text: art,
+        guide: info.guide,
+        stress: !!info.stress,
+        source: "article",
+      }
+    : { text: art, pronunciationUnavailable: true };
+  return [artBeat, ...body];
+}
+
+/**
+ * Karaoke for a practice sentence: frame words + article + lemma syllables.
+ * Uses the article as written (ein vs der), not a forced definite citation form.
+ */
+function sentenceAnswerParts(sentence, lemma) {
+  const raw = String(sentence || "").trim();
+  if (!raw) return [];
+  const tokens = raw
+    .replace(/[?!.,;:]+$/g, "")
+    .split(/\s+/)
+    .filter(Boolean);
+  const parts = [];
+  for (const tok of tokens) {
+    const clean = tok.replace(/[?!.,;:]+$/g, "");
+    if (!clean) continue;
+    const lower = clean.toLowerCase();
+    if (ARTICLE_PHON_GUIDES[lower]) {
+      const info = ARTICLE_PHON_GUIDES[lower];
+      parts.push({
+        text: clean,
+        guide: info.guide,
+        stress: !!info.stress,
+        source: "article",
+      });
+      continue;
+    }
+    if (lemma && clean === lemma) {
+      const body = lemmaBodyAnswerParts(lemma);
+      if (body.length) {
+        parts.push(...body);
+        continue;
+      }
+    }
+    const frame = SENTENCE_FRAME_GUIDES[clean] || SENTENCE_FRAME_GUIDES[lower];
+    if (frame) {
+      parts.push({
+        text: clean,
+        guide: frame.guide,
+        stress: !!frame.stress,
+        source: "sentence-frame",
+      });
+      continue;
+    }
+    parts.push(...resolvePhonToken(clean));
+  }
+  return parts;
+}
+
 function fallbackPluralParts(lemma) {
   const entry = LEXICON[lemma];
   const form = entry?.plural?.form || lemma;
@@ -3427,21 +3817,79 @@ function nounDeckSource(kind) {
   if (kind === "CategoryArticleApplication") return nounCategoryArticleApplicationPool();
   if (kind === "CategoryGenderImposter") return nounCategoryGenderImposterPool();
   if (kind === "CategorySentenceValidation") return nounCategorySentenceValidationPool();
+  if (kind === "CardinalDirections") return compassDirectionPool();
   return nounWugPool;
+}
+
+/** Stable fingerprint so pool membership changes rebuild decks (not length-only). */
+function nounDeckFingerprint(kind, source) {
+  if (!Array.isArray(source) || !source.length) return `${kind}:empty`;
+  if (kind === "CategoryArticleApplication" || kind === "CategorySentenceValidation") {
+    return `${kind}:${source
+      .map((x) => x.itemId || "")
+      .sort()
+      .join("|")}`;
+  }
+  if (kind === "CategoryGenderRecognition" || kind === "CategoryGenderImposter") {
+    return `${kind}:${source
+      .map((x) =>
+        x.variant != null ? `${x.categoryId}:v${x.variant}` : x.categoryId || ""
+      )
+      .sort()
+      .join("|")}`;
+  }
+  if (
+    kind === "Association" ||
+    kind === "Proofread" ||
+    kind === "Reverse" ||
+    kind === "CardinalDirections"
+  ) {
+    return `${kind}:${source.map((x) => x.lemma || x).sort().join("|")}`;
+  }
+  return `${kind}:len=${source.length}`;
 }
 
 function ensureNounDeck(kind) {
   const deckKey = `nouns${kind}Deck`;
+  const fpKey = `nouns${kind}DeckFp`;
   const source = nounDeckSource(kind);
-  if (!Array.isArray(state[deckKey]) || state[deckKey].length !== source.length) {
+  const fp = nounDeckFingerprint(kind, source);
+  if (
+    !Array.isArray(state[deckKey]) ||
+    state[fpKey] !== fp ||
+    state[deckKey].length !== source.length
+  ) {
     state[deckKey] = shuffle([...source]);
+    state[fpKey] = fp;
   }
   return state[deckKey];
 }
 
 function reshuffleNounDeck(kind) {
   const deckKey = `nouns${kind}Deck`;
-  state[deckKey] = shuffle([...nounDeckSource(kind)]);
+  const fpKey = `nouns${kind}DeckFp`;
+  const source = nounDeckSource(kind);
+  state[deckKey] = shuffle([...source]);
+  state[fpKey] = nounDeckFingerprint(kind, source);
+}
+
+/**
+ * Resolve a live Categories itemId; if a history/pin references a removed
+ * (Phase B–denied) item, drop the pin and deal from the current pool instead.
+ */
+function resolveCategoryDeckItemId(kind, preferredId) {
+  const liveIds = new Set(
+    nounDeckSource(kind).map((x) => x.itemId).filter(Boolean)
+  );
+  if (preferredId && liveIds.has(preferredId)) return preferredId;
+  const deck = ensureNounDeck(kind);
+  const indexKey =
+    kind === "CategoryArticleApplication"
+      ? "nounsCategoryArticleApplicationIndex"
+      : "nounsCategorySentenceValidationIndex";
+  if (!deck.length) return null;
+  const idx = state[indexKey] % deck.length;
+  return deck[idx]?.itemId || null;
 }
 
 function currentNounArticleExercise() {
@@ -3494,15 +3942,20 @@ function currentNounCategoryGenderRecognitionExercise() {
 
 function currentNounCategoryArticleApplicationExercise() {
   const pin = state.nounsPinnedSnap;
-  if (pin?.mode === "article-application" && pin.item?.itemId) {
-    return createNounCategoryArticleApplicationExercise(pin.item.itemId, {
-      mode: "assisted",
-    });
+  const preferred =
+    pin?.mode === "article-application" ? pin.item?.itemId : null;
+  const itemId = resolveCategoryDeckItemId(
+    "CategoryArticleApplication",
+    preferred
+  );
+  if (!itemId) {
+    throw new Error("CategoryArticleApplication: empty live pool");
   }
-  const deck = ensureNounDeck("CategoryArticleApplication");
-  const item =
-    deck[state.nounsCategoryArticleApplicationIndex % Math.max(1, deck.length)];
-  return createNounCategoryArticleApplicationExercise(item.itemId, {
+  if (preferred && preferred !== itemId) {
+    // Stale pin (e.g. denied hier_ist_def item from an older session).
+    state.nounsPinnedSnap = null;
+  }
+  return createNounCategoryArticleApplicationExercise(itemId, {
     mode: "assisted",
   });
 }
@@ -3526,15 +3979,19 @@ function currentNounCategoryGenderImposterExercise() {
 
 function currentNounCategorySentenceValidationExercise() {
   const pin = state.nounsPinnedSnap;
-  if (pin?.mode === "sentence-validation" && pin.item?.itemId) {
-    return createNounCategorySentenceValidationExercise(pin.item.itemId, {
-      mode: "assisted",
-    });
+  const preferred =
+    pin?.mode === "sentence-validation" ? pin.item?.itemId : null;
+  const itemId = resolveCategoryDeckItemId(
+    "CategorySentenceValidation",
+    preferred
+  );
+  if (!itemId) {
+    throw new Error("CategorySentenceValidation: empty live pool");
   }
-  const deck = ensureNounDeck("CategorySentenceValidation");
-  const item =
-    deck[state.nounsCategorySentenceValidationIndex % Math.max(1, deck.length)];
-  return createNounCategorySentenceValidationExercise(item.itemId, {
+  if (preferred && preferred !== itemId) {
+    state.nounsPinnedSnap = null;
+  }
+  return createNounCategorySentenceValidationExercise(itemId, {
     mode: "assisted",
   });
 }
@@ -4742,6 +5199,7 @@ const NOUNS_INSTRUCTION = {
   "article-application": "Guess the article",
   "gender-imposter": "Find the odd one",
   "sentence-validation": "Right or wrong?",
+  "cardinal-directions": "Name the direction",
 };
 
 /** Brief pause so the correct answer can blink before karaoke. */
@@ -4760,6 +5218,7 @@ const NO_TTS_REVEAL_ADVANCE_MS = 1400;
  */
 function playAnswerKey(spoken, parts, nodes, onDone) {
   const canSpeak = !!spoken && navCaps().audio;
+  wireAnswerKaraokeReplay(spoken, parts, nodes);
   if (!canSpeak) {
     onDone?.();
     return;
@@ -4779,6 +5238,33 @@ function playAnswerKey(spoken, parts, nodes, onDone) {
     return;
   }
   speakGerman(spoken, 1, () => onDone?.());
+}
+
+/** Tap the karaoke row to replay pronunciation (answer key). */
+function wireAnswerKaraokeReplay(spoken, parts, nodes) {
+  const phonEl =
+    (Array.isArray(nodes) && nodes[0]?.parentElement) ||
+    document.querySelector(
+      ".answer-reveal:not([hidden]) .answer-reveal-phonetic"
+    );
+  if (!phonEl || phonEl.classList.contains("is-unavailable")) return;
+  if (!spoken || !Array.isArray(nodes) || !nodes.length) return;
+  phonEl.classList.add("is-replayable");
+  phonEl.title = "Tap to replay";
+  phonEl.setAttribute("role", "button");
+  phonEl.tabIndex = 0;
+  phonEl.setAttribute("aria-label", "Replay pronunciation");
+  const replay = (e) => {
+    e?.preventDefault?.();
+    playAnswerKey(spoken, parts, nodes);
+  };
+  phonEl.onclick = replay;
+  phonEl.onkeydown = (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      replay(e);
+    }
+  };
 }
 
 /** @deprecated alias — play only; no navigation */
@@ -4987,21 +5473,166 @@ function articleColorClass(article, gender) {
 }
 
 /**
- * Answer-key DE line: colored article + lemma.
- * Choice highlight on: Zeit-ung (visible hyphen). Off: soft hyphen for wrap only.
+ * Stem + gender-cue ending when a high-confidence suffix pattern matches.
+ * @param {string} lemma
+ * @returns {{ stem: string, ending: string, pattern: object, cue: string }|null}
+ */
+function genderSuffixMark(lemma) {
+  const word = String(lemma || "");
+  if (!word) return null;
+  const pattern = matchSuffixPattern(word);
+  if (!pattern?.suffix) return null;
+  const endingKey = pattern.suffix;
+  if (!word.toLowerCase().endsWith(endingKey)) return null;
+  const stem = word.slice(0, word.length - endingKey.length);
+  if (!stem) return null;
+  return {
+    stem,
+    ending: word.slice(stem.length),
+    pattern,
+    cue: `-${endingKey}`,
+  };
+}
+
+/**
+ * Suffix ending → gender suggestion for answer mode (always pedagogical, not Assist).
+ * Prefers exercise-provided blurbs when present.
+ */
+function suffixGenderSuggestion(lemma, extras = {}) {
+  const fromEx = extras.patternBlurb || extras.note;
+  if (fromEx) return String(fromEx).trim();
+  const mark = genderSuffixMark(lemma);
+  if (!mark) {
+    return "No high-confidence suffix cue — treat gender as lexical.";
+  }
+  const p = mark.pattern;
+  const entry = LEXICON[lemma];
+  if (entry?.gender && p.gender !== entry.gender) {
+    return `-${p.suffix} often suggests ${p.gender}, but lexical gender for this word is ${entry.gender}.`;
+  }
+  return `Words ending in -${p.suffix} are ${p.note} — taught as a pattern (${p.strength}).`;
+}
+
+/**
+ * Semantic category → gender pattern (Months, Weekdays, …) for answer mode.
+ * Prefer this over a bare suffix cue when the lemma is a category member
+ * (e.g. September is Months → masculine, not “-er agent noun”).
+ */
+function categoryGenderSuggestion(lemma) {
+  const word = String(lemma || "");
+  if (!word || !LEXICON[word]) return "";
+  const gender = LEXICON[word].gender;
+  const cats = practiceCategories().filter((c) =>
+    (c.memberLexemeIds || []).includes(word)
+  );
+  if (!cats.length) return "";
+  const best =
+    cats.find((c) => c.association === gender) ||
+    cats[0];
+  const art = ARTICLES[best.association] || "";
+  if (best.chartNote) {
+    return `${best.name}: ${best.chartNote}`;
+  }
+  const label =
+    best.association === "masculine"
+      ? "masculine"
+      : best.association === "feminine"
+        ? "feminine"
+        : best.association === "neuter"
+          ? "neuter"
+          : best.association;
+  return art
+    ? `${best.name} → ${label} (${art})`
+    : `${best.name} → ${label}`;
+}
+
+/**
+ * Answer-mode gender teaching note: category pattern first, else suffix cue.
+ */
+function answerGenderPatternNotes(lemma, extras = {}) {
+  const cat = categoryGenderSuggestion(lemma);
+  if (cat) return cat;
+  return suffixGenderSuggestion(lemma, extras);
+}
+
+function joinAnswerNotes(...parts) {
+  return parts
+    .map((s) => String(s || "").trim())
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/**
+ * Answer-key DE line: gender-colored article + lemma.
+ * Suffix endings are tinted in place (no visible hyphen).
  */
 function nounAnswerWordHtml(article, lemma, gender, opts = {}) {
-  const { stem, ending, markSuffix = false } = opts;
+  const allowSuffix = opts.markSuffix !== false;
+  const mark = allowSuffix ? genderSuffixMark(lemma) : null;
+  const stem =
+    opts.stem !== undefined && opts.stem !== null
+      ? opts.stem
+      : mark?.stem || "";
+  const ending =
+    opts.ending !== undefined && opts.ending !== null
+      ? opts.ending
+      : mark?.ending || "";
   const tint = articleColorClass(article, gender);
   const art = tint
-    ? `<span class="answer-art ${tint}">${article}</span>`
-    : article;
-  let lemmaHtml = lemma;
-  if (stem && ending) {
-    const join = markSuffix ? "-" : SOFT_HYPHEN;
-    lemmaHtml = `<span class="answer-lemma"><span class="answer-stem">${stem}</span>${join}<span class="answer-suf ${tint}">${ending}</span></span>`;
+    ? `<span class="answer-art ${tint}">${escapeHtml(article)}</span>`
+    : escapeHtml(article);
+  const lemmaClass = tint ? `answer-lemma ${tint}` : "answer-lemma";
+  let lemmaHtml;
+  if (allowSuffix && stem && ending) {
+    // Color stem+ending in place — no visible hyphen (Million, not Mill-ion).
+    lemmaHtml = `<span class="${lemmaClass}"><span class="answer-stem">${escapeHtml(stem)}</span><span class="answer-suf">${escapeHtml(ending)}</span></span>`;
+  } else {
+    lemmaHtml = `<span class="${lemmaClass}">${escapeHtml(lemma)}</span>`;
   }
   return `${art} ${lemmaHtml}`;
+}
+
+/**
+ * Highlight the lemma's gender-cue ending (and matching article) inside a sentence.
+ */
+function nounAnswerPhraseHtml(phrase, lemma, gender, opts = {}) {
+  const text = String(phrase || "");
+  const word = String(lemma || "");
+  if (!text) return "";
+  if (!word || !text.includes(word)) {
+    return nounAnswerWordHtml(
+      opts.article || ARTICLES[gender] || "",
+      word || text,
+      gender,
+      opts
+    );
+  }
+  const allowSuffix = opts.markSuffix !== false;
+  const mark = allowSuffix ? genderSuffixMark(word) : null;
+  const stem =
+    opts.stem !== undefined && opts.stem !== null
+      ? opts.stem
+      : mark?.stem || "";
+  const ending =
+    opts.ending !== undefined && opts.ending !== null
+      ? opts.ending
+      : mark?.ending || "";
+  const tint = articleColorClass(opts.article || null, gender);
+  let lemmaHtml = escapeHtml(word);
+  if (allowSuffix && stem && ending) {
+    const sufClass = tint ? `answer-suf ${tint}` : "answer-suf";
+    lemmaHtml = `<span class="answer-lemma"><span class="answer-stem">${escapeHtml(stem)}</span><span class="${sufClass}">${escapeHtml(ending)}</span></span>`;
+  }
+  let html = escapeHtml(text).replace(escapeHtml(word), lemmaHtml);
+  const art = opts.article || (gender ? ARTICLES[gender] : "");
+  if (art && tint) {
+    const re = new RegExp(`\\b(${art.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})\\b`);
+    html = html.replace(
+      re,
+      `<span class="answer-art ${tint}">$1</span>`
+    );
+  }
+  return html;
 }
 
 /**
@@ -5029,7 +5660,16 @@ function clearAnswerReveal(prefix) {
     wordEl.textContent = "";
     wordEl.innerHTML = "";
   }
-  if (phonEl) phonEl.innerHTML = "";
+  if (phonEl) {
+    phonEl.innerHTML = "";
+    phonEl.classList.remove("is-replayable");
+    phonEl.removeAttribute("role");
+    phonEl.removeAttribute("tabindex");
+    phonEl.removeAttribute("aria-label");
+    phonEl.removeAttribute("title");
+    phonEl.onclick = null;
+    phonEl.onkeydown = null;
+  }
   if (enEl) {
     enEl.hidden = true;
     enEl.textContent = "";
@@ -5060,6 +5700,7 @@ const state = {
   nounsWugIndex: 0,
   nounsProofreadIndex: 0,
   nounsReverseIndex: 0,
+  nounsCardinalDirectionsIndex: 0,
   /** Shuffled question decks (rebuilt when mode starts / pass completes). */
   nounsArticleDeck: null,
   nounsPluralDeck: null,
@@ -5067,6 +5708,7 @@ const state = {
   nounsWugDeck: null,
   nounsProofreadDeck: null,
   nounsReverseDeck: null,
+  nounsCardinalDirectionsDeck: null,
   numbersFilled: [],
   nounsFilled: [],
   nounsArticle: null,
@@ -5109,9 +5751,9 @@ const state = {
   crossTerritoryMix: null,
   /** Learn: DFS-ordered units through the selection. */
   learnSeries: null,
-  numbersDifficulty: "assisted",
-  nounsDifficulty: "assisted",
-  soundsDifficulty: "assisted",
+  numbersDifficulty: "core",
+  nounsDifficulty: "core",
+  soundsDifficulty: "core",
   /** Rolling accuracy per suffix family id (Association mode). */
   nounFamilyStats: {},
   currentExercise: null,
@@ -5347,6 +5989,7 @@ const NOUNS_MODE_CRUMB = {
   "article-application": "Article Application",
   "gender-imposter": "Gender Imposter",
   "sentence-validation": "Sentence Validation",
+  "cardinal-directions": "Cardinal directions",
 };
 
 function destroyPlaylistMount() {
@@ -6472,7 +7115,7 @@ function consumeCurriculumLaunch() {
 
   const moduleId = params.get("module") || "numbers";
   const difficulty =
-    params.get("difficulty") === "core" ? "core" : "assisted";
+    params.get("difficulty") === "assisted" ? "assisted" : "core";
   // Optional one-shot layer prefs from difficulty= (not a learner menu).
   applyDifficultyAsLayerPrefs(difficulty);
 
@@ -6615,6 +7258,8 @@ function nounsFamilyForNavUnit(unit) {
     return "gender-imposter";
   if (id.includes("sentence-validation") || id.includes("sentence_validation"))
     return "sentence-validation";
+  if (id.includes("cardinal-directions") || id.includes("cardinal_directions"))
+    return "cardinal-directions";
   if (id.includes("association")) return "association";
   const learnId = unit?.learnUnitId || "";
   return introFamilyForUnit(learnId)?.id || "wugs";
@@ -8013,6 +8658,14 @@ function currentGuidedQuestionCue() {
       const lemmas = (ex.materials?.choices || []).join(", ");
       return joinQaCue(lemmas || "—", instr || "Find the odd one");
     }
+    if (state.nounsMode === "cardinal-directions") {
+      const bearing =
+        ex.target?.lemma ||
+        ex.resolution?.lemma ||
+        ex.prompt?.bearing ||
+        "—";
+      return joinQaCue(`compass → ${bearing}`, instr || "Name the direction");
+    }
     if (state.nounsMode === "plurals") {
       return joinQaCue(
         ex.target?.lemma || ex.prompt?.lemma || "—",
@@ -9283,35 +9936,107 @@ function renderNumbersProofread() {
   slots.innerHTML = "";
 
   const tray = document.getElementById("numbers-tray");
+  const liveCheck = supportOn("liveCheck");
+  const targetForm = exercise.resolution.form;
+  const accepted = [targetForm];
+  const finishProofreadWrong = (value, inputEl) => {
+    state.numbersChecked = true;
+    inputEl.classList.add("is-bad");
+    logGuidedQaFinal({
+      question: currentGuidedQuestionCue(),
+      answer: value.trim() || "—",
+      expected: targetForm,
+      status: "incorrect",
+    });
+    const nVal = exercise.resolution.value ?? meta?.value;
+    const rawParts =
+      exercise.materials?.answerParts ||
+      meta?.answerParts ||
+      (nVal != null ? numberAnswerParts(nVal, "listen") : null) ||
+      targetForm;
+    const parts = resolveAnswerPronunciation(rawParts).parts;
+    const spoken =
+      exercise.resolution.spoken ||
+      exercise.materials?.spoken ||
+      targetForm;
+    presentCorrectAnswer({
+      prefix: "numbers",
+      answerEls: [],
+      wrongEls: inputEl ? [inputEl] : [],
+      reveal: {
+        word: targetForm,
+        parts,
+        en: meta?.english || meta?.written || "",
+        ok: false,
+      },
+      then: (nodes) => {
+        playAnswerKeyThenAdvance(
+          spoken,
+          parts,
+          nodes,
+          scheduleNumbersAdvance
+        );
+      },
+    });
+  };
   const { input } = mountFreeformShell(tray, {
     inputId: "numbers-convert-input",
-    placeholder: "correct form…",
+    placeholder: liveCheck ? "start typing…" : "correct form…",
     ariaLabel: "Correct German form",
+    assisted: liveCheck,
     isDisabled: () => state.numbersChecked,
-    onSubmit: (value) => {
-      if (state.numbersChecked) return;
-      const typed = normalizeConvertInput(value);
+    onInput: (value, el) => {
+      if (!liveCheck) {
+        el.classList.remove("is-ok", "is-bad", "is-prefix-ok");
+        return;
+      }
+      const { typed, isPrefix, isComplete } = convertInputMatches(
+        value,
+        targetForm,
+        accepted
+      );
+      el.classList.remove("is-ok", "is-bad", "is-prefix-ok");
       if (!typed) return;
-      const target = normalizeConvertInput(exercise.resolution.form);
-      const ok = typed === target;
-      if (ok) {
-        input.classList.add("is-ok");
-        const audit = convertAnswerAudit(
-          value,
-          exercise.resolution.form,
-          []
-        );
-        finishNumbersOk(exercise, exercise.resolution.form, {
+      if (isComplete) {
+        el.classList.add("is-ok");
+        const audit = convertAnswerAudit(value, targetForm, []);
+        finishNumbersOk(exercise, targetForm, {
           qaAnswer: audit.answer,
           qaExpected: audit.expected,
           qaStatus: audit.status,
           qaNote: audit.note,
         });
-      } else if (!state.numbersConvertRetryUsed) {
+        return;
+      }
+      if (isPrefix) el.classList.add("is-prefix-ok");
+      else el.classList.add("is-bad");
+    },
+    onSubmit: (value) => {
+      if (state.numbersChecked) return;
+      const typed = normalizeConvertInput(value);
+      if (!typed) return;
+      const { isComplete, isPrefix } = convertInputMatches(
+        value,
+        targetForm,
+        accepted
+      );
+      if (isComplete) {
+        input.classList.add("is-ok");
+        const audit = convertAnswerAudit(value, targetForm, []);
+        finishNumbersOk(exercise, targetForm, {
+          qaAnswer: audit.answer,
+          qaExpected: audit.expected,
+          qaStatus: audit.status,
+          qaNote: audit.note,
+        });
+        return;
+      }
+      if (liveCheck && isPrefix) return;
+      if (!state.numbersConvertRetryUsed) {
         state.numbersConvertRetryUsed = true;
         noteFirstMiss({
           answer: value.trim() || "—",
-          expected: exercise.resolution.form,
+          expected: targetForm,
         });
         input.classList.add("is-bad");
         showAttemptFeedback("numbers", "Try again");
@@ -9321,44 +10046,7 @@ function renderNumbersProofread() {
           input.focus();
         }, 400);
       } else {
-        state.numbersChecked = true;
-        input.classList.add("is-bad");
-        logGuidedQaFinal({
-          question: currentGuidedQuestionCue(),
-          answer: value.trim() || "—",
-          expected: exercise.resolution.form,
-          status: "incorrect",
-        });
-        const nVal = exercise.resolution.value ?? meta?.value;
-        const rawParts =
-          exercise.materials?.answerParts ||
-          meta?.answerParts ||
-          (nVal != null ? numberAnswerParts(nVal, "listen") : null) ||
-          exercise.resolution.form;
-        const parts = resolveAnswerPronunciation(rawParts).parts;
-        const spoken =
-          exercise.resolution.spoken ||
-          exercise.materials?.spoken ||
-          exercise.resolution.form;
-        presentCorrectAnswer({
-          prefix: "numbers",
-          answerEls: [],
-          wrongEls: input ? [input] : [],
-          reveal: {
-            word: exercise.resolution.form,
-            parts,
-            en: meta?.english || meta?.written || "",
-            ok: false,
-          },
-          then: (nodes) => {
-            playAnswerKeyThenAdvance(
-              spoken,
-              parts,
-              nodes,
-              scheduleNumbersAdvance
-            );
-          },
-        });
+        finishProofreadWrong(value, input);
       }
     },
   });
@@ -9888,6 +10576,8 @@ function numbersPromptPairHtml(lead, ask, meta) {
   const cue = isEnglishCueMeta(meta)
     ? promptEnHtml(lead)
     : promptDeHtml(lead);
+  // Assist "english" peels the EN task/gloss line (digit cue stays).
+  if (!supportOn("english") || !ask) return cue;
   const task = isInstructionTaskMeta(meta)
     ? promptTaskHtml(ask)
     : promptEnHtml(ask);
@@ -10413,10 +11103,11 @@ function renderNumbersConvert() {
   // Written-decimal cues: show Komma vs point as written forms; answer is spoken.
   // No English *gloss* of the spoken reading — point form is orthography, not a translation.
   let promptHtml;
+  const showEn = supportOn("english");
   if (meta?.kind === "money") {
     promptHtml =
       promptWrittenDecimalHtml(convertLead, "", { money: true }) +
-      promptTaskHtml(numbersEnTaskAsk("convert", meta));
+      (showEn ? promptTaskHtml(numbersEnTaskAsk("convert", meta)) : "");
   } else if (meta?.kind === "decimal") {
     const example = convertReadingExample(meta);
     const convertAsk = (() => {
@@ -10430,8 +11121,8 @@ function renderNumbersConvert() {
     })();
     promptHtml = `${promptWrittenDecimalHtml(
       convertLead,
-      meta.english || ""
-    )}<span class="convert-ask">${convertAsk}</span>`;
+      showEn ? meta.english || "" : ""
+    )}${showEn ? `<span class="convert-ask">${convertAsk}</span>` : ""}`;
   } else {
     const convertAsk = numbersEnTaskAsk("convert", meta);
     promptHtml = numbersPromptPairHtml(convertLead, convertAsk, meta);
@@ -11354,6 +12045,11 @@ function renderNouns() {
     return;
   }
 
+  if (state.nounsMode === "cardinal-directions") {
+    renderNounsCardinalDirections();
+    return;
+  }
+
   if (state.nounsMode === "association") {
     renderNounsAssociation();
     return;
@@ -11382,10 +12078,24 @@ function applyNounScaffoldingChrome(exercise) {
     help.textContent = "";
   }
 
+  // English / pattern cue — toggled via Assist (english layer).
   const translationEl = document.getElementById("nouns-translation");
   if (translationEl) {
-    translationEl.hidden = true;
-    translationEl.textContent = "";
+    const cue =
+      (supportOn("english") &&
+        (exercise.prompt?.translation ||
+          exercise.resolution?.translation ||
+          exercise.resolution?.note ||
+          exercise.materials?.patternBlurb ||
+          "")) ||
+      "";
+    if (cue) {
+      translationEl.hidden = false;
+      translationEl.textContent = cue;
+    } else {
+      translationEl.hidden = true;
+      translationEl.textContent = "";
+    }
   }
 }
 
@@ -11772,7 +12482,7 @@ function renderNounsDiscriminate() {
       prompt.innerHTML = `
         <div class="proofread-bilingual">
           ${promptDeHtml(promptText)}
-          ${gloss ? promptEnHtml(`(${gloss})`) : ""}
+          ${supportOn("english") && gloss ? promptEnHtml(`(${gloss})`) : ""}
         </div>
       `;
     }
@@ -11839,6 +12549,257 @@ function placeNounDiscriminate(id) {
   checkNounsDiscriminate();
 }
 
+/** Categories → Cardinal directions: compass graphic → name the lemma. */
+function currentNounCardinalDirectionItem() {
+  const pin = state.nounsPinnedSnap;
+  if (pin?.mode === "cardinal-directions" && pin.item?.lemma) {
+    return pin.item;
+  }
+  const deck = ensureNounDeck("CardinalDirections");
+  return deck[state.nounsCardinalDirectionsIndex % Math.max(1, deck.length)];
+}
+
+function cardinalDirectionChoices(correctLemma) {
+  const others = COMPASS_BEARINGS.map((b) => b.id).filter(
+    (id) => id !== correctLemma
+  );
+  const distractors = shuffle(others).slice(0, 3);
+  return shuffle([correctLemma, ...distractors]);
+}
+
+function renderNounsCardinalDirections() {
+  const item = currentNounCardinalDirectionItem();
+  const lemma = item?.lemma || item?.bearing || "Norden";
+  const gender = LEXICON[lemma]?.gender || "masculine";
+  const article = ARTICLES[gender] || "der";
+  const english = item?.english || LEXICON[lemma]?.gloss || "";
+  const answerParts =
+    NOUN_SINGULAR_PARTS[lemma] || fallbackSingularParts(lemma);
+  const choices = cardinalDirectionChoices(lemma);
+  const visual = visualForMeta({
+    kind: "compass",
+    bearing: lemma,
+    lemma,
+  });
+
+  setCurrentExercise({
+    templateId: "nouns.visual.compass",
+    target: { kind: "compass-direction", lemma, bearing: lemma },
+    prompt: {
+      kind: "compass",
+      bearing: lemma,
+      ask: visual?.ask || "Name what you see",
+      translation: english,
+    },
+    materials: {
+      choices,
+      answerParts,
+      hint: "Read the compass needle — name the German direction.",
+      visualHtml: visual?.html || "",
+    },
+    resolution: {
+      expected: lemma,
+      lemma,
+      article,
+      gender,
+      form: `${article} ${lemma}`,
+      answerParts,
+      translation: english,
+      feedbackOk: `Yes — ${article} ${lemma}.`,
+      feedbackBad: `Target was ${article} ${lemma}.`,
+    },
+  });
+
+  state.nounsArticle = null;
+  state.nounsChecked = false;
+  state.nounsFilled = [];
+  state.nounsDiscriminateRetryUsed = false;
+  clearItemFirstMiss();
+
+  const legend = document.getElementById("nouns-legend");
+  if (legend) legend.hidden = true;
+  const helpBtn = document.getElementById("nouns-help");
+  if (helpBtn) helpBtn.hidden = false;
+
+  const help = document.getElementById("nouns-help-line");
+  if (help) {
+    help.hidden = true;
+    help.textContent = "";
+  }
+  const translationEl = document.getElementById("nouns-translation");
+  if (translationEl) {
+    if (supportOn("english") && english) {
+      translationEl.hidden = false;
+      translationEl.textContent = english;
+    } else {
+      translationEl.hidden = true;
+      translationEl.textContent = "";
+    }
+  }
+
+  const fam = document.getElementById("nouns-family-progress");
+  if (fam) {
+    fam.hidden = false;
+    fam.textContent = "Compass";
+  }
+
+  const stage = document.getElementById("nouns-stage");
+  markQuizStage(stage, {
+    presetId: "choose",
+    stimulus: STIMULUS.VISUAL,
+    response: "multi-select",
+  });
+
+  const prompt = document.getElementById("nouns-prompt");
+  if (prompt) {
+    prompt.hidden = false;
+    mountStimulusShell(prompt, {
+      stimulus: STIMULUS.VISUAL,
+      visualHtml: visual?.html || "",
+      ask: visual?.ask || "Name what you see",
+    });
+  }
+
+  const slotsRow = document.getElementById("nouns-slots");
+  if (slotsRow) {
+    slotsRow.innerHTML = "";
+    slotsRow.hidden = true;
+  }
+
+  clearAnswerReveal("nouns");
+  const feedback = document.getElementById("nouns-attempt-feedback");
+  if (feedback) {
+    feedback.hidden = true;
+    feedback.textContent = "";
+  }
+
+  setNounsBackDisabled();
+
+  const tray = document.getElementById("nouns-tray");
+  tray.innerHTML = "";
+  for (const choice of choices) {
+    const piece = document.createElement("button");
+    piece.type = "button";
+    piece.className = "piece";
+    piece.dataset.id = choice;
+    piece.dataset.text = choice;
+    piece.textContent = choice;
+    piece.setAttribute("aria-label", choice);
+    piece.addEventListener("click", () => {
+      if (piece.disabled || state.nounsChecked) return;
+      placeNounCardinalDirection(choice);
+    });
+    tray.appendChild(piece);
+  }
+}
+
+function placeNounCardinalDirection(id) {
+  if (state.nounsChecked || state.nounsMode !== "cardinal-directions") return;
+  state.nounsArticle = id;
+  document.querySelectorAll("#nouns-tray .piece").forEach((p) => {
+    p.classList.toggle("is-placed", p.dataset.id === id);
+  });
+  checkNounsCardinalDirection();
+}
+
+function checkNounsCardinalDirection() {
+  if (
+    state.nounsChecked ||
+    !state.nounsArticle ||
+    state.nounsMode !== "cardinal-directions"
+  ) {
+    return;
+  }
+  const exercise = state.currentExercise;
+  if (!exercise) return;
+  const expected = exercise.resolution.expected;
+  const accepted = state.nounsArticle === expected;
+  state.nounsChecked = true;
+
+  const chosen = document.querySelector(
+    `#nouns-tray [data-id="${CSS.escape(state.nounsArticle)}"]`
+  );
+  document.querySelectorAll("#nouns-tray .piece").forEach((p) => {
+    p.disabled = true;
+  });
+
+  const feedback = document.getElementById("nouns-attempt-feedback");
+  if (accepted) {
+    if (chosen) chosen.classList.add("is-ok");
+    playFeedbackSound("ok");
+    revealNounCardinalDirection(exercise, true);
+  } else {
+    if (chosen) {
+      chosen.classList.add("is-bad");
+      chosen.classList.remove("is-placed");
+    }
+    playFeedbackSound("bad");
+    if (!state.nounsDiscriminateRetryUsed) {
+      state.nounsDiscriminateRetryUsed = true;
+      noteFirstMiss({
+        answer: state.nounsArticle || "—",
+        expected,
+      });
+      state.nounsChecked = false;
+      state.nounsArticle = null;
+      if (feedback) {
+        feedback.hidden = false;
+        feedback.className = "attempt-feedback is-bad";
+        feedback.textContent = "Try again";
+      }
+      window.setTimeout(() => {
+        document.querySelectorAll("#nouns-tray .piece").forEach((p) => {
+          if (!p.classList.contains("is-bad")) p.disabled = false;
+        });
+      }, 400);
+      return;
+    }
+    noteFirstMiss({
+      answer: state.nounsArticle || "—",
+      expected,
+    });
+    const correct = document.querySelector(
+      `#nouns-tray [data-id="${CSS.escape(expected)}"]`
+    );
+    if (correct) correct.classList.add("is-ok");
+    revealNounCardinalDirection(exercise, false);
+  }
+}
+
+function revealNounCardinalDirection(exercise, ok) {
+  const res = exercise.resolution || {};
+  const lemma = res.lemma || "";
+  const article = res.article || "der";
+  const phrase = `${article} ${lemma}`;
+  logGuidedQaFinal({
+    question: currentGuidedQuestionCue(),
+    answer: ok ? state.nounsArticle || phrase : state.nounsArticle || "—",
+    expected: lemma,
+    status: ok ? "correct" : "incorrect",
+  });
+  const parts =
+    res.answerParts ||
+    exercise.materials?.answerParts ||
+    (lemma
+      ? NOUN_SINGULAR_PARTS[lemma] || fallbackSingularParts(lemma)
+      : []);
+  const wordHtml = nounAnswerWordHtml(article, lemma, res.gender, {
+    stem: "",
+    ending: "",
+    markSuffix: false,
+  });
+  const gloss = supportOn("english") ? res.translation || "" : "";
+  const nodes = fillAnswerReveal("nouns", {
+    word: phrase,
+    wordHtml,
+    parts,
+    en: gloss,
+    ok,
+    verdictLabel: ok ? "Correct" : "Answer",
+  });
+  playAnswerKeyThenAdvance(phrase, parts, nodes, scheduleNounsAdvance);
+}
+
 function checkNounsDiscriminate() {
   if (state.nounsChecked || !state.nounsArticle || !isNounDiscriminateMode())
     return;
@@ -11866,8 +12827,9 @@ function checkNounsDiscriminate() {
       chosen.classList.remove("is-placed");
     }
     playFeedbackSound("bad");
-    // One retry then answer key + advance.
-    if (!state.nounsDiscriminateRetryUsed) {
+    // Right or wrong (binary): one chance only — a second try is a coin flip.
+    const binaryOnce = state.nounsMode === "proofread";
+    if (!binaryOnce && !state.nounsDiscriminateRetryUsed) {
       state.nounsDiscriminateRetryUsed = true;
       noteFirstMiss({
         answer: state.nounsArticle || "—",
@@ -11887,6 +12849,10 @@ function checkNounsDiscriminate() {
       }, 400);
       return;
     }
+    noteFirstMiss({
+      answer: state.nounsArticle || "—",
+      expected: expected,
+    });
     const correct = document.querySelector(
       `#nouns-tray [data-id="${CSS.escape(expected)}"]`
     );
@@ -11915,12 +12881,24 @@ function revealNounDiscriminate(exercise, ok) {
     (lemma
       ? NOUN_SINGULAR_PARTS[lemma] || fallbackSingularParts(lemma)
       : []);
-  const wordHtml = nounAnswerWordHtml(article, lemma, res.gender);
+  const mark = genderSuffixMark(lemma);
+  // Category members (e.g. September / Months): don't mark a misleading -er stem split.
+  const catNote = categoryGenderSuggestion(lemma);
+  const wordHtml = nounAnswerWordHtml(article, lemma, res.gender, {
+    stem: catNote ? "" : mark?.stem,
+    ending: catNote ? "" : mark?.ending,
+    markSuffix: !catNote,
+  });
+  const patternNote = answerGenderPatternNotes(lemma, {
+    patternBlurb: exercise.materials?.patternBlurb,
+    note: res.note,
+  });
+  const gloss = supportOn("english") ? res.translation || res.gloss || "" : "";
   const nodes = fillAnswerReveal("nouns", {
     word: phrase,
     wordHtml,
     parts,
-    en: res.translation || "",
+    en: joinAnswerNotes(patternNote, gloss),
     ok,
     verdictLabel: ok ? "Correct" : "Answer",
   });
@@ -11953,8 +12931,9 @@ function checkNounsCategory() {
       chosen.classList.remove("is-placed");
     }
     playFeedbackSound("bad");
-    // One retry, then answer key — same policy as other quizzes.
-    if (!state.nounsCategoryRetryUsed) {
+    // Right or wrong (binary): one chance only — a second try is a coin flip.
+    const binaryOnce = state.nounsMode === "sentence-validation";
+    if (!binaryOnce && !state.nounsCategoryRetryUsed) {
       state.nounsCategoryRetryUsed = true;
       noteFirstMiss({
         answer: state.nounsArticle || "—",
@@ -11974,6 +12953,10 @@ function checkNounsCategory() {
       }, 400);
       return;
     }
+    noteFirstMiss({
+      answer: state.nounsArticle || "—",
+      expected,
+    });
     const correct = document.querySelector(
       `#nouns-tray [data-id="${CSS.escape(expected)}"]`
     );
@@ -11989,41 +12972,65 @@ function revealNounCategory(exercise, ok) {
   let word = "";
   let en = res.categoryName || "";
   let parts = [];
+  let wordHtml = "";
 
   if (state.nounsMode === "article-application") {
+    // Citation form only — not the full cloze sentence.
     const art = res.expected;
     const lemma = res.lemma || "";
-    const filled = String(exercise.prompt?.text || "")
-      .replace("___", art)
-      .replace(/\s+/g, " ")
-      .trim();
-    word = filled || `${art} ${lemma}`.trim();
-    parts =
-      NOUN_SINGULAR_PARTS[lemma] ||
-      (lemma ? fallbackSingularParts(lemma) : resolveAnswerPronunciation(art).parts);
+    const gender = LEXICON[lemma]?.gender || null;
+    word = `${art} ${lemma}`.trim();
+    parts = citationAnswerParts(art, lemma);
     const slot = document.getElementById("nouns-noun-slot");
     if (slot) slot.textContent = word;
-    en = LEXICON[lemma]?.gloss || en;
+    const patternCat = categoryGenderSuggestion(lemma);
+    wordHtml = nounAnswerWordHtml(art, lemma, gender, {
+      stem: patternCat ? "" : undefined,
+      ending: patternCat ? "" : undefined,
+      markSuffix: !patternCat,
+    });
+    const catNote = ok ? res.feedbackOk : res.feedbackBad;
+    const gloss = supportOn("english") ? LEXICON[lemma]?.gloss || "" : "";
+    en = joinAnswerNotes(answerGenderPatternNotes(lemma), catNote, gloss);
   } else if (state.nounsMode === "sentence-validation") {
-    word = exercise.prompt?.sentence || "";
-    const verdict = labels[res.expected] || res.expected;
-    en = `${verdict}${en ? ` · ${en}` : ""}`;
-    // Prefer lemma karaoke when we know the noun; never fake sentence orthography.
+    // Citation form only (der Montag) — do not speak / karaoke the full frame.
     const lemma = res.lemma || "";
-    if (lemma && NOUN_SINGULAR_PARTS[lemma]) {
-      parts = NOUN_SINGULAR_PARTS[lemma];
-    } else if (lemma) {
-      parts = fallbackSingularParts(lemma);
-    } else {
-      parts = resolveAnswerPronunciation(word).parts;
-    }
+    const gender = LEXICON[lemma]?.gender || null;
+    const art =
+      res.correctArticle || (gender ? ARTICLES[gender] || "" : "");
+    word = `${art} ${lemma}`.trim();
+    parts = citationAnswerParts(art, lemma);
+    const verdict = labels[res.expected] || res.expected;
+    const catNote = ok ? res.feedbackOk : res.feedbackBad;
+    en = joinAnswerNotes(
+      answerGenderPatternNotes(lemma),
+      catNote || `${verdict}${en ? ` · ${en}` : ""}`
+    );
+    const patternCat = categoryGenderSuggestion(lemma);
+    wordHtml = nounAnswerWordHtml(art, lemma, gender, {
+      stem: patternCat ? "" : undefined,
+      ending: patternCat ? "" : undefined,
+      markSuffix: !patternCat,
+    });
   } else if (state.nounsMode === "gender-imposter") {
-    word = res.expected || "";
+    const lemma = res.expected || res.expectedLemma || "";
+    const gender =
+      res.imposterGender || LEXICON[lemma]?.gender || null;
+    const article = gender ? ARTICLES[gender] || "" : "";
+    word = article ? `${article} ${lemma}` : lemma;
     en = res.feedbackOk || res.feedbackBad || `Imposter · ${en}`;
     if (!ok && res.feedbackBad) en = res.feedbackBad;
     if (ok && res.feedbackOk) en = res.feedbackOk;
-    // Label answers (not German surface) — no fake phonetics.
-    parts = [];
+    en = joinAnswerNotes(answerGenderPatternNotes(lemma), en);
+    parts = lemma
+      ? NOUN_SINGULAR_PARTS[lemma] || fallbackSingularParts(lemma)
+      : [];
+    const patternCat = categoryGenderSuggestion(lemma);
+    wordHtml = nounAnswerWordHtml(article, lemma, gender, {
+      markSuffix: !patternCat,
+      stem: patternCat ? "" : undefined,
+      ending: patternCat ? "" : undefined,
+    });
   } else {
     // gender-recognition — gender label, not a German form.
     word = labels[res.expected] || res.expected || "";
@@ -12037,24 +13044,19 @@ function revealNounCategory(exercise, ok) {
     status: ok ? "correct" : "incorrect",
   });
 
-  const skipPronunciation =
-    state.nounsMode === "gender-recognition" ||
-    state.nounsMode === "gender-imposter";
+  const skipPronunciation = state.nounsMode === "gender-recognition";
 
   const nodes = fillAnswerReveal("nouns", {
     word,
+    wordHtml: wordHtml || undefined,
     parts,
     skipPronunciation,
     en,
     ok,
     verdictLabel: ok ? "Correct" : "Answer",
   });
-  const tts =
-    state.nounsMode === "article-application"
-      ? `${res.expected || ""} ${res.lemma || ""}`.trim()
-      : word;
-  if (!tts || skipPronunciation) return;
-  playAnswerKey(tts, parts, nodes);
+  if (!word || skipPronunciation) return;
+  playAnswerKey(word, parts, nodes);
 }
 
 function renderNounsPlurals() {
@@ -12269,6 +13271,7 @@ function nounsDeckKindForMode(mode = state.nounsMode) {
   if (mode === "wugs") return "Wug";
   if (mode === "proofread") return "Proofread";
   if (mode === "reverse-mc") return "Reverse";
+  if (mode === "cardinal-directions") return "CardinalDirections";
   return "Article";
 }
 
@@ -12292,6 +13295,8 @@ function nounsIndexKeyForMode(mode = state.nounsMode) {
       return "nounsProofreadIndex";
     case "reverse-mc":
       return "nounsReverseIndex";
+    case "cardinal-directions":
+      return "nounsCardinalDirectionsIndex";
     default:
       return "nounsIndex";
   }
@@ -12478,33 +13483,9 @@ function advanceNounsIndex() {
       introModeForNounsStep(topicId, stepId)?.id || state.nounsQuizMode
     );
   }
-  const kind = isNounCategoryMode()
-    ? categoryModeDeckKind()
-    : state.nounsMode === "plurals"
-      ? "Plural"
-      : state.nounsMode === "association"
-        ? "Association"
-        : state.nounsMode === "wugs"
-          ? "Wug"
-          : state.nounsMode === "proofread"
-            ? "Proofread"
-            : state.nounsMode === "reverse-mc"
-              ? "Reverse"
-              : "Article";
+  const kind = nounsDeckKindForMode();
   const deck = ensureNounDeck(kind);
-  const indexKey = isNounCategoryMode()
-    ? categoryModeIndexKey()
-    : kind === "Plural"
-      ? "nounsPluralIndex"
-      : kind === "Association"
-        ? "nounsAssociationIndex"
-        : kind === "Wug"
-          ? "nounsWugIndex"
-          : kind === "Proofread"
-            ? "nounsProofreadIndex"
-            : kind === "Reverse"
-              ? "nounsReverseIndex"
-              : "nounsIndex";
+  const indexKey = nounsIndexKeyForMode();
   state[indexKey] += 1;
   if (state[indexKey] >= deck.length) {
     reshuffleNounDeck(kind);
@@ -12514,27 +13495,9 @@ function advanceNounsIndex() {
 
 function resetNounsDeckForMode() {
   clearNounsHistory();
-  const kind = isNounCategoryMode()
-    ? categoryModeDeckKind()
-    : state.nounsMode === "plurals"
-      ? "Plural"
-      : state.nounsMode === "association"
-        ? "Association"
-        : state.nounsMode === "wugs"
-          ? "Wug"
-          : state.nounsMode === "proofread"
-            ? "Proofread"
-            : state.nounsMode === "reverse-mc"
-              ? "Reverse"
-              : "Article";
+  const kind = nounsDeckKindForMode();
   reshuffleNounDeck(kind);
-  if (isNounCategoryMode()) state[categoryModeIndexKey()] = 0;
-  else if (kind === "Plural") state.nounsPluralIndex = 0;
-  else if (kind === "Association") state.nounsAssociationIndex = 0;
-  else if (kind === "Wug") state.nounsWugIndex = 0;
-  else if (kind === "Proofread") state.nounsProofreadIndex = 0;
-  else if (kind === "Reverse") state.nounsReverseIndex = 0;
-  else state.nounsIndex = 0;
+  state[nounsIndexKeyForMode()] = 0;
 }
 
 function scheduleNounsAdvance(delayMs = 1500) {
@@ -12563,18 +13526,18 @@ function revealNounAnswer(exercise, ok = true) {
     status: ok ? "correct" : "incorrect",
   });
 
-  // Wugs: no TTS for nonce words — show color-coded suffix + short note.
+  // Wugs: no TTS for nonce words — answer mode always shows tinted cue + pattern note.
   if (exercise.target?.wug || state.nounsMode === "wugs") {
     const cue = exercise.materials.cue || exercise.prompt.cue;
     const gender = exercise.resolution.gender;
-    const note =
-      exercise.resolution.note ||
-      exercise.materials.patternBlurb ||
-      "";
+    const note = answerGenderPatternNotes(exercise.target?.lemma || "", {
+      patternBlurb: exercise.materials.patternBlurb,
+      note: exercise.resolution.note,
+    });
     let wordHtml;
     if (cue) {
       const tint = articleColorClass(null, gender);
-      wordHtml = `<span class="answer-wug-cue${tint ? ` ${tint}` : ""}">${cue}</span>`;
+      wordHtml = `<span class="answer-wug-cue${tint ? ` ${tint}` : ""}">${escapeHtml(cue)}</span>`;
     } else {
       wordHtml = `<span class="answer-insufficient">insufficient information</span>`;
     }
@@ -12593,29 +13556,35 @@ function revealNounAnswer(exercise, ok = true) {
   const isInsufficient = art === "insufficient";
   const phrase = isInsufficient
     ? "insufficient information"
-    : `${art} ${exercise.target.lemma}`;
+    : `${art} ${lemma}`;
   const parts = isInsufficient
     ? []
     : exercise.materials.answerParts ||
-      (exercise.target?.lemma
-        ? NOUN_SINGULAR_PARTS[exercise.target.lemma] ||
-          fallbackSingularParts(exercise.target.lemma)
+      (lemma
+        ? NOUN_SINGULAR_PARTS[lemma] || fallbackSingularParts(lemma)
         : []);
-  const markSuffix = !!(
-    exercise.scaffolding?.showSuffixMark || supportOn("choiceHighlight")
-  );
+  // Answer mode: category pattern wins over a misleading suffix split (September/-er).
+  const catNote = categoryGenderSuggestion(lemma);
+  const mark = catNote ? null : genderSuffixMark(lemma);
   const wordHtml = isInsufficient
     ? `<span class="answer-insufficient">insufficient information</span>`
-    : nounAnswerWordHtml(art, exercise.target.lemma, exercise.resolution.gender, {
-        stem: exercise.prompt.stem,
-        ending: exercise.prompt.ending,
-        markSuffix,
+    : nounAnswerWordHtml(art, lemma, exercise.resolution.gender, {
+        stem: catNote ? "" : exercise.prompt?.stem || mark?.stem,
+        ending: catNote ? "" : exercise.prompt?.ending || mark?.ending,
+        markSuffix: !catNote,
       });
+  const patternNote = answerGenderPatternNotes(lemma, {
+    patternBlurb: exercise.materials?.patternBlurb,
+    note: exercise.resolution?.note,
+  });
+  const gloss = supportOn("english")
+    ? exercise.resolution.translation || ""
+    : "";
   const nodes = fillAnswerReveal("nouns", {
     word: phrase,
     wordHtml,
     parts,
-    en: exercise.resolution.translation || "",
+    en: joinAnswerNotes(patternNote, gloss),
     ok,
     verdictLabel: isInsufficient ? "Right call" : ok ? "Correct" : "Answer",
   });
@@ -13221,11 +14190,12 @@ function remountCurrentPractice() {
 function applyActiveProfilePrefs() {
   try {
     const p = getActiveProfile(loadProfileStore());
+    // Default Independent (core); only upgrade when profile explicitly asks assisted.
     const diff =
-      p?.prefs?.numbersDifficulty === "core" ? "core" : "assisted";
+      p?.prefs?.numbersDifficulty === "assisted" ? "assisted" : "core";
     state.numbersDifficulty = diff;
     state.nounsDifficulty =
-      p?.prefs?.nounsDifficulty === "core" ? "core" : diff;
+      p?.prefs?.nounsDifficulty === "assisted" ? "assisted" : diff;
     state.soundsDifficulty = diff;
     if (!state.supportVectorPrefs) {
       state.supportVectorPrefs = layerPrefsFromDifficulty(diff);
@@ -13460,6 +14430,12 @@ function nounsHelpHint(exercise) {
       "Use the suffix cue to judge the article."
     );
   }
+  if (state.nounsMode === "cardinal-directions") {
+    return (
+      exercise?.materials?.hint ||
+      "Read the compass needle — name the German direction (Norden, Nordosten, …)."
+    );
+  }
   if (isNounCategoryMode()) {
     const hints = {
       "gender-recognition":
@@ -13537,6 +14513,29 @@ function isStageAnswerMode() {
     ?.classList.contains("is-answer");
 }
 
+/** Speedometer glow: red = Independent, yellow = Some help, green = More help. */
+function syncAssistSpeedometerGlow() {
+  for (const id of ["numbers-difficulty", "nouns-difficulty"]) {
+    const btn = document.getElementById(id);
+    if (!btn) continue;
+    btn.classList.remove(
+      "assist-glow-independent",
+      "assist-glow-some",
+      "assist-glow-more"
+    );
+    delete btn.dataset.assistLevel;
+  }
+  const { btn } = assistStepperEls();
+  if (!btn || btn.hidden) return;
+  const formats = currentAssistFormats();
+  const layers = assistLayersForFormats(formats);
+  const level = !layers.length
+    ? "independent"
+    : assistPresetFromVector(currentSupportVector(), formats);
+  btn.dataset.assistLevel = level;
+  btn.classList.add(`assist-glow-${level}`);
+}
+
 function syncDifficultyControl() {
   const { btn, stepper } = assistStepperEls();
   if (!btn) return;
@@ -13556,6 +14555,7 @@ function syncDifficultyControl() {
       stepper && !stepper.hidden ? "true" : "false"
     );
     if (stepper && !stepper.hidden) paintAssistStepper();
+    syncAssistSpeedometerGlow();
     return;
   }
   const formats = currentAssistFormats();
@@ -13573,6 +14573,7 @@ function syncDifficultyControl() {
   );
   if (!inPractice || !canAdjust) hideAssistStepper();
   else if (stepper && !stepper.hidden) paintAssistStepper();
+  syncAssistSpeedometerGlow();
 }
 
 function paintAssistStepper() {
@@ -13709,10 +14710,11 @@ function applyAssistPreset(presetId) {
   } else if (presetId === "independent") {
     state.numbersDifficulty = state.nounsDifficulty = "core";
   }
-  paintAssistStepper();
-  bumpAssistStepperTimeout();
   remountCurrentPractice();
+  // Remount clears answer chrome and would hide the pill — keep it open.
+  showAssistStepper();
   syncDifficultyControl();
+  bumpAssistStepperTimeout();
 }
 
 function nudgeFeltDifficulty(delta) {
@@ -13743,6 +14745,7 @@ function nudgeAssistPreset(delta) {
 
 /**
  * Swipe left → forward, swipe right → back (practice stages).
+ * Touch only — disabled for mouse/desktop drag.
  * Ignores gestures that start on interactive controls.
  */
 function wirePracticeSwipeNav() {
@@ -13754,7 +14757,8 @@ function wirePracticeSwipeNav() {
     let y0 = 0;
     let active = false;
     stage.addEventListener("pointerdown", (e) => {
-      if (e.button != null && e.button !== 0) return;
+      // Desktop mouse-drag must not trigger back/forward.
+      if (e.pointerType !== "touch") return;
       if (
         e.target.closest(
           "button, input, textarea, select, a, .assist-stepper, .piece, .choice, .slot, .syl"
@@ -13769,6 +14773,7 @@ function wirePracticeSwipeNav() {
     const end = (e) => {
       if (!active) return;
       active = false;
+      if (e.pointerType && e.pointerType !== "touch") return;
       const dx = e.clientX - x0;
       const dy = e.clientY - y0;
       if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.15) return;
@@ -13821,7 +14826,9 @@ function openNounsHelp() {
     else if (state.nounsMode === "wugs") ex = currentNounWugExercise();
     else if (state.nounsMode === "association")
       ex = currentNounAssociationExercise();
-    else if (!isNounCategoryMode() && !isNounDiscriminateMode())
+    else if (state.nounsMode === "cardinal-directions") {
+      /* exercise is built in render; keep null if missing */
+    } else if (!isNounCategoryMode() && !isNounDiscriminateMode())
       ex = currentNounArticleExercise();
   }
   openSessionHelp({

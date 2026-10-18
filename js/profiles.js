@@ -10,6 +10,8 @@ import {
 
 export const PROFILES_SCHEMA = "schnapp.profiles.v0";
 export const PROFILES_STORAGE_KEY = "schnapp-profiles";
+/** One-time: old default soft-arc was assisted; Independent is now the default. */
+export const ASSIST_DEFAULT_MIGRATE_KEY = "schnapp-assist-default-independent-v1";
 
 const HINT_HISTORY_CAP = 100;
 
@@ -59,8 +61,8 @@ export function createEmptyProfile(label = "You") {
     updatedAt: at,
     evidence: emptyEvidenceStore(),
     prefs: {
-      numbersDifficulty: "assisted",
-      nounsDifficulty: "assisted",
+      numbersDifficulty: "core",
+      nounsDifficulty: "core",
     },
     hintHistory: [],
     dealerStats: {},
@@ -100,8 +102,10 @@ export function normalizeProfileStore(raw) {
         ? { grains: { ...p.evidence.grains } }
         : emptyEvidenceStore(),
       prefs: {
-        numbersDifficulty: p.prefs?.numbersDifficulty || "assisted",
-        nounsDifficulty: p.prefs?.nounsDifficulty || "assisted",
+        numbersDifficulty:
+          p.prefs?.numbersDifficulty === "assisted" ? "assisted" : "core",
+        nounsDifficulty:
+          p.prefs?.nounsDifficulty === "assisted" ? "assisted" : "core",
       },
       hintHistory: Array.isArray(p.hintHistory) ? p.hintHistory.slice(-HINT_HISTORY_CAP) : [],
       dealerStats: p.dealerStats && typeof p.dealerStats === "object" ? { ...p.dealerStats } : {},
@@ -116,12 +120,43 @@ export function normalizeProfileStore(raw) {
   return { schema: PROFILES_SCHEMA, activeId, profiles };
 }
 
+/**
+ * One-time migrate profile soft-arc prefs from the old Assisted default → Independent.
+ * @param {ProfileStore} store
+ * @param {Storage} [storage]
+ */
+function migrateAssistDefaultIndependent(store, storage = globalThis.localStorage) {
+  try {
+    if (storage?.getItem?.(ASSIST_DEFAULT_MIGRATE_KEY) === "1") return store;
+    let changed = false;
+    for (const p of Object.values(store.profiles || {})) {
+      if (!p?.prefs) continue;
+      if (p.prefs.numbersDifficulty === "assisted") {
+        p.prefs.numbersDifficulty = "core";
+        changed = true;
+      }
+      if (p.prefs.nounsDifficulty === "assisted") {
+        p.prefs.nounsDifficulty = "core";
+        changed = true;
+      }
+    }
+    storage?.setItem?.(ASSIST_DEFAULT_MIGRATE_KEY, "1");
+    if (changed) {
+      storage?.setItem?.(PROFILES_STORAGE_KEY, JSON.stringify(store));
+    }
+  } catch {
+    /* ignore */
+  }
+  return store;
+}
+
 /** @param {Storage} [storage] */
 export function loadProfileStore(storage = globalThis.localStorage) {
   try {
     const raw = storage?.getItem?.(PROFILES_STORAGE_KEY);
     if (!raw) return defaultProfileStore();
-    return normalizeProfileStore(JSON.parse(raw));
+    const store = normalizeProfileStore(JSON.parse(raw));
+    return migrateAssistDefaultIndependent(store, storage);
   } catch {
     return defaultProfileStore();
   }

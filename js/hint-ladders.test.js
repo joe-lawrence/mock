@@ -50,14 +50,14 @@ describe("hint ladders (Slice 4)", () => {
     assert.ok(ladder.answer.includes("english"));
   });
 
-  it("toggleable layers follow format (wugs choose → choice highlight only)", () => {
+  it("toggleable layers follow format (wugs choose → english + choice highlight)", () => {
     const defs = toggleableLayersForFormats({
       stimulus: STIMULUS.VALUE,
       response: RESPONSE.MULTI_SELECT,
     });
     assert.deepEqual(
       defs.map((d) => d.id),
-      ["choiceHighlight"]
+      ["english", "choiceHighlight"]
     );
     assert.equal(SUPPORT_LAYER_DEFS.find((d) => d.id === "english")?.label, "English cue");
   });
@@ -98,26 +98,64 @@ describe("hint ladders (Slice 4)", () => {
       "some",
       "independent",
     ]);
-    // Single-layer formats: Some help collapses into More help on the stepper.
-    const one = {
+    // Choose (VALUE×MULTI_SELECT): english + choice highlight → three peel stops.
+    const choose = {
       stimulus: STIMULUS.VALUE,
       response: RESPONSE.MULTI_SELECT,
     };
-    assert.deepEqual(layersForAssistPreset("some", one), layersForAssistPreset("more", one));
-    assert.equal(assistPresetFromVector({ choiceHighlight: true }, one), "more");
-    assert.deepEqual(assistPresetSteps(one), ["more", "independent"]);
+    assert.deepEqual(assistLayersForFormats(choose), [
+      "english",
+      "choiceHighlight",
+    ]);
+    assert.deepEqual(layersForAssistPreset("some", choose), {
+      english: false,
+      choiceHighlight: true,
+    });
+    assert.equal(
+      assistPresetFromVector(
+        { english: false, choiceHighlight: true },
+        choose
+      ),
+      "some"
+    );
+    assert.deepEqual(assistPresetSteps(choose), [
+      "more",
+      "some",
+      "independent",
+    ]);
+    // Formats with no toggleable answer layers → stepper is a single stop.
+    const none = { response: RESPONSE.BINARY };
+    assert.deepEqual(assistLayersForFormats(none), []);
+    assert.deepEqual(assistPresetSteps(none), ["more"]);
+    // Proofread freeform: live check + english cue.
+    assert.deepEqual(
+      assistLayersForFormats({
+        stimulus: STIMULUS.PROOFREAD_FRAME,
+        response: RESPONSE.FREEFORM,
+      }),
+      ["english", "liveCheck"]
+    );
   });
 
-  it("default seed matches assisted template; core is leaner", () => {
+  it("default seed is Independent (no assist); assisted is fuller", () => {
     const d = freshSupportVector("default");
     const a = freshSupportVector("assisted");
     const c = freshSupportVector("core");
-    assert.equal(d.liveCheck, DEFAULT_SUPPORT_LAYERS.liveCheck);
+    assert.equal(d.liveCheck, false);
+    assert.equal(d.english, false);
+    assert.equal(d.choiceHighlight, false);
     assert.equal(a.liveCheck, true);
+    assert.equal(a.english, true);
+    assert.equal(a.choiceHighlight, true);
     assert.equal(c.liveCheck, false);
     assert.equal(a.helpRung, 0);
     assert.equal(c.english, false);
     assert.deepEqual(layerPrefsFromDifficulty("core"), {
+      english: false,
+      liveCheck: false,
+      choiceHighlight: false,
+    });
+    assert.deepEqual(DEFAULT_SUPPORT_LAYERS, {
       english: false,
       liveCheck: false,
       choiceHighlight: false,

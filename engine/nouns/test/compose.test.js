@@ -15,6 +15,7 @@ import {
   categoryArticleItems,
   categoryValidationItems,
   getCategoryArticleItem,
+  getCategoryValidationItem,
   validateComposition,
   wrongGenderArticle,
   resetCategoryPracticePools,
@@ -24,7 +25,12 @@ import {
   clearComposeDiscards,
   resolveContextRestrictions,
   getGenderCategory,
+  LEXICON,
 } from "../index.js";
+import {
+  createNounCategoryArticleApplicationExercise,
+  createNounCategorySentenceValidationExercise,
+} from "../../exercise/index.js";
 
 describe("article tables (nom/acc, def/indef)", () => {
   it("definite nominative", () => {
@@ -117,17 +123,22 @@ describe("practice composer", () => {
       composeArticleItem("weekdays", "Montag", "es_gibt_acc_indef"),
       null
     );
-    // Weekdays remain definite-only (still compose-eligible).
-    const weekday = composeArticleItem("weekdays", "Montag", "wo_ist_def");
+    // Weekdays: location denied; provisional das_ist_def remains.
+    assert.equal(
+      composeArticleItem("weekdays", "Montag", "wo_ist_def"),
+      null
+    );
+    const weekday = composeArticleItem("weekdays", "Montag", "das_ist_def");
     assert.ok(weekday);
     assert.equal(weekday.correct, "der");
     assert.equal(weekday.articleKind, "definite");
   });
 
   it("composes Wo ist der …", () => {
-    const item = composeArticleItem("seasons", "Herbst", "wo_ist_def");
+    // Seasons deny location; rivers still allow definite location frames.
+    const item = composeArticleItem("rivers", "Elbe", "wo_ist_def");
     assert.ok(item);
-    assert.equal(item.correct, "der");
+    assert.equal(item.correct, "die");
     assert.equal(item.before, "Wo ist ");
   });
 
@@ -304,16 +315,81 @@ describe("context compatibility / naturalness gate", () => {
     },
   ]);
 
-  /** Suitable definite-identification / location frames must remain allowed. */
+  /** Suitable definite-identification frames that remain allowed after Phase B. */
   const MUST_ALLOW = Object.freeze([
     { categoryId: "weather", lemma: "Regen", contextId: "das_ist_def", article: "der" },
-    { categoryId: "weather", lemma: "Regen", contextId: "wo_ist_def", article: "der" },
-    { categoryId: "weather", lemma: "Wind", contextId: "hier_ist_def", article: "der" },
     { categoryId: "metals", lemma: "Gold", contextId: "das_ist_def", article: "das" },
     { categoryId: "rivers", lemma: "Elbe", contextId: "das_ist_def", article: "die" },
+    { categoryId: "rivers", lemma: "Elbe", contextId: "wo_ist_def", article: "die" },
+    { categoryId: "rivers", lemma: "Elbe", contextId: "hier_ist_def", article: "die" },
     { categoryId: "occupations", lemma: "Arzt", contextId: "das_ist_indef", article: "ein" },
+    { categoryId: "occupations", lemma: "Arzt", contextId: "wo_ist_def", article: "der" },
     { categoryId: "seasons", lemma: "Frühling", contextId: "das_ist_def", article: "der" },
-    { categoryId: "seasons", lemma: "Frühling", contextId: "wo_ist_def", article: "der" },
+    { categoryId: "weekdays", lemma: "Montag", contextId: "das_ist_def", article: "der" },
+    { categoryId: "directions", lemma: "Norden", contextId: "das_ist_def", article: "der" },
+    { categoryId: "directions", lemma: "Norden", contextId: "wo_ist_def", article: "der" },
+    { categoryId: "flowers", lemma: "Rose", contextId: "das_ist_indef", article: "eine" },
+    { categoryId: "flowers", lemma: "Rose", contextId: "wo_ist_def", article: "die" },
+    { categoryId: "venues", lemma: "Hotel", contextId: "das_ist_indef", article: "ein" },
+    { categoryId: "venues", lemma: "Hotel", contextId: "wo_ist_def", article: "das" },
+  ]);
+
+  /** Phase B — location / indefinite denies (exercise-generation suitability). */
+  const PHASE_B_DENY = Object.freeze([
+    {
+      categoryId: "weekdays",
+      lemma: "Montag",
+      contextId: "wo_ist_def",
+      reason: CONTEXT_FAILURE.CONTEXT_DENIED,
+    },
+    {
+      categoryId: "weekdays",
+      lemma: "Montag",
+      contextId: "hier_ist_def",
+      reason: CONTEXT_FAILURE.CONTEXT_DENIED,
+    },
+    {
+      categoryId: "seasons",
+      lemma: "Frühling",
+      contextId: "wo_ist_def",
+      reason: CONTEXT_FAILURE.CONTEXT_DENIED,
+    },
+    {
+      categoryId: "seasons",
+      lemma: "Frühling",
+      contextId: "hier_ist_def",
+      reason: CONTEXT_FAILURE.CONTEXT_DENIED,
+    },
+    {
+      categoryId: "weather",
+      lemma: "Regen",
+      contextId: "wo_ist_def",
+      reason: CONTEXT_FAILURE.CONTEXT_DENIED,
+    },
+    {
+      categoryId: "weather",
+      lemma: "Regen",
+      contextId: "hier_ist_def",
+      reason: CONTEXT_FAILURE.CONTEXT_DENIED,
+    },
+    {
+      categoryId: "metals",
+      lemma: "Gold",
+      contextId: "wo_ist_def",
+      reason: CONTEXT_FAILURE.CONTEXT_DENIED,
+    },
+    {
+      categoryId: "metals",
+      lemma: "Gold",
+      contextId: "hier_ist_def",
+      reason: CONTEXT_FAILURE.CONTEXT_DENIED,
+    },
+    {
+      categoryId: "directions",
+      lemma: "Norden",
+      contextId: "das_ist_indef",
+      reason: CONTEXT_FAILURE.ARTICLE_KIND,
+    },
   ]);
 
   it("resolves category-level articleKinds for weather", () => {
@@ -340,6 +416,28 @@ describe("context compatibility / naturalness gate", () => {
       );
       assert.equal(pair.ok, null);
       assert.equal(pair.bad, null);
+    }
+  });
+
+  it("Phase B: denies approved location / indefinite frames via compose path", () => {
+    for (const fix of PHASE_B_DENY) {
+      const ctx = PRACTICE_CONTEXTS.find((c) => c.id === fix.contextId);
+      assert.ok(ctx, fix.contextId);
+      const gate = assessContextCompatibility(fix.categoryId, fix.lemma, ctx);
+      assert.equal(gate.ok, false, `${fix.lemma}/${fix.contextId}`);
+      assert.equal(gate.reason, fix.reason, `${fix.lemma}/${fix.contextId}`);
+      assert.equal(
+        composeArticleItem(fix.categoryId, fix.lemma, fix.contextId),
+        null,
+        `composeArticleItem ${fix.lemma}/${fix.contextId}`
+      );
+      const pair = composeValidationPair(
+        fix.categoryId,
+        fix.lemma,
+        fix.contextId
+      );
+      assert.equal(pair.ok, null, `validation ok ${fix.lemma}/${fix.contextId}`);
+      assert.equal(pair.bad, null, `validation bad ${fix.lemma}/${fix.contextId}`);
     }
   });
 
@@ -434,6 +532,72 @@ describe("context compatibility / naturalness gate", () => {
     assert.equal(last.action, "discarded");
   });
 
+  it("Phase B: live pools drop denied location frames; keep provisional IDs", () => {
+    resetCategoryPracticePools();
+    const arts = categoryArticleItems();
+    const vals = categoryValidationItems();
+
+    assert.ok(
+      !arts.some((x) => x.lemma === "Montag" && x.contextId === "wo_ist_def")
+    );
+    assert.ok(
+      !arts.some((x) => x.lemma === "Montag" && x.contextId === "hier_ist_def")
+    );
+    assert.ok(
+      arts.some((x) => x.lemma === "Montag" && x.contextId === "das_ist_def")
+    );
+    assert.ok(
+      !vals.some((x) => /Wo ist der Montag/.test(x.sentence || ""))
+    );
+
+    for (const lemma of ["Frühling", "Regen", "Gold"]) {
+      assert.ok(
+        !arts.some((x) => x.lemma === lemma && x.contextId === "wo_ist_def"),
+        lemma
+      );
+      assert.ok(
+        !arts.some((x) => x.lemma === lemma && x.contextId === "hier_ist_def"),
+        lemma
+      );
+      assert.ok(
+        arts.some((x) => x.lemma === lemma && x.contextId === "das_ist_def"),
+        lemma
+      );
+    }
+
+    assert.ok(
+      !arts.some(
+        (x) => x.lemma === "Norden" && x.contextId === "das_ist_indef"
+      )
+    );
+    assert.ok(
+      !vals.some((x) => /Das ist ein Norden/.test(x.sentence || ""))
+    );
+    assert.ok(
+      arts.some((x) => x.lemma === "Norden" && x.contextId === "das_ist_def")
+    );
+    assert.ok(
+      arts.some((x) => x.lemma === "Norden" && x.contextId === "wo_ist_def")
+    );
+
+    // Rivers / flowers / venues / occupations unchanged for these frames.
+    assert.ok(
+      arts.some((x) => x.lemma === "Elbe" && x.contextId === "wo_ist_def")
+    );
+    assert.ok(
+      !arts.some((x) => x.lemma === "Elbe" && x.contextId === "das_ist_indef")
+    );
+    assert.ok(
+      arts.some((x) => x.lemma === "Rose" && x.contextId === "das_ist_indef")
+    );
+    assert.ok(
+      arts.some((x) => x.lemma === "Hotel" && x.contextId === "wo_ist_def")
+    );
+    assert.ok(
+      arts.some((x) => x.lemma === "Arzt" && x.contextId === "wo_ist_def")
+    );
+  });
+
   it("discards Frühling indefinite identification with deterministic reason", () => {
     clearComposeDiscards();
     assert.equal(
@@ -456,5 +620,344 @@ describe("context compatibility / naturalness gate", () => {
     // Occupations have no denyVerbFrames — haben remains allowed at the data layer.
     const gate = assessContextCompatibility("occupations", "Arzt", ctx);
     assert.equal(gate.ok, true);
+  });
+});
+
+describe("Phase C — approved Phase B compose-path matrix", () => {
+  const LIVE = Object.freeze(
+    eligiblePracticeContexts({
+      concepts: CATEGORIES_PRACTICE_CONCEPTS,
+    }).map((c) => c.id)
+  );
+
+  function assertDenied(categoryId, lemma, contextId, reason) {
+    const ctx = PRACTICE_CONTEXTS.find((c) => c.id === contextId);
+    assert.ok(ctx, contextId);
+    const gate = assessContextCompatibility(categoryId, lemma, ctx);
+    assert.equal(gate.ok, false, `${lemma}/${contextId} gate`);
+    assert.equal(gate.reason, reason, `${lemma}/${contextId} reason`);
+    assert.equal(composeArticleItem(categoryId, lemma, contextId), null);
+    const pair = composeValidationPair(categoryId, lemma, contextId);
+    assert.equal(pair.ok, null);
+    assert.equal(pair.bad, null);
+  }
+
+  function assertAllowed(categoryId, lemma, contextId, article) {
+    const item = composeArticleItem(categoryId, lemma, contextId);
+    assert.ok(item, `${lemma}/${contextId}`);
+    assert.equal(item.correct, article);
+    const pair = composeValidationPair(categoryId, lemma, contextId);
+    assert.ok(pair.ok, `${lemma}/${contextId} validation ok`);
+    assert.ok(pair.bad, `${lemma}/${contextId} validation bad`);
+  }
+
+  it("exposes only the four live nominative frames (no calendar frames)", () => {
+    assert.deepEqual(LIVE, [
+      "wo_ist_def",
+      "hier_ist_def",
+      "das_ist_indef",
+      "das_ist_def",
+    ]);
+    assert.equal(
+      PRACTICE_CONTEXTS.some((c) =>
+        /kalender|naechste|sequence|month_im|weekday_/.test(c.id)
+      ),
+      false
+    );
+  });
+
+  it("Montag: reject location; keep provisional das_ist_def", () => {
+    assertDenied(
+      "weekdays",
+      "Montag",
+      "wo_ist_def",
+      CONTEXT_FAILURE.CONTEXT_DENIED
+    );
+    assertDenied(
+      "weekdays",
+      "Montag",
+      "hier_ist_def",
+      CONTEXT_FAILURE.CONTEXT_DENIED
+    );
+    assertAllowed("weekdays", "Montag", "das_ist_def", "der");
+  });
+
+  it("April and Januar: compose-ineligible on every live frame", () => {
+    for (const lemma of ["April", "Januar"]) {
+      for (const contextId of LIVE) {
+        assertDenied(
+          "months",
+          lemma,
+          contextId,
+          CONTEXT_FAILURE.COMPOSE_INELIGIBLE
+        );
+      }
+    }
+  });
+
+  it("Frühling: reject location; keep das_ist_def; indefinite still article-kind blocked", () => {
+    assertDenied(
+      "seasons",
+      "Frühling",
+      "wo_ist_def",
+      CONTEXT_FAILURE.CONTEXT_DENIED
+    );
+    assertDenied(
+      "seasons",
+      "Frühling",
+      "hier_ist_def",
+      CONTEXT_FAILURE.CONTEXT_DENIED
+    );
+    assertAllowed("seasons", "Frühling", "das_ist_def", "der");
+    assertDenied(
+      "seasons",
+      "Frühling",
+      "das_ist_indef",
+      CONTEXT_FAILURE.ARTICLE_KIND
+    );
+  });
+
+  it("Norden: reject indefinite; other live frames remain", () => {
+    assertDenied(
+      "directions",
+      "Norden",
+      "das_ist_indef",
+      CONTEXT_FAILURE.ARTICLE_KIND
+    );
+    assertAllowed("directions", "Norden", "wo_ist_def", "der");
+    assertAllowed("directions", "Norden", "hier_ist_def", "der");
+    assertAllowed("directions", "Norden", "das_ist_def", "der");
+  });
+
+  it("Regen and Gold: reject location; keep das_ist_def", () => {
+    for (const [categoryId, lemma, article] of [
+      ["weather", "Regen", "der"],
+      ["metals", "Gold", "das"],
+    ]) {
+      assertDenied(
+        categoryId,
+        lemma,
+        "wo_ist_def",
+        CONTEXT_FAILURE.CONTEXT_DENIED
+      );
+      assertDenied(
+        categoryId,
+        lemma,
+        "hier_ist_def",
+        CONTEXT_FAILURE.CONTEXT_DENIED
+      );
+      assertAllowed(categoryId, lemma, "das_ist_def", article);
+    }
+  });
+
+  it("Elbe: definite location/ID remain; indefinite blocked", () => {
+    assertAllowed("rivers", "Elbe", "wo_ist_def", "die");
+    assertAllowed("rivers", "Elbe", "hier_ist_def", "die");
+    assertAllowed("rivers", "Elbe", "das_ist_def", "die");
+    assertDenied(
+      "rivers",
+      "Elbe",
+      "das_ist_indef",
+      CONTEXT_FAILURE.ARTICLE_KIND
+    );
+  });
+
+  it("Arzt location frames unchanged; Rose/Hotel retain both article kinds", () => {
+    assertAllowed("occupations", "Arzt", "wo_ist_def", "der");
+    assertAllowed("occupations", "Arzt", "hier_ist_def", "der");
+    assertAllowed("occupations", "Arzt", "das_ist_indef", "ein");
+    assertAllowed("flowers", "Rose", "das_ist_indef", "eine");
+    assertAllowed("flowers", "Rose", "das_ist_def", "die");
+    assertAllowed("flowers", "Rose", "wo_ist_def", "die");
+    assertAllowed("venues", "Hotel", "das_ist_indef", "ein");
+    assertAllowed("venues", "Hotel", "das_ist_def", "das");
+    assertAllowed("venues", "Hotel", "wo_ist_def", "das");
+  });
+
+  it("live pools contain no items that violate Phase B gates", () => {
+    resetCategoryPracticePools();
+    const arts = categoryArticleItems();
+    const vals = categoryValidationItems();
+    const locDenyCats = new Set(["weekdays", "seasons", "weather", "metals"]);
+
+    for (const x of arts) {
+      if (
+        locDenyCats.has(x.categoryId) &&
+        (x.contextId === "wo_ist_def" || x.contextId === "hier_ist_def")
+      ) {
+        assert.fail(`pool art ${x.lemma}/${x.contextId}`);
+      }
+      if (x.categoryId === "directions" && x.contextId === "das_ist_indef") {
+        assert.fail(`pool art ${x.lemma}/das_ist_indef`);
+      }
+      if (x.categoryId === "months") {
+        assert.fail(`pool art month ${x.lemma}`);
+      }
+    }
+    for (const x of vals) {
+      if (x.categoryId === "months") {
+        assert.fail(`pool val month ${x.lemma}`);
+      }
+      if (
+        x.categoryId === "directions" &&
+        /^Das ist ein /.test(x.sentence || "")
+      ) {
+        assert.fail(`pool val ${x.sentence}`);
+      }
+      if (
+        locDenyCats.has(x.categoryId) &&
+        (/^Wo ist /.test(x.sentence || "") ||
+          /^Hier ist /.test(x.sentence || ""))
+      ) {
+        assert.fail(`pool val location ${x.sentence}`);
+      }
+    }
+
+    assert.ok(
+      arts.some((x) => x.lemma === "Montag" && x.contextId === "das_ist_def")
+    );
+    assert.ok(
+      arts.some((x) => x.lemma === "Arzt" && x.contextId === "wo_ist_def")
+    );
+    assert.ok(
+      arts.some((x) => x.lemma === "Rose" && x.contextId === "das_ist_indef")
+    );
+    assert.ok(
+      arts.some((x) => x.lemma === "Hotel" && x.contextId === "das_ist_indef")
+    );
+    assert.ok(
+      vals.some((x) => x.lemma === "Elbe" && /^Wo ist die Elbe/.test(x.sentence))
+    );
+    assert.ok(
+      vals.some(
+        (x) => x.lemma === "Regen" && /^Das ist der Regen/.test(x.sentence)
+      )
+    );
+  });
+
+  it("preserves gender facts for representative lemmas (Phase B scope)", () => {
+    const expected = {
+      Montag: "masculine",
+      April: "masculine",
+      Januar: "masculine",
+      Frühling: "masculine",
+      Norden: "masculine",
+      Nordosten: "masculine",
+      Südosten: "masculine",
+      Südwesten: "masculine",
+      Nordwesten: "masculine",
+      Regen: "masculine",
+
+      Gold: "neuter",
+      Elbe: "feminine",
+      Arzt: "masculine",
+      Rose: "feminine",
+      Hotel: "neuter",
+    };
+    for (const [lemma, gender] of Object.entries(expected)) {
+      assert.equal(LEXICON[lemma].gender, gender, lemma);
+    }
+  });
+
+  it("reported session prompts: denied location frames absent from live pools + factories", () => {
+    resetCategoryPracticePools();
+    const reported = [
+      {
+        categoryId: "weekdays",
+        lemma: "Dienstag",
+        contextId: "hier_ist_def",
+        artId: "gen.art.hier_ist_def.Dienstag",
+        valOk: "gen.val.hier_ist_def.Dienstag.ok",
+        valBad: "gen.val.hier_ist_def.Dienstag.bad",
+        surfaceRe: /Hier ist (die|der|das) Dienstag/,
+      },
+      {
+        categoryId: "weekdays",
+        lemma: "Sonntag",
+        contextId: "hier_ist_def",
+        artId: "gen.art.hier_ist_def.Sonntag",
+        valOk: "gen.val.hier_ist_def.Sonntag.ok",
+        valBad: "gen.val.hier_ist_def.Sonntag.bad",
+        surfaceRe: /Hier ist /,
+      },
+      {
+        categoryId: "weather",
+        lemma: "Sturm",
+        contextId: "hier_ist_def",
+        artId: "gen.art.hier_ist_def.Sturm",
+        valOk: "gen.val.hier_ist_def.Sturm.ok",
+        valBad: "gen.val.hier_ist_def.Sturm.bad",
+        surfaceRe: /Hier ist /,
+      },
+      {
+        categoryId: "metals",
+        lemma: "Kupfer",
+        contextId: "hier_ist_def",
+        artId: "gen.art.hier_ist_def.Kupfer",
+        valOk: "gen.val.hier_ist_def.Kupfer.ok",
+        valBad: "gen.val.hier_ist_def.Kupfer.bad",
+        surfaceRe: /Hier ist /,
+      },
+      {
+        categoryId: "seasons",
+        lemma: "Frühling",
+        contextId: "wo_ist_def",
+        artId: "gen.art.wo_ist_def.Frühling",
+        valOk: "gen.val.wo_ist_def.Frühling.ok",
+        valBad: "gen.val.wo_ist_def.Frühling.bad",
+        surfaceRe: /Wo ist /,
+      },
+    ];
+
+    const arts = categoryArticleItems();
+    const vals = categoryValidationItems();
+    const artIds = new Set(arts.map((x) => x.id));
+    const valIds = new Set(vals.map((x) => x.id));
+
+    for (const r of reported) {
+      assertDenied(
+        r.categoryId,
+        r.lemma,
+        r.contextId,
+        CONTEXT_FAILURE.CONTEXT_DENIED
+      );
+      assert.equal(artIds.has(r.artId), false, r.artId);
+      assert.equal(valIds.has(r.valOk), false, r.valOk);
+      assert.equal(valIds.has(r.valBad), false, r.valBad);
+      assert.equal(getCategoryArticleItem(r.artId), null, `lookup ${r.artId}`);
+      assert.equal(
+        getCategoryValidationItem(r.valOk),
+        null,
+        `lookup ${r.valOk}`
+      );
+      assert.throws(
+        () => createNounCategoryArticleApplicationExercise(r.artId),
+        /unknown/
+      );
+      assert.throws(
+        () => createNounCategorySentenceValidationExercise(r.valOk),
+        /unknown/
+      );
+      assert.throws(
+        () => createNounCategorySentenceValidationExercise(r.valBad),
+        /unknown/
+      );
+      assert.ok(
+        !vals.some(
+          (x) =>
+            x.lemma === r.lemma &&
+            x.contextId === r.contextId &&
+            r.surfaceRe.test(x.sentence || "")
+        ),
+        `surface ${r.lemma}/${r.contextId}`
+      );
+    }
+
+    // Permitted counterparts remain for the same lemmas where approved.
+    assert.ok(artIds.has("gen.art.das_ist_def.Dienstag"));
+    assert.ok(artIds.has("gen.art.das_ist_def.Sonntag"));
+    assert.ok(artIds.has("gen.art.das_ist_def.Sturm"));
+    assert.ok(artIds.has("gen.art.das_ist_def.Kupfer"));
+    assert.ok(artIds.has("gen.art.das_ist_def.Frühling"));
   });
 });

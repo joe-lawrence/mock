@@ -100,7 +100,8 @@ export const FORMAT_HINT_LADDERS = Object.freeze({
   },
   [STIMULUS.VALUE]: {
     question: HELP_LADDER_RUNGS,
-    answer: [],
+    // English cue (gloss / pattern note) when the prompt has one.
+    answer: ["english"],
   },
   [STIMULUS.TTS]: {
     question: HELP_LADDER_RUNGS,
@@ -112,7 +113,9 @@ export const FORMAT_HINT_LADDERS = Object.freeze({
   },
   [STIMULUS.PROOFREAD_FRAME]: {
     question: HELP_LADDER_RUNGS,
-    answer: ["liveCheck"],
+    // Freeform Fix-the-spelling: live check. Binary Right/Wrong also uses this
+    // stimulus — liveCheck is a no-op there (no typing shell).
+    answer: ["liveCheck", "english"],
   },
   [STIMULUS.SENTENCE]: {
     question: HELP_LADDER_RUNGS,
@@ -333,8 +336,15 @@ export function helpRungDepth(rungId) {
   return i >= 0 ? i + 1 : 0;
 }
 
-/** Default layer seed when session prefs are unset (Hints chips override). */
+/** Default layer seed when session prefs are unset — Independent (no assist). */
 export const DEFAULT_SUPPORT_LAYERS = Object.freeze({
+  english: false,
+  liveCheck: false,
+  choiceHighlight: false,
+});
+
+/** Full scaffolding template (launch difficulty=assisted / More help). */
+export const ASSISTED_SUPPORT_LAYERS = Object.freeze({
   english: true,
   liveCheck: true,
   choiceHighlight: true,
@@ -348,15 +358,13 @@ export const DEFAULT_SUPPORT_LAYERS = Object.freeze({
 export function supportPresetForDifficulty(difficulty) {
   if (difficulty === "core") {
     return {
-      english: false,
-      liveCheck: false,
-      choiceHighlight: false,
+      ...DEFAULT_SUPPORT_LAYERS,
       helpRung: 0,
       helpRungsOpened: [],
     };
   }
   return {
-    ...DEFAULT_SUPPORT_LAYERS,
+    ...ASSISTED_SUPPORT_LAYERS,
     helpRung: 0,
     helpRungsOpened: [],
   };
@@ -366,7 +374,7 @@ export function supportPresetForDifficulty(difficulty) {
  * Layer prefs object from a named template (no Help climb fields).
  * @param {"assisted"|"core"|string} [difficulty]
  */
-export function layerPrefsFromDifficulty(difficulty = "assisted") {
+export function layerPrefsFromDifficulty(difficulty = "core") {
   const base = supportPresetForDifficulty(difficulty);
   return {
     english: !!base.english,

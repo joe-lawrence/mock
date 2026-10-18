@@ -341,6 +341,8 @@ export function createNounCategorySentenceValidationExercise(itemId, opts = {}) 
       categoryName: truth.categoryName,
       lemma: truth.lemma,
       sentence: truth.sentence,
+      correctArticle: truth.correctArticle,
+      correctSentence: truth.correctSentence || truth.sentence,
       feedbackOk: truth.correct
         ? `Correct — the article matches ${truth.categoryName} → ${truth.choiceLabel.toLowerCase()}.`
         : `Correct — the article does not match ${truth.categoryName} → ${truth.choiceLabel.toLowerCase()}.`,

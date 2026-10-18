@@ -2528,6 +2528,25 @@ button.syl:disabled,
   vertical-align: baseline;
 }
 
+.answer-reveal-de .answer-lemma.art-color-masc,
+.answer-reveal-de .answer-lemma.art-color-fem,
+.answer-reveal-de .answer-lemma.art-color-neut {
+  /* Whole noun (stem + ending) carries gender color with the article. */
+  color: inherit;
+}
+
+.answer-reveal-de .answer-lemma.art-color-masc {
+  color: var(--masc-ink);
+}
+
+.answer-reveal-de .answer-lemma.art-color-fem {
+  color: var(--fem-ink);
+}
+
+.answer-reveal-de .answer-lemma.art-color-neut {
+  color: var(--neut-ink);
+}
+
 .answer-reveal-de .answer-lemma .answer-stem,
 .answer-reveal-de .answer-lemma .answer-suf {
   font-weight: inherit;
@@ -2537,6 +2556,7 @@ button.syl:disabled,
   padding: 0;
   border-radius: 0;
   text-decoration: none;
+  color: inherit;
 }
 
 .answer-reveal-phonetic {
@@ -2550,6 +2570,23 @@ button.syl:disabled,
   line-height: 1.45;
   hyphens: auto;
   -webkit-hyphens: auto;
+}
+
+.answer-reveal-phonetic.is-replayable {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 0.15rem 0.2rem;
+  margin-left: -0.2rem;
+  margin-right: -0.2rem;
+}
+
+.answer-reveal-phonetic.is-replayable:hover {
+  background: var(--signal-soft);
+}
+
+.answer-reveal-phonetic.is-replayable:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
 }
 
 .answer-reveal-phonetic.is-unavailable {
@@ -2658,6 +2695,27 @@ button.syl:disabled,
 .actions-nav.is-assist-open .assist-stepper,
 .actions-nav.is-assist-open .btn-icon[id$="-difficulty"] {
   pointer-events: auto;
+}
+
+/* Assist speedometer glow: Independent / Some help / More help */
+.btn-icon[id$="-difficulty"].assist-glow-independent {
+  color: var(--bad);
+  filter: drop-shadow(0 0 0.45rem color-mix(in srgb, var(--bad) 70%, transparent));
+}
+
+.btn-icon[id$="-difficulty"].assist-glow-some {
+  color: #c9a227;
+  filter: drop-shadow(0 0 0.45rem color-mix(in srgb, #c9a227 65%, transparent));
+}
+
+.btn-icon[id$="-difficulty"].assist-glow-more {
+  color: var(--ok);
+  filter: drop-shadow(0 0 0.45rem color-mix(in srgb, var(--ok) 70%, transparent));
+}
+
+html[data-theme="dark"] .btn-icon[id$="-difficulty"].assist-glow-some {
+  color: var(--de-gold);
+  filter: drop-shadow(0 0 0.5rem color-mix(in srgb, var(--de-gold) 55%, transparent));
 }
 
 .assist-stepper {
@@ -3549,6 +3607,10 @@ html[data-theme="dark"] .quiz-visual-svg {
 
 .quiz-clock-svg .clock-hand {
   color: var(--clock-hand);
+}
+
+.quiz-compass-svg .compass-needle {
+  color: var(--accent, #2563eb);
 }
 
 .slot.is-given {

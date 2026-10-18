@@ -114,6 +114,14 @@ export const NOUNS_TOPICS = [
         modes: ["proofread"],
         blurb: "Is the article in this sentence correct for the category?",
       },
+      {
+        id: "cardinal-directions",
+        label: "Cardinal directions",
+        playable: true,
+        modes: ["choose"],
+        blurb:
+          "Compass graphic → name the German direction (incl. compounds).",
+      },
     ],
   },
   {

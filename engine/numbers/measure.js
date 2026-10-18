@@ -95,13 +95,30 @@ export function measureAnalysis(value, unit) {
   const abbr = UNIT_ABBR[unit] || unit;
   const written = `${value} ${abbr}`;
 
-  /** @type {readonly { form: string, parts: readonly string[], reason: string }[]} */
-  const alternates =
-    unit === "Stundenkilometer"
-      ? Object.freeze([
-          speedProStundeAlternate(value, numParts, numSpoken),
-        ])
-      : Object.freeze([]);
+  /** @type {{ form: string, parts: readonly string[], reason: string }[]} */
+  const altList = [];
+  if (unit === "Stundenkilometer") {
+    altList.push(speedProStundeAlternate(value, numParts, numSpoken));
+  }
+  // Spoken Kilo ↔ Kilogramm are both fine for kg amounts.
+  if (unit === "Kilo") {
+    altList.push(
+      Object.freeze({
+        form: `${numSpoken} Kilogramm`,
+        parts: Object.freeze([...numParts, "Kilogramm"]),
+        reason: "measure.alt.kilogramm",
+      })
+    );
+  } else if (unit === "Kilogramm") {
+    altList.push(
+      Object.freeze({
+        form: `${numSpoken} Kilo`,
+        parts: Object.freeze([...numParts, "Kilo"]),
+        reason: "measure.alt.kilo",
+      })
+    );
+  }
+  const alternates = Object.freeze(altList);
 
   return {
     value,

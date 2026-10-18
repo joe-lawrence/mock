@@ -580,6 +580,10 @@ export const LEXICON = Object.freeze({
   Süden: Object.freeze({ gender: "masculine", gloss: "south" }),
   Osten: Object.freeze({ gender: "masculine", gloss: "east" }),
   Westen: Object.freeze({ gender: "masculine", gloss: "west" }),
+  Nordosten: Object.freeze({ gender: "masculine", gloss: "northeast" }),
+  Südosten: Object.freeze({ gender: "masculine", gloss: "southeast" }),
+  Südwesten: Object.freeze({ gender: "masculine", gloss: "southwest" }),
+  Nordwesten: Object.freeze({ gender: "masculine", gloss: "northwest" }),
 
   // —— Weather (m) ——
   Regen: Object.freeze({ gender: "masculine", gloss: "rain" }),
