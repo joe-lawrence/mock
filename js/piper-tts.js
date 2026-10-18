@@ -81,17 +81,121 @@ const voiceCache = new Map();
 /** @type {Map<string, Promise<void>>} */
 const voiceLoadPromises = new Map();
 
+/** Minimal silent WAV to prime HTMLMediaElement on iOS. */
+const SILENT_WAV =
+  "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==";
+
 /** @type {(() => (AudioContext | null)) | null} */
 let audioCtxProvider = null;
+/**
+ * Dedicated context for Piper (created synchronously inside a user gesture).
+ * On iOS, a near-silent keep-alive oscillator holds it "running" across the
+ * long model-load / inference gap so BufferSource playback still works.
+ */
+/** @type {AudioContext | null} */
+let piperAudioCtx = null;
+/** @type {OscillatorNode | null} */
+let keepAliveOsc = null;
+/** @type {GainNode | null} */
+let keepAliveGain = null;
 /** @type {HTMLAudioElement | null} */
 let playAudioEl = null;
-/** True after a gesture successfully resumed the shared AudioContext. */
-let audioUnlocked = false;
+let audioCtxUnlocked = false;
+let htmlMediaUnlocked = false;
+/** @type {Promise<boolean> | null} */
+let htmlUnlockInFlight = null;
 /** @type {AudioBufferSourceNode | null} */
 let currentSource = null;
 /** @type {string | null} */
 let currentObjectUrl = null;
 let speakGen = 0;
+
+/** iPhone / iPod / iPad (incl. iPadOS desktop UA). */
+function isIOSAudio() {
+  const ua = navigator.userAgent || "";
+  if (/iPhone|iPad|iPod/i.test(ua)) return true;
+  return (
+    navigator.platform === "MacIntel" &&
+    typeof navigator.maxTouchPoints === "number" &&
+    navigator.maxTouchPoints > 1
+  );
+}
+
+function ensurePlayAudioEl() {
+  if (playAudioEl) return playAudioEl;
+  const el = new Audio();
+  el.preload = "auto";
+  el.setAttribute("playsinline", "");
+  el.setAttribute("webkit-playsinline", "");
+  el.playsInline = true;
+  el.muted = false;
+  el.volume = 1;
+  el.style.display = "none";
+  try {
+    document.body?.appendChild(el);
+  } catch {
+    /* ignore */
+  }
+  playAudioEl = el;
+  return el;
+}
+
+/** Create Piper AudioContext synchronously (must run inside a user gesture). */
+function ensurePiperAudioCtx() {
+  if (piperAudioCtx && piperAudioCtx.state !== "closed") return piperAudioCtx;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  try {
+    piperAudioCtx = new AC();
+  } catch (err) {
+    console.warn("[piper] AudioContext create failed", err);
+    return null;
+  }
+  return piperAudioCtx;
+}
+
+function startKeepAlive(ctx) {
+  if (!ctx || keepAliveOsc) return;
+  try {
+    const osc = ctx.createOscillator();
+    osc.frequency.value = 40;
+    const gain = ctx.createGain();
+    // ~-62 dBFS — keeps the context audibly "active" on iOS without hearing it.
+    gain.gain.value = 0.0008;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    keepAliveOsc = osc;
+    keepAliveGain = gain;
+    console.info("[piper] audio keep-alive on, ctx=", ctx.state);
+  } catch (err) {
+    console.warn("[piper] keep-alive failed", err);
+  }
+}
+
+function stopKeepAlive() {
+  if (keepAliveOsc) {
+    try {
+      keepAliveOsc.stop();
+    } catch {
+      /* ignore */
+    }
+    try {
+      keepAliveOsc.disconnect();
+    } catch {
+      /* ignore */
+    }
+    keepAliveOsc = null;
+  }
+  if (keepAliveGain) {
+    try {
+      keepAliveGain.disconnect();
+    } catch {
+      /* ignore */
+    }
+    keepAliveGain = null;
+  }
+}
 
 /** @type {{ wav: ArrayBuffer, pcm: Float32Array, sampleRate: number, opts: object, gen: number } | null} */
 let pending = null;
@@ -179,6 +283,8 @@ function userGestureActive() {
 }
 
 function getAudioCtx() {
+  // Prefer the gesture-created Piper context (critical on iOS).
+  if (piperAudioCtx && piperAudioCtx.state !== "closed") return piperAudioCtx;
   try {
     return audioCtxProvider?.() || null;
   } catch {
@@ -235,7 +341,8 @@ function releasePlayback() {
     try {
       playAudioEl.onended = null;
       playAudioEl.onerror = null;
-      playAudioEl.pause();
+      // On iOS, pause() after a gesture unlock can forfeit later play() rights.
+      if (!isIOSAudio()) playAudioEl.pause();
     } catch {
       /* ignore */
     }
@@ -254,49 +361,89 @@ export function stopPiperAudio() {
   speakGen += 1;
   pending = null;
   releasePlayback();
+  // Keep keep-alive on iOS so the next demo still has a running context.
+  if (!isIOSAudio()) stopKeepAlive();
 }
 
 /**
- * Gesture-only unlock via the shared AudioContext (silent buffer kick).
- * Avoids HTMLMediaElement.play() races that surface as AbortError when
- * switching voices quickly.
+ * Unlock HTMLAudio on a user gesture (iOS requires this for later blob play).
+ */
+function unlockHtmlMedia() {
+  if (htmlMediaUnlocked) return Promise.resolve(true);
+  if (htmlUnlockInFlight) return htmlUnlockInFlight;
+
+  const el = ensurePlayAudioEl();
+  el.src = SILENT_WAV;
+
+  htmlUnlockInFlight = el
+    .play()
+    .then(() => {
+      htmlMediaUnlocked = true;
+      return true;
+    })
+    .catch((err) => {
+      if (err?.name !== "AbortError") {
+        console.warn("[piper] HTML unlock failed", err);
+      }
+      return htmlMediaUnlocked;
+    })
+    .finally(() => {
+      htmlUnlockInFlight = null;
+    });
+
+  return htmlUnlockInFlight;
+}
+
+/**
+ * Gesture unlock — must create/resume AudioContext synchronously in the
+ * tap handler, then start keep-alive so iOS does not suspend during WASM.
  */
 export function unlockPiperAudio() {
   if (!userGestureActive()) {
-    if (audioUnlocked) flushPending();
-    return Promise.resolve(audioUnlocked);
+    if (audioCtxUnlocked || htmlMediaUnlocked) flushPending();
+    return Promise.resolve(audioCtxUnlocked || htmlMediaUnlocked);
   }
 
-  const ctx = getAudioCtx();
-  if (!ctx) return Promise.resolve(false);
-
-  if (!playAudioEl) {
-    playAudioEl = new Audio();
-    playAudioEl.preload = "auto";
+  // Synchronous create inside the gesture (do not await first).
+  const ctx = ensurePiperAudioCtx();
+  // Also warm the shared SFX context when provided.
+  try {
+    audioCtxProvider?.();
+  } catch {
+    /* ignore */
   }
+  ensurePlayAudioEl();
 
-  const kickSilent = () => {
-    try {
-      const buf = ctx.createBuffer(1, 1, ctx.sampleRate || 22050);
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.connect(ctx.destination);
-      src.start(0);
-    } catch {
-      /* ignore */
-    }
-    audioUnlocked = ctx.state === "running";
-    if (audioUnlocked) flushPending();
-    return audioUnlocked;
+  const armCtx = () => {
+    if (!ctx) return false;
+    startKeepAlive(ctx);
+    audioCtxUnlocked = ctx.state === "running";
+    console.info("[piper] unlock ctx=", ctx.state, "ios=", isIOSAudio());
+    return audioCtxUnlocked;
   };
 
-  if (ctx.state === "suspended") {
-    return ctx.resume().then(
-      () => kickSilent(),
-      () => false
-    );
-  }
-  return Promise.resolve(kickSilent());
+  const htmlPrime =
+    isIOSAudio() || !ctx
+      ? unlockHtmlMedia()
+      : Promise.resolve(htmlMediaUnlocked);
+
+  const ctxPrime = !ctx
+    ? Promise.resolve(false)
+    : ctx.state === "suspended"
+      ? ctx.resume().then(
+          () => armCtx(),
+          () => false
+        )
+      : Promise.resolve(armCtx());
+
+  // Start keep-alive immediately even before resume resolves (best effort).
+  if (ctx && ctx.state === "running") armCtx();
+
+  return Promise.all([htmlPrime, ctxPrime]).then(([h, c]) => {
+    const ok = !!(h || c || audioCtxUnlocked || htmlMediaUnlocked);
+    if (ok) flushPending();
+    return ok;
+  });
 }
 
 function flushPending() {
@@ -518,7 +665,9 @@ export async function synthesizeGerman(text, opts = {}) {
 }
 
 async function playViaHtmlAudio(wav, opts, gen) {
-  if (!playAudioEl || !audioUnlocked) return false;
+  // iOS: need a prior gesture unlock on this element. Desktop may still work.
+  if (!htmlMediaUnlocked && isIOSAudio()) return false;
+  const el = ensurePlayAudioEl();
   releasePlayback();
 
   const url = URL.createObjectURL(new Blob([wav], { type: "audio/wav" }));
@@ -526,7 +675,6 @@ async function playViaHtmlAudio(wav, opts, gen) {
   let started = false;
 
   await new Promise((resolve, reject) => {
-    const el = playAudioEl;
     const cleanup = () => {
       el.onended = null;
       el.onerror = null;
@@ -555,10 +703,10 @@ async function playViaHtmlAudio(wav, opts, gen) {
     el.play().then(
       () => {
         started = true;
+        console.info("[piper] HTMLAudio start");
       },
       (err) => {
         cleanup();
-        // Overlapping load/pause — soft-fail so WebAudio can try.
         if (err?.name === "AbortError") resolve();
         else reject(err);
       }
@@ -568,20 +716,34 @@ async function playViaHtmlAudio(wav, opts, gen) {
 }
 
 async function playViaWebAudio(wav, pcm, sampleRate, opts, gen) {
+  // Never create AudioContext here — iOS would leave a post-gesture ctx suspended.
   const ctx = getAudioCtx();
   if (!ctx) return false;
   if (ctx.state === "suspended") {
-    if (!userGestureActive()) return false;
     try {
       await ctx.resume();
     } catch {
-      return false;
+      /* ignore */
     }
   }
-  if (ctx.state !== "running") return false;
+  // Keep-alive should already hold running on iOS; re-arm if needed.
+  if (ctx.state === "running") startKeepAlive(ctx);
+  if (ctx.state !== "running") {
+    console.warn("[piper] WebAudio ctx not running:", ctx.state);
+    return false;
+  }
   if (gen !== speakGen) return false;
 
-  releasePlayback();
+  // Stop prior BufferSource only — do not kill keep-alive or HTML unlock.
+  if (currentSource) {
+    try {
+      currentSource.onended = null;
+      currentSource.stop();
+    } catch {
+      /* ignore */
+    }
+    currentSource = null;
+  }
 
   let buffer;
   try {
@@ -613,7 +775,12 @@ async function playViaWebAudio(wav, pcm, sampleRate, opts, gen) {
       resolve();
     };
     try {
-      console.info("[piper] WebAudio start", buffer.duration.toFixed(2), "s");
+      console.info(
+        "[piper] WebAudio start",
+        buffer.duration.toFixed(2),
+        "s ctx=",
+        ctx.state
+      );
       source.start(0);
     } catch (err) {
       console.error("Piper WebAudio start failed", err);
@@ -631,33 +798,36 @@ async function playSynthesized(wav, pcm, sampleRate, opts, gen) {
   }
 
   const ctx = getAudioCtx();
-  if (ctx?.state === "running") {
+  console.info(
+    "[piper] play routes ios=",
+    isIOSAudio(),
+    "ctx=",
+    ctx?.state,
+    "htmlUnlocked=",
+    htmlMediaUnlocked,
+    "keepalive=",
+    !!keepAliveOsc
+  );
+
+  // With keep-alive, WebAudio stays usable on iOS after long WASM work.
+  const order = ["webaudio", "html"];
+
+  for (const how of order) {
+    if (gen !== speakGen) return;
     try {
-      if (await playViaWebAudio(wav, pcm, sampleRate, opts, gen)) return;
+      if (how === "html") {
+        if (await playViaHtmlAudio(wav, opts, gen)) return;
+      } else if (await playViaWebAudio(wav, pcm, sampleRate, opts, gen)) {
+        return;
+      }
     } catch (err) {
-      console.warn("Piper WebAudio play failed", err);
+      console.warn(`[piper] ${how} play failed`, err);
     }
-  }
-
-  if (gen !== speakGen) return;
-
-  try {
-    if (await playViaHtmlAudio(wav, opts, gen)) return;
-  } catch (err) {
-    console.warn("Piper HTML play failed", err);
-  }
-
-  if (gen !== speakGen) return;
-
-  try {
-    if (await playViaWebAudio(wav, pcm, sampleRate, opts, gen)) return;
-  } catch (err) {
-    console.warn("Piper WebAudio play failed", err);
   }
 
   pending = { wav, pcm, sampleRate, opts, gen };
   console.info(
-    "[piper] audio queued — tap anywhere once, then you should hear speech"
+    "[piper] audio queued — tap once more to hear speech (iOS autoplay)"
   );
 }
 

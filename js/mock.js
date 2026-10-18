@@ -118,7 +118,7 @@ import {
   speakGermanPiper,
   stopPiperAudio,
   unlockPiperAudio,
-} from "./piper-tts.js?v=20261018-piper9";
+} from "./piper-tts.js?v=20261018-piper11";
 
 import {
   buildSoundsChart,
@@ -13014,13 +13014,24 @@ function initTtsVoices() {
   const onUnlock = () => {
     void unlockPiperAudio();
   };
+  // touchstart fires earlier than click on iOS and still counts as a gesture.
+  document.addEventListener("touchstart", onUnlock, {
+    capture: true,
+    passive: true,
+  });
   document.addEventListener("pointerdown", onUnlock, true);
   document.addEventListener("keydown", onUnlock, true);
   const warmOnce = () => {
     document.removeEventListener("pointerdown", warmOnce, true);
+    document.removeEventListener("touchstart", warmOnce, true);
     console.info("[piper] first gesture — warming voice");
+    void unlockPiperAudio();
     void warmPiperVoice();
   };
+  document.addEventListener("touchstart", warmOnce, {
+    capture: true,
+    passive: true,
+  });
   document.addEventListener("pointerdown", warmOnce, true);
 }
 
