@@ -543,19 +543,59 @@ export function ensurePiperReady(onProgress) {
   return ensurePiperVoice(readPiperVoicePref(), onProgress);
 }
 
+function flattenPhonemes(phonemes) {
+  const out = [];
+  const walk = (x) => {
+    if (typeof x === "string") out.push(x);
+    else if (Array.isArray(x)) x.forEach(walk);
+  };
+  walk(phonemes);
+  return out;
+}
+
+function lookupPhonemeIds(phone, phonemeIdMap) {
+  if (!phone) return null;
+  if (phonemeIdMap[phone]) return phonemeIdMap[phone];
+  // Older "low" voices lack some combining marks — try base letter.
+  try {
+    const base = phone.normalize("NFD").replace(/\p{M}/gu, "");
+    if (base && phonemeIdMap[base]) return phonemeIdMap[base];
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
 /**
- * Adapt phonemizer `phoneme_ids` to a voice's embedding table.
- *
- * Piper's phonemize output already intersperses pad ids (`_`) — required by
- * the VITS models. Remapping from `phonemes` strings without re-inserting
- * pads makes speech ~half-coherent. So we keep `phoneme_ids` as-is when
- * possible, and only drop ids missing from older "low" voices (max 129).
+ * Rebuild padded id sequence from phoneme symbols (Piper C++ interspersePad).
+ * Used when the phonemizer's raw ids include symbols outside an older voice's map.
+ */
+function phonemesToPaddedIds(phonemes, phonemeIdMap) {
+  const pad = phonemeIdMap["_"] || [0];
+  const bos = phonemeIdMap["^"] || [1];
+  const eos = phonemeIdMap["$"] || [2];
+  const phones = flattenPhonemes(phonemes).filter(
+    (p) => p !== "^" && p !== "$" && p !== "_"
+  );
+  const ids = [];
+  ids.push(...bos, ...pad);
+  for (const p of phones) {
+    const mapped = lookupPhonemeIds(p, phonemeIdMap);
+    if (!mapped) continue;
+    ids.push(...mapped, ...pad);
+  }
+  ids.push(...eos);
+  return ids;
+}
+
+/**
+ * Adapt phonemizer output to a voice's embedding table.
+ * Full-vocab voices keep raw `phoneme_ids` (already pad-interleaved).
+ * Older low voices rebuild from `phonemes` with correct padding when needed.
  */
 function adaptPhonemeIds(result, phonemeIdMap) {
   const raw = Array.isArray(result?.phoneme_ids) ? result.phoneme_ids : [];
-  if (!raw.length || !phonemeIdMap || !Object.keys(phonemeIdMap).length) {
-    return raw;
-  }
+  if (!phonemeIdMap || !Object.keys(phonemeIdMap).length) return raw;
 
   const valid = new Set();
   for (const arr of Object.values(phonemeIdMap)) {
@@ -563,10 +603,15 @@ function adaptPhonemeIds(result, phonemeIdMap) {
   }
 
   // Full-vocab voices (e.g. thorsten_emotional): unchanged.
-  if (raw.every((id) => valid.has(id))) return raw;
+  if (raw.length && raw.every((id) => valid.has(id))) return raw;
 
-  // Older voices: strip unsupported symbols (extra diacritics / digit phones)
-  // but preserve pad interleaving around the kept ids.
+  // Prefer a proper rebuild from symbols (keeps pad cadence; maps base phones).
+  if (result?.phonemes != null) {
+    const rebuilt = phonemesToPaddedIds(result.phonemes, phonemeIdMap);
+    if (rebuilt.length > 2) return rebuilt;
+  }
+
+  // Last resort: drop unsupported ids from the interleaved stream.
   return raw.filter((id) => valid.has(id));
 }
 
@@ -623,9 +668,12 @@ export async function synthesizeGerman(text, opts = {}) {
   if (!packed) throw new Error(`Voice not loaded: ${voiceId}`);
 
   const { session, config } = packed;
-  const trimmed = String(text || "").trim();
+  const trimmed = String(text || "")
+    .normalize("NFC")
+    .trim();
   if (!trimmed) throw new Error("No text to synthesize");
 
+  // rate 1 = model default (ordinary pace). <1 slower, >1 faster.
   const rate = Math.max(0.5, Math.min(1.4, opts.rate ?? 1));
   const baseLen = config.inference.length_scale ?? 1;
   const lengthScale = baseLen / rate;

@@ -118,7 +118,7 @@ import {
   speakGermanPiper,
   stopPiperAudio,
   unlockPiperAudio,
-} from "./piper-tts.js?v=20261018-piper12";
+} from "./piper-tts.js?v=20261018-piper13";
 
 import {
   buildSoundsChart,
@@ -4778,7 +4778,7 @@ function playAnswerKey(spoken, parts, nodes, onDone) {
     });
     return;
   }
-  speakGerman(spoken, 0.9, () => onDone?.());
+  speakGerman(spoken, 1, () => onDone?.());
 }
 
 /** @deprecated alias — play only; no navigation */
@@ -6068,7 +6068,7 @@ function playSylChip(node, text, lang = "de-DE") {
   node.classList.add("is-active");
   withUtterance(text, {
     lang,
-    rate: 0.85,
+    rate: 1,
     onEnd: () => {
       state.karaokeTimer = setTimeout(() => {
         node.classList.remove("is-active");
@@ -12863,7 +12863,7 @@ function playGermanVoiceDemo() {
   // Prefer WebAudio (already unlocked on the click that selected the voice).
   void unlockPiperAudio();
   stopSpeech({ keepAdvance: true });
-  withGermanUtterance(TTS_DEMO_DE, { rate: 0.95 });
+  withGermanUtterance(TTS_DEMO_DE, { rate: 1 });
 }
 
 function syncTtsVoiceMenu() {
@@ -12884,7 +12884,7 @@ function syncTtsVoiceMenu() {
       "Piper voice failed to load. Check mock/vendor/piper/voices/.";
   } else {
     note.textContent =
-      "Piper voices (self-hosted). Switch freely — useful later for dialog.";
+      "Piper · rate 1.0. Thorsten (medium) is clearest; Kerstin/Ramona/Karlsson/Pavoque are 16 kHz “low” models.";
   }
   root.appendChild(note);
 
@@ -13041,7 +13041,7 @@ function initTtsVoices() {
  */
 function withEnglishUtterance(
   text,
-  { rate = 0.9, onStart, onEnd, onError } = {}
+  { rate = 1, onStart, onEnd, onError } = {}
 ) {
   if (!window.speechSynthesis) {
     onError?.();
@@ -13072,7 +13072,7 @@ function withEnglishUtterance(
  */
 function withUtterance(
   text,
-  { rate = 0.9, lang = "de-DE", onStart, onEnd, onError } = {}
+  { rate = 1, lang = "de-DE", onStart, onEnd, onError } = {}
 ) {
   const gen = ttsSpeakGen;
   if (!String(lang || "").toLowerCase().startsWith("de")) {
@@ -13134,7 +13134,7 @@ function withGermanUtterance(text, opts = {}) {
   return withUtterance(text, { ...opts, lang: "de-DE" });
 }
 
-function speakGerman(text, rate = 0.9, onEnd) {
+function speakGerman(text, rate = 1, onEnd) {
   if (!navCaps().audio) {
     if (typeof onEnd === "function") queueMicrotask(onEnd);
     return;
@@ -14087,7 +14087,7 @@ function playKaraokeFlow(tts, syllables, nodes, opts = {}) {
     return;
   }
 
-  const rate = 0.7;
+  const rate = 1;
   const weights = syllables.map((s) =>
     Math.max(2, (s.text || "").length + (s.stress ? 1 : 0))
   );
