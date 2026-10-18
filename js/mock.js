@@ -104,6 +104,21 @@ import {
   WEAK_ACCURACY,
   DEALER_REASONS,
 } from "../engine/dealer.js?v=20261018-s08s";
+import {
+  PIPER_VOICES,
+  ensurePiperReady,
+  ensurePiperVoice,
+  isPiperReady,
+  isPiperVoiceCached,
+  readPiperSpeakerPref,
+  readPiperVoicePref,
+  setPiperSpeakerPref,
+  setPiperVoicePref,
+  setPiperAudioContextProvider,
+  speakGermanPiper,
+  stopPiperAudio,
+  unlockPiperAudio,
+} from "./piper-tts.js?v=20261018-piper9";
 
 import {
   buildSoundsChart,
@@ -362,9 +377,22 @@ function syncSfxMenu(on = readSfxEnabled()) {
 function getFeedbackAudio() {
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return null;
-  if (!feedbackAudioCtx) feedbackAudioCtx = new AC();
+  if (!feedbackAudioCtx) {
+    try {
+      feedbackAudioCtx = new AC();
+    } catch {
+      return null;
+    }
+  }
   if (feedbackAudioCtx.state === "suspended") {
-    feedbackAudioCtx.resume().catch(() => {});
+    // resume() only succeeds inside a user gesture; ignore failures otherwise.
+    try {
+      if (!navigator.userActivation || navigator.userActivation.isActive) {
+        feedbackAudioCtx.resume().catch(() => {});
+      }
+    } catch {
+      feedbackAudioCtx.resume().catch(() => {});
+    }
   }
   return feedbackAudioCtx;
 }
@@ -4731,8 +4759,7 @@ const NO_TTS_REVEAL_ADVANCE_MS = 1400;
  * @param {() => void} [onDone]
  */
 function playAnswerKey(spoken, parts, nodes, onDone) {
-  const canSpeak =
-    !!spoken && !!window.speechSynthesis && navCaps().audio;
+  const canSpeak = !!spoken && navCaps().audio;
   if (!canSpeak) {
     onDone?.();
     return;
@@ -12801,36 +12828,15 @@ function checkNounsPlurals() {
 
 /** Bumped on cancel so deferred speak() calls from a prior turn are dropped. */
 let ttsSpeakGen = 0;
-let ttsSpeakTimer = null;
-
-/** iOS/iPadOS Safari clips utterance onsets if speak() follows cancel() too quickly. */
-function isAppleTouchTTS() {
-  const ua = navigator.userAgent || "";
-  if (/iPhone|iPad|iPod/i.test(ua)) return true;
-  // iPadOS 13+ can report as Mac; treat touch Macs as Apple mobile TTS.
-  return (
-    navigator.platform === "MacIntel" &&
-    typeof navigator.maxTouchPoints === "number" &&
-    navigator.maxTouchPoints > 1
-  );
-}
 
 function stopSpeech({ keepAdvance = false } = {}) {
   ttsSpeakGen += 1;
-  if (ttsSpeakTimer) {
-    clearTimeout(ttsSpeakTimer);
-    ttsSpeakTimer = null;
-  }
+  stopPiperAudio();
   if (window.speechSynthesis) {
-    window.speechSynthesis.cancel();
-    // Chrome can stick in paused/speaking-true after cancel; resume() can
-    // re-clip the next onset on iOS — skip it there.
-    if (!isAppleTouchTTS()) {
-      try {
-        window.speechSynthesis.resume();
-      } catch (_) {
-        /* ignore */
-      }
+    try {
+      window.speechSynthesis.cancel();
+    } catch (_) {
+      /* ignore */
     }
   }
   if (state.karaokeTimer) {
@@ -12845,316 +12851,272 @@ function stopSpeech({ keepAdvance = false } = {}) {
   if (!keepAdvance) clearSoundsAdvance();
 }
 
-/* —— German TTS voice preference (device-local) —— */
+/* —— German TTS via self-hosted Piper (multi-voice) —— */
 
-const TTS_VOICE_KEY = "schnapp-tts-voice";
 const TTS_DEMO_DE = "Guten Tag. Eins, zwei, drei.";
-/** @type {SpeechSynthesisVoice[]} */
-let ttsVoiceCache = [];
-
-/** @returns {string|null} voiceURI, or null for Automatic */
-function readGermanTtsVoicePref() {
-  try {
-    const v = localStorage.getItem(TTS_VOICE_KEY);
-    if (v == null || v === "" || v === "auto") return null;
-    return v;
-  } catch (_) {
-    return null;
-  }
-}
-
-/** @param {string|null} voiceURI null/auto clears to Automatic */
-function setGermanTtsVoicePref(voiceURI) {
-  try {
-    if (!voiceURI || voiceURI === "auto") {
-      localStorage.removeItem(TTS_VOICE_KEY);
-    } else {
-      localStorage.setItem(TTS_VOICE_KEY, voiceURI);
-    }
-  } catch (_) {
-    /* ignore */
-  }
-  syncTtsVoiceMenu();
-}
-
-function refreshTtsVoiceCache() {
-  if (!window.speechSynthesis) {
-    ttsVoiceCache = [];
-    return ttsVoiceCache;
-  }
-  ttsVoiceCache = window.speechSynthesis.getVoices() || [];
-  return ttsVoiceCache;
-}
-
-/** Known Apple German speaker names (lang tag is sometimes missing/odd). */
-const DE_VOICE_NAME_RE =
-  /\b(anna|markus|petra|viktor|helena|yannick|reed|martin|steffi|klaus|siri)\b/i;
-
-function isGermanVoice(v) {
-  const lang = (v.lang || "").toLowerCase().replace(/_/g, "-");
-  if (lang === "de" || lang.startsWith("de-") || lang.startsWith("de_")) {
-    return true;
-  }
-  // Three-letter / odd tags seen on some engines
-  if (lang.startsWith("deu") || lang.startsWith("ger")) return true;
-  return DE_VOICE_NAME_RE.test(v.name || "");
-}
-
-function listGermanVoices() {
-  const all = ttsVoiceCache.length
-    ? ttsVoiceCache
-    : refreshTtsVoiceCache();
-  return all.filter(isGermanVoice);
-}
-
-/** Quality score for auto-pick (Enhanced > named OS > Google > compact). */
-function scoreGermanVoice(v) {
-  const name = v.name || "";
-  let score = 0;
-  if (/enhanced/i.test(name)) score += 100;
-  if (/premium/i.test(name)) score += 70;
-  if (/compact/i.test(name)) score -= 25;
-  if (/google/i.test(name)) score += 45;
-  if (/microsoft|desktop/i.test(name)) score -= 35;
-  if (/anna|markus|petra|viktor|helena|yannick|siri/i.test(name)) score += 12;
-  if (/^de-DE/i.test(v.lang || "")) score += 6;
-  else if (/^de-AT|^de-CH/i.test(v.lang || "")) score += 3;
-  if (v.localService) score += 4;
-  return score;
-}
-
-function rankGermanVoices(voices = listGermanVoices()) {
-  return voices
-    .slice()
-    .sort(
-      (a, b) =>
-        scoreGermanVoice(b) - scoreGermanVoice(a) ||
-        (a.name || "").localeCompare(b.name || "")
-    );
-}
-
-function resolveGermanVoice() {
-  const de = listGermanVoices();
-  if (!de.length) return null;
-  const pref = readGermanTtsVoicePref();
-  if (pref) {
-    const match =
-      de.find((v) => v.voiceURI === pref) ||
-      de.find((v) => v.name === pref);
-    if (match) return match;
-  }
-  return rankGermanVoices(de)[0] || null;
-}
-
-function assignGermanVoice(utterance) {
-  if (!ttsVoiceCache.length) refreshTtsVoiceCache();
-  const preferred = resolveGermanVoice();
-  if (preferred) utterance.voice = preferred;
-}
+/** @type {"idle"|"loading"|"ready"|"error"} */
+let piperLoadState = "idle";
+let piperLoadError = "";
 
 function playGermanVoiceDemo() {
-  if (!window.speechSynthesis) return;
+  if (!navCaps().audio) return;
+  // Prefer WebAudio (already unlocked on the click that selected the voice).
+  void unlockPiperAudio();
   stopSpeech({ keepAdvance: true });
-  withUtterance(TTS_DEMO_DE, { rate: 0.95, lang: "de-DE" });
-}
-
-function voiceMenuLabel(v) {
-  const name = v.name || v.voiceURI || "German";
-  const lang = (v.lang || "").trim();
-  return lang ? `${name} · ${lang}` : name;
+  withGermanUtterance(TTS_DEMO_DE, { rate: 0.95 });
 }
 
 function syncTtsVoiceMenu() {
   const root = document.getElementById("tts-voice-menu");
   if (!root) return;
-  refreshTtsVoiceCache();
-  const all = ttsVoiceCache;
-  const de = rankGermanVoices(listGermanVoices());
-  const pref = readGermanTtsVoicePref();
-  const autoOn = !pref;
+  const voicePref = readPiperVoicePref();
+  const moodPref = readPiperSpeakerPref();
+  const active = PIPER_VOICES.find((v) => v.id === voicePref) || PIPER_VOICES[0];
   root.innerHTML = "";
 
-  const addRadio = (value, label, on) => {
+  const note = document.createElement("p");
+  note.className = "menu-voice-empty";
+  if (piperLoadState === "loading") {
+    note.textContent = `Loading ${active.label} (first time may take a moment)…`;
+  } else if (piperLoadState === "error") {
+    note.textContent =
+      piperLoadError ||
+      "Piper voice failed to load. Check mock/vendor/piper/voices/.";
+  } else {
+    note.textContent =
+      "Piper voices (self-hosted). Switch freely — useful later for dialog.";
+  }
+  root.appendChild(note);
+
+  const voiceLabel = document.createElement("p");
+  voiceLabel.className = "menu-group-label";
+  voiceLabel.textContent = "Speaker";
+  root.appendChild(voiceLabel);
+
+  const addVoiceRadio = (voice) => {
+    const on = voicePref === voice.id;
+    const cached = isPiperVoiceCached(voice.id);
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "menu-check";
     btn.setAttribute("role", "menuitemradio");
     btn.setAttribute("aria-checked", String(on));
-    btn.dataset.ttsVoice = value;
+    btn.dataset.ttsVoice = `voice:${voice.id}`;
     btn.innerHTML =
       `<span class="menu-check-mark" aria-hidden="true">${on ? "✓" : ""}</span>` +
       `<span class="menu-check-label"></span>`;
-    btn.querySelector(".menu-check-label").textContent = label;
+    btn.querySelector(".menu-check-label").textContent = voice.label;
+    if (!cached) btn.title = "Not loaded yet — first play downloads into memory";
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      setGermanTtsVoicePref(value === "auto" ? null : value);
-      playGermanVoiceDemo();
+      void unlockPiperAudio();
+      setPiperVoicePref(voice.id);
+      syncTtsVoiceMenu();
+      void selectAndDemoVoice(voice.id);
     });
     root.appendChild(btn);
   };
 
-  addRadio("auto", "Automatic (best available)", autoOn);
+  for (const v of PIPER_VOICES) addVoiceRadio(v);
 
-  if (!de.length) {
-    const empty = document.createElement("p");
-    empty.className = "menu-voice-empty";
-    empty.textContent =
-      "Safari has not exposed any German voices yet. On iPhone: Settings → Accessibility → Spoken Content → Voices → German → download a voice, then tap Refresh below. (Enhanced/Premium and your Accessibility “default” are often hidden from web apps.)";
-    root.appendChild(empty);
-  } else {
-    for (const v of de) {
-      const on = !!pref && (pref === v.voiceURI || pref === v.name);
-      addRadio(v.voiceURI || v.name, voiceMenuLabel(v), on);
-    }
-  }
+  if (active.moods?.length) {
+    const moodLabel = document.createElement("p");
+    moodLabel.className = "menu-group-label";
+    moodLabel.textContent = "Thorsten mood";
+    root.appendChild(moodLabel);
 
-  const note = document.createElement("p");
-  note.className = "menu-voice-empty";
-  note.textContent = de.length
-    ? `Safari exposed ${de.length} German voice${de.length === 1 ? "" : "s"} (${all.length} total). Missing Markus/Enhanced? iOS often withholds those from web pages — Schnapp can only use voices listed here, not the Accessibility default.`
-    : `Safari exposed ${all.length} voice${all.length === 1 ? "" : "s"} total (none tagged German).`;
-  root.appendChild(note);
-
-  const refreshBtn = document.createElement("button");
-  refreshBtn.type = "button";
-  refreshBtn.className = "menu-check";
-  refreshBtn.setAttribute("role", "menuitem");
-  refreshBtn.innerHTML =
-    `<span class="menu-check-mark" aria-hidden="true"></span>` +
-    `<span class="menu-check-label">Refresh voice list</span>`;
-  refreshBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    refreshTtsVoiceCache();
-    // Nudge WebKit; voiceschanged often fires after a speak/cancel cycle on iOS.
-    try {
-      const u = new SpeechSynthesisUtterance(" ");
-      u.volume = 0;
-      u.rate = 2;
-      u.lang = "de-DE";
-      const done = () => {
-        refreshTtsVoiceCache();
+    for (const s of active.moods) {
+      const on = moodPref === s.key;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "menu-check";
+      btn.setAttribute("role", "menuitemradio");
+      btn.setAttribute("aria-checked", String(on));
+      btn.dataset.ttsVoice = `mood:${s.key}`;
+      btn.innerHTML =
+        `<span class="menu-check-mark" aria-hidden="true">${on ? "✓" : ""}</span>` +
+        `<span class="menu-check-label"></span>`;
+      btn.querySelector(".menu-check-label").textContent = s.label;
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setPiperSpeakerPref(s.key);
         syncTtsVoiceMenu();
-      };
-      u.onend = done;
-      u.onerror = done;
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(u);
-      setTimeout(done, 600);
-    } catch (_) {
-      syncTtsVoiceMenu();
+        playGermanVoiceDemo();
+      });
+      root.appendChild(btn);
     }
-  });
-  root.appendChild(refreshBtn);
-}
-
-/** Warm voice list at startup; refresh again on first tap (iOS often needs it). */
-function initTtsVoices() {
-  if (!window.speechSynthesis) return;
-  const refresh = () => {
-    refreshTtsVoiceCache();
-    syncTtsVoiceMenu();
-  };
-  refresh();
-  if (typeof window.speechSynthesis.addEventListener === "function") {
-    window.speechSynthesis.addEventListener("voiceschanged", refresh);
-  } else {
-    window.speechSynthesis.onvoiceschanged = refresh;
   }
-  const onGesture = () => {
-    refresh();
-    document.removeEventListener("pointerdown", onGesture, true);
-  };
-  document.addEventListener("pointerdown", onGesture, true);
+
+  const warmBtn = document.createElement("button");
+  warmBtn.type = "button";
+  warmBtn.className = "menu-check";
+  warmBtn.setAttribute("role", "menuitem");
+  warmBtn.dataset.ttsVoice = "__warmup__";
+  warmBtn.innerHTML =
+    `<span class="menu-check-mark" aria-hidden="true"></span>` +
+    `<span class="menu-check-label">${
+      isPiperReady(voicePref) ? "Replay demo" : "Warm up voice"
+    }</span>`;
+  warmBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    void unlockPiperAudio();
+    void selectAndDemoVoice(voicePref);
+  });
+  root.appendChild(warmBtn);
 }
 
-function assignEnglishVoice(utterance) {
-  const voices = window.speechSynthesis.getVoices();
-  const enList = voices.filter((v) => v.lang.toLowerCase().startsWith("en"));
-  const en =
-    enList.find((v) => /google/i.test(v.name) && /en-us/i.test(v.lang)) ||
-    enList.find((v) => /en-us/i.test(v.lang)) ||
-    enList.find((v) => /google/i.test(v.name)) ||
-    enList[0];
-  if (en) utterance.voice = en;
+async function selectAndDemoVoice(voiceId) {
+  const id = voiceId || readPiperVoicePref();
+  piperLoadState = "loading";
+  piperLoadError = "";
+  syncTtsVoiceMenu();
+  try {
+    await ensurePiperVoice(id);
+    piperLoadState = "ready";
+    syncTtsVoiceMenu();
+    playGermanVoiceDemo();
+  } catch (err) {
+    piperLoadState = "error";
+    piperLoadError = err?.message || String(err);
+    console.error("Piper TTS init failed", err);
+    syncTtsVoiceMenu();
+  }
+}
+
+async function warmPiperVoice() {
+  const id = readPiperVoicePref();
+  if (isPiperReady(id)) {
+    piperLoadState = "ready";
+    syncTtsVoiceMenu();
+    return;
+  }
+  piperLoadState = "loading";
+  piperLoadError = "";
+  syncTtsVoiceMenu();
+  try {
+    await ensurePiperVoice(id);
+    piperLoadState = "ready";
+  } catch (err) {
+    piperLoadState = "error";
+    piperLoadError = err?.message || String(err);
+    console.error("Piper TTS init failed", err);
+  }
+  syncTtsVoiceMenu();
 }
 
 /**
- * Queue speak after cancel has fully settled. Desktop needs ~120ms; Apple
- * WebKit often still clips the first phoneme unless we wait for idle + ~300ms.
+ * Share the SFX AudioContext with Piper. Unlock HTML/WebAudio on every
+ * gesture; prefetch the voice on first pointerdown.
  */
-function scheduleSpeak(speakFn, gen) {
-  if (ttsSpeakTimer) clearTimeout(ttsSpeakTimer);
-
-  const apple = isAppleTouchTTS();
-  const settleMs = apple ? 300 : 120;
-  const started = performance.now();
-
-  const run = () => {
-    ttsSpeakTimer = null;
-    if (gen !== ttsSpeakGen) return;
-
-    const synth = window.speechSynthesis;
-    const busy = synth.speaking || synth.pending;
-    // Wait out a lingering cancel on WebKit (cap so we never hang).
-    if (busy && performance.now() - started < 600) {
-      ttsSpeakTimer = setTimeout(run, 40);
-      return;
-    }
-
-    const kick = () => {
-      if (gen !== ttsSpeakGen) return;
-      if (synth.getVoices().length) speakFn();
-      else
-        synth.addEventListener("voiceschanged", speakFn, {
-          once: true,
-        });
-    };
-
-    ttsSpeakTimer = setTimeout(() => {
-      ttsSpeakTimer = null;
-      kick();
-    }, settleMs);
+function initTtsVoices() {
+  setPiperAudioContextProvider(() => getFeedbackAudio());
+  syncTtsVoiceMenu();
+  const onUnlock = () => {
+    void unlockPiperAudio();
   };
-
-  // Yield one frame so cancel() can apply before we poll speaking/pending.
-  ttsSpeakTimer = setTimeout(run, apple ? 32 : 0);
+  document.addEventListener("pointerdown", onUnlock, true);
+  document.addEventListener("keydown", onUnlock, true);
+  const warmOnce = () => {
+    document.removeEventListener("pointerdown", warmOnce, true);
+    console.info("[piper] first gesture — warming voice");
+    void warmPiperVoice();
+  };
+  document.addEventListener("pointerdown", warmOnce, true);
 }
 
-function withUtterance(
+/**
+ * English-only fallback via device speechSynthesis (guide chips).
+ * German always goes through Piper.
+ */
+function withEnglishUtterance(
   text,
-  { rate = 0.9, lang = "de-DE", onStart, onEnd, onError } = {}
+  { rate = 0.9, onStart, onEnd, onError } = {}
 ) {
   if (!window.speechSynthesis) {
-    openSheet(
-      "Audio",
-      "<p>TTS unavailable on this device — visual reps still work.</p>"
-    );
+    onError?.();
     return null;
   }
   const u = new SpeechSynthesisUtterance(text);
-  u.lang = lang;
+  u.lang = "en-US";
   u.rate = rate;
   if (onStart) u.onstart = onStart;
   if (onEnd) u.onend = onEnd;
   if (onError) u.onerror = onError;
+  try {
+    const voices = window.speechSynthesis.getVoices() || [];
+    const en =
+      voices.find((v) => /en-us/i.test(v.lang || "")) ||
+      voices.find((v) => /^en/i.test(v.lang || ""));
+    if (en) u.voice = en;
+  } catch (_) {
+    /* ignore */
+  }
+  window.speechSynthesis.speak(u);
+  return u;
+}
 
+/**
+ * Speak text. German → Piper; English → speechSynthesis.
+ * onStart may receive `{ durationMs }` when Piper reports audio length.
+ */
+function withUtterance(
+  text,
+  { rate = 0.9, lang = "de-DE", onStart, onEnd, onError } = {}
+) {
   const gen = ttsSpeakGen;
-  const speak = () => {
+  if (!String(lang || "").toLowerCase().startsWith("de")) {
+    return withEnglishUtterance(text, { rate, onStart, onEnd, onError });
+  }
+
+  // Unlock only while we may still be inside the click (never after await).
+  void unlockPiperAudio();
+
+  const run = async () => {
     if (gen !== ttsSpeakGen) return;
-    if (lang.toLowerCase().startsWith("de")) assignGermanVoice(u);
-    else assignEnglishVoice(u);
-    if (!isAppleTouchTTS()) {
+    if (!isPiperReady()) {
+      piperLoadState = "loading";
+      syncTtsVoiceMenu();
       try {
-        window.speechSynthesis.resume();
-      } catch (_) {
-        /* ignore */
+        await ensurePiperReady();
+        piperLoadState = "ready";
+        syncTtsVoiceMenu();
+      } catch (err) {
+        piperLoadState = "error";
+        piperLoadError = err?.message || String(err);
+        console.error("Piper TTS init failed", err);
+        syncTtsVoiceMenu();
+        openSheet(
+          "Audio",
+          `<p>Piper German voice failed to load — visual reps still work.</p><p class="menu-voice-empty">${String(
+            piperLoadError
+          )
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")}</p>`
+        );
+        onError?.(err);
+        return;
       }
     }
-    window.speechSynthesis.speak(u);
+    if (gen !== ttsSpeakGen) return;
+    await speakGermanPiper(text, {
+      rate,
+      onStart: (info) => {
+        if (gen !== ttsSpeakGen) return;
+        onStart?.(info);
+      },
+      onEnd: () => {
+        if (gen !== ttsSpeakGen) return;
+        onEnd?.();
+      },
+      onError: (err) => {
+        if (gen !== ttsSpeakGen) return;
+        console.error("Piper playback error", err);
+        onError?.(err);
+      },
+    });
   };
-
-  scheduleSpeak(speak, gen);
-  return u;
+  void run();
+  return null;
 }
 
 function withGermanUtterance(text, opts = {}) {
@@ -13166,6 +13128,7 @@ function speakGerman(text, rate = 0.9, onEnd) {
     if (typeof onEnd === "function") queueMicrotask(onEnd);
     return;
   }
+  void unlockPiperAudio();
   stopSpeech({ keepAdvance: true });
   withUtterance(text, { rate, lang: "de-DE", onEnd });
 }
@@ -14155,9 +14118,13 @@ function playKaraokeFlow(tts, syllables, nodes, opts = {}) {
 
   withGermanUtterance(tts, {
     rate,
-    onStart: () => {
+    onStart: (info) => {
       startedAt = performance.now();
-      schedule(estimated);
+      const durationMs =
+        info && typeof info.durationMs === "number" && info.durationMs > 0
+          ? info.durationMs
+          : estimated;
+      schedule(durationMs);
     },
     onEnd: () => {
       const actual = Math.max(300, performance.now() - startedAt);
@@ -14217,8 +14184,11 @@ function closeAllMenus() {
 function openMenuPanel(panel, btn) {
   closeAllMenus();
   if (panel.id === "brand-menu-panel") {
-    refreshTtsVoiceCache();
+    void unlockPiperAudio();
     syncTtsVoiceMenu();
+    if (!isPiperReady() && piperLoadState !== "loading") {
+      void warmPiperVoice();
+    }
   }
   panel.hidden = false;
   btn.setAttribute("aria-expanded", "true");
