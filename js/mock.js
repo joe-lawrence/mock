@@ -103,7 +103,7 @@ import {
   dealExercise,
   WEAK_ACCURACY,
   DEALER_REASONS,
-} from "../engine/dealer.js?v=20261018-s06b";
+} from "../engine/dealer.js?v=20261018-s08s";
 
 import {
   buildSoundsChart,
@@ -120,17 +120,24 @@ import {
   buildHelpModel,
   renderHelpSheetHtml,
   wireHelpSheet,
-} from "./help-sheet.js?v=20261018-s08j";
+} from "./help-sheet.js?v=20261018-s08s";
 import {
   freshSupportVector,
   climbHelpRung,
   supportSnapshot,
   hintDepthFromVector,
   applySupportPrefs,
-  setSupportLayer,
-  supportPresetForDifficulty,
-  toggleableLayersForFormats,
-} from "./hint-ladders.js?v=20261018-s08j";
+  layerPrefsFromDifficulty,
+  assistLayersForFormats,
+  assistPresetFromVector,
+  assistPresetSteps,
+  assistPresetLabel,
+  layersForAssistPreset,
+} from "./hint-ladders.js?v=20261018-s08s";
+import {
+  FELT_DIFFICULTY,
+  FELT_DIFFICULTY_STEPS,
+} from "./guidance-contracts.js?v=20261018-s08s";
 import {
   emptyEvidenceStore,
   recordAttemptEvidence,
@@ -169,7 +176,7 @@ import {
   mountVocabularyPanel,
   topicHasVocabulary,
   vocabAreasFromCurriculumTopics,
-} from "./vocabulary-ui.js?v=20261001-pron1";
+} from "./vocabulary-ui.js?v=20261018-s08s";
 import {
   vocabularyAreas,
   curriculumTopicToVocabArea,
@@ -195,17 +202,17 @@ import {
   getInteractionPreset,
   STIMULUS,
   RESPONSE,
-} from "./interaction-presets.js?v=20261018-s04";
+} from "./interaction-presets.js?v=20261018-s08k";
 import {
   mountMultiSelectShell,
   mountFreeformShell,
   mountBuildChipsShell,
   markQuizStage,
-} from "./answer-shells.js?v=20261018-s08j";
+} from "./answer-shells.js?v=20261018-s08k";
 import {
   mountStimulusShell,
   mountClozeStimulus,
-} from "./stimulus-shells.js?v=20261018-s08j";
+} from "./stimulus-shells.js?v=20261018-s08k";
 
 /**
  * Mount Numbers prompt via stimulus shell + mark stage Q×A attrs.
@@ -233,6 +240,8 @@ const BI_PATHS = {
   book: '<path d="M1 2.828c.885-.37 2.154-.769 3.388-.893 1.33-.134 2.458.063 3.112.752v9.746c-.935-.53-2.12-.603-3.213-.493-1.18.12-2.37.461-3.287.811zm7.5-.141c.654-.689 1.782-.886 3.112-.752 1.234.124 2.503.523 3.388.893v9.923c-.918-.35-2.107-.692-3.287-.81-1.094-.111-2.278-.039-3.213.492zM8 1.783C7.015.936 5.587.81 4.287.94c-1.514.153-3.042.672-3.994 1.105A.5.5 0 0 0 0 2.5v11a.5.5 0 0 0 .707.455c.882-.4 2.303-.881 3.68-1.02 1.409-.142 2.59.087 3.223.877a.5.5 0 0 0 .78 0c.633-.79 1.814-1.019 3.222-.877 1.378.139 2.8.62 3.681 1.02A.5.5 0 0 0 16 13.5v-11a.5.5 0 0 0-.293-.455c-.952-.433-2.48-.952-3.994-1.105C10.413.809 8.985.936 8 1.783"/>',
   lightbulb:
     '<path d="M2 6a6 6 0 1 1 10.174 4.31c-.203.196-.359.4-.453.619l-.762 1.769A.5.5 0 0 1 10.5 13a.5.5 0 0 1 0 1 .5.5 0 0 1 0 1l-.224.447a1 1 0 0 1-.894.553H6.618a1 1 0 0 1-.894-.553L5.5 15a.5.5 0 0 1 0-1 .5.5 0 0 1 0-1 .5.5 0 0 1-.46-.302l-.761-1.77a2 2 0 0 0-.453-.618A5.98 5.98 0 0 1 2 6m6-5a5 5 0 0 0-3.479 8.592c.263.254.514.564.676.941L5.83 12h4.342l.632-1.467c.162-.377.413-.687.676-.941A5 5 0 0 0 8 1"/>',
+  speedometer:
+    '<path d="M8 2a.5.5 0 0 1 .5.5V4a.5.5 0 0 1-1 0V2.5A.5.5 0 0 1 8 2M3.732 3.732a.5.5 0 0 1 .707 0l.915.914a.5.5 0 1 1-.708.708l-.914-.915a.5.5 0 0 1 0-.707M2 8a.5.5 0 0 1 .5-.5h1.586a.5.5 0 0 1 0 1H2.5A.5.5 0 0 1 2 8m9.5 0a.5.5 0 0 1 .5-.5h1.5a.5.5 0 0 1 0 1H12a.5.5 0 0 1-.5-.5m.754-4.246a.39.39 0 0 0-.527-.02L7.547 7.31A.91.91 0 1 0 8.85 8.569l3.434-4.297a.39.39 0 0 0-.029-.518z"/><path fill-rule="evenodd" d="M6.664 15.889A8 8 0 1 1 9.336.11a8 8 0 0 1-2.672 15.78zm-4.665-4.283A11.95 11.95 0 0 1 8 10c2.186 0 4.236.585 6.001 1.606a7 7 0 1 0-12.002 0"/>',
   sliders:
     '<path fill-rule="evenodd" d="M11.5 2a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M9.05 3a2.5 2.5 0 0 1 4.9 0H16v1h-2.05a2.5 2.5 0 0 1-4.9 0H0V3zM4.5 7a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M2.05 8a2.5 2.5 0 0 1 4.9 0H16v1H6.95a2.5 2.5 0 0 1-4.9 0H0V8zm9.45 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3m-2.45 1a2.5 2.5 0 0 1 4.9 0H16v1h-2.05a2.5 2.5 0 0 1-4.9 0H0v-1z"/>',
 };
@@ -1881,13 +1890,13 @@ function currentNumberExercise() {
   if (state.numbersQuizMode === "listen") {
     const form = cardinalForm(meta.value);
     return {
-      id: `ex.numbers.listen.${meta.value}.${state.numbersDifficulty}`,
+      id: `ex.numbers.listen.${meta.value}.assisted`,
       templateId: "numbers.listen.value",
       territoryId: "numbers",
-      mode: state.numbersDifficulty,
+      mode: "assisted",
       target: { value: meta.value },
       scaffolding: {
-        mode: state.numbersDifficulty,
+        mode: "assisted",
         showEnglish: false,
         showHintButton: true,
         showReferenceButton: true,
@@ -1916,13 +1925,13 @@ function currentNumberExercise() {
   if (state.numbersQuizMode === "convert") {
     const form = cardinalForm(meta.value);
     return {
-      id: `ex.numbers.convert.${meta.value}.${state.numbersDifficulty}`,
+      id: `ex.numbers.convert.${meta.value}.assisted`,
       templateId: "numbers.convert.form",
       territoryId: "numbers",
-      mode: state.numbersDifficulty,
+      mode: "assisted",
       target: { value: meta.value },
       scaffolding: {
-        mode: state.numbersDifficulty,
+        mode: "assisted",
         showEnglish: supportOn("english"),
         showHintButton: true,
         showReferenceButton: true,
@@ -1950,7 +1959,7 @@ function currentNumberExercise() {
   return createNumberConstructionExercise(meta.value, {
     grain: meta.grain,
     english: meta.english,
-    mode: state.numbersDifficulty,
+    mode: "assisted",
     answerParts: meta.answerParts,
   });
 }
@@ -1964,15 +1973,15 @@ function currentWrittenishExercise(meta) {
   if (state.numbersQuizMode === "listen") {
     const readTime = isClockMeta(meta);
     return {
-      id: `ex.numbers.listen.${written}.${state.numbersDifficulty}`,
+      id: `ex.numbers.listen.${written}.assisted`,
       templateId: readTime
         ? "numbers.listen.read-time"
         : "numbers.listen.written",
       territoryId: "numbers",
-      mode: state.numbersDifficulty,
+      mode: "assisted",
       target: { kind: meta.kind, written, form },
       scaffolding: {
-        mode: state.numbersDifficulty,
+        mode: "assisted",
         showEnglish: false,
         showHintButton: true,
         showReferenceButton: true,
@@ -2033,13 +2042,13 @@ function currentWrittenishExercise(meta) {
     // No "write Komma from English point" drills — convert always targets the
     // spoken German reading (… Komma …), never orthography swap alone.
     return {
-      id: `ex.numbers.convert.${written}.${state.numbersDifficulty}`,
+      id: `ex.numbers.convert.${written}.assisted`,
       templateId: "numbers.convert.form",
       territoryId: "numbers",
-      mode: state.numbersDifficulty,
+      mode: "assisted",
       target: { kind: meta.kind, written, form },
       scaffolding: {
-        mode: state.numbersDifficulty,
+        mode: "assisted",
         showEnglish: false,
         showHintButton: true,
         showReferenceButton: true,
@@ -2085,14 +2094,14 @@ function currentWrittenishExercise(meta) {
 
   if (meta.kind === "money") {
     return createMoneyConstructionExercise(meta.euros, meta.cents, {
-      mode: state.numbersDifficulty,
+      mode: "assisted",
       english: meta.english,
       answerParts: parts,
     });
   }
   if (meta.kind === "fraction") {
     return createFractionConstructionExercise(meta.numerator, meta.denominator, {
-      mode: state.numbersDifficulty,
+      mode: "assisted",
       english: meta.english,
       answerParts: parts,
     });
@@ -2103,7 +2112,7 @@ function currentWrittenishExercise(meta) {
       meta.numerator,
       meta.denominator,
       {
-        mode: state.numbersDifficulty,
+        mode: "assisted",
         english: meta.english,
         answerParts: parts,
       }
@@ -2111,14 +2120,14 @@ function currentWrittenishExercise(meta) {
   }
   if (meta.kind === "clock") {
     return createClockConstructionExercise(meta.hours, meta.minutes, {
-      mode: state.numbersDifficulty,
+      mode: "assisted",
       english: meta.english,
       answerParts: parts,
     });
   }
   if (meta.kind === "digital-time") {
     return createDigitalTimeConstructionExercise(meta.hours, meta.minutes, {
-      mode: state.numbersDifficulty,
+      mode: "assisted",
       english: meta.english,
       answerParts: parts,
     });
@@ -2127,7 +2136,7 @@ function currentWrittenishExercise(meta) {
     return createDurationConstructionExercise(
       { hours: meta.hours, minutes: meta.minutes },
       {
-        mode: state.numbersDifficulty,
+        mode: "assisted",
         english: meta.english,
         answerParts: parts,
       }
@@ -2135,28 +2144,28 @@ function currentWrittenishExercise(meta) {
   }
   if (meta.kind === "ordinal") {
     return createOrdinalConstructionExercise(meta.n, {
-      mode: state.numbersDifficulty,
+      mode: "assisted",
       english: meta.english,
       answerParts: parts,
     });
   }
   if (meta.kind === "ordinal-am") {
     return createOrdinalAmConstructionExercise(meta.n, {
-      mode: state.numbersDifficulty,
+      mode: "assisted",
       english: meta.english,
       answerParts: parts,
     });
   }
   if (meta.kind === "weekday") {
     return createWeekdayConstructionExercise(meta.index, {
-      mode: state.numbersDifficulty,
+      mode: "assisted",
       english: meta.english,
       answerParts: parts,
     });
   }
   if (meta.kind === "month") {
     return createMonthConstructionExercise(meta.month, {
-      mode: state.numbersDifficulty,
+      mode: "assisted",
       english: meta.english,
       answerParts: parts,
     });
@@ -2169,7 +2178,7 @@ function currentWrittenishExercise(meta) {
         year: meta.year ?? undefined,
       },
       {
-        mode: state.numbersDifficulty,
+        mode: "assisted",
         english: meta.english,
         answerParts: parts,
       }
@@ -2177,13 +2186,13 @@ function currentWrittenishExercise(meta) {
   }
   if (meta.kind === "measure") {
     return createMeasureConstructionExercise(meta.value, meta.unit, {
-      mode: state.numbersDifficulty,
+      mode: "assisted",
       english: meta.english,
       answerParts: parts,
     });
   }
   return createDecimalConstructionExercise(meta.whole, meta.fracDigits, {
-    mode: state.numbersDifficulty,
+    mode: "assisted",
     english: meta.english,
     answerParts: parts,
   });
@@ -3413,7 +3422,7 @@ function currentNounArticleExercise() {
     const meta = pin.item;
     if (meta?.lemma) {
       return createNounArticleExercise(meta.lemma, {
-        mode: state.nounsDifficulty,
+        mode: "assisted",
         answerParts: meta.parts,
       });
     }
@@ -3421,7 +3430,7 @@ function currentNounArticleExercise() {
   const deck = ensureNounDeck("Article");
   const meta = deck[state.nounsIndex % deck.length];
   return createNounArticleExercise(meta.lemma, {
-    mode: state.nounsDifficulty,
+    mode: "assisted",
     answerParts: meta.parts,
   });
 }
@@ -3430,13 +3439,13 @@ function currentNounAssociationExercise() {
   const pin = state.nounsPinnedSnap;
   if (pin?.mode === "association" && pin.item?.lemma) {
     return createNounAssociationExercise(pin.item.lemma, {
-      mode: state.nounsDifficulty,
+      mode: "assisted",
     });
   }
   const deck = ensureNounDeck("Association");
   const item = deck[state.nounsAssociationIndex % Math.max(1, deck.length)];
   return createNounAssociationExercise(item.lemma, {
-    mode: state.nounsDifficulty,
+    mode: "assisted",
   });
 }
 
@@ -3444,14 +3453,14 @@ function currentNounCategoryGenderRecognitionExercise() {
   const pin = state.nounsPinnedSnap;
   if (pin?.mode === "gender-recognition" && pin.item?.categoryId) {
     return createNounCategoryGenderRecognitionExercise(pin.item.categoryId, {
-      mode: state.nounsDifficulty,
+      mode: "assisted",
     });
   }
   const deck = ensureNounDeck("CategoryGenderRecognition");
   const item =
     deck[state.nounsCategoryGenderRecognitionIndex % Math.max(1, deck.length)];
   return createNounCategoryGenderRecognitionExercise(item.categoryId, {
-    mode: state.nounsDifficulty,
+    mode: "assisted",
   });
 }
 
@@ -3459,14 +3468,14 @@ function currentNounCategoryArticleApplicationExercise() {
   const pin = state.nounsPinnedSnap;
   if (pin?.mode === "article-application" && pin.item?.itemId) {
     return createNounCategoryArticleApplicationExercise(pin.item.itemId, {
-      mode: state.nounsDifficulty,
+      mode: "assisted",
     });
   }
   const deck = ensureNounDeck("CategoryArticleApplication");
   const item =
     deck[state.nounsCategoryArticleApplicationIndex % Math.max(1, deck.length)];
   return createNounCategoryArticleApplicationExercise(item.itemId, {
-    mode: state.nounsDifficulty,
+    mode: "assisted",
   });
 }
 
@@ -3474,7 +3483,7 @@ function currentNounCategoryGenderImposterExercise() {
   const pin = state.nounsPinnedSnap;
   if (pin?.mode === "gender-imposter" && pin.item?.categoryId) {
     return createNounCategoryGenderImposterExercise(pin.item.categoryId, {
-      mode: state.nounsDifficulty,
+      mode: "assisted",
       variant: pin.item.variant ?? 0,
     });
   }
@@ -3482,7 +3491,7 @@ function currentNounCategoryGenderImposterExercise() {
   const item =
     deck[state.nounsCategoryGenderImposterIndex % Math.max(1, deck.length)];
   return createNounCategoryGenderImposterExercise(item.categoryId, {
-    mode: state.nounsDifficulty,
+    mode: "assisted",
     variant: item.variant ?? 0,
   });
 }
@@ -3491,25 +3500,25 @@ function currentNounCategorySentenceValidationExercise() {
   const pin = state.nounsPinnedSnap;
   if (pin?.mode === "sentence-validation" && pin.item?.itemId) {
     return createNounCategorySentenceValidationExercise(pin.item.itemId, {
-      mode: state.nounsDifficulty,
+      mode: "assisted",
     });
   }
   const deck = ensureNounDeck("CategorySentenceValidation");
   const item =
     deck[state.nounsCategorySentenceValidationIndex % Math.max(1, deck.length)];
   return createNounCategorySentenceValidationExercise(item.itemId, {
-    mode: state.nounsDifficulty,
+    mode: "assisted",
   });
 }
 
 function currentNounWugExercise() {
   const pin = state.nounsPinnedSnap;
   if (pin?.mode === "wugs" && pin.item != null) {
-    return createNounWugExercise(pin.item, { mode: state.nounsDifficulty });
+    return createNounWugExercise(pin.item, { mode: "assisted" });
   }
   const deck = ensureNounDeck("Wug");
   const form = deck[state.nounsWugIndex % Math.max(1, deck.length)];
-  return createNounWugExercise(form, { mode: state.nounsDifficulty });
+  return createNounWugExercise(form, { mode: "assisted" });
 }
 
 function currentNounPluralExercise() {
@@ -3517,7 +3526,7 @@ function currentNounPluralExercise() {
   if (pin?.mode === "plurals" && pin.item?.lemma) {
     const meta = pin.item;
     return createNounPluralExercise(meta.lemma, {
-      mode: state.nounsDifficulty,
+      mode: "assisted",
       translation: meta.translation,
       answerParts: meta.answerParts,
     });
@@ -3525,7 +3534,7 @@ function currentNounPluralExercise() {
   const deck = ensureNounDeck("Plural");
   const meta = deck[state.nounsPluralIndex % deck.length];
   return createNounPluralExercise(meta.lemma, {
-    mode: state.nounsDifficulty,
+    mode: "assisted",
     translation: meta.translation,
     answerParts: meta.answerParts,
   });
@@ -4611,6 +4620,10 @@ function glossForDe(word) {
 function setStageAnswerMode(prefix, on) {
   const stage = document.getElementById(`${prefix}-stage`);
   if (stage) stage.classList.toggle("is-answer", !!on);
+  if (prefix === "numbers" || prefix === "nouns") {
+    hideAssistStepper();
+    syncDifficultyControl();
+  }
 }
 
 function setVerdict(prefix, ok, label) {
@@ -4703,30 +4716,27 @@ const NOUNS_INSTRUCTION = {
   "sentence-validation": "Right or wrong?",
 };
 
-/** Brief pause so the correct answer can blink before karaoke / advance. */
+/** Brief pause so the correct answer can blink before karaoke. */
 let correctFlashTimer = null;
 const CORRECT_FLASH_MS = 1150;
-/** Settle after answer-key TTS ends, then auto-advance. */
+/** Legacy pause constants (vocab reveal callbacks / skipped TTS). */
 const AFTER_TTS_ADVANCE_MS = 400;
-/** When TTS cannot run — give time to read the answer key, then advance. */
 const NO_TTS_REVEAL_ADVANCE_MS = 1400;
 
 /**
- * Play answer-key karaoke, then schedule advance.
- * Advances shortly after TTS completes; if TTS cannot run, after a read pause.
+ * Play answer-key karaoke / TTS. Does not auto-advance — learner taps or swipes.
  * @param {string} spoken
  * @param {object[]} parts
  * @param {HTMLElement[]} nodes
- * @param {(delayMs: number) => void} scheduleAdvance
+ * @param {() => void} [onDone]
  */
-function playAnswerKeyThenAdvance(spoken, parts, nodes, scheduleAdvance) {
+function playAnswerKey(spoken, parts, nodes, onDone) {
   const canSpeak =
     !!spoken && !!window.speechSynthesis && navCaps().audio;
   if (!canSpeak) {
-    scheduleAdvance(NO_TTS_REVEAL_ADVANCE_MS);
+    onDone?.();
     return;
   }
-  // Karaoke beat highlighting must use the same useful guides as the reveal line.
   const resolved = resolveAnswerPronunciation(parts);
   if (
     Array.isArray(nodes) &&
@@ -4736,13 +4746,19 @@ function playAnswerKeyThenAdvance(spoken, parts, nodes, scheduleAdvance) {
   ) {
     playKaraokeFlow(spoken, resolved.displayParts, nodes, {
       keepAdvance: true,
-      onEnd: () => scheduleAdvance(AFTER_TTS_ADVANCE_MS),
-      onError: () => scheduleAdvance(NO_TTS_REVEAL_ADVANCE_MS),
+      onEnd: () => onDone?.(),
+      onError: () => onDone?.(),
     });
     return;
   }
-  // Surface TTS without fake orthography karaoke.
-  speakGerman(spoken, 0.9, () => scheduleAdvance(AFTER_TTS_ADVANCE_MS));
+  speakGerman(spoken, 0.9, () => onDone?.());
+}
+
+/** @deprecated alias — play only; no navigation */
+function playAnswerKeyThenAdvance(spoken, parts, nodes, scheduleAdvance) {
+  playAnswerKey(spoken, parts, nodes, () => {
+    // Intentionally ignore scheduleAdvance — answer screen stays until user acts.
+  });
 }
 
 function clearCorrectFlashTimer() {
@@ -5034,6 +5050,11 @@ const state = {
   itemFirstMiss: false,
   /** Support vector for the active item (Slice 4 — hint ladder climb). */
   itemSupportVector: null,
+  /**
+   * Optional post-answer difficulty rating for the current item.
+   * @type {"too-easy"|"about-right"|"too-hard"}
+   */
+  itemFeltDifficulty: FELT_DIFFICULTY.ABOUT_RIGHT,
   /**
    * Session override for support layers (null = use internal difficulty seed).
    * @type {{ english?: boolean, liveCheck?: boolean, choiceHighlight?: boolean } | null}
@@ -5731,14 +5752,16 @@ function setNavCaps({ keyboard, audio }) {
 }
 
 /**
- * Internal scaffold seed only (launch URL / profile). Not a learner menu —
- * Help → Hints chips own layer toggles.
+ * Map assisted/core template → session layer prefs (Hints chips).
+ * Also keeps soft-arc difficulty fields for Dealer curriculum suggestions.
  */
-function setScaffoldDifficulty(diff) {
+function applyDifficultyAsLayerPrefs(diff) {
   const next = diff === "core" ? "core" : "assisted";
+  state.supportVectorPrefs = layerPrefsFromDifficulty(next);
   state.numbersDifficulty = next;
   state.nounsDifficulty = next;
   state.soundsDifficulty = next;
+  state.itemSupportVector = null;
   try {
     saveProfileStore(
       updateActivePrefs(loadProfileStore(), {
@@ -5749,6 +5772,13 @@ function setScaffoldDifficulty(diff) {
   } catch {
     /* ignore */
   }
+}
+
+/**
+ * Internal only (launch/profile). Not a learner menu — Hints chips own layers.
+ */
+function setScaffoldDifficulty(diff) {
+  applyDifficultyAsLayerPrefs(diff);
   if (state.view === "numbers" && state.phase.numbers === "practice") {
     clearNumbersAdvance();
     stopSpeech();
@@ -5762,7 +5792,7 @@ function setScaffoldDifficulty(diff) {
     return;
   }
   if (state.view === "sounds" && state.phase.sounds === "practice") {
-    setSoundsDifficulty(next);
+    setSoundsDifficulty(diff === "core" ? "core" : "assisted");
     showTerritoryPhase("sounds");
   }
 }
@@ -6162,6 +6192,12 @@ function renderBriefing(territoryId) {
 }
 
 function syncTerritoryMenu(territoryId) {
+  // Speedometer enable/disable is independent of the territory menu
+  // (numbers has no `.territory-menu` — menu sync would early-return).
+  if (territoryId === "numbers" || territoryId === "nouns") {
+    syncDifficultyControl();
+  }
+
   const menu = document.querySelector(
     `.territory-menu[data-territory="${territoryId}"]`
   );
@@ -6285,7 +6321,7 @@ function applyNumbersFocus({
   state.numbersFocusLocked = !!lock;
   state.numbersMixEntries = [];
   state.numbersMixSteps = [];
-  if (difficulty) state.numbersDifficulty = difficulty;
+  if (difficulty) applyDifficultyAsLayerPrefs(difficulty);
   state.numbersIndex = 0;
   state.numbersStepDeck = null;
   state.numbersStepDeckKey = "";
@@ -6399,8 +6435,8 @@ function currentFeedbackContext() {
  * Deep-link from curriculum-browse.html — play one Module×Topic×Unit×preset cell.
  * Query: ?launch=1&module=numbers&topic=cardinals&step=base&preset=build&stimulus=…&response=…
  * Nouns: ?launch=1&module=nouns&topic=suffixes&step=wugs&preset=choose&stimulus=…&response=…
- *         (family= accepted as alias for step=; mode= notice-period alias for preset=)
- * Vocab: ?launch=1&module=numbers&vocab=1&mode=learn&area=core
+ *         (family= accepted as alias for step=)
+ * Vocab: ?launch=1&module=numbers&vocab=1&mode=learn&area=core  (mode= learn|practice only)
  * Sounds: ?launch=1&module=sounds&preset=karaoke
  */
 function consumeCurriculumLaunch() {
@@ -6410,6 +6446,8 @@ function consumeCurriculumLaunch() {
   const moduleId = params.get("module") || "numbers";
   const difficulty =
     params.get("difficulty") === "core" ? "core" : "assisted";
+  // Optional one-shot layer prefs from difficulty= (not a learner menu).
+  applyDifficultyAsLayerPrefs(difficulty);
 
   if (params.get("vocab") === "1") {
     if (moduleId !== "numbers" && moduleId !== "nouns") return false;
@@ -6427,7 +6465,7 @@ function consumeCurriculumLaunch() {
     const topicId = params.get("topic") || "";
     const stepId = params.get("step") || "";
     const launchIx = normalizeLaunchInteraction(params);
-    const modeId = launchIx.presetId || params.get("mode") || "";
+    const modeId = launchIx.presetId || "";
     if (!topicId || !stepId || !modeId) return false;
     if (!isNumbersCellPlayable(topicId, stepId, modeId)) return false;
     startNumbersPractice({
@@ -6460,7 +6498,6 @@ function consumeCurriculumLaunch() {
     const launchIx = normalizeLaunchInteraction(params);
     const modeId =
       launchIx.presetId ||
-      params.get("mode") ||
       introModeForNounsStep(topicId, stepId)?.id ||
       "choose";
     if (!topicId || !stepId || !modeId) return false;
@@ -6474,7 +6511,9 @@ function consumeCurriculumLaunch() {
   }
 
   if (moduleId === "sounds") {
-    const mode = params.get("mode") === "discriminate" ? "discriminate" : "karaoke";
+    const launchIx = normalizeLaunchInteraction(params);
+    const mode =
+      launchIx.presetId === "discriminate" ? "discriminate" : "karaoke";
     state.soundsMode = mode;
     state.soundsIndex = 0;
     state.soundsChoice = null;
@@ -6611,7 +6650,7 @@ function startNounsPractice(focus) {
   clearCrossTerritoryMix();
   state.sessionMode = state.sessionMode === "learn" ? "learn" : "play";
   if (focus.difficulty === "core" || focus.difficulty === "assisted") {
-    state.nounsDifficulty = focus.difficulty;
+    applyDifficultyAsLayerPrefs(focus.difficulty);
   }
   applyNounsCell(topicId, stepId, modeId);
   state.nounsHubPracticePick = "";
@@ -6766,10 +6805,8 @@ function renderVocabularyPanel(territoryId) {
     resolvePronunciation: resolveAnswerPronunciation,
     playFeedback: playFeedbackSound,
     playReveal: (spoken, parts, nodes, onDone) => {
-      playAnswerKeyThenAdvance(spoken, parts, nodes, (ms) => {
-        if (!onDone) return;
-        window.setTimeout(() => onDone(), ms);
-      });
+      // Play TTS/karaoke only — navigation is tap / swipe (no auto-forward).
+      playAnswerKey(spoken, parts, nodes, onDone);
     },
     stopSpeech: () => stopSpeech({ keepAdvance: true }),
   });
@@ -7512,6 +7549,22 @@ function recentGuidedHintDepth() {
   return 0;
 }
 
+/** Most recent post-answer difficulty rating (too-easy / about-right / too-hard). */
+function recentGuidedFeltDifficulty() {
+  const qa = state.guidedQaLog || [];
+  for (let i = qa.length - 1; i >= 0; i--) {
+    const d = qa[i]?.feltDifficulty;
+    if (
+      d === FELT_DIFFICULTY.TOO_EASY ||
+      d === FELT_DIFFICULTY.ABOUT_RIGHT ||
+      d === FELT_DIFFICULTY.TOO_HARD
+    ) {
+      return d;
+    }
+  }
+  return null;
+}
+
 /** Guided start — reset progress and let the Dealer pick the first rep. */
 function startGuidedSession() {
   state.navCaps = state.navCaps || { keyboard: true, audio: true };
@@ -7547,6 +7600,7 @@ function guidedDealAndGo() {
   const store = state.evidenceStore || emptyEvidenceStore();
   const stats = dealerStatsFromEvidence(store, candidates);
   const hintDepth = recentGuidedHintDepth();
+  const feltDifficulty = recentGuidedFeltDifficulty();
   const deal = dealExercise({
     candidates,
     seen: seenList,
@@ -7556,6 +7610,7 @@ function guidedDealAndGo() {
     presetSeeds: dealerPresetSeeds(),
     recentHintDepth: hintDepth,
     recentDealKey: state.guidedCurrentKey || null,
+    recentFeltDifficulty: feltDifficulty,
   });
   if (!deal) {
     state.currentReasonCode = null;
@@ -7606,6 +7661,7 @@ function guidedDealAndGo() {
     seenCount: seenList.length,
     candidateCount: candidates.length,
     recentHintDepth: hintDepth,
+    recentFeltDifficulty: feltDifficulty,
     chosenStat: chosenStat
       ? { correct: chosenStat.correct, total: chosenStat.total }
       : null,
@@ -7734,17 +7790,14 @@ function clearItemFirstMiss() {
 
 /**
  * Seed support vector for a new item.
- * Session `supportVectorPrefs` (Hints chips) win; otherwise internal difficulty seed.
+ * Session `supportVectorPrefs` (Hints chips) win over the default layer seed.
  */
 function beginItemSupport() {
-  const difficulty =
-    state.view === "nouns"
-      ? state.nounsDifficulty
-      : state.numbersDifficulty;
   state.itemSupportVector = applySupportPrefs(
-    freshSupportVector(difficulty),
+    freshSupportVector("default"),
     state.supportVectorPrefs
   );
+  state.itemFeltDifficulty = FELT_DIFFICULTY.ABOUT_RIGHT;
 }
 
 /** Active item support vector (ensures seeded). */
@@ -7755,7 +7808,7 @@ function currentSupportVector() {
 
 /**
  * Whether a support layer is on. Safe before beginItemSupport (uses prefs /
- * internal seed). After seed, reads the live item vector.
+ * default seed). After seed, reads the live item vector.
  */
 function supportOn(layerId) {
   if (state.itemSupportVector) return !!state.itemSupportVector[layerId];
@@ -7765,11 +7818,7 @@ function supportOn(layerId) {
   ) {
     return state.supportVectorPrefs[layerId];
   }
-  const difficulty =
-    state.view === "nouns"
-      ? state.nounsDifficulty
-      : state.numbersDifficulty;
-  return !!supportPresetForDifficulty(difficulty)[layerId];
+  return !!freshSupportVector("default")[layerId];
 }
 
 /**
@@ -8056,6 +8105,8 @@ function logGuidedQa({ question, answer, expected, status, note, evidenceIds } =
       /* ignore storage failures */
     }
   }
+  const felt =
+    state.itemFeltDifficulty || FELT_DIFFICULTY.ABOUT_RIGHT;
   const entry = {
     n: log.length + 1,
     at: Date.now(),
@@ -8065,6 +8116,7 @@ function logGuidedQa({ question, answer, expected, status, note, evidenceIds } =
     expected: String(exp || ""),
     status: statusStr,
     note: note ? String(note) : "",
+    feltDifficulty: felt,
     ...snap,
     ...evSnap,
   };
@@ -8076,6 +8128,7 @@ function logGuidedQa({ question, answer, expected, status, note, evidenceIds } =
     status: entry.status,
     evaluation: { status: entry.status, evidenceIds: ids },
     evidenceIds: ids,
+    feltDifficulty: felt,
     ...snap,
     ...evSnap,
     territory: state.view === "nouns" ? "nouns" : "numbers",
@@ -8089,6 +8142,19 @@ function logGuidedQa({ question, answer, expected, status, note, evidenceIds } =
         : state.numbersStep,
     timing: { at: entry.at },
   });
+}
+
+/** Persist / patch the optional post-answer difficulty rating. */
+function setItemFeltDifficulty(id) {
+  const next =
+    id === FELT_DIFFICULTY.TOO_EASY || id === FELT_DIFFICULTY.TOO_HARD
+      ? id
+      : FELT_DIFFICULTY.ABOUT_RIGHT;
+  state.itemFeltDifficulty = next;
+  const qa = state.guidedQaLog;
+  if (qa?.length) qa[qa.length - 1].feltDifficulty = next;
+  const al = state.attemptLog;
+  if (al?.length) al[al.length - 1].feltDifficulty = next;
 }
 
 /** Escape text for Coach sheet HTML. */
@@ -8357,6 +8423,9 @@ function formatGuidedDealRow(d) {
     feats.easyAcc != null ? `easy ${(feats.easyAcc * 100).toFixed(0)}%` : "",
     d.recentHintDepth != null && d.recentHintDepth > 0
       ? `hintDepth ${d.recentHintDepth}`
+      : "",
+    d.recentFeltDifficulty && d.recentFeltDifficulty !== "about-right"
+      ? `felt ${d.recentFeltDifficulty}`
       : "",
     feats.otherKey ? `vs ${feats.otherKey}` : "",
   ]
@@ -9299,7 +9368,7 @@ function renderNumbersVisual() {
     exercise = createNumberConstructionExercise(meta.value, {
       grain: meta.grain,
       english: meta.english,
-      mode: state.numbersDifficulty,
+      mode: "assisted",
       answerParts: meta.answerParts,
     });
   } else {
@@ -9464,7 +9533,7 @@ function renderNumbersVisualFreeform() {
     exercise = createNumberConstructionExercise(meta.value, {
       grain: meta.grain,
       english: meta.english,
-      mode: state.numbersDifficulty,
+      mode: "assisted",
       answerParts: meta.answerParts,
     });
   }
@@ -11957,11 +12026,8 @@ function revealNounCategory(exercise, ok) {
     state.nounsMode === "article-application"
       ? `${res.expected || ""} ${res.lemma || ""}`.trim()
       : word;
-  if (!tts || skipPronunciation) {
-    scheduleNounsAdvance(NO_TTS_REVEAL_ADVANCE_MS);
-    return;
-  }
-  playAnswerKeyThenAdvance(tts, parts, nodes, scheduleNounsAdvance);
+  if (!tts || skipPronunciation) return;
+  playAnswerKey(tts, parts, nodes);
 }
 
 function renderNounsPlurals() {
@@ -12494,7 +12560,6 @@ function revealNounAnswer(exercise, ok = true) {
       ok,
       verdictLabel: ok ? "Right call" : "Answer",
     });
-    scheduleNounsAdvance(NO_TTS_REVEAL_ADVANCE_MS);
     return;
   }
 
@@ -12527,11 +12592,8 @@ function revealNounAnswer(exercise, ok = true) {
     ok,
     verdictLabel: isInsufficient ? "Right call" : ok ? "Correct" : "Answer",
   });
-  if (isInsufficient) {
-    scheduleNounsAdvance(NO_TTS_REVEAL_ADVANCE_MS);
-    return;
-  }
-  playAnswerKeyThenAdvance(phrase, parts, nodes, scheduleNounsAdvance);
+  if (isInsufficient) return;
+  playAnswerKey(phrase, parts, nodes);
 }
 
 /** Resolve the live article-like exercise; ignore stale cross-territory state. */
@@ -12970,7 +13032,7 @@ function remountCurrentPractice() {
   }
 }
 
-/** Apply active profile prefs into session state (internal seed only). */
+/** Apply active profile prefs → layer prefs + soft-arc difficulty fields. */
 function applyActiveProfilePrefs() {
   try {
     const p = getActiveProfile(loadProfileStore());
@@ -12980,6 +13042,9 @@ function applyActiveProfilePrefs() {
     state.nounsDifficulty =
       p?.prefs?.nounsDifficulty === "core" ? "core" : diff;
     state.soundsDifficulty = diff;
+    if (!state.supportVectorPrefs) {
+      state.supportVectorPrefs = layerPrefsFromDifficulty(diff);
+    }
   } catch {
     /* ignore */
   }
@@ -13254,41 +13319,296 @@ function openSessionHelp(opts) {
     referenceId: opts.referenceId || null,
     lexicon: LEXICON,
   });
-  const v = currentSupportVector();
-  const ix = currentInteractionIds();
-  const defs = toggleableLayersForFormats({
-    stimulus: ix.stimulus,
-    response: ix.response,
-  });
-  openSheet(
-    "Help",
-    renderHelpSheetHtml(model, {
-      hintLayers: {
-        layers: {
-          english: !!v.english,
-          liveCheck: !!v.liveCheck,
-          choiceHighlight: !!v.choiceHighlight,
-        },
-        defs,
-      },
-    })
-  );
+  openSheet("Help", renderHelpSheetHtml(model));
   wireHelpSheet(document.getElementById("sheet-body"), {
     onOpenFullReference: (id) => openReferenceBrowse({ id }),
     onRungOpen: (kind) => noteHelpRungClimb(kind),
-    onHintLayerToggle: (layerId, on) => {
-      state.itemSupportVector = setSupportLayer(
-        currentSupportVector(),
-        layerId,
-        on
-      );
-      state.supportVectorPrefs = {
-        ...(state.supportVectorPrefs || {}),
-        [layerId]: on,
-      };
-      remountCurrentPractice();
-    },
   });
+}
+
+/* —— Assistance stepper / answer-mode difficulty feedback —— */
+
+let assistStepperHideTimer = null;
+let assistStepperOutsideBound = false;
+
+function currentAssistFormats() {
+  const ix = currentInteractionIds();
+  return { stimulus: ix.stimulus, response: ix.response };
+}
+
+function assistStepperEls() {
+  const prefix = state.view === "nouns" ? "nouns" : "numbers";
+  return {
+    prefix,
+    btn: document.getElementById(`${prefix}-difficulty`),
+    stepper: document.getElementById(`${prefix}-assist-stepper`),
+  };
+}
+
+function isStageAnswerMode() {
+  const prefix = state.view === "nouns" ? "nouns" : "numbers";
+  return !!document
+    .getElementById(`${prefix}-stage`)
+    ?.classList.contains("is-answer");
+}
+
+function syncDifficultyControl() {
+  const { btn, stepper } = assistStepperEls();
+  if (!btn) return;
+  const inPractice =
+    (state.view === "numbers" && state.phase.numbers === "practice") ||
+    (state.view === "nouns" && state.phase.nouns === "practice");
+  const answer = isStageAnswerMode();
+  btn.hidden = !inPractice;
+  if (answer) {
+    // Post-answer: optional difficulty rating (always available).
+    btn.disabled = false;
+    btn.title = "How hard was this?";
+    btn.setAttribute("aria-label", "How hard was this?");
+    btn.setAttribute("aria-disabled", "false");
+    btn.setAttribute(
+      "aria-expanded",
+      stepper && !stepper.hidden ? "true" : "false"
+    );
+    if (stepper && !stepper.hidden) paintAssistStepper();
+    return;
+  }
+  const formats = currentAssistFormats();
+  const layers = assistLayersForFormats(formats);
+  const canAdjust = layers.length > 0;
+  btn.disabled = !canAdjust;
+  btn.title = canAdjust
+    ? "Assistance"
+    : "No assist layers for this question";
+  btn.setAttribute("aria-label", "Assistance");
+  btn.setAttribute("aria-disabled", canAdjust ? "false" : "true");
+  btn.setAttribute(
+    "aria-expanded",
+    stepper && !stepper.hidden ? "true" : "false"
+  );
+  if (!inPractice || !canAdjust) hideAssistStepper();
+  else if (stepper && !stepper.hidden) paintAssistStepper();
+}
+
+function paintAssistStepper() {
+  const { stepper } = assistStepperEls();
+  if (!stepper) return;
+  if (isStageAnswerMode()) {
+    paintFeltDifficultyStepper();
+    return;
+  }
+  const formats = currentAssistFormats();
+  const steps = assistPresetSteps(formats);
+  const current = assistPresetFromVector(currentSupportVector(), formats);
+  let idx = steps.indexOf(current);
+  if (idx < 0) idx = 0;
+  const label = stepper.querySelector("[data-assist-label]");
+  if (label) label.textContent = assistPresetLabel(steps[idx]);
+  const less = stepper.querySelector('[data-assist-dir="-1"]');
+  const more = stepper.querySelector('[data-assist-dir="1"]');
+  if (less) {
+    less.disabled = idx <= 0;
+    less.setAttribute("aria-label", "More help");
+  }
+  if (more) {
+    more.disabled = idx >= steps.length - 1;
+    more.setAttribute("aria-label", "Less help");
+  }
+  stepper.setAttribute("aria-label", "Assistance");
+}
+
+function paintFeltDifficultyStepper() {
+  const { stepper } = assistStepperEls();
+  if (!stepper) return;
+  const steps = FELT_DIFFICULTY_STEPS;
+  const current = state.itemFeltDifficulty || FELT_DIFFICULTY.ABOUT_RIGHT;
+  let idx = steps.findIndex((s) => s.id === current);
+  if (idx < 0) idx = 1;
+  const label = stepper.querySelector("[data-assist-label]");
+  if (label) label.textContent = steps[idx].label;
+  const less = stepper.querySelector('[data-assist-dir="-1"]');
+  const more = stepper.querySelector('[data-assist-dir="1"]');
+  if (less) {
+    less.disabled = idx <= 0;
+    less.setAttribute("aria-label", "Too easy");
+  }
+  if (more) {
+    more.disabled = idx >= steps.length - 1;
+    more.setAttribute("aria-label", "Too hard");
+  }
+  stepper.setAttribute("aria-label", "How hard was this?");
+}
+
+function setAssistScrim(on) {
+  const scrim = document.getElementById("assist-scrim");
+  if (scrim) scrim.hidden = !on;
+  document.querySelectorAll(".actions-mid").forEach((mid) => {
+    mid.classList.toggle("is-assist-open", !!on);
+  });
+}
+
+function hideAssistStepper() {
+  if (assistStepperHideTimer) {
+    clearTimeout(assistStepperHideTimer);
+    assistStepperHideTimer = null;
+  }
+  document.querySelectorAll(".assist-stepper").forEach((el) => {
+    el.hidden = true;
+  });
+  setAssistScrim(false);
+  document.querySelectorAll("[id$='-difficulty']").forEach((btn) => {
+    btn.setAttribute("aria-expanded", "false");
+  });
+  if (assistStepperOutsideBound) {
+    document.removeEventListener("pointerdown", onAssistStepperOutside, true);
+    assistStepperOutsideBound = false;
+  }
+}
+
+function bumpAssistStepperTimeout() {
+  if (assistStepperHideTimer) clearTimeout(assistStepperHideTimer);
+  assistStepperHideTimer = setTimeout(() => {
+    assistStepperHideTimer = null;
+    hideAssistStepper();
+  }, 2000);
+}
+
+function onAssistStepperOutside(e) {
+  const { btn, stepper } = assistStepperEls();
+  const t = e.target;
+  if (!(t instanceof Node)) return;
+  if (stepper?.contains(t) || btn?.contains(t)) return;
+  hideAssistStepper();
+}
+
+function showAssistStepper() {
+  const { stepper, btn } = assistStepperEls();
+  if (!stepper || !btn || btn.hidden || btn.disabled) return;
+  document.querySelectorAll(".assist-stepper").forEach((el) => {
+    el.hidden = el !== stepper;
+  });
+  stepper.hidden = false;
+  btn.setAttribute("aria-expanded", "true");
+  setAssistScrim(true);
+  paintAssistStepper();
+  bumpAssistStepperTimeout();
+  if (!assistStepperOutsideBound) {
+    document.addEventListener("pointerdown", onAssistStepperOutside, true);
+    assistStepperOutsideBound = true;
+  }
+}
+
+function applyAssistPreset(presetId) {
+  if (isStageAnswerMode()) return;
+  const formats = currentAssistFormats();
+  const layers = assistLayersForFormats(formats);
+  if (!layers.length) return;
+  const prefs = layersForAssistPreset(presetId, formats);
+  state.supportVectorPrefs = {
+    ...(state.supportVectorPrefs || {}),
+    ...prefs,
+  };
+  state.itemSupportVector = applySupportPrefs(
+    currentSupportVector(),
+    prefs
+  );
+  // Soft-arc difficulty mirrors the ends only (not a mastery ladder).
+  if (presetId === "more") {
+    state.numbersDifficulty = state.nounsDifficulty = "assisted";
+  } else if (presetId === "independent") {
+    state.numbersDifficulty = state.nounsDifficulty = "core";
+  }
+  paintAssistStepper();
+  bumpAssistStepperTimeout();
+  remountCurrentPractice();
+  syncDifficultyControl();
+}
+
+function nudgeFeltDifficulty(delta) {
+  const steps = FELT_DIFFICULTY_STEPS;
+  let idx = steps.findIndex(
+    (s) => s.id === (state.itemFeltDifficulty || FELT_DIFFICULTY.ABOUT_RIGHT)
+  );
+  if (idx < 0) idx = 1;
+  const next = Math.max(0, Math.min(idx + delta, steps.length - 1));
+  setItemFeltDifficulty(steps[next].id);
+  paintFeltDifficultyStepper();
+  bumpAssistStepperTimeout();
+}
+
+function nudgeAssistPreset(delta) {
+  if (isStageAnswerMode()) {
+    nudgeFeltDifficulty(delta);
+    return;
+  }
+  const formats = currentAssistFormats();
+  const steps = assistPresetSteps(formats);
+  const current = assistPresetFromVector(currentSupportVector(), formats);
+  let idx = steps.indexOf(current);
+  if (idx < 0) idx = 0;
+  const next = Math.max(0, Math.min(idx + delta, steps.length - 1));
+  applyAssistPreset(steps[next]);
+}
+
+/**
+ * Swipe left → forward, swipe right → back (practice stages).
+ * Ignores gestures that start on interactive controls.
+ */
+function wirePracticeSwipeNav() {
+  const bindStage = (stageId, onBack, onForward) => {
+    const stage = document.getElementById(stageId);
+    if (!stage || stage.dataset.swipeBound === "1") return;
+    stage.dataset.swipeBound = "1";
+    let x0 = 0;
+    let y0 = 0;
+    let active = false;
+    stage.addEventListener("pointerdown", (e) => {
+      if (e.button != null && e.button !== 0) return;
+      if (
+        e.target.closest(
+          "button, input, textarea, select, a, .assist-stepper, .piece, .choice, .slot, .syl"
+        )
+      ) {
+        return;
+      }
+      active = true;
+      x0 = e.clientX;
+      y0 = e.clientY;
+    });
+    const end = (e) => {
+      if (!active) return;
+      active = false;
+      const dx = e.clientX - x0;
+      const dy = e.clientY - y0;
+      if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.15) return;
+      if (dx < 0) onForward();
+      else onBack();
+    };
+    stage.addEventListener("pointerup", end);
+    stage.addEventListener("pointercancel", () => {
+      active = false;
+    });
+  };
+
+  bindStage(
+    "numbers-stage",
+    () => document.getElementById("numbers-back")?.click(),
+    () => document.getElementById("numbers-skip")?.click()
+  );
+  bindStage(
+    "nouns-stage",
+    () => document.getElementById("nouns-back")?.click(),
+    () => document.getElementById("nouns-skip")?.click()
+  );
+  bindStage(
+    "sounds-stage",
+    () => document.getElementById("sounds-back")?.click(),
+    () => {
+      const skip = document.getElementById("sounds-skip");
+      if (skip) skip.click();
+      else soundsContinue();
+    }
+  );
 }
 
 function openNumbersHelp() {
@@ -13553,7 +13873,7 @@ function checkSoundsDiscriminate(item) {
       ok,
     },
     then: (nodes) => {
-      playAnswerKeyThenAdvance(item.play, parts, nodes, scheduleSoundsAdvance);
+      playAnswerKey(item.play, parts, nodes);
     },
   });
 }
@@ -13759,8 +14079,32 @@ function bind() {
   });
 
   document.getElementById("numbers-help").addEventListener("click", () => {
+    hideAssistStepper();
     openNumbersHelp();
   });
+  document.getElementById("numbers-difficulty")?.addEventListener("click", () => {
+    const { btn, stepper } = assistStepperEls();
+    if (!btn || btn.disabled || btn.getAttribute("aria-disabled") === "true") {
+      return;
+    }
+    if (stepper && !stepper.hidden) hideAssistStepper();
+    else showAssistStepper();
+  });
+  document.getElementById("assist-scrim")?.addEventListener("click", () => {
+    hideAssistStepper();
+  });
+  const wireAssistStepper = (id) => {
+    document.getElementById(id)?.addEventListener("click", (e) => {
+      const dirBtn = e.target.closest("[data-assist-dir]");
+      if (!dirBtn) return;
+      const dir = Number(dirBtn.getAttribute("data-assist-dir"));
+      if (!dir) return;
+      nudgeAssistPreset(dir);
+    });
+  };
+  wireAssistStepper("numbers-assist-stepper");
+  wireAssistStepper("nouns-assist-stepper");
+  wirePracticeSwipeNav();
   document.getElementById("numbers-back").addEventListener("click", () => {
     clearNumbersAdvance();
     stopSpeech();
@@ -13783,7 +14127,16 @@ function bind() {
   });
 
   document.getElementById("nouns-help").addEventListener("click", () => {
+    hideAssistStepper();
     openNounsHelp();
+  });
+  document.getElementById("nouns-difficulty")?.addEventListener("click", () => {
+    const { btn, stepper } = assistStepperEls();
+    if (!btn || btn.disabled || btn.getAttribute("aria-disabled") === "true") {
+      return;
+    }
+    if (stepper && !stepper.hidden) hideAssistStepper();
+    else showAssistStepper();
   });
   document.getElementById("nouns-back").addEventListener("click", () => {
     clearNounsAdvance();

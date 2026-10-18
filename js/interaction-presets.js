@@ -218,8 +218,9 @@ export function presetIdForPair(stimulus, response) {
 /**
  * Normalize launch / deep-link query to a preset id.
  *
- * Prefer `stimulus=` + `response=` (or `preset=`). `mode=` remains an alias
- * during a notice period (Slice 8) — new callers should not add `mode=`.
+ * Accepts `stimulus=` + `response=` and/or `preset=`.
+ * Interaction preset is no longer read from `mode=` (vocab learn/practice
+ * still uses `mode=` elsewhere — that is not an interaction preset).
  *
  * @param {URLSearchParams | Record<string, string | null | undefined>} input
  * @returns {{ presetId: string | null, stimulus: string | null, response: string | null }}
@@ -230,7 +231,7 @@ export function normalizeLaunchInteraction(input) {
       ? (k) => input.get(k)
       : (k) => input?.[k] ?? null;
 
-  const mode = get("preset") || get("mode") || null;
+  const preset = get("preset") || null;
   const stimulus = get("stimulus") || null;
   const response = get("response") || null;
 
@@ -244,8 +245,8 @@ export function normalizeLaunchInteraction(input) {
     return { presetId: null, stimulus, response };
   }
 
-  if (mode && getInteractionPreset(mode)) {
-    const p = getInteractionPreset(mode);
+  if (preset && getInteractionPreset(preset)) {
+    const p = getInteractionPreset(preset);
     return {
       presetId: p.id,
       stimulus: p.stimulus,
@@ -253,8 +254,8 @@ export function normalizeLaunchInteraction(input) {
     };
   }
 
-  if (mode) {
-    return { presetId: mode, stimulus: null, response: null };
+  if (preset) {
+    return { presetId: preset, stimulus: null, response: null };
   }
 
   return { presetId: null, stimulus: null, response: null };

@@ -25,7 +25,7 @@ import {
 import {
   getInteractionPreset,
   MATRIX_PRESET_IDS,
-} from "./interaction-presets.js?v=20261018-nouns2";
+} from "./interaction-presets.js?v=20261018-s08k";
 
 /** @typedef {"numbers"|"nouns"|"sounds"} ModuleId */
 
@@ -373,8 +373,6 @@ function launchHref(row, quiz) {
     params.set("topic", row.topicId);
     params.set("step", row.unitId);
     params.set("preset", quiz.id);
-    // Notice-period alias — prefer preset= / stimulus×response (Slice 8).
-    params.set("mode", quiz.id);
     const preset = getInteractionPreset(quiz.id);
     if (preset) {
       params.set("stimulus", preset.stimulus);
@@ -382,7 +380,6 @@ function launchHref(row, quiz) {
     }
   } else if (row.moduleId === "sounds") {
     params.set("preset", quiz.id);
-    params.set("mode", quiz.id);
   } else {
     return "";
   }

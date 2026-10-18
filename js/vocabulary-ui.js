@@ -424,7 +424,7 @@ export function mountVocabularyPanel(root, opts) {
       if (ok) opts.playFeedback?.("ok");
       else opts.playFeedback?.("bad");
       window.setTimeout(() => {
-        showReveal(result, { autoAdvance: true });
+        showReveal(result, { autoAdvance: false });
       }, VOCAB_CORRECT_FLASH_MS);
     };
 

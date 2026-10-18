@@ -428,14 +428,14 @@ export function contextFromLocationSearch() {
     territory: moduleId,
     topicId: params.get("topic") || undefined,
     stepId: params.get("step") || undefined,
-    modeId: params.get("mode") || undefined,
+    modeId: params.get("preset") || params.get("mode") || undefined,
     familyId: params.get("family") || undefined,
     label: [
       "Launch",
       moduleId,
       params.get("topic"),
       params.get("step") || params.get("family"),
-      params.get("mode"),
+      params.get("preset") || params.get("mode"),
     ]
       .filter(Boolean)
       .join(" · "),

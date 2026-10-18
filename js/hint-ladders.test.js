@@ -13,7 +13,17 @@ import {
   applySupportPrefs,
   setSupportLayer,
   supportPresetName,
+  layerPrefsFromDifficulty,
+  DEFAULT_SUPPORT_LAYERS,
   SUPPORT_LAYER_DEFS,
+  assistLayersForFormats,
+  assistStopFromVector,
+  assistPresetFromVector,
+  assistPresetSteps,
+  assistPresetLabel,
+  layersForAssistPreset,
+  stopForAssistPreset,
+  ASSIST_LEARNER_PRESETS,
 } from "./hint-ladders.js";
 import { STIMULUS, RESPONSE } from "./interaction-presets.js";
 import { ATTEMPT_RECORD_FIELDS } from "./guidance-contracts.js";
@@ -52,13 +62,66 @@ describe("hint ladders (Slice 4)", () => {
     assert.equal(SUPPORT_LAYER_DEFS.find((d) => d.id === "english")?.label, "English cue");
   });
 
-  it("Assisted seeds more support than Core", () => {
+  it("learner assist presets map over format peel layers", () => {
+    const formats = {
+      stimulus: STIMULUS.DIGIT,
+      response: RESPONSE.FREEFORM,
+    };
+    assert.deepEqual(assistLayersForFormats(formats), [
+      "english",
+      "liveCheck",
+    ]);
+    assert.deepEqual(
+      ASSIST_LEARNER_PRESETS.map((p) => p.id),
+      ["independent", "some", "more"]
+    );
+    const more = layersForAssistPreset("more", formats);
+    assert.equal(more.english, true);
+    assert.equal(more.liveCheck, true);
+    const some = layersForAssistPreset("some", formats);
+    assert.equal(some.english, false);
+    assert.equal(some.liveCheck, true);
+    const indep = layersForAssistPreset("independent", formats);
+    assert.equal(indep.english, false);
+    assert.equal(indep.liveCheck, false);
+    assert.equal(stopForAssistPreset("some", formats), 1);
+    assert.equal(
+      assistPresetFromVector(
+        { english: false, liveCheck: true, choiceHighlight: false },
+        formats
+      ),
+      "some"
+    );
+    assert.equal(assistPresetLabel("some"), "Some help");
+    assert.deepEqual(assistPresetSteps(formats), [
+      "more",
+      "some",
+      "independent",
+    ]);
+    // Single-layer formats: Some help collapses into More help on the stepper.
+    const one = {
+      stimulus: STIMULUS.VALUE,
+      response: RESPONSE.MULTI_SELECT,
+    };
+    assert.deepEqual(layersForAssistPreset("some", one), layersForAssistPreset("more", one));
+    assert.equal(assistPresetFromVector({ choiceHighlight: true }, one), "more");
+    assert.deepEqual(assistPresetSteps(one), ["more", "independent"]);
+  });
+
+  it("default seed matches assisted template; core is leaner", () => {
+    const d = freshSupportVector("default");
     const a = freshSupportVector("assisted");
     const c = freshSupportVector("core");
+    assert.equal(d.liveCheck, DEFAULT_SUPPORT_LAYERS.liveCheck);
     assert.equal(a.liveCheck, true);
     assert.equal(c.liveCheck, false);
     assert.equal(a.helpRung, 0);
     assert.equal(c.english, false);
+    assert.deepEqual(layerPrefsFromDifficulty("core"), {
+      english: false,
+      liveCheck: false,
+      choiceHighlight: false,
+    });
   });
 
   it("climbHelpRung keeps max depth and records opens", () => {

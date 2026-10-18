@@ -2,7 +2,7 @@
  * Format-level hint ladders + support vector helpers (spec §8 / Slice 4+).
  *
  * Ladders are keyed by stimulus / response format — not per topic×unit×preset cell.
- * Named assisted/core templates remain internal seeds; Help → Hints chips are the learner control.
+ * Default layer seed + session prefs; named assisted/core templates only for tests / launch difficulty=.
  */
 
 import { STIMULUS, RESPONSE } from "./interaction-presets.js";
@@ -168,14 +168,180 @@ export function toggleableLayersForFormats(formats = {}) {
     .filter(Boolean);
 }
 
+/**
+ * Peel order when reducing help (first id turns off first).
+ * Curriculum advisors may override later via authored tables.
+ */
+export const ASSIST_PEEL_ORDER = Object.freeze([
+  "english",
+  "liveCheck",
+  "choiceHighlight",
+]);
+
+/**
+ * Learner-facing assistance presets (support-vector templates, not mastery levels).
+ * Exact layers applied still depend on the question format.
+ */
+export const ASSIST_LEARNER_PRESETS = Object.freeze([
+  {
+    id: "independent",
+    label: "Independent",
+    blurb: "Minimal cues; retrieve the answer yourself.",
+  },
+  {
+    id: "some",
+    label: "Some help",
+    blurb: "A few useful cues and hints.",
+  },
+  {
+    id: "more",
+    label: "More help",
+    blurb: "Rich scaffolding and reference support.",
+  },
+]);
+
+/**
+ * Applicable layer ids for formats, in peel order.
+ * @param {{ stimulus?: string, response?: string }} formats
+ * @returns {string[]}
+ */
+export function assistLayersForFormats(formats = {}) {
+  const ids = new Set(toggleableLayersForFormats(formats).map((d) => d.id));
+  return ASSIST_PEEL_ORDER.filter((id) => ids.has(id));
+}
+
+/**
+ * Number of peel stops (0 = all applicable on … n = all off).
+ * @param {{ stimulus?: string, response?: string }} formats
+ */
+export function assistStopCount(formats = {}) {
+  return assistLayersForFormats(formats).length + 1;
+}
+
+/**
+ * Layer prefs for a peel stop (0 = all on among applicable).
+ * @param {number} stop
+ * @param {{ stimulus?: string, response?: string }} formats
+ */
+export function layersForAssistStop(stop, formats = {}) {
+  const layers = assistLayersForFormats(formats);
+  const k = Math.max(0, Math.min(Number(stop) || 0, layers.length));
+  /** @type {Record<string, boolean>} */
+  const prefs = {};
+  for (let i = 0; i < layers.length; i++) {
+    prefs[layers[i]] = i >= k;
+  }
+  return prefs;
+}
+
+/**
+ * Nearest valid peel stop for a vector on this format.
+ * @param {SupportVector|null|undefined} vector
+ * @param {{ stimulus?: string, response?: string }} formats
+ */
+export function assistStopFromVector(vector, formats = {}) {
+  const layers = assistLayersForFormats(formats);
+  if (!layers.length) return 0;
+  for (let k = 0; k <= layers.length; k++) {
+    const want = layersForAssistStop(k, formats);
+    if (layers.every((id) => !!vector?.[id] === want[id])) return k;
+  }
+  const on = layers.filter((id) => !!vector?.[id]).length;
+  return layers.length - on;
+}
+
+/**
+ * Peel stop for a learner preset on this format.
+ * @param {"independent"|"some"|"more"|string} presetId
+ * @param {{ stimulus?: string, response?: string }} formats
+ */
+export function stopForAssistPreset(presetId, formats = {}) {
+  const n = assistLayersForFormats(formats).length;
+  if (presetId === "more") return 0;
+  if (presetId === "independent") return n;
+  // some — middle peel (format-dependent)
+  return Math.floor(n / 2);
+}
+
+/**
+ * Layer prefs for a learner preset (only applicable format layers).
+ * @param {"independent"|"some"|"more"|string} presetId
+ * @param {{ stimulus?: string, response?: string }} formats
+ */
+export function layersForAssistPreset(presetId, formats = {}) {
+  return layersForAssistStop(stopForAssistPreset(presetId, formats), formats);
+}
+
+/**
+ * Nearest learner preset for a vector on this format.
+ * @param {SupportVector|null|undefined} vector
+ * @param {{ stimulus?: string, response?: string }} formats
+ * @returns {"independent"|"some"|"more"}
+ */
+export function assistPresetFromVector(vector, formats = {}) {
+  const n = assistLayersForFormats(formats).length;
+  const stop = assistStopFromVector(vector, formats);
+  if (n === 0 || stop <= 0) return "more";
+  if (stop >= n) return "independent";
+  return "some";
+}
+
+/**
+ * Distinct preset ids for the stepper on this format (skips duplicate peels).
+ * Order: more help → some help → independent.
+ * @param {{ stimulus?: string, response?: string }} formats
+ * @returns {("more"|"some"|"independent")[]}
+ */
+export function assistPresetSteps(formats = {}) {
+  /** @type {("more"|"some"|"independent")[]} */
+  const order = ["more", "some", "independent"];
+  /** @type {("more"|"some"|"independent")[]} */
+  const out = [];
+  const seen = new Set();
+  for (const id of order) {
+    const stop = stopForAssistPreset(id, formats);
+    if (seen.has(stop)) continue;
+    seen.add(stop);
+    out.push(id);
+  }
+  return out.length ? out : ["more"];
+}
+
+/**
+ * Display label for a learner preset id.
+ * @param {"independent"|"some"|"more"|string} presetId
+ */
+export function assistPresetLabel(presetId) {
+  return (
+    ASSIST_LEARNER_PRESETS.find((p) => p.id === presetId)?.label || "Assistance"
+  );
+}
+
+/**
+ * @param {number} stop
+ * @param {{ stimulus?: string, response?: string }} formats
+ */
+export function assistStopLabel(stop, formats = {}) {
+  return assistPresetLabel(
+    assistPresetFromVector(layersForAssistStop(stop, formats), formats)
+  );
+}
+
 /** Depth index of a Help rung (1…n); unknown → 0. */
 export function helpRungDepth(rungId) {
   const i = HELP_LADDER_RUNGS.indexOf(rungId);
   return i >= 0 ? i + 1 : 0;
 }
 
+/** Default layer seed when session prefs are unset (Hints chips override). */
+export const DEFAULT_SUPPORT_LAYERS = Object.freeze({
+  english: true,
+  liveCheck: true,
+  choiceHighlight: true,
+});
+
 /**
- * Transitional: Assisted/Core → default support bits (help climb starts at 0).
+ * Named templates (tests / launch difficulty= → prefs). Not a learner menu.
  * @param {"assisted"|"core"|string} difficulty
  * @returns {SupportVector}
  */
@@ -190,23 +356,36 @@ export function supportPresetForDifficulty(difficulty) {
     };
   }
   return {
-    english: true,
-    liveCheck: true,
-    choiceHighlight: true,
+    ...DEFAULT_SUPPORT_LAYERS,
     helpRung: 0,
     helpRungsOpened: [],
   };
 }
 
 /**
- * Empty / reset vector for a new item, seeded from difficulty preset.
+ * Layer prefs object from a named template (no Help climb fields).
  * @param {"assisted"|"core"|string} [difficulty]
- * @returns {SupportVector}
  */
-export function freshSupportVector(difficulty = "assisted") {
+export function layerPrefsFromDifficulty(difficulty = "assisted") {
   const base = supportPresetForDifficulty(difficulty);
   return {
-    ...base,
+    english: !!base.english,
+    liveCheck: !!base.liveCheck,
+    choiceHighlight: !!base.choiceHighlight,
+  };
+}
+
+/**
+ * Empty / reset vector for a new item.
+ * @param {"default"|"assisted"|"core"|string} [seed]
+ * @returns {SupportVector}
+ */
+export function freshSupportVector(seed = "default") {
+  if (seed === "core" || seed === "assisted") {
+    return { ...supportPresetForDifficulty(seed) };
+  }
+  return {
+    ...DEFAULT_SUPPORT_LAYERS,
     helpRung: 0,
     helpRungsOpened: [],
   };

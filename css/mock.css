@@ -2558,10 +2558,94 @@ button.syl:disabled,
 }
 
 .actions-mid {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
   justify-content: center;
+  align-items: center;
+}
+
+.assist-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  background: var(--scrim);
+  cursor: pointer;
+}
+
+.assist-scrim[hidden] {
+  display: none !important;
+}
+
+/* Speedometer + pill above scrim; Back / Help / Forward stay under it. */
+.actions-mid.is-assist-open > .btn-icon[id$="-difficulty"] {
+  position: relative;
+  z-index: 36;
+}
+
+.actions-mid.is-assist-open > .assist-stepper {
+  z-index: 36;
+}
+
+.assist-stepper {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.55rem);
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--ink) 12%, transparent);
+  white-space: nowrap;
+}
+
+.assist-stepper[hidden] {
+  display: none !important;
+}
+
+.assist-stepper-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.assist-stepper-btn:hover,
+.assist-stepper-btn:focus-visible {
+  outline: none;
+  background: var(--signal-soft);
+}
+
+.assist-stepper-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.assist-stepper-label {
+  min-width: 6.75rem;
+  padding: 0 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-align: center;
+  color: var(--ink);
 }
 
 .tts-note {
@@ -4022,38 +4106,7 @@ html[data-theme="dark"] .quiz-visual-svg {
   padding-left: 1.1rem;
 }
 
-/* —— Session Help sheet (Hint layers + climb) —— */
-.help-hint-layers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin: 0 0 0.55rem;
-}
-
-.help-chip {
-  margin: 0;
-  padding: 0.35rem 0.55rem;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  font-size: 0.8rem;
-  line-height: 1.2;
-  cursor: pointer;
-}
-
-.help-chip.is-on {
-  border-color: var(--signal);
-  background: var(--signal-soft);
-}
-
-.help-chip:hover,
-.help-chip:focus-visible {
-  outline: none;
-  background: var(--signal-soft);
-}
-
+/* —— Session Help sheet (Hints → Full climb) —— */
 .help-rung {
   margin: 0;
   padding: 0;

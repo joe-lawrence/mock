@@ -65,6 +65,16 @@ export const DEALER_REASONS = {
     label: "Scaffold",
     hint: "Recent hint depth was high — easing the next item.",
   },
+  felt_too_hard: {
+    code: "felt_too_hard",
+    label: "Ease up",
+    hint: "You marked the last item too hard — trying an easier angle.",
+  },
+  felt_too_easy: {
+    code: "felt_too_easy",
+    label: "Stretch",
+    hint: "You marked the last item too easy — probing a harder angle.",
+  },
 };
 
 /** Mastery threshold — accuracy below this on a seen key is due for review/edge. */
@@ -328,6 +338,7 @@ function result(candidate, reason, tier, features, candidateCount) {
  * Pick the next candidate + reason.
  *
  * Policy tiers (§15):
+ *   0) felt_too_hard / felt_too_easy — optional post-answer difficulty rating
  *   1) scaffold_adjust — recent deep hints → easier preset
  *   2) edge_of_competence — hard preset weak while easy preset OK
  *   3) review — weakest unit×preset (re-deal the failing modality)
@@ -349,6 +360,8 @@ export function dealExercise({
   presetSeeds = {},
   recentHintDepth = 0,
   recentDealKey = null,
+  /** @type {"too-easy"|"about-right"|"too-hard"|null|undefined} */
+  recentFeltDifficulty = null,
   overlays = {},
 } = {}) {
   const raw = Array.isArray(candidates) ? candidates.filter(Boolean) : [];
@@ -358,12 +371,52 @@ export function dealExercise({
   const stats = unitStatsFromInput({ stats: statsIn, evidence }, list);
   const n = list.length;
 
+  const focusKey = recentDealKey || [...seenSet].slice(-1)[0];
+  const focusCand =
+    list.find((c) => c.key === focusKey) ||
+    list.find((c) => seenSet.has(c.key));
+
+  // 0a) Learner said too hard → ease next preset on focus unit.
+  if (recentFeltDifficulty === "too-hard" && focusCand) {
+    const easy = easiestPreset(focusCand, presetSeeds);
+    if (easy) {
+      return result(
+        clonePick(focusCand, easy),
+        DEALER_REASONS.felt_too_hard,
+        "felt",
+        {
+          recentFeltDifficulty,
+          focusKey: focusCand.key,
+          preset: easy,
+          seed: seedOf(easy, presetSeeds),
+        },
+        n
+      );
+    }
+  }
+
+  // 0b) Learner said too easy → stretch with harder / untested preset.
+  if (recentFeltDifficulty === "too-easy" && focusCand) {
+    const hard = hardestPreset(focusCand, presetSeeds);
+    if (hard) {
+      return result(
+        clonePick(focusCand, hard),
+        DEALER_REASONS.felt_too_easy,
+        "felt",
+        {
+          recentFeltDifficulty,
+          focusKey: focusCand.key,
+          preset: hard,
+          seed: seedOf(hard, presetSeeds),
+        },
+        n
+      );
+    }
+  }
+
   // 1) Scaffold — deep recent hints → ease next preset on focus unit.
   if (recentHintDepth >= HIGH_HINT_DEPTH) {
-    const focusKey = recentDealKey || [...seenSet].slice(-1)[0];
-    const focus =
-      list.find((c) => c.key === focusKey) ||
-      list.find((c) => seenSet.has(c.key));
+    const focus = focusCand;
     if (focus) {
       const easy = easiestPreset(focus, presetSeeds);
       if (easy) {

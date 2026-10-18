@@ -72,6 +72,40 @@ describe("Dealer v1 (Slice 6)", () => {
     assert.equal(deal?.audit?.features?.preset, "listen");
   });
 
+  it("felt_too_hard eases the next preset", () => {
+    const compounds = cand("numbers:cardinals:compounds", [
+      "listen",
+      "convert",
+    ]);
+    const deal = dealExercise({
+      candidates: [compounds],
+      seen: [compounds.key],
+      stats: { [compounds.key]: { correct: 2, total: 2 } },
+      presetSeeds: PRESET_SEEDS,
+      recentFeltDifficulty: "too-hard",
+      recentDealKey: compounds.key,
+    });
+    assert.equal(deal?.reasonCode?.code, "felt_too_hard");
+    assert.equal(deal?.candidate?.mode, "listen");
+  });
+
+  it("felt_too_easy stretches to a harder preset", () => {
+    const compounds = cand("numbers:cardinals:compounds", [
+      "listen",
+      "convert",
+    ]);
+    const deal = dealExercise({
+      candidates: [compounds],
+      seen: [compounds.key],
+      stats: { [compounds.key]: { correct: 2, total: 2 } },
+      presetSeeds: PRESET_SEEDS,
+      recentFeltDifficulty: "too-easy",
+      recentDealKey: compounds.key,
+    });
+    assert.equal(deal?.reasonCode?.code, "felt_too_easy");
+    assert.equal(deal?.candidate?.mode, "convert");
+  });
+
   it("review re-deals weak Build when Convert is already OK", () => {
     const tens = cand("numbers:cardinals:tens");
     const deal = dealExercise({

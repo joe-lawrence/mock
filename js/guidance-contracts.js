@@ -36,6 +36,20 @@ export const CURRICULUM_PACKAGE_SCHEMA = Object.freeze({
  * Scored attempt record (minimum fields — §19).
  * Implementations MAY add fields; MUST NOT drop these when exporting audits.
  */
+/** Optional post-answer difficulty rating (learner self-report → Dealer). */
+export const FELT_DIFFICULTY = Object.freeze({
+  TOO_EASY: "too-easy",
+  ABOUT_RIGHT: "about-right",
+  TOO_HARD: "too-hard",
+});
+
+/** Stepper labels for answer-mode difficulty feedback (left → right). */
+export const FELT_DIFFICULTY_STEPS = Object.freeze([
+  { id: FELT_DIFFICULTY.TOO_EASY, label: "Too easy" },
+  { id: FELT_DIFFICULTY.ABOUT_RIGHT, label: "About right" },
+  { id: FELT_DIFFICULTY.TOO_HARD, label: "Too hard" },
+]);
+
 export const ATTEMPT_RECORD_FIELDS = Object.freeze([
   "exerciseId",
   "versions",
@@ -46,6 +60,7 @@ export const ATTEMPT_RECORD_FIELDS = Object.freeze([
   "evidenceIds",
   "supportVector",
   "hintDepth",
+  "feltDifficulty",
   "timing",
   "masteryDeltas",
   "dealerReason",

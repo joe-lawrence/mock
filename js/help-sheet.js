@@ -1,6 +1,7 @@
 /**
- * Session Help sheet — Hint (layers + tip) / Vocab / Pattern / Full Reference.
+ * Session Help sheet — Hints / Vocab / Pattern / Full Reference.
  * Cards are omitted when empty; content stays collapsed until tapped.
+ * Assist layers live on the quiz Assistance control, not here.
  */
 
 import {
@@ -600,40 +601,14 @@ function cardHtml(kind, label, bodyHtml) {
 }
 
 /**
- * Toggle chips for answer/prompt hint layers (inside the Hint card).
- * @param {{
- *   layers: { english?: boolean, liveCheck?: boolean, choiceHighlight?: boolean },
- *   defs?: { id: string, label: string }[],
- * }} layers
- */
-function hintLayersHtml(layers) {
-  if (!layers?.layers || !layers?.defs?.length) return "";
-  const chips = layers.defs
-    .map((def) => {
-      const on = !!layers.layers[def.id];
-      return `<button type="button" class="help-chip${
-        on ? " is-on" : ""
-      }" data-hint-layer="${esc(def.id)}" aria-pressed="${
-        on ? "true" : "false"
-      }">${esc(def.label)}</button>`;
-    })
-    .join("");
-  return `<div class="help-hint-layers" role="group" aria-label="Hints">${chips}</div>`;
-}
-
-/**
  * HTML for the Help sheet body.
  * @param {object} model
- * @param {{ hintLayers?: object }} [opts]
  */
-export function renderHelpSheetHtml(model, opts = {}) {
+export function renderHelpSheetHtml(model) {
   const cards = [];
-  const layersHtml = hintLayersHtml(opts.hintLayers);
-  const hintParts = [];
-  if (layersHtml) hintParts.push(layersHtml);
-  if (model.hint) hintParts.push(`<p>${esc(model.hint)}</p>`);
-  if (hintParts.length) {
-    cards.push(cardHtml("hint", "Hints", hintParts.join("")));
+
+  if (model.hint) {
+    cards.push(cardHtml("hint", "Hints", `<p>${esc(model.hint)}</p>`));
   }
 
   if (model.vocab?.length) {
@@ -672,18 +647,14 @@ export function renderHelpSheetHtml(model, opts = {}) {
 }
 
 /**
- * Wire accordion + Full Reference open + hint-layer chips.
+ * Wire accordion + Full Reference open.
  * @param {HTMLElement} root
  * @param {{
  *   onOpenFullReference?: (id: string) => void,
  *   onRungOpen?: (kind: string) => void,
- *   onHintLayerToggle?: (layerId: string, on: boolean) => void,
  * }} [opts]
  */
-export function wireHelpSheet(
-  root,
-  { onOpenFullReference, onRungOpen, onHintLayerToggle } = {}
-) {
+export function wireHelpSheet(root, { onOpenFullReference, onRungOpen } = {}) {
   if (!root) return;
   const steps = [...root.querySelectorAll("[data-help-rung]")];
 
@@ -727,18 +698,6 @@ export function wireHelpSheet(
       state = state >= max ? 0 : state + 1;
       btn.setAttribute("data-state", String(state));
       btn.setAttribute("aria-expanded", state > 0 ? "true" : "false");
-    });
-  });
-
-  root.querySelectorAll("[data-hint-layer]").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const id = btn.getAttribute("data-hint-layer");
-      if (!id) return;
-      const next = btn.getAttribute("aria-pressed") !== "true";
-      btn.setAttribute("aria-pressed", next ? "true" : "false");
-      btn.classList.toggle("is-on", next);
-      onHintLayerToggle?.(id, next);
     });
   });
 }

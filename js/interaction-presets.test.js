@@ -70,12 +70,11 @@ describe("interaction presets (Slice 0–1)", () => {
     assert.equal(n, 141);
   });
 
-  it("normalizeLaunchInteraction prefers stimulus×response over mode=", () => {
-    const byMode = normalizeLaunchInteraction(
+  it("normalizeLaunchInteraction uses preset= / stimulus×response (not mode=)", () => {
+    const byModeAlias = normalizeLaunchInteraction(
       new URLSearchParams("mode=visual")
     );
-    assert.equal(byMode.presetId, "visual");
-    assert.equal(byMode.stimulus, STIMULUS.VISUAL);
+    assert.equal(byModeAlias.presetId, null);
 
     const byPreset = normalizeLaunchInteraction(
       new URLSearchParams("preset=convert")
@@ -87,9 +86,9 @@ describe("interaction presets (Slice 0–1)", () => {
     );
     assert.equal(byPair.presetId, "listen");
 
-    // Pair wins when both are present (Slice 8).
+    // Pair wins when both pair and preset are present.
     const both = normalizeLaunchInteraction(
-      new URLSearchParams("mode=build&stimulus=tts&response=multi-select")
+      new URLSearchParams("preset=build&stimulus=tts&response=multi-select")
     );
     assert.equal(both.presetId, "listen");
 
