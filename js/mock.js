@@ -12886,11 +12886,25 @@ function refreshTtsVoiceCache() {
   return ttsVoiceCache;
 }
 
+/** Known Apple German speaker names (lang tag is sometimes missing/odd). */
+const DE_VOICE_NAME_RE =
+  /\b(anna|markus|petra|viktor|helena|yannick|reed|martin|steffi|klaus|siri)\b/i;
+
+function isGermanVoice(v) {
+  const lang = (v.lang || "").toLowerCase().replace(/_/g, "-");
+  if (lang === "de" || lang.startsWith("de-") || lang.startsWith("de_")) {
+    return true;
+  }
+  // Three-letter / odd tags seen on some engines
+  if (lang.startsWith("deu") || lang.startsWith("ger")) return true;
+  return DE_VOICE_NAME_RE.test(v.name || "");
+}
+
 function listGermanVoices() {
   const all = ttsVoiceCache.length
     ? ttsVoiceCache
     : refreshTtsVoiceCache();
-  return all.filter((v) => (v.lang || "").toLowerCase().startsWith("de"));
+  return all.filter(isGermanVoice);
 }
 
 /** Quality score for auto-pick (Enhanced > named OS > Google > compact). */
@@ -12944,10 +12958,17 @@ function playGermanVoiceDemo() {
   withUtterance(TTS_DEMO_DE, { rate: 0.95, lang: "de-DE" });
 }
 
+function voiceMenuLabel(v) {
+  const name = v.name || v.voiceURI || "German";
+  const lang = (v.lang || "").trim();
+  return lang ? `${name} · ${lang}` : name;
+}
+
 function syncTtsVoiceMenu() {
   const root = document.getElementById("tts-voice-menu");
   if (!root) return;
-  if (!ttsVoiceCache.length) refreshTtsVoiceCache();
+  refreshTtsVoiceCache();
+  const all = ttsVoiceCache;
   const de = rankGermanVoices(listGermanVoices());
   const pref = readGermanTtsVoicePref();
   const autoOn = !pref;
@@ -12978,15 +12999,52 @@ function syncTtsVoiceMenu() {
     const empty = document.createElement("p");
     empty.className = "menu-voice-empty";
     empty.textContent =
-      "No German voices yet. On iPhone: Settings → Accessibility → Spoken Content → Voices → German → download Enhanced.";
+      "Safari has not exposed any German voices yet. On iPhone: Settings → Accessibility → Spoken Content → Voices → German → download a voice, then tap Refresh below. (Enhanced/Premium and your Accessibility “default” are often hidden from web apps.)";
     root.appendChild(empty);
-    return;
+  } else {
+    for (const v of de) {
+      const on = !!pref && (pref === v.voiceURI || pref === v.name);
+      addRadio(v.voiceURI || v.name, voiceMenuLabel(v), on);
+    }
   }
 
-  for (const v of de) {
-    const on = !!pref && (pref === v.voiceURI || pref === v.name);
-    addRadio(v.voiceURI || v.name, v.name || v.voiceURI || "German", on);
-  }
+  const note = document.createElement("p");
+  note.className = "menu-voice-empty";
+  note.textContent = de.length
+    ? `Safari exposed ${de.length} German voice${de.length === 1 ? "" : "s"} (${all.length} total). Missing Markus/Enhanced? iOS often withholds those from web pages — Schnapp can only use voices listed here, not the Accessibility default.`
+    : `Safari exposed ${all.length} voice${all.length === 1 ? "" : "s"} total (none tagged German).`;
+  root.appendChild(note);
+
+  const refreshBtn = document.createElement("button");
+  refreshBtn.type = "button";
+  refreshBtn.className = "menu-check";
+  refreshBtn.setAttribute("role", "menuitem");
+  refreshBtn.innerHTML =
+    `<span class="menu-check-mark" aria-hidden="true"></span>` +
+    `<span class="menu-check-label">Refresh voice list</span>`;
+  refreshBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    refreshTtsVoiceCache();
+    // Nudge WebKit; voiceschanged often fires after a speak/cancel cycle on iOS.
+    try {
+      const u = new SpeechSynthesisUtterance(" ");
+      u.volume = 0;
+      u.rate = 2;
+      u.lang = "de-DE";
+      const done = () => {
+        refreshTtsVoiceCache();
+        syncTtsVoiceMenu();
+      };
+      u.onend = done;
+      u.onerror = done;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u);
+      setTimeout(done, 600);
+    } catch (_) {
+      syncTtsVoiceMenu();
+    }
+  });
+  root.appendChild(refreshBtn);
 }
 
 /** Warm voice list at startup; refresh again on first tap (iOS often needs it). */
