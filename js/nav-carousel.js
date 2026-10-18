@@ -4,7 +4,7 @@
  */
 
 import { NUMBERS_TOPICS, modesForStep } from "./numbers-curriculum.js?v=20260930-dmo18";
-import { genderShortcutsNavUnits, modalitiesForUnit } from "./nouns-curriculum.js?v=20260929-dmo4";
+import { genderShortcutsNavUnits, modalitiesForUnit } from "./nouns-curriculum.js?v=20261018-nouns2";
 import { topicHasVocabulary } from "./vocabulary-ui.js?v=20260930-vocab16";
 
 const CAPS_KEY = "schnapp-nav-caps";

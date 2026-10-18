@@ -1616,6 +1616,139 @@ body.is-session .view.is-active.view-session {
   padding: 1.25rem 1.2rem 1.35rem;
 }
 
+/* Quiz stage chrome (Slice 2) — shared hierarchy for all presets */
+.quiz-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--signal-soft) 55%, var(--surface)) 0%,
+      var(--surface) 7.5rem
+    );
+}
+
+.quiz-stage > .action-instruction {
+  margin-bottom: 0;
+}
+
+.quiz-stage > .prompt,
+.quiz-stage > .stimulus-shell {
+  margin: 0;
+  font-size: clamp(1.15rem, 2.8vw, 1.4rem);
+  line-height: 1.3;
+}
+
+/* Stimulus shells (Slice 3) — cue composition above the answer host */
+.stimulus-shell {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+}
+
+.stimulus-shell-cue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.55rem;
+}
+
+.stimulus-shell-visual {
+  display: flex;
+  justify-content: center;
+  margin: 0.15rem 0 0.25rem;
+}
+
+.stimulus-shell-ask {
+  display: block;
+  font-size: 0.92em;
+  font-weight: 500;
+  opacity: 0.92;
+}
+
+.stimulus-shell--visual .stimulus-shell-ask,
+.stimulus-shell--tts .stimulus-shell-ask {
+  margin-top: 0.1rem;
+}
+
+.answer-shell--build-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.quiz-stage > .slot-row,
+.quiz-stage > .tray,
+.quiz-stage > .answer-shell,
+.quiz-stage > .numbers-listen-play,
+.quiz-stage > .numbers-convert-entry {
+  margin-top: 0.15rem;
+}
+
+.answer-shell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: stretch;
+}
+
+.answer-shell--freeform {
+  flex-direction: row;
+  align-items: center;
+}
+
+.answer-shell--freeform .answer-shell-input,
+.answer-shell--freeform .numbers-convert-input {
+  flex: 0 1 16rem;
+  align-self: center;
+  width: min(16rem, 100%);
+  max-width: 16rem;
+  min-width: 8rem;
+  /* Single-line field — long answers scroll horizontally */
+  height: var(--touch);
+  min-height: var(--touch);
+  max-height: var(--touch);
+  line-height: 1.25;
+  padding-block: 0;
+  padding-inline: 0.75rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  resize: none;
+  field-sizing: fixed;
+}
+
+.answer-shell--freeform .answer-shell-check {
+  flex: 0 0 auto;
+  align-self: center;
+  height: var(--touch);
+  min-height: var(--touch);
+}
+
+.answer-shell--multi-select,
+.answer-shell--binary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  width: 100%;
+}
+
+.answer-shell--multi-select.is-stacked,
+.answer-shell.is-stacked {
+  grid-template-columns: 1fr;
+}
+
+.answer-shell-choice {
+  min-height: 44px;
+}
+
+.quiz-stage[data-response="freeform"] .answer-shell--freeform {
+  /* Equal space above the field and below Check */
+  padding: 1rem 0.85rem;
+  gap: 0.75rem;
+}
+
 .sound-reps {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -2831,12 +2964,14 @@ button.crumb-reason:focus-visible,
   pointer-events: none;
 }
 
-.crumb-reason-review {
+.crumb-reason-review,
+.crumb-reason-edge-of-competence {
   color: var(--bad, #b4453a);
   background: var(--bad-soft, rgba(180, 69, 58, 0.12));
 }
 
-.crumb-reason-new {
+.crumb-reason-new,
+.crumb-reason-probe-mastery {
   color: var(--ok);
   background: var(--ok-soft);
 }
@@ -2844,6 +2979,11 @@ button.crumb-reason:focus-visible,
 .crumb-reason-continue {
   color: var(--muted);
   background: var(--surface-2);
+}
+
+.crumb-reason-scaffold-adjust {
+  color: var(--signal, #2a6f97);
+  background: color-mix(in srgb, var(--signal, #2a6f97) 14%, var(--surface));
 }
 
 /* —— Guided Coach sheet —— */
@@ -3882,7 +4022,38 @@ html[data-theme="dark"] .quiz-visual-svg {
   padding-left: 1.1rem;
 }
 
-/* —— Session Help sheet (Hint / Vocab / Pattern / Full Reference) —— */
+/* —— Session Help sheet (Hint layers + climb) —— */
+.help-hint-layers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0 0 0.55rem;
+}
+
+.help-chip {
+  margin: 0;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.help-chip.is-on {
+  border-color: var(--signal);
+  background: var(--signal-soft);
+}
+
+.help-chip:hover,
+.help-chip:focus-visible {
+  outline: none;
+  background: var(--signal-soft);
+}
+
 .help-rung {
   margin: 0;
   padding: 0;

@@ -1,14 +1,20 @@
 /**
- * Numbers territory curriculum registry — Topic × Unit (step) × Quiz modality.
+ * Numbers territory curriculum registry — Topic × Unit (step) × interaction preset.
  *
- * Spec (§7): the unit owns Learn/reference + content pool. Modalities (build /
- * listen / convert) are reusable interactions — soft intro order, then mix —
- * not sibling curriculum cards with their own Learn trees.
+ * Spec (§7): the unit owns Learn/reference + content pool. Presets (build /
+ * listen / convert / …) are named stimulus×response pairs — see
+ * `interaction-presets.js`. Soft intro order, then mix — not sibling Learn cards.
  * Money lives under Decimals as later steps (not a peer topic).
  * Playable flags gate the mock menu; engines/pools fill cells over time.
  */
 
-/** @typedef {"build"|"listen"|"convert"} NumbersQuizModeId */
+import {
+  INTERACTION_PRESETS,
+  enrichModeWithPreset,
+  getInteractionPreset,
+} from "./interaction-presets.js";
+
+/** @typedef {"build"|"listen"|"convert"|"proofread"|"visual"|"visual-freeform"|"sentence"} NumbersQuizModeId */
 
 /** @typedef {"introduce"|"focus"|"mix"} SessionPolicy */
 
@@ -47,7 +53,7 @@ export const NUMBERS_TOPICS = [
         label: "0–12",
         playable: true,
         pool: "base",
-        modes: ["build", "listen", "convert", "cloze", "proofread"],
+        modes: ["build", "listen", "convert", "proofread"],
         blurb: "Foundational blocks; 11 and 12 are unique.",
         chartTab: "base",
       },
@@ -56,7 +62,7 @@ export const NUMBERS_TOPICS = [
         label: "Teens",
         playable: true,
         pool: "teens",
-        modes: ["build", "listen", "convert", "cloze", "proofread"],
+        modes: ["build", "listen", "convert", "proofread"],
         blurb: "13–19 as base + zehn.",
         softAfter: "base",
         chartTab: "teens",
@@ -66,7 +72,7 @@ export const NUMBERS_TOPICS = [
         label: "Tens",
         playable: true,
         pool: "tens",
-        modes: ["build", "listen", "convert", "cloze", "proofread"],
+        modes: ["build", "listen", "convert", "proofread"],
         blurb: "20–90 as stem + zig/ßig.",
         softAfter: "teens",
         chartTab: "tens",
@@ -76,7 +82,7 @@ export const NUMBERS_TOPICS = [
         label: "Compounds",
         playable: true,
         pool: "compounds",
-        modes: ["build", "listen", "convert", "cloze", "proofread"],
+        modes: ["build", "listen", "convert", "proofread"],
         blurb: "21–99 ones + und + tens.",
         softAfter: "tens",
         chartTab: "compounds",
@@ -86,7 +92,7 @@ export const NUMBERS_TOPICS = [
         label: "Hundreds+",
         playable: true,
         pool: "hundreds",
-        modes: ["build", "listen", "convert", "cloze", "proofread"],
+        modes: ["build", "listen", "convert", "proofread"],
         blurb: "Full 100–1000 — hundert / tausend, then the 0–99 tail.",
         softAfter: "compounds",
         chartTab: "hundreds",
@@ -113,7 +119,7 @@ export const NUMBERS_TOPICS = [
         label: "Place value",
         playable: true,
         pool: "place-value",
-        modes: ["build", "listen", "cloze", "proofread"],
+        modes: ["build", "listen", "proofread"],
         blurb: "Build spoken decimals: whole + Komma + digits.",
         softAfter: "komma-read",
         chartTab: "komma",
@@ -159,7 +165,7 @@ export const NUMBERS_TOPICS = [
         label: "halb & Viertel",
         playable: true,
         pool: "half-quarter",
-        modes: ["listen", "build", "convert", "visual", "proofread"],
+        modes: ["listen", "build", "convert", "visual", "visual-freeform", "proofread"],
         blurb: "High-frequency halves and quarters (lexical + pattern).",
         chartTab: "fractions",
       },
@@ -168,7 +174,7 @@ export const NUMBERS_TOPICS = [
         label: "Unit fractions",
         playable: true,
         pool: "unit-fractions",
-        modes: ["build", "listen", "convert", "visual", "proofread"],
+        modes: ["build", "listen", "convert", "visual", "visual-freeform", "proofread"],
         blurb: "Drittel, Fünftel, … — stem + -tel.",
         softAfter: "half-quarter",
         chartTab: "fractions",
@@ -178,7 +184,7 @@ export const NUMBERS_TOPICS = [
         label: "Proper fractions",
         playable: true,
         pool: "proper-fractions",
-        modes: ["build", "convert", "listen", "visual", "proofread"],
+        modes: ["build", "convert", "listen", "visual", "visual-freeform", "proofread"],
         blurb: "zwei Drittel, drei Viertel — number + fraction noun.",
         softAfter: "unit-fractions",
         chartTab: "fractions",
@@ -214,7 +220,7 @@ export const NUMBERS_TOPICS = [
         label: "Whole hours",
         playable: true,
         pool: "whole-hours",
-        modes: ["build", "listen", "convert", "visual", "proofread"],
+        modes: ["build", "listen", "convert", "visual", "visual-freeform", "proofread"],
         blurb: "… Uhr — es ist drei Uhr.",
         chartTab: "time",
       },
@@ -223,7 +229,7 @@ export const NUMBERS_TOPICS = [
         label: "halb",
         playable: true,
         pool: "half-past",
-        modes: ["listen", "convert", "build", "visual"],
+        modes: ["listen", "convert", "build", "visual", "visual-freeform"],
         blurb: "halb vier = 3:30 — the German half-hour flip.",
         softAfter: "whole-hours",
         chartTab: "time",
@@ -233,7 +239,7 @@ export const NUMBERS_TOPICS = [
         label: "Viertel",
         playable: true,
         pool: "quarters",
-        modes: ["listen", "build", "convert", "visual"],
+        modes: ["listen", "build", "convert", "visual", "visual-freeform"],
         blurb: "Viertel nach / Viertel vor — regional variants noted in hints.",
         softAfter: "half-past",
         chartTab: "time",
@@ -243,7 +249,7 @@ export const NUMBERS_TOPICS = [
         label: "Minutes",
         playable: true,
         pool: "minutes",
-        modes: ["build", "convert", "listen", "visual"],
+        modes: ["build", "convert", "listen", "visual", "visual-freeform"],
         blurb: "… nach / … vor; :25/:35 use fünf vor/nach halb (everyday).",
         softAfter: "quarters",
         chartTab: "time",
@@ -391,7 +397,7 @@ export const NUMBERS_TOPICS = [
         label: "1.–12.",
         playable: true,
         pool: "ordinal-1-12",
-        modes: ["build", "listen", "convert", "sentence", "proofread", "cloze"],
+        modes: ["build", "listen", "convert", "sentence", "proofread"],
         blurb: "erste … zwölfte — base/citation ordinal forms (not full NPs).",
         chartTab: "ordinals",
       },
@@ -400,7 +406,7 @@ export const NUMBERS_TOPICS = [
         label: "13.–19.",
         playable: true,
         pool: "ordinal-teens",
-        modes: ["build", "listen", "convert", "sentence", "proofread", "cloze"],
+        modes: ["build", "listen", "convert", "sentence", "proofread"],
         blurb: "Ordinal teens (dreizehnte …).",
         softAfter: "ordinal-1-12",
         chartTab: "ordinals",
@@ -410,7 +416,7 @@ export const NUMBERS_TOPICS = [
         label: "20.–90.",
         playable: true,
         pool: "ordinal-tens",
-        modes: ["build", "listen", "convert", "sentence", "proofread", "cloze"],
+        modes: ["build", "listen", "convert", "sentence", "proofread"],
         blurb: "zwanzigste, dreißigste …",
         softAfter: "ordinal-teens",
         chartTab: "ordinals",
@@ -420,7 +426,7 @@ export const NUMBERS_TOPICS = [
         label: "Compound ordinals",
         playable: true,
         pool: "ordinal-compounds",
-        modes: ["build", "convert", "listen", "sentence", "proofread", "cloze"],
+        modes: ["build", "convert", "listen", "sentence", "proofread"],
         blurb: "einundzwanzigste — ones + und + tens + -te/-ste.",
         softAfter: "ordinal-tens",
         chartTab: "ordinals",
@@ -441,66 +447,48 @@ export const NUMBERS_TOPICS = [
 
 /** Labels for modes that appear as preview chips before those modes ship. */
 export const PLANNED_MODE_LABELS = {
-  build: "Build",
-  listen: "Listen",
-  convert: "Convert",
-  read: "Read",
-  discriminate: "Discriminate",
+  build: INTERACTION_PRESETS.build.label,
+  listen: INTERACTION_PRESETS.listen.label,
+  convert: INTERACTION_PRESETS.convert.label,
+  read: INTERACTION_PRESETS.read.label,
+  discriminate: INTERACTION_PRESETS.discriminate.label,
 };
 
 export function plannedModeChips(step) {
   const ids = step?.plannedModes || ["build", "listen"];
-  return ids.map((id) => ({
-    id,
-    label: PLANNED_MODE_LABELS[id] || id,
-  }));
+  return ids.map((id) => {
+    const p = getInteractionPreset(id);
+    return {
+      id,
+      label: PLANNED_MODE_LABELS[id] || p?.label || id,
+      stimulus: p?.stimulus ?? null,
+      response: p?.response ?? null,
+      planned: true,
+    };
+  });
 }
 
-/** @type {{ id: NumbersQuizModeId, label: string, playable: boolean, blurb?: string }[]} */
+/**
+ * Playable Numbers presets (legacy NUMBERS_MODES), enriched with stimulus×response.
+ * @type {ReturnType<typeof enrichModeWithPreset>[]}
+ */
 export const NUMBERS_MODES = [
-  {
-    id: "build",
-    label: "Build",
-    playable: true,
-    blurb: "Construct the German form from pieces.",
-  },
-  {
-    id: "listen",
-    label: "Listen",
-    playable: true,
-    blurb: "Hear TTS, identify the value — recognition.",
-  },
-  {
-    id: "convert",
-    label: "Convert",
-    playable: true,
-    blurb: "See the digit, type the German form — production.",
-  },
-  {
-    id: "cloze",
-    label: "Cloze",
-    playable: true,
-    blurb: "Fill the missing morph piece (und / zehn / zig…).",
-  },
-  {
-    id: "proofread",
-    label: "Proofread",
-    playable: true,
-    blurb: "Spot and fix a wrong spelling.",
-  },
-  {
-    id: "visual",
-    label: "Visual",
-    playable: true,
-    blurb: "Read a pie chart or clock face.",
-  },
-  {
-    id: "sentence",
-    label: "Sentence",
-    playable: true,
-    blurb: "Read an ordinal inside a short sentence.",
-  },
-];
+  "build",
+  "listen",
+  "convert",
+  "proofread",
+  "visual",
+  "visual-freeform",
+  "sentence",
+].map((id) => {
+  const p = INTERACTION_PRESETS[id];
+  return enrichModeWithPreset({
+    id: p.id,
+    label: p.label,
+    playable: p.playable,
+    blurb: p.blurb,
+  });
+});
 
 export function getNumbersTopic(topicId) {
   return NUMBERS_TOPICS.find((t) => t.id === topicId) || null;
@@ -512,22 +500,35 @@ export function getNumbersStep(topicId, stepId) {
 }
 
 export function getNumbersMode(modeId) {
-  return NUMBERS_MODES.find((m) => m.id === modeId) || null;
+  const base = NUMBERS_MODES.find((m) => m.id === modeId);
+  if (base) return base;
+  const p = getInteractionPreset(modeId);
+  return p ? enrichModeWithPreset(p) : null;
 }
 
-/** Modalities allowed for a topic+unit cell (allowlist; order = soft intro). */
+/** Interaction presets allowed for a topic+unit cell (allowlist; order = soft intro). */
 export function modesForStep(topicId, stepId) {
   const step = getNumbersStep(topicId, stepId);
   if (!step?.playable) return [];
   const allowed = step.modes || NUMBERS_MODES.map((m) => m.id);
   const byId = new Map(NUMBERS_MODES.map((m) => [m.id, m]));
   return allowed
-    .map((id) => byId.get(id))
+    .map((id) => {
+      const hit = byId.get(id);
+      if (hit) return hit;
+      const p = getInteractionPreset(id);
+      return p?.playable ? enrichModeWithPreset(p) : null;
+    })
     .filter((m) => m && m.playable);
 }
 
-/** Alias — quiz modalities for a unit (spec §7). */
+/** Alias — presets for a unit (spec §7). */
 export function quizzesForStep(topicId, stepId) {
+  return modesForStep(topicId, stepId);
+}
+
+/** @deprecated use modesForStep — same allowlist, explicit name. */
+export function presetsForStep(topicId, stepId) {
   return modesForStep(topicId, stepId);
 }
 
@@ -886,11 +887,9 @@ export function mixableSteps(topicId = "cardinals", modeId = "build") {
   });
 }
 
-export function formatNumbersFocusLabel({ topicId, stepId, modeId, difficulty }) {
+export function formatNumbersFocusLabel({ topicId, stepId, modeId }) {
   const topic = getNumbersTopic(topicId)?.label || topicId;
   const step = getNumbersStep(topicId, stepId)?.label || stepId;
   const mode = getNumbersMode(modeId)?.label || modeId;
-  const diff =
-    difficulty === "core" ? "Core" : difficulty === "overdrive" ? "Overdrive" : "Assisted";
-  return `${topic} · ${step} · ${mode} · ${diff}`;
+  return `${topic} · ${step} · ${mode}`;
 }

@@ -1,70 +1,80 @@
 /**
- * Nouns / Gender Shortcuts curriculum — Learn units vs practice families.
+ * Nouns curriculum — Topic × Unit × interaction preset (same shape as Numbers).
  *
- * Spec §7: Learn units own reference (Suffixes, Categories).
- * Practice families hang under units — not peer Learn cards.
- * Categories: Gender Recognition → Article Application → Gender Imposter → Sentence Validation.
+ * Spec §7: topics own soft arc + Learn reference (chartTab); units list
+ * preset allowlists. Practice “families” are units (step ids).
  */
 
-/** @typedef {"wugs"|"real-words"|"proofread"|"reverse-mc"|"gender-recognition"|"article-application"|"gender-imposter"|"sentence-validation"} NounsPracticeFamilyId */
-/** @typedef {"choose-article"|"category-gender"} NounsQuizModalityId */
+import {
+  INTERACTION_PRESETS,
+  getInteractionPreset,
+  enrichModeWithPreset,
+} from "./interaction-presets.js";
 
 /**
- * @typedef {object} NounsPracticeFamily
- * @property {NounsPracticeFamilyId} id
+ * @typedef {object} NounsStep
+ * @property {string} id
  * @property {string} label
  * @property {boolean} playable
+ * @property {string[]} [modes] — shared preset ids; order = soft intro
+ * @property {string[]} [plannedModes] — coming-soon chips when !playable or extras
  * @property {string} [blurb]
- * @property {boolean} [intro] — soft “try first”
+ * @property {boolean} [intro] — soft “try first” unit under its topic
+ * @property {string} [familyId] — @deprecated alias of id (launch / playlist)
  */
 
 /**
- * @typedef {object} NounsLearnUnit
+ * @typedef {object} NounsTopic
  * @property {string} id
  * @property {string} label
  * @property {boolean} playable
  * @property {string} [blurb]
- * @property {string} chartTab — nounsChart tab id for Learn
- * @property {NounsPracticeFamily[]} families
- * @property {NounsQuizModalityId[]} [modalities]
+ * @property {string} [chartTab] — nounsChart tab for Learn
+ * @property {NounsStep[]} steps
  */
 
-/** @type {NounsLearnUnit[]} */
-export const GENDER_SHORTCUTS_UNITS = [
+/** @type {NounsTopic[]} */
+export const NOUNS_TOPICS = [
   {
     id: "suffixes",
     label: "Suffixes",
     playable: true,
-    blurb: "Morphological cues (-ung, -chen, -ling…). Shared reference for Wugs and Real Words.",
+    blurb:
+      "Morphological cues (-ung, -chen, -ling…). Shared reference for Wugs and Real Words.",
     chartTab: "feminine",
-    families: [
+    steps: [
       {
         id: "wugs",
         label: "Wugs",
         playable: true,
         intro: true,
+        modes: ["choose"],
+        plannedModes: ["convert"],
         blurb: "Novel nouns — apply suffix → gender, or ? if insufficient.",
       },
       {
         id: "real-words",
         label: "Real Words",
         playable: true,
+        modes: ["choose"],
+        plannedModes: ["convert"],
         blurb: "Same task on cued lexicon lemmas. Skip ahead anytime.",
       },
       {
         id: "proofread",
         label: "Proofread",
         playable: true,
+        modes: ["proofread"],
         blurb: "Is “der X” right? Richtig / Falsch.",
       },
       {
         id: "reverse-mc",
         label: "Reverse",
         playable: true,
+        modes: ["choose"],
         blurb: "Article given — pick the matching lemma.",
       },
     ],
-    modalities: ["choose-article"],
   },
   {
     id: "categories",
@@ -73,58 +83,124 @@ export const GENDER_SHORTCUTS_UNITS = [
     blurb:
       "Semantic category → gender discrimination: Recognition → Article → Imposter → Sentence.",
     chartTab: "categories",
-    families: [
+    steps: [
       {
         id: "gender-recognition",
         label: "Gender Recognition",
         playable: true,
         intro: true,
+        modes: ["choose"],
         blurb: "Named category → associated gender.",
       },
       {
         id: "article-application",
         label: "Article Application",
         playable: true,
+        modes: ["choose"],
+        plannedModes: ["convert"],
         blurb: "Use the category gender to pick der/die/das or ein/eine.",
       },
       {
         id: "gender-imposter",
         label: "Gender Imposter",
         playable: true,
+        modes: ["choose"],
         blurb: "Three nouns share a gender — find the odd gender out.",
       },
       {
         id: "sentence-validation",
         label: "Sentence Validation",
         playable: true,
+        modes: ["proofread"],
         blurb: "Is the article in this sentence correct for the category?",
       },
     ],
-    modalities: ["category-gender"],
   },
-];
-
-/** Stub topics under Nouns (not Gender Shortcuts). */
-export const NOUNS_STUB_TOPICS = [
   {
     id: "plurals",
     label: "Plurals",
     playable: false,
     blurb: "Productive plurals vs lexical facts — coming soon.",
+    chartTab: "plurals",
+    steps: [
+      {
+        id: "productive",
+        label: "Productive plurals",
+        playable: false,
+        blurb: "Pattern-led plural formation on novel and known nouns.",
+        plannedModes: ["build", "choose", "proofread"],
+      },
+    ],
   },
   {
     id: "articles",
     label: "Articles",
     playable: false,
     blurb: "Article forms as a bridge to Case — coming soon.",
+    steps: [
+      {
+        id: "nominative",
+        label: "Nominative articles",
+        playable: false,
+        blurb: "der / die / das / ein / eine as observable forms.",
+        plannedModes: ["choose", "convert", "proofread"],
+      },
+    ],
   },
 ];
 
+/** @deprecated use NOUNS_TOPICS stubs — kept for hub “More topics” copy. */
+export const NOUNS_STUB_TOPICS = NOUNS_TOPICS.filter((t) => !t.playable).map(
+  (t) => ({
+    id: t.id,
+    label: t.label,
+    playable: false,
+    blurb: t.blurb || "",
+  })
+);
+
+/**
+ * Legacy Learn-unit shape for hub / playlist / carousel.
+ * Derived from NOUNS_TOPICS — do not edit by hand.
+ */
+export const GENDER_SHORTCUTS_UNITS = NOUNS_TOPICS.filter((t) =>
+  ["suffixes", "categories"].includes(t.id)
+).map((t) => ({
+  id: t.id,
+  label: t.label,
+  playable: t.playable,
+  blurb: t.blurb,
+  chartTab: t.chartTab,
+  families: (t.steps || []).map((s) => ({
+    id: s.id,
+    label: s.label,
+    playable: s.playable,
+    intro: !!s.intro,
+    blurb: s.blurb,
+  })),
+  /** @deprecated prefer modes on steps */
+  modalities:
+    t.id === "categories" ? ["category-gender"] : ["choose-article"],
+}));
+
+/** @deprecated legacy modality chip labels (carousel / practice-prefs). */
 export const NOUNS_MODALITY_LABELS = {
   "choose-article": "Choose article",
   "type-article": "Type article",
   "category-gender": "Category → gender",
+  choose: INTERACTION_PRESETS.choose.label,
+  convert: INTERACTION_PRESETS.convert.label,
+  proofread: INTERACTION_PRESETS.proofread.label,
 };
+
+export function getNounsTopic(topicId) {
+  return NOUNS_TOPICS.find((t) => t.id === topicId) || null;
+}
+
+export function getNounsStep(topicId, stepId) {
+  const topic = getNounsTopic(topicId);
+  return topic?.steps?.find((s) => s.id === stepId) || null;
+}
 
 export function getGenderShortcutsUnit(unitId) {
   return GENDER_SHORTCUTS_UNITS.find((u) => u.id === unitId) || null;
@@ -141,22 +217,131 @@ export function introFamilyForUnit(unitId) {
 }
 
 export function unitIdForFamily(familyId) {
-  for (const u of GENDER_SHORTCUTS_UNITS) {
-    if (u.families.some((f) => f.id === familyId)) return u.id;
+  for (const t of NOUNS_TOPICS) {
+    if ((t.steps || []).some((s) => s.id === familyId)) return t.id;
   }
   return "suffixes";
 }
 
-/** Playable + planned modalities for UI chips / caps eligibility. */
+/** Topic id that owns a unit/step id (family id). */
+export function topicIdForStep(stepId) {
+  for (const t of NOUNS_TOPICS) {
+    if ((t.steps || []).some((s) => s.id === stepId)) return t.id;
+  }
+  return null;
+}
+
+/**
+ * Playable presets for a Nouns cell (allowlist; order = soft intro).
+ * Same contract as Numbers `modesForStep`.
+ */
+export function modesForNounsStep(topicId, stepId) {
+  const step = getNounsStep(topicId, stepId);
+  if (!step?.playable) return [];
+  const allowed = step.modes || ["choose"];
+  return allowed
+    .map((id) => {
+      const p = getInteractionPreset(id);
+      return p?.playable ? enrichModeWithPreset(p) : null;
+    })
+    .filter(Boolean);
+}
+
+/** Alias — presets for a unit (spec §7). */
+export function quizzesForNounsStep(topicId, stepId) {
+  return modesForNounsStep(topicId, stepId);
+}
+
+export function introModeForNounsStep(topicId, stepId) {
+  return modesForNounsStep(topicId, stepId)[0] || null;
+}
+
+export function isNounsCellPlayable(topicId, stepId, modeId) {
+  const topic = getNounsTopic(topicId);
+  const step = getNounsStep(topicId, stepId);
+  const mode = getInteractionPreset(modeId);
+  if (!topic?.playable || !step?.playable || !mode?.playable) return false;
+  return modesForNounsStep(topicId, stepId).some((m) => m.id === modeId);
+}
+
+/** Planned preset chips (coming soon) for a step. */
+export function plannedNounsModeChips(step) {
+  const ids = step?.plannedModes || [];
+  const live = new Set(step?.modes || []);
+  return ids
+    .filter((id) => !live.has(id))
+    .map((id) => {
+      const p = getInteractionPreset(id);
+      return {
+        id,
+        label: p?.label || id,
+        stimulus: p?.stimulus ?? null,
+        response: p?.response ?? null,
+        planned: true,
+        playable: false,
+      };
+    });
+}
+
+/**
+ * Legacy modality chips for carousel / practice-prefs.
+ * Maps shared presets → old choose-article / type-article / category-gender ids.
+ */
 export function modalitiesForUnit(unitId) {
-  const u = getGenderShortcutsUnit(unitId);
-  const playable = new Set(u?.modalities || ["choose-article"]);
-  const all = ["choose-article", "type-article", "category-gender"];
-  return all.map((id) => ({
-    id,
-    label: NOUNS_MODALITY_LABELS[id] || id,
-    playable: playable.has(id),
-  }));
+  const topic = getNounsTopic(unitId);
+  const steps = topic?.steps || [];
+  const liveIds = new Set();
+  const plannedIds = new Set();
+  for (const s of steps) {
+    for (const id of s.modes || []) {
+      if (s.playable) liveIds.add(id);
+    }
+    for (const id of s.plannedModes || []) plannedIds.add(id);
+  }
+  const chooseLive = liveIds.has("choose");
+  const convertLive = liveIds.has("convert");
+  const convertPlanned = plannedIds.has("convert") || convertLive;
+
+  if (unitId === "categories") {
+    return [
+      {
+        id: "category-gender",
+        label: NOUNS_MODALITY_LABELS["category-gender"],
+        playable: chooseLive,
+      },
+      {
+        id: "choose-article",
+        label: NOUNS_MODALITY_LABELS["choose-article"],
+        playable: false,
+      },
+      {
+        id: "type-article",
+        label: NOUNS_MODALITY_LABELS["type-article"],
+        playable: convertLive,
+      },
+    ];
+  }
+  return [
+    {
+      id: "choose-article",
+      label: NOUNS_MODALITY_LABELS["choose-article"],
+      playable: chooseLive,
+    },
+    {
+      id: "type-article",
+      label: NOUNS_MODALITY_LABELS["type-article"],
+      playable: convertLive,
+    },
+    {
+      id: "category-gender",
+      label: NOUNS_MODALITY_LABELS["category-gender"],
+      playable: false,
+    },
+  ].map((m) =>
+    m.id === "type-article" && !m.playable && convertPlanned
+      ? { ...m, playable: false }
+      : m
+  );
 }
 
 /**

@@ -297,7 +297,7 @@ export function visualForMeta(meta) {
   ) {
     return {
       html: pieSvg(meta.numerator, meta.denominator),
-      ask: "Name the fraction shown",
+      ask: "Name what you see",
       lead: "",
     };
   }
@@ -305,7 +305,7 @@ export function visualForMeta(meta) {
   if (meta?.kind === "fraction" && meta.numerator != null) {
     return {
       html: pieSvg(meta.numerator, meta.denominator),
-      ask: "Name the fraction shown",
+      ask: "Name what you see",
       lead: "",
     };
   }
@@ -317,7 +317,7 @@ export function visualForMeta(meta) {
   ) {
     return {
       html: clockSvg(meta.hours, meta.minutes),
-      ask: "Conversational reading, e.g. fünf vor halb zwei",
+      ask: "Name what you see",
       lead: "",
     };
   }
