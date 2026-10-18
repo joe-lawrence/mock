@@ -664,13 +664,62 @@ export async function synthesizeGerman(text, opts = {}) {
   };
 }
 
-async function playViaHtmlAudio(wav, opts, gen) {
-  // iOS: need a prior gesture unlock on this element. Desktop may still work.
-  if (!htmlMediaUnlocked && isIOSAudio()) return false;
-  const el = ensurePlayAudioEl();
-  releasePlayback();
+/** Build an AudioBuffer at the context sample rate (iOS-safe; skips decodeAudioData). */
+function pcmToAudioBuffer(ctx, pcmIn, srcRate) {
+  const pcm = pcmIn instanceof Float32Array ? pcmIn : new Float32Array(pcmIn);
+  const dstRate = ctx.sampleRate || srcRate;
+  if (dstRate === srcRate) {
+    const buf = ctx.createBuffer(1, pcm.length, dstRate);
+    buf.getChannelData(0).set(pcm);
+    return buf;
+  }
+  const dstLen = Math.max(1, Math.floor((pcm.length * dstRate) / srcRate));
+  const buf = ctx.createBuffer(1, dstLen, dstRate);
+  const out = buf.getChannelData(0);
+  const ratio = srcRate / dstRate;
+  for (let i = 0; i < dstLen; i++) {
+    const srcIdx = i * ratio;
+    const i0 = Math.min(pcm.length - 1, Math.floor(srcIdx));
+    const i1 = Math.min(pcm.length - 1, i0 + 1);
+    const frac = srcIdx - i0;
+    out[i] = pcm[i0] * (1 - frac) + pcm[i1] * frac;
+  }
+  return buf;
+}
 
-  const url = URL.createObjectURL(new Blob([wav], { type: "audio/wav" }));
+function duckKeepAlive(on) {
+  if (!keepAliveGain) return;
+  try {
+    keepAliveGain.gain.value = on ? 0.00005 : 0.0008;
+  } catch {
+    /* ignore */
+  }
+}
+
+async function playViaHtmlAudio(wav, opts, gen) {
+  // iOS: allow blob play once the page audio session is active (blue speaker /
+  // keep-alive), even if the silent-HTML prime failed earlier.
+  const sessionLive =
+    htmlMediaUnlocked || audioCtxUnlocked || !!keepAliveOsc;
+  if (isIOSAudio() && !sessionLive) return false;
+
+  const el = ensurePlayAudioEl();
+  // Clear prior blob handlers without pause() on iOS (keeps session).
+  el.onended = null;
+  el.onerror = null;
+  el.onloadedmetadata = null;
+  if (currentObjectUrl) {
+    try {
+      URL.revokeObjectURL(currentObjectUrl);
+    } catch {
+      /* ignore */
+    }
+    currentObjectUrl = null;
+  }
+
+  const url = URL.createObjectURL(
+    new Blob([wav], { type: "audio/wav" })
+  );
   currentObjectUrl = url;
   let started = false;
 
@@ -686,6 +735,7 @@ async function playViaHtmlAudio(wav, opts, gen) {
     };
     el.onended = () => {
       cleanup();
+      duckKeepAlive(false);
       if (gen === speakGen) opts?.onEnd?.();
       resolve();
     };
@@ -699,14 +749,25 @@ async function playViaHtmlAudio(wav, opts, gen) {
         durationMs: Math.max(200, (el.duration || 0) * 1000),
       });
     };
+    el.muted = false;
+    el.volume = 1;
     el.src = url;
+    try {
+      el.load();
+    } catch {
+      /* ignore */
+    }
+    duckKeepAlive(true);
     el.play().then(
       () => {
         started = true;
-        console.info("[piper] HTMLAudio start");
+        htmlMediaUnlocked = true;
+        console.info("[piper] HTMLAudio start", "dur=", el.duration);
       },
       (err) => {
         cleanup();
+        duckKeepAlive(false);
+        console.warn("[piper] HTMLAudio play() rejected", err?.name, err?.message);
         if (err?.name === "AbortError") resolve();
         else reject(err);
       }
@@ -726,7 +787,6 @@ async function playViaWebAudio(wav, pcm, sampleRate, opts, gen) {
       /* ignore */
     }
   }
-  // Keep-alive should already hold running on iOS; re-arm if needed.
   if (ctx.state === "running") startKeepAlive(ctx);
   if (ctx.state !== "running") {
     console.warn("[piper] WebAudio ctx not running:", ctx.state);
@@ -734,7 +794,6 @@ async function playViaWebAudio(wav, pcm, sampleRate, opts, gen) {
   }
   if (gen !== speakGen) return false;
 
-  // Stop prior BufferSource only — do not kill keep-alive or HTML unlock.
   if (currentSource) {
     try {
       currentSource.onended = null;
@@ -745,20 +804,36 @@ async function playViaWebAudio(wav, pcm, sampleRate, opts, gen) {
     currentSource = null;
   }
 
+  // iOS: decodeAudioData on our WAV is flaky — always use PCM → context rate.
+  // Desktop: prefer decodeAudioData, fall back to PCM.
   let buffer;
-  try {
-    buffer = await ctx.decodeAudioData(wav.slice(0));
-  } catch (err) {
-    console.warn("[piper] decodeAudioData failed, using PCM copy", err);
-    const copy = pcm instanceof Float32Array ? pcm : new Float32Array(pcm);
-    buffer = ctx.createBuffer(1, copy.length, sampleRate);
-    buffer.getChannelData(0).set(copy);
+  if (isIOSAudio()) {
+    buffer = pcmToAudioBuffer(ctx, pcm, sampleRate);
+  } else {
+    try {
+      buffer = await ctx.decodeAudioData(wav.slice(0));
+    } catch (err) {
+      console.warn("[piper] decodeAudioData failed, using PCM copy", err);
+      buffer = pcmToAudioBuffer(ctx, pcm, sampleRate);
+    }
   }
   if (gen !== speakGen) return false;
+
+  let peak = 0;
+  const ch = buffer.getChannelData(0);
+  for (let i = 0; i < ch.length; i += 64) {
+    const a = Math.abs(ch[i]);
+    if (a > peak) peak = a;
+  }
+  if (peak < 0.001) {
+    console.warn("[piper] WebAudio buffer near-silent, peak=", peak);
+    return false;
+  }
 
   const durationMs = Math.max(200, buffer.duration * 1000);
   opts?.onStart?.({ durationMs });
 
+  duckKeepAlive(true);
   const gain = ctx.createGain();
   gain.gain.value = 1;
   gain.connect(ctx.destination);
@@ -771,6 +846,7 @@ async function playViaWebAudio(wav, pcm, sampleRate, opts, gen) {
   await new Promise((resolve) => {
     source.onended = () => {
       if (currentSource === source) currentSource = null;
+      duckKeepAlive(false);
       if (gen === speakGen) opts?.onEnd?.();
       resolve();
     };
@@ -778,12 +854,17 @@ async function playViaWebAudio(wav, pcm, sampleRate, opts, gen) {
       console.info(
         "[piper] WebAudio start",
         buffer.duration.toFixed(2),
-        "s ctx=",
+        "s peak=",
+        peak.toFixed(3),
+        "ctxRate=",
+        ctx.sampleRate,
+        "ctx=",
         ctx.state
       );
       source.start(0);
     } catch (err) {
       console.error("Piper WebAudio start failed", err);
+      duckKeepAlive(false);
       if (gen === speakGen) opts?.onError?.(err);
       resolve();
     }
@@ -806,11 +887,16 @@ async function playSynthesized(wav, pcm, sampleRate, opts, gen) {
     "htmlUnlocked=",
     htmlMediaUnlocked,
     "keepalive=",
-    !!keepAliveOsc
+    !!keepAliveOsc,
+    "pcm=",
+    pcm?.length,
+    "sr=",
+    sampleRate
   );
 
-  // With keep-alive, WebAudio stays usable on iOS after long WASM work.
-  const order = ["webaudio", "html"];
+  // iOS with blue speaker / keep-alive: try HTML blob first (uses active session),
+  // then WebAudio PCM. Desktop: WebAudio first.
+  const order = isIOSAudio() ? ["html", "webaudio"] : ["webaudio", "html"];
 
   for (const how of order) {
     if (gen !== speakGen) return;

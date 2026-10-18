@@ -118,7 +118,7 @@ import {
   speakGermanPiper,
   stopPiperAudio,
   unlockPiperAudio,
-} from "./piper-tts.js?v=20261018-piper11";
+} from "./piper-tts.js?v=20261018-piper12";
 
 import {
   buildSoundsChart,
