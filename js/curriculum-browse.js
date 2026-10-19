@@ -8,12 +8,12 @@ import {
   NUMBERS_MODES,
   modesForStep,
   plannedModeChips,
-} from "./numbers-curriculum.js?v=20261018-ui1";
+} from "./numbers-curriculum.js?v=20261018-compass5";
 import {
   NOUNS_TOPICS,
   modesForNounsStep,
   plannedNounsModeChips,
-} from "./nouns-curriculum.js?v=20261018-nouns2";
+} from "./nouns-curriculum.js?v=20261018-compass13";
 import {
   vocabularyAreas,
   vocabularyForTopic,
@@ -25,7 +25,7 @@ import {
 import {
   getInteractionPreset,
   MATRIX_PRESET_IDS,
-} from "./interaction-presets.js?v=20261018-s08k";
+} from "./interaction-presets.js?v=20261018-compass5";
 
 /** @typedef {"numbers"|"nouns"|"sounds"} ModuleId */
 
@@ -59,19 +59,17 @@ const SOUNDS_TOPICS = [
     ],
   },
   {
-    id: "discriminate",
-    label: "Discriminate",
+    id: "contrasts",
+    label: "Contrasts",
     playable: true,
-    blurb: "Hear a contrast, pick the match.",
+    blurb: "Hear a contrast, pick the match (Listen).",
     units: [
       {
         id: "minimal-pairs",
         label: "Minimal pairs",
         playable: true,
         blurb: "ü/u, schön/schon, and similar contrasts.",
-        modes: [
-          { id: "discriminate", label: "Discriminate", playable: true },
-        ],
+        modes: [{ id: "listen", label: "Listen", playable: true }],
       },
     ],
   },
@@ -91,7 +89,7 @@ const MODULES = [
   {
     id: "sounds",
     label: "Sounds",
-    blurb: "Syllables and discrimination drills.",
+    blurb: "Syllables and Listen (contrast) drills.",
   },
 ];
 

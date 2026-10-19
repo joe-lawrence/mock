@@ -118,9 +118,16 @@ export const NOUNS_TOPICS = [
         id: "cardinal-directions",
         label: "Cardinal directions",
         playable: true,
-        modes: ["choose"],
+        modes: [
+          "choose",
+          "listen",
+          "convert",
+          "visual",
+          "visual-freeform",
+          "set-dial",
+        ],
         blurb:
-          "Compass graphic → name the German direction (incl. compounds).",
+          "Compass: listen / convert / name (MC or type) or set the needle from a German cue.",
       },
     ],
   },

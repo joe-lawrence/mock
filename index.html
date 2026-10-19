@@ -23,7 +23,8 @@
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Sora:wght@500;600&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,500&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./css/mock.css?v=20261018-compass2" />
+    <link rel="stylesheet" href="./css/mock.css?v=20261018-compass12" />
+
 
     <link rel="stylesheet" href="./css/nav-carousel.css?v=20261001-audit1" />
     <script type="importmap">
@@ -231,9 +232,9 @@
             <button
               type="button"
               role="menuitem"
-              data-sounds-mode="discriminate"
+              data-sounds-mode="listen"
             >
-              Discriminate
+              Minimal pairs
             </button>
           </div>
         </div>
@@ -291,6 +292,11 @@
             <div class="answer-reveal" id="numbers-reveal" hidden>
               <p class="verdict" id="numbers-verdict" aria-live="polite"></p>
               <div class="answer-reveal-box">
+                <div
+                  class="answer-reveal-visual"
+                  id="numbers-reveal-visual"
+                  hidden
+                ></div>
                 <p class="answer-reveal-de" id="numbers-reveal-word" lang="de"></p>
                 <p
                   class="answer-reveal-phonetic"
@@ -418,6 +424,11 @@
             <div class="answer-reveal" id="nouns-reveal" hidden>
               <p class="verdict" id="nouns-verdict" aria-live="polite"></p>
               <div class="answer-reveal-box">
+                <div
+                  class="answer-reveal-visual"
+                  id="nouns-reveal-visual"
+                  hidden
+                ></div>
                 <p class="answer-reveal-de" id="nouns-reveal-word" lang="de"></p>
                 <p
                   class="answer-reveal-phonetic"
@@ -498,7 +509,7 @@
           aria-label="Sounds territory"
           hidden
         >
-          <div class="briefing" id="sounds-briefing"></div>
+          <div class="briefing" id="sounds-briefing" hidden></div>
           <div class="sound-chart" id="sounds-chart" hidden></div>
           <div class="stage stage-fill" id="sounds-stage" hidden>
             <p class="prompt" id="sounds-prompt"></p>
@@ -582,6 +593,6 @@
       </div>
     </div>
 
-    <script type="module" src="./js/mock.js?v=20261018-compass1"></script>
+    <script type="module" src="./js/mock.js?v=20261018-compass13"></script>
   </body>
 </html>

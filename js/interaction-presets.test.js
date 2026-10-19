@@ -38,6 +38,11 @@ describe("interaction presets (Slice 0–1)", () => {
     assert.equal(INTERACTION_PRESETS.convert.response, RESPONSE.FREEFORM);
     assert.equal(INTERACTION_PRESETS.visual.stimulus, STIMULUS.VISUAL);
     assert.equal(INTERACTION_PRESETS.build.response, RESPONSE.BUILD_CHIPS);
+    assert.equal(INTERACTION_PRESETS.discriminate, undefined);
+    assert.ok(!MATRIX_PRESET_IDS.includes("discriminate"));
+    assert.ok(MATRIX_PRESET_IDS.includes("listen"));
+    assert.ok(MATRIX_PRESET_IDS.includes("karaoke"));
+    assert.equal(INTERACTION_PRESETS.karaoke.stimulus, STIMULUS.KARAOKE);
   });
 
   it("enriches NUMBERS_MODES from the preset map", () => {
@@ -67,7 +72,7 @@ describe("interaction presets (Slice 0–1)", () => {
       }
     }
     // 144 + 7 visual-freeform − 10 cloze = 141
-    assert.equal(n, 141);
+    assert.equal(n, 145);
   });
 
   it("normalizeLaunchInteraction uses preset= / stimulus×response (not mode=)", () => {
@@ -136,15 +141,27 @@ describe("interaction presets (Slice 0–1)", () => {
         }
       }
     }
-    assert.equal(n, 9);
+    // 11 prior + listen/convert/visual on cardinal-directions = 14
+    assert.equal(n, 14);
   });
 
   it("Nouns launch shape matches Numbers (topic + step + mode)", () => {
     assert.ok(isNounsCellPlayable("categories", "gender-recognition", "choose"));
     assert.ok(isNounsCellPlayable("categories", "sentence-validation", "proofread"));
     assert.ok(isNounsCellPlayable("categories", "cardinal-directions", "choose"));
+    assert.ok(isNounsCellPlayable("categories", "cardinal-directions", "listen"));
+    assert.ok(isNounsCellPlayable("categories", "cardinal-directions", "convert"));
+    assert.ok(isNounsCellPlayable("categories", "cardinal-directions", "visual"));
+    assert.ok(
+      isNounsCellPlayable("categories", "cardinal-directions", "visual-freeform")
+    );
+    assert.ok(isNounsCellPlayable("categories", "cardinal-directions", "set-dial"));
+    assert.ok(isNumbersCellPlayable("time", "whole-hours", "set-dial"));
+    assert.ok(isNumbersCellPlayable("time", "minutes", "set-dial"));
     assert.equal(isNounsCellPlayable("suffixes", "wugs", "listen"), false);
     assert.equal(isNounsCellPlayable("plurals", "productive", "build"), false);
   });
 });
+
+
 

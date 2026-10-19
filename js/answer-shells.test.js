@@ -4,6 +4,7 @@ import {
   RESPONSE,
   prepareAnswerHost,
   mountMultiSelectShell,
+  normalizeMultiSelectChoice,
   mountFreeformShell,
   mountBuildChipsShell,
   mountBinaryShell,
@@ -69,6 +70,7 @@ function stubHost() {
 
   globalThis.document = {
     createElement(tag) {
+      const classSet = new Set();
       const node = {
         tagName: tag.toUpperCase(),
         type: "",
@@ -78,9 +80,28 @@ function stubHost() {
         value: "",
         dataset: {},
         disabled: false,
+        children: [],
+        _attrs: {},
         _listeners: {},
+        classList: {
+          add(...xs) {
+            xs.forEach((x) => classSet.add(x));
+            node.className = [...classSet].join(" ");
+          },
+          contains(x) {
+            return classSet.has(x);
+          },
+        },
         setAttribute(k, v) {
+          this._attrs[k] = v;
           this[k] = v;
+        },
+        getAttribute(k) {
+          return this._attrs[k];
+        },
+        appendChild(child) {
+          this.children.push(child);
+          return child;
         },
         addEventListener(type, fn) {
           this._listeners[type] = this._listeners[type] || [];
@@ -90,6 +111,18 @@ function stubHost() {
           (this._listeners.click || []).forEach((fn) => fn({}));
         },
       };
+      Object.defineProperty(node, "className", {
+        get() {
+          return [...classSet].join(" ");
+        },
+        set(v) {
+          classSet.clear();
+          String(v || "")
+            .split(/\s+/)
+            .filter(Boolean)
+            .forEach((c) => classSet.add(c));
+        },
+      });
       return node;
     },
   };
@@ -118,7 +151,7 @@ describe("answer shells (Slice 2)", () => {
         }
       }
     }
-    assert.equal(n, 141);
+    assert.equal(n, 145);
   });
 
   it("mountMultiSelectShell creates choice buttons", () => {
@@ -135,6 +168,40 @@ describe("answer shells (Slice 2)", () => {
     assert.ok(host.classList.contains("tray"));
     buttons[1].click();
     assert.equal(picked, "b");
+  });
+
+  it("mountMultiSelectShell supports optional captions (sub)", () => {
+    const host = stubHost();
+    const { buttons } = mountMultiSelectShell(host, {
+      choices: [
+        { id: "back", label: "ü", caption: "back, rounded" },
+        { value: "front", label: "u", sub: "front, unrounded" },
+      ],
+      onPick: () => {},
+    });
+    assert.equal(buttons.length, 2);
+    assert.ok(buttons[0].classList.contains("has-caption"));
+    assert.equal(buttons[0].dataset.value, "back");
+    assert.equal(buttons[0].getAttribute("aria-label"), "ü, back, rounded");
+    assert.equal(buttons[0].children[0].className, "choice-label");
+    assert.equal(buttons[0].children[0].textContent, "ü");
+    assert.equal(buttons[0].children[1].className, "choice-sub");
+    assert.equal(buttons[0].children[1].textContent, "back, rounded");
+    assert.ok(buttons[1].classList.contains("has-caption"));
+    assert.equal(buttons[1].dataset.value, "front");
+    assert.equal(buttons[1].children[1].textContent, "front, unrounded");
+  });
+
+  it("normalizeMultiSelectChoice maps id/sub aliases", () => {
+    assert.deepEqual(normalizeMultiSelectChoice("x"), {
+      value: "x",
+      label: "x",
+      caption: "",
+    });
+    assert.deepEqual(
+      normalizeMultiSelectChoice({ id: "a", label: "A", sub: "hint" }),
+      { value: "a", label: "A", caption: "hint" }
+    );
   });
 
   it("mountBuildChipsShell creates piece buttons", () => {

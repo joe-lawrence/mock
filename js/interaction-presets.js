@@ -41,6 +41,8 @@ export const RESPONSE = Object.freeze({
   MULTI_SELECT: "multi-select",
   FREEFORM: "freeform",
   BINARY: "binary",
+  /** Snap a dial / hands to a legal position (compass, clock). */
+  DIAL: "dial",
 });
 
 /**
@@ -66,8 +68,10 @@ export const INTERACTION_PRESETS = Object.freeze({
     response: RESPONSE.MULTI_SELECT,
     playable: true,
     seedDifficulty: 0.35,
-    blurb: "Hear TTS, identify the value — recognition.",
+    blurb:
+      "Hear TTS, pick the match — numbers, forms, or sound contrasts.",
   },
+
   convert: {
     id: "convert",
     label: "Convert",
@@ -124,6 +128,19 @@ export const INTERACTION_PRESETS = Object.freeze({
     seedDifficulty: 0.65,
     blurb: "Read a clock/pie — type the German form (composed pair).",
   },
+  /**
+   * Written/spoken cue → set an interactive dial (compass needle, clock hands).
+   * Reverse of Visual: production by pointing instead of naming.
+   */
+  "set-dial": {
+    id: "set-dial",
+    label: "Set dial",
+    stimulus: STIMULUS.VALUE,
+    response: RESPONSE.DIAL,
+    playable: true,
+    seedDifficulty: 0.6,
+    blurb: "See the German form — set the compass or clock to match.",
+  },
   sentence: {
     id: "sentence",
     label: "Sentence",
@@ -142,15 +159,6 @@ export const INTERACTION_PRESETS = Object.freeze({
     planned: true,
     seedDifficulty: 0.6,
     blurb: "Number inside a short written phrase (planned).",
-  },
-  discriminate: {
-    id: "discriminate",
-    label: "Discriminate",
-    stimulus: STIMULUS.TTS,
-    response: RESPONSE.MULTI_SELECT,
-    playable: true,
-    seedDifficulty: 0.4,
-    blurb: "Hear a contrast, pick the match.",
   },
   karaoke: {
     id: "karaoke",
@@ -278,7 +286,7 @@ export const MATRIX_PRESET_IDS = Object.freeze([
   "proofread",
   "visual",
   "visual-freeform",
+  "set-dial",
   "sentence",
-  "discriminate",
   "karaoke",
 ]);

@@ -320,8 +320,10 @@ function bearingById(bearingId) {
 /**
  * Compass face with needle pointing at the target bearing.
  * @param {string} bearingId — lemma id (e.g. Norden, Nordosten)
+ * @param {{ interactive?: boolean, selected?: boolean }} [opts]
  */
-function compassSvg(bearingId) {
+export function compassSvg(bearingId, opts = {}) {
+
   const hit = bearingById(bearingId) || COMPASS_BEARINGS[0];
   const deg = hit.deg;
   let ticks = "";
@@ -329,13 +331,199 @@ function compassSvg(bearingId) {
     const major = b.deg % 90 === 0;
     ticks += `<line class="compass-tick" x1="64" y1="12" x2="64" y2="${12 + (major ? 10 : 5)}" stroke="var(--clock-hand, #1c2430)" stroke-width="${major ? 2.5 : 1.5}" stroke-linecap="round" transform="rotate(${b.deg} 64 64)"/>`;
   }
-  return `<svg class="quiz-visual-svg quiz-compass-svg" viewBox="0 0 128 128" width="128" height="128" aria-hidden="true">
+  const cls = [
+    "quiz-visual-svg",
+    "quiz-compass-svg",
+    opts.interactive ? "is-interactive" : "",
+    opts.selected ? "is-selected" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const needleFill = opts.selected
+    ? "var(--accent, #2563eb)"
+    : opts.interactive && !bearingId
+      ? "color-mix(in srgb, var(--clock-hand, #1c2430) 35%, transparent)"
+      : "var(--accent, #2563eb)";
+  return `<svg class="${cls}" viewBox="0 0 128 128" width="160" height="160" role="${opts.interactive ? "img" : "presentation"}" aria-hidden="${opts.interactive ? "false" : "true"}">
     <circle class="compass-face" cx="64" cy="64" r="58" fill="var(--clock-face, #fff)" stroke="var(--clock-rim, currentColor)" stroke-width="4"/>
     ${ticks}
-    <polygon class="compass-needle" points="64,22 69,64 64,58 59,64" fill="var(--accent, #2563eb)" transform="rotate(${deg} 64 64)"/>
+    <polygon class="compass-needle" points="64,22 69,64 64,58 59,64" fill="${needleFill}" transform="rotate(${deg} 64 64)"/>
     <polygon class="compass-needle-tail" points="64,106 69,64 64,70 59,64" fill="var(--clock-hand, #1c2430)" opacity="0.35" transform="rotate(${deg} 64 64)"/>
     <circle class="compass-hub" cx="64" cy="64" r="4" fill="var(--clock-hand, currentColor)"/>
   </svg>`;
+}
+
+/**
+ * Angle (degrees clockwise from north) → nearest compass bearing id.
+ * @param {number} deg
+ */
+export function bearingIdFromAngleDeg(deg) {
+  const n = ((Number(deg) % 360) + 360) % 360;
+  const idx = Math.round(n / 45) % COMPASS_BEARINGS.length;
+  return COMPASS_BEARINGS[idx].id;
+}
+
+/**
+ * Pointer position relative to SVG center → degrees clockwise from north.
+ * @param {DOMRect} rect
+ * @param {number} clientX
+ * @param {number} clientY
+ */
+export function angleDegFromPointer(rect, clientX, clientY) {
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const dx = clientX - cx;
+  const dy = clientY - cy;
+  // atan2: 0 = east; convert to clockwise-from-north
+  const rad = Math.atan2(dy, dx);
+  const fromEast = (rad * 180) / Math.PI;
+  return ((fromEast + 90) % 360 + 360) % 360;
+}
+
+/**
+ * Interactive / quiz clock face (same geometry as clockSvg).
+ * @param {number} hours
+ * @param {number} minutes
+ * @param {{ interactive?: boolean }} [opts]
+ */
+/** ViewBox hand lengths (center 64,64 → tip). */
+export const CLOCK_HOUR_HAND_LEN = 30; // y 64 → 34
+export const CLOCK_MINUTE_HAND_LEN = 44; // y 64 → 20
+
+/**
+ * Tip of a clock hand in viewBox coords (deg clockwise from north).
+ * @param {number} deg
+ * @param {number} length
+ */
+export function clockHandTip(deg, length) {
+  const rad = (Number(deg) * Math.PI) / 180;
+  return {
+    x: 64 + length * Math.sin(rad),
+    y: 64 - length * Math.cos(rad),
+  };
+}
+
+/**
+ * Which hand is nearer the pointer (tip distance in viewBox space).
+ * Outer clicks favor the minute hand; near-center favors the hour hand when aligned.
+ * @param {DOMRect} rect — svg.getBoundingClientRect()
+ * @param {number} clientX
+ * @param {number} clientY
+ * @param {number} hours
+ * @param {number} minutes
+ * @returns {"hour"|"minute"}
+ */
+export function pickClockHandFromPointer(rect, clientX, clientY, hours, minutes) {
+  if (!rect?.width || !rect?.height) return "minute";
+  const x = ((clientX - rect.left) / rect.width) * 128;
+  const y = ((clientY - rect.top) / rect.height) * 128;
+  const h = ((hours % 12) + 12) % 12;
+  const mins = ((minutes % 60) + 60) % 60;
+  const minuteDeg = mins * 6;
+  const hourDeg = h * 30 + (mins / 60) * 30;
+  const hourTip = clockHandTip(hourDeg, CLOCK_HOUR_HAND_LEN);
+  const minTip = clockHandTip(minuteDeg, CLOCK_MINUTE_HAND_LEN);
+  const dH = (x - hourTip.x) ** 2 + (y - hourTip.y) ** 2;
+  const dM = (x - minTip.x) ** 2 + (y - minTip.y) ** 2;
+  return dH <= dM ? "hour" : "minute";
+}
+
+/**
+ * Apply hour/minute hand transforms on an existing clock SVG.
+ * @param {SVGElement|null} svg
+ * @param {number} hours
+ * @param {number} minutes
+ * @param {{ dragTarget?: "hour"|"minute"|null }} [opts]
+ */
+export function syncClockHandTransforms(svg, hours, minutes, opts = {}) {
+  if (!svg) return;
+  const h = ((hours % 12) + 12) % 12;
+  const mins = ((minutes % 60) + 60) % 60;
+  const minuteDeg = mins * 6;
+  const hourDeg = h * 30 + (mins / 60) * 30;
+  const hourEl = svg.querySelector(".clock-hand--hour");
+  const minEl = svg.querySelector(".clock-hand--minute");
+  hourEl?.setAttribute("transform", `rotate(${hourDeg} 64 64)`);
+  minEl?.setAttribute("transform", `rotate(${minuteDeg} 64 64)`);
+  const target = opts.dragTarget || null;
+  hourEl?.classList.toggle("is-dragging", target === "hour");
+  minEl?.classList.toggle("is-dragging", target === "minute");
+}
+
+export function clockFaceSvg(hours, minutes, opts = {}) {
+  const h = ((hours % 12) + 12) % 12;
+  const mins = ((minutes % 60) + 60) % 60;
+  const minuteDeg = mins * 6;
+  const hourDeg = h * 30 + (mins / 60) * 30;
+  let ticks = "";
+  for (let t = 0; t < 12; t++) {
+    const major = t % 3 === 0;
+    ticks += `<line class="clock-tick" x1="64" y1="12" x2="64" y2="${12 + (major ? 8 : 4)}" stroke="var(--clock-hand, #1c2430)" stroke-width="${major ? 3 : 1.5}" stroke-linecap="round" transform="rotate(${t * 30} 64 64)"/>`;
+  }
+  const cls = [
+    "quiz-visual-svg",
+    "quiz-clock-svg",
+    opts.interactive ? "is-interactive" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  // Same intrinsic size as clockSvg (Type what you see).
+  return `<svg class="${cls}" viewBox="0 0 128 128" width="128" height="128" role="${opts.interactive ? "img" : "presentation"}" aria-hidden="${opts.interactive ? "false" : "true"}">
+    <circle class="clock-face" cx="64" cy="64" r="58" fill="var(--clock-face, #fff)" stroke="var(--clock-rim, currentColor)" stroke-width="4"/>
+    ${ticks}
+    <line class="clock-hand clock-hand--hour" x1="64" y1="64" x2="64" y2="34" stroke="var(--clock-hand, currentColor)" stroke-width="4" stroke-linecap="round" transform="rotate(${hourDeg} 64 64)"/>
+    <line class="clock-hand clock-hand--minute" x1="64" y1="64" x2="64" y2="20" stroke="var(--accent, #2563eb)" stroke-width="2.5" stroke-linecap="round" transform="rotate(${minuteDeg} 64 64)"/>
+    <circle class="clock-hub" cx="64" cy="64" r="4" fill="var(--clock-hand, currentColor)"/>
+  </svg>`;
+}
+
+/**
+ * Snap minutes to nearest step (default 5); hours stay in 0–23.
+ * @param {number} hours
+ * @param {number} minutes
+ * @param {number} [minuteStep=5]
+ */
+export function snapClockTime(hours, minutes, minuteStep = 5) {
+  const step = Math.max(1, minuteStep | 0);
+  let mins = Math.round(Number(minutes) / step) * step;
+  let hrs = Math.floor(Number(hours)) % 24;
+  if (hrs < 0) hrs += 24;
+  if (mins >= 60) {
+    mins = 0;
+    hrs = (hrs + 1) % 24;
+  }
+  if (mins < 0) {
+    mins = 60 - step;
+    hrs = (hrs + 23) % 24;
+  }
+  return { hours: hrs, minutes: mins };
+}
+
+/**
+ * Angle clockwise from north → clock minutes (0–59), optional snap.
+ * @param {number} deg
+ * @param {number} [minuteStep=5]
+ */
+export function minutesFromAngleDeg(deg, minuteStep = 5) {
+  const n = ((Number(deg) % 360) + 360) % 360;
+  const raw = n / 6;
+  const step = Math.max(1, minuteStep | 0);
+  let mins = Math.round(raw / step) * step;
+  if (mins >= 60) mins = 0;
+  return mins;
+}
+
+/**
+ * Angle clockwise from north → hour 0–11 (for hour-hand drag).
+ * @param {number} deg
+ * @param {number} minutes — current minutes (for hour-hand offset undo)
+ */
+export function hourFromAngleDeg(deg, minutes = 0) {
+  const n = ((Number(deg) % 360) + 360) % 360;
+  const mins = ((minutes % 60) + 60) % 60;
+  // Undo the minute contribution on the hour hand (0.5° per minute).
+  const adjusted = (n - mins * 0.5 + 360) % 360;
+  return Math.round(adjusted / 30) % 12;
 }
 
 /**

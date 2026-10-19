@@ -1799,6 +1799,31 @@ body.is-session .view.is-active.view-session {
   min-height: 44px;
 }
 
+.answer-shell-choice.has-caption {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.15rem;
+  text-align: left;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+}
+
+.answer-shell-choice .choice-label {
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.answer-shell-choice .choice-sub {
+  display: block;
+  margin-top: 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+  line-height: 1.25;
+}
+
 .quiz-stage[data-response="freeform"] .answer-shell--freeform {
   /* Equal space above the field and below Check */
   padding: 1rem 0.85rem;
@@ -2223,6 +2248,23 @@ button.syl:disabled,
   min-width: 0;
   box-sizing: border-box;
   overflow-wrap: break-word;
+}
+
+.answer-reveal-visual {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 0.55rem;
+}
+
+.answer-reveal-visual[hidden] {
+  display: none !important;
+}
+
+/* Compact dial in the answer key (stimulus faces stay full size). */
+.answer-reveal-visual .quiz-visual-svg {
+  width: 88px;
+  height: 88px;
+  max-width: 88px;
 }
 
 .answer-reveal.is-ok .answer-reveal-box {
@@ -3611,6 +3653,70 @@ html[data-theme="dark"] .quiz-visual-svg {
 
 .quiz-compass-svg .compass-needle {
   color: var(--accent, #2563eb);
+}
+
+.quiz-compass-svg.is-interactive {
+  max-width: 180px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+/* Match Type-what-you-see clock size (128px intrinsic / 140px cap). */
+.quiz-clock-svg.is-interactive {
+  cursor: grab;
+  touch-action: none;
+}
+
+.quiz-clock-svg .clock-hand.is-dragging {
+  stroke: var(--accent, #2563eb);
+  stroke-width: 5;
+}
+
+.quiz-clock-svg .clock-hand--minute.is-dragging {
+  stroke-width: 3.5;
+}
+
+.dial-face-host {
+  display: flex;
+  justify-content: center;
+  margin: 0.25rem 0 0.35rem;
+}
+
+.dial-status {
+  margin: 0;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink-muted, #64748b);
+}
+
+.dial-mode-row {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: 0.15rem 0 0.35rem;
+}
+
+.dial-mode-btn.is-active {
+  outline: 2px solid var(--accent, #2563eb);
+  outline-offset: 1px;
+}
+
+.dial-cue {
+  font-size: clamp(1.25rem, 3vw, 1.6rem);
+  font-weight: 650;
+}
+
+.answer-shell--dial {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+}
+
+.answer-shell--dial .answer-shell-check {
+  align-self: center;
+  min-width: 7rem;
 }
 
 .slot.is-given {

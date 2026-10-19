@@ -29,10 +29,32 @@ export function prepareAnswerHost(tray, opts) {
 }
 
 /**
+ * Normalize a multi-select choice to { value, label, caption }.
+ * @param {string|number|{ value?: string|number, id?: string|number, label?: string, caption?: string, sub?: string }} choice
+ */
+export function normalizeMultiSelectChoice(choice) {
+  if (choice != null && typeof choice === "object") {
+    const value = String(choice.value ?? choice.id ?? "");
+    return {
+      value,
+      label: String(choice.label ?? value),
+      caption:
+        choice.caption != null
+          ? String(choice.caption)
+          : choice.sub != null
+            ? String(choice.sub)
+            : "",
+    };
+  }
+  const value = String(choice);
+  return { value, label: value, caption: "" };
+}
+
+/**
  * Multi-select choice buttons.
  * @param {HTMLElement} host
  * @param {{
- *   choices: (string|number)[],
+ *   choices: (string|number|{ value?: string|number, id?: string|number, label?: string, caption?: string, sub?: string })[],
  *   ariaLabel?: string,
  *   stacked?: boolean,
  *   isDisabled?: () => boolean,
@@ -49,16 +71,29 @@ export function mountMultiSelectShell(host, opts) {
   else host.removeAttribute("aria-label");
 
   const buttons = [];
-  for (const choice of choices) {
-    const label = String(choice);
+  for (const raw of choices) {
+    const { value, label, caption } = normalizeMultiSelectChoice(raw);
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "choice answer-shell-choice";
-    btn.dataset.value = label;
-    btn.textContent = label;
+    btn.dataset.value = value;
+    if (caption) {
+      btn.classList.add("has-caption");
+      const main = document.createElement("span");
+      main.className = "choice-label";
+      main.textContent = label;
+      const sub = document.createElement("span");
+      sub.className = "choice-sub";
+      sub.textContent = caption;
+      btn.appendChild(main);
+      btn.appendChild(sub);
+      btn.setAttribute("aria-label", `${label}, ${caption}`);
+    } else {
+      btn.textContent = label;
+    }
     btn.addEventListener("click", () => {
       if (opts.isDisabled?.()) return;
-      opts.onPick(label, btn);
+      opts.onPick(value, btn);
     });
     host.appendChild(btn);
     buttons.push(btn);
