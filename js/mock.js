@@ -155,7 +155,7 @@ import {
   speakGermanPiper,
   stopPiperAudio,
   unlockPiperAudio,
-} from "./piper-tts.js?v=20261020-piper-demo7";
+} from "./piper-tts.js?v=20261020-piper-demo8";
 
 import {
   buildSoundsChart,
@@ -15153,15 +15153,14 @@ function syncTtsVoiceMenu() {
     `<span class="menu-check-label">${
       isPiperReady(voicePref) ? "Replay demo" : "Warm up voice"
     }</span>`;
-  // pointerdown, not click: on iOS the touchstart warm path used to rebuild
-  // this menu and the click never fired, so Replay never synthesized.
-  warmBtn.addEventListener("pointerdown", (e) => {
+  // Safari only opens the speaker from touchend/click, not pointerdown.
+  const onReplay = (e) => {
     e.stopPropagation();
-    // Unlock before anything else. preventDefault here cancels Safari's
-    // user-gesture token, so later play() is silent.
     void unlockPiperAudio();
     void selectAndDemoVoice(voicePref);
-  });
+  };
+  warmBtn.addEventListener("touchend", onReplay);
+  warmBtn.addEventListener("click", onReplay);
   root.appendChild(warmBtn);
 }
 
@@ -15294,6 +15293,10 @@ function initTtsVoices() {
   };
   // touchstart fires earlier than click on iOS and still counts as a gesture.
   document.addEventListener("touchstart", onUnlock, {
+    capture: true,
+    passive: true,
+  });
+  document.addEventListener("touchend", onUnlock, {
     capture: true,
     passive: true,
   });

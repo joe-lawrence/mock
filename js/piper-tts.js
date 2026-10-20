@@ -136,11 +136,19 @@ function isIOSAudio() {
   return platform === "MacIntel" && navigator.maxTouchPoints > 1;
 }
 
-/** iPhone/iPad Safari. Chrome iOS (CriOS) can use WebAudio; Safari often cannot. */
-function isIOSSafari() {
-  if (!isIOSAudio()) return false;
-  const ua = navigator.userAgent || "";
-  return !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(ua);
+/**
+ * Safari's default audio session is silenced by the ring/silent switch.
+ * "playback" routes to the speaker the way the Music app does.
+ */
+function usePlaybackSession() {
+  try {
+    const session = navigator.audioSession;
+    if (!session) return;
+    if (session.type !== "playback") session.type = "playback";
+    console.info("[piper] audioSession", session.type);
+  } catch (err) {
+    console.warn("[piper] audioSession", err);
+  }
 }
 
 /**
@@ -530,8 +538,8 @@ function kickAudioContext(ctx) {
 
 function unlockHtmlMedia() {
   const el = ensurePlayAudioEl();
-  // Loop silence so Safari keeps the hardware audio session open until speech.
-  if (isIOSAudio()) el.loop = true;
+  // Do not loop silence on iOS — it holds the only audio session and the
+  // voice never reaches the speaker.
   if (htmlMediaUnlocked && !el.paused) return Promise.resolve(true);
   if (htmlUnlockInFlight) return htmlUnlockInFlight;
 
@@ -569,6 +577,7 @@ export function unlockPiperAudio() {
 
   // Resume and, on Linux, start the media element in this click. Speech
   // arrives later (after the voice loads) and must not need a second play().
+  usePlaybackSession();
   const ctx = ensurePiperAudioCtx();
   // Safari reports "running" and still stays silent until resume() runs inside the tap.
   if (ctx) void ctx.resume();
@@ -606,13 +615,12 @@ export function unlockPiperAudio() {
   };
 
   // Silent-WAV unlock sets el.src and detaches the gesture-started stream.
-  // iOS Safari needs that play() inside the tap; start it before any await.
+  // On iOS that element also steals the session from WebAudio, which is the
+  // path that already produced sound on this phone.
   const htmlPrime =
-    isIOSAudio()
-      ? unlockHtmlMedia()
-      : streamDest || isLinuxChromium() || !(prefersHtmlPlayback() || !ctx)
-        ? Promise.resolve(htmlMediaUnlocked)
-        : unlockHtmlMedia();
+    isIOSAudio() || streamDest || isLinuxChromium() || !(prefersHtmlPlayback() || !ctx)
+      ? Promise.resolve(htmlMediaUnlocked)
+      : unlockHtmlMedia();
 
   const ctxPrime = !ctx
     ? Promise.resolve(false)
@@ -1095,6 +1103,7 @@ async function playViaWebAudio(wav, pcm, sampleRate, opts, gen) {
   source.connect(gain);
   currentSource = source;
 
+  let started = false;
   await new Promise((resolve) => {
     source.onended = () => {
       if (currentSource === source) currentSource = null;
@@ -1114,6 +1123,7 @@ async function playViaWebAudio(wav, pcm, sampleRate, opts, gen) {
         ctx.state
       );
       source.start(0);
+      started = true;
     } catch (err) {
       console.error("Piper WebAudio start failed", err);
       duckKeepAlive(false);
@@ -1121,7 +1131,7 @@ async function playViaWebAudio(wav, pcm, sampleRate, opts, gen) {
       resolve();
     }
   });
-  return true;
+  return started;
 }
 
 async function playSynthesized(wav, pcm, sampleRate, opts, gen) {
@@ -1154,11 +1164,9 @@ async function playSynthesized(wav, pcm, sampleRate, opts, gen) {
   const streamLive = !isIOSAudio() && streamOutputLive();
   const order = streamLive
     ? ["webaudio"]
-    : isIOSSafari()
-      ? ["html", "webaudio"]
-      : ctx?.state === "running"
-        ? ["webaudio", "html"]
-        : ["html", "webaudio"];
+    : ctx?.state === "running"
+      ? ["webaudio", "html"]
+      : ["html", "webaudio"];
 
   for (const how of order) {
     if (gen !== speakGen) return;
