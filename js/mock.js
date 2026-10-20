@@ -248,7 +248,7 @@ import {
 import {
   openFeedbackComposer,
   contextFromLocationSearch,
-} from "./feedback-notes.js?v=20261020-vv1";
+} from "./feedback-notes.js?v=20261017-fb1";
 import {
   normalizeLaunchInteraction,
   getInteractionPreset,
@@ -492,89 +492,6 @@ function playFeedbackSound(kind) {
 
 function initSfx() {
   syncSfxMenu();
-}
-
-/**
- * iPhone Safari pans the visual viewport when the keyboard opens. That pan
- * cannot be disabled. Pin `.app` to the visible region and reset the page
- * scroll so the shell stays put above the keyboard.
- */
-function initKeyboardViewport() {
-  const app = document.querySelector(".app");
-  const vv = window.visualViewport;
-  if (!app || !vv) return;
-  const ua = navigator.userAgent || "";
-  const ios =
-    /iPhone|iPad|iPod/i.test(ua) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  if (!ios) return;
-
-  const editable = (el) => {
-    if (!el || el === document.body) return false;
-    if (el.isContentEditable) return true;
-    const tag = el.tagName;
-    if (tag === "TEXTAREA") return true;
-    if (tag !== "INPUT") return false;
-    const type = (el.getAttribute("type") || "text").toLowerCase();
-    return ![
-      "button",
-      "checkbox",
-      "radio",
-      "file",
-      "submit",
-      "reset",
-      "range",
-      "color",
-      "hidden",
-    ].includes(type);
-  };
-
-  let want = false;
-  let raf = 0;
-  let blurTimer = 0;
-
-  const apply = () => {
-    raf = 0;
-    const gap = window.innerHeight - vv.height;
-    const open = want && (gap > 80 || vv.offsetTop > 1);
-    if (!open) {
-      app.classList.remove("is-vv-pinned");
-      app.style.top = "";
-      app.style.height = "";
-      app.style.transform = "";
-      return;
-    }
-    app.classList.add("is-vv-pinned");
-    app.style.top = "0px";
-    app.style.height = `${Math.round(vv.height)}px`;
-    app.style.transform =
-      vv.offsetTop > 0 ? `translateY(${Math.round(vv.offsetTop)}px)` : "";
-    if (window.scrollX !== 0 || window.scrollY !== 0) {
-      window.scrollTo(0, 0);
-    }
-  };
-
-  const schedule = () => {
-    if (raf) return;
-    raf = requestAnimationFrame(apply);
-  };
-
-  document.addEventListener("focusin", (e) => {
-    if (!editable(e.target)) return;
-    clearTimeout(blurTimer);
-    want = true;
-    schedule();
-  });
-  document.addEventListener("focusout", () => {
-    clearTimeout(blurTimer);
-    blurTimer = window.setTimeout(() => {
-      want = editable(document.activeElement);
-      schedule();
-    }, 60);
-  });
-  vv.addEventListener("resize", schedule);
-  vv.addEventListener("scroll", schedule);
-  window.addEventListener("scroll", schedule, { passive: true });
 }
 const territories = [
   {
@@ -10426,7 +10343,7 @@ function renderNumbersProofread() {
         window.setTimeout(() => {
           if (state.numbersChecked) return;
           input.classList.remove("is-bad");
-          input.focus({ preventScroll: true });
+          input.focus();
         }, 400);
       } else {
         finishProofreadWrong(value, input);
@@ -10434,7 +10351,7 @@ function renderNumbersProofread() {
     },
   });
   syncTerritoryMenu("numbers");
-  queueMicrotask(() => input.focus({ preventScroll: true }));
+  queueMicrotask(() => input.focus());
 }
 
 function renderNumbersVisual() {
@@ -10718,7 +10635,7 @@ function renderNumbersVisualFreeform() {
     },
   });
   syncTerritoryMenu("numbers");
-  queueMicrotask(() => input.focus({ preventScroll: true }));
+  queueMicrotask(() => input.focus());
 }
 
 /**
@@ -11552,7 +11469,7 @@ function renderNumbersListen() {
         checkNumbersListen(n);
       },
     });
-    queueMicrotask(() => input.focus({ preventScroll: true }));
+    queueMicrotask(() => input.focus());
   }
 
   syncTerritoryMenu("numbers");
@@ -11900,7 +11817,7 @@ function renderNumbersConvert() {
   tray.classList.add("numbers-convert-entry");
 
   syncTerritoryMenu("numbers");
-  queueMicrotask(() => input.focus({ preventScroll: true }));
+  queueMicrotask(() => input.focus());
 }
 
 function checkNumbersConvert(raw, opts = {}) {
@@ -11999,7 +11916,7 @@ function checkNumbersConvert(raw, opts = {}) {
         window.setTimeout(() => {
           if (state.numbersChecked) return;
           input.classList.remove("is-bad");
-          input.focus({ preventScroll: true });
+          input.focus();
         }, 450);
       }
     }
@@ -12139,7 +12056,7 @@ function checkNumbersListen(answer) {
           if (state.numbersChecked) return;
           // Keep the first guess for editing on the second try.
           input.classList.remove("is-bad");
-          input.focus({ preventScroll: true });
+          input.focus();
         }, 450);
       }
     }
@@ -13822,7 +13739,7 @@ function renderNounsCardinalDirections() {
         checkNounsCardinalDirectionType(value);
       },
     });
-    queueMicrotask(() => input.focus({ preventScroll: true }));
+    queueMicrotask(() => input.focus());
     return;
   }
 
@@ -13947,7 +13864,7 @@ function checkNounsCardinalDirectionType(raw, opts = {}) {
         window.setTimeout(() => {
           if (state.nounsChecked) return;
           input.classList.remove("is-bad");
-          input.focus({ preventScroll: true });
+          input.focus();
         }, 450);
       }
     }
@@ -17037,7 +16954,6 @@ function bind() {
 
 initTheme();
 initSfx();
-initKeyboardViewport();
 initTtsVoices();
 renderHub();
 bind();

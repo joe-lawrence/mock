@@ -397,7 +397,7 @@ export function openFeedbackComposer(context = {}, opts = {}) {
   });
 
   renderList();
-  root.querySelector("#fb-body")?.focus({ preventScroll: true });
+  root.querySelector("#fb-body")?.focus();
 }
 
 export function closeFeedbackComposer() {
