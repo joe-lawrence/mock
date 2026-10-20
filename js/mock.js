@@ -133,7 +133,7 @@ import {
   COMPASS_BEARINGS,
   PIE_DIAL_DENOM,
   pieDialMatchesFraction,
-} from "./quiz-extras.js?v=20261019-dyn1";
+} from "./quiz-extras.js?v=20261020-compass-key";
 
 import { mountNavCarousel } from "./nav-carousel.js?v=20260930-vocab17";
 import {
@@ -155,7 +155,7 @@ import {
   speakGermanPiper,
   stopPiperAudio,
   unlockPiperAudio,
-} from "./piper-tts.js?v=20261018-piper13";
+} from "./piper-tts.js?v=20261020-piper-demo6";
 
 import {
   buildSoundsChart,
@@ -5253,17 +5253,27 @@ function answerKeyVisualHtml(opts = {}) {
     );
   }
 
-  if (
+  // Compass only for an actual compass item. Do not key off leftover
+  // nounsMode or resolution.lemma — ordinal sentences set lemma to the
+  // frame noun ("Frage"), and unknown bearings fall back to north.
+  const compassItem =
     /compass/i.test(templateId) ||
     meta?.kind === "compass" ||
-    state.nounsMode === "cardinal-directions"
-  ) {
-    const bearing =
-      exercise?.resolution?.bearing ||
-      exercise?.resolution?.lemma ||
-      meta?.bearing ||
-      exercise?.resolution?.expected ||
-      "";
+    exercise?.resolution?.kind === "compass" ||
+    (exercise?.territoryId === "nouns" &&
+      state.nounsMode === "cardinal-directions");
+  if (compassItem) {
+    const candidates = [
+      exercise?.resolution?.bearing,
+      meta?.bearing,
+      meta?.kind === "compass" ? meta.lemma : "",
+      exercise?.resolution?.kind === "compass"
+        ? exercise.resolution.lemma
+        : "",
+    ];
+    const bearing = candidates.find((id) =>
+      COMPASS_BEARINGS.some((b) => b.id === id)
+    );
     if (bearing) {
       return (
         visualForMeta({ kind: "compass", bearing, lemma: bearing })?.html || ""
@@ -5404,7 +5414,7 @@ const NO_TTS_REVEAL_ADVANCE_MS = 1400;
  * @param {() => void} [onDone]
  */
 function playAnswerKey(spoken, parts, nodes, onDone) {
-  const canSpeak = !!spoken && navCaps().audio;
+  const canSpeak = !!spoken;
   wireAnswerKaraokeReplay(spoken, parts, nodes);
   if (!canSpeak) {
     onDone?.();
@@ -6911,7 +6921,7 @@ function makeSylButton({
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "syl" + (stress ? " has-stress" : "");
-  const canSpeak = !!say && navCaps().audio;
+  const canSpeak = !!say;
   if (canSpeak) {
     btn.dataset.say = say;
     btn.dataset.lang = lang;
@@ -6937,7 +6947,6 @@ function makeSylButton({
  * Highlight chip + speak one beat (quiz syllable tap).
  */
 function playSylChip(node, text, lang = "de-DE") {
-  if (!navCaps().audio) return;
   stopSpeech();
   node.classList.add("is-active");
   withUtterance(text, {
@@ -11372,14 +11381,16 @@ function renderNumbersListen() {
     playBtn.className = "btn btn-primary play-btn";
     playBtn.id = "numbers-listen-play";
     playBtn.textContent = "Play";
-    if (!navCaps().audio) {
-      playBtn.disabled = true;
-      playBtn.title = "Audio is off for this session";
-    } else {
-      playBtn.addEventListener("click", () => {
+    {
+      const onPlay = () => {
         if (state.numbersChecked) return;
         playNumbersListen();
+      };
+      playBtn.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        onPlay();
       });
+      playBtn.addEventListener("click", onPlay);
     }
     slots.appendChild(playBtn);
   }
@@ -11469,10 +11480,12 @@ function renderNumbersListen() {
 }
 
 function playNumbersListen() {
-  if (!navCaps().audio) return;
   const exercise = state.currentExercise || currentNumberExercise();
   const form = exercise.resolution?.form || exercise.materials?.form;
-  if (!form) return;
+  if (!form) {
+    console.info("[piper] listen skipped — no form");
+    return;
+  }
   speakGerman(form);
 }
 
@@ -13640,16 +13653,23 @@ function renderNounsCardinalDirections() {
       playBtn.className = "btn btn-primary play-btn";
       playBtn.id = "nouns-listen-play";
       playBtn.textContent = "Play";
-      if (!navCaps().audio) {
-        playBtn.disabled = true;
-        playBtn.title = "Audio is off for this session";
-      } else {
-        playBtn.addEventListener("click", () => {
+      {
+        const onPlay = () => {
           if (state.nounsChecked) return;
           speakGerman(exercise.materials.spoken || exercise.resolution.lemma);
+        };
+        playBtn.addEventListener("pointerdown", (e) => {
+          e.stopPropagation();
+          onPlay();
         });
+        playBtn.addEventListener("click", onPlay);
       }
       slotsRow.appendChild(playBtn);
+      const say = exercise.materials.spoken || exercise.resolution.lemma;
+      queueMicrotask(() => {
+        if (state.nounsChecked || !say) return;
+        speakGerman(say);
+      });
     } else {
       slotsRow.hidden = true;
       slotsRow.className = "slot-row";
@@ -15028,11 +15048,19 @@ let piperLoadState = "idle";
 let piperLoadError = "";
 
 function playGermanVoiceDemo() {
-  if (!navCaps().audio) return;
-  // Prefer WebAudio (already unlocked on the click that selected the voice).
-  void unlockPiperAudio();
+  // Stop first so the following unlock's play() is not paused away.
   stopSpeech({ keepAdvance: true });
-  withGermanUtterance(TTS_DEMO_DE, { rate: 1 });
+  void unlockPiperAudio();
+  withGermanUtterance(TTS_DEMO_DE, {
+    rate: 1,
+    voiceId: readPiperVoicePref(),
+    speakerKey: readPiperSpeakerPref(),
+    onError: (err) => {
+      piperLoadError = err?.message || "Playback did not start";
+      piperLoadState = "error";
+      syncTtsVoiceMenu();
+    },
+  });
 }
 
 function syncTtsVoiceMenu() {
@@ -15052,8 +15080,7 @@ function syncTtsVoiceMenu() {
       piperLoadError ||
       "Piper voice failed to load. Check mock/vendor/piper/voices/.";
   } else {
-    note.textContent =
-      "Piper · rate 1.0. Thorsten (medium) is clearest; Kerstin/Ramona/Karlsson/Pavoque are 16 kHz “low” models.";
+    note.textContent = `Replay demo uses ${active.label}. Piper · rate 1.0.`;
   }
   root.appendChild(note);
 
@@ -15126,21 +15153,27 @@ function syncTtsVoiceMenu() {
     `<span class="menu-check-label">${
       isPiperReady(voicePref) ? "Replay demo" : "Warm up voice"
     }</span>`;
-  warmBtn.addEventListener("click", (e) => {
+  // pointerdown, not click: on iOS the touchstart warm path used to rebuild
+  // this menu and the click never fired, so Replay never synthesized.
+  warmBtn.addEventListener("pointerdown", (e) => {
     e.stopPropagation();
+    e.preventDefault();
     void unlockPiperAudio();
     void selectAndDemoVoice(voicePref);
   });
   root.appendChild(warmBtn);
 }
 
+let demoSelectGen = 0;
+
 async function selectAndDemoVoice(voiceId) {
   const id = voiceId || readPiperVoicePref();
+  const gen = ++demoSelectGen;
   piperLoadState = "loading";
   piperLoadError = "";
-  syncTtsVoiceMenu();
   try {
     await ensurePiperVoice(id);
+    if (gen !== demoSelectGen) return;
     piperLoadState = "ready";
     syncTtsVoiceMenu();
     playGermanVoiceDemo();
@@ -15152,16 +15185,90 @@ async function selectAndDemoVoice(voiceId) {
   }
 }
 
+/** German line the open listen question should speak, if any. */
+function currentListenPrompt() {
+  if (
+    state.view === "numbers" &&
+    state.phase?.numbers === "practice" &&
+    state.numbersQuizMode === "listen" &&
+    !state.numbersChecked
+  ) {
+    const exercise = state.currentExercise;
+    if (!exercise || exercise.templateId === "numbers.listen.read-time") return "";
+    return exercise.resolution?.form || exercise.materials?.form || "";
+  }
+  if (
+    state.view === "nouns" &&
+    state.phase?.nouns === "practice" &&
+    state.nounsQuizMode === "listen" &&
+    !state.nounsChecked
+  ) {
+    const exercise = state.currentExercise;
+    return exercise?.materials?.spoken || exercise?.resolution?.lemma || "";
+  }
+  if (
+    state.view === "sounds" &&
+    state.soundsMode === "listen" &&
+    !state.soundsChecked
+  ) {
+    const item = soundDiscriminate[state.soundsIndex % soundDiscriminate.length];
+    return item?.play || "";
+  }
+  return "";
+}
+
+let spokenListenKey = "";
+
+function visiblePlayButton(id) {
+  const btn = document.getElementById(id);
+  if (!btn || btn.disabled) return null;
+  if (btn.closest("[hidden]")) return null;
+  return btn;
+}
+
+/** Speak the on-screen listen prompt once per question after the voice is ready. */
+function speakVisibleListenPrompt() {
+  const text = currentListenPrompt();
+  const numbersPlay = visiblePlayButton("numbers-listen-play");
+  const nounsPlay = visiblePlayButton("nouns-listen-play");
+  const soundsPlay = visiblePlayButton("sounds-listen-play");
+  if (!text && !numbersPlay && !nounsPlay && !soundsPlay) {
+    console.info(
+      "[piper] no listen prompt",
+      state.view,
+      state.numbersQuizMode || state.nounsQuizMode || state.soundsMode,
+      state.phase?.[state.view] || ""
+    );
+    return;
+  }
+  const key = [
+    state.view,
+    state.numbersHistoryIndex,
+    state.nounsHistoryIndex,
+    state.soundsIndex,
+    text,
+  ].join("|");
+  if (spokenListenKey === key) return;
+  spokenListenKey = key;
+  console.info("[piper] quiz prompt", String(text || "(play)").slice(0, 48));
+  if (numbersPlay) playNumbersListen();
+  else if (nounsPlay) nounsPlay.click();
+  else if (soundsPlay) soundsPlay.click();
+  else speakGerman(text);
+}
+
 async function warmPiperVoice() {
   const id = readPiperVoicePref();
   if (isPiperReady(id)) {
     piperLoadState = "ready";
     syncTtsVoiceMenu();
+    speakVisibleListenPrompt();
     return;
   }
   piperLoadState = "loading";
   piperLoadError = "";
-  syncTtsVoiceMenu();
+  // Don't rebuild the voice menu here. This runs on touchstart, and replacing
+  // Replay demo before click/pointerdown drops the event on iOS.
   try {
     await ensurePiperVoice(id);
     piperLoadState = "ready";
@@ -15171,6 +15278,7 @@ async function warmPiperVoice() {
     console.error("Piper TTS init failed", err);
   }
   syncTtsVoiceMenu();
+  if (piperLoadState === "ready") speakVisibleListenPrompt();
 }
 
 /**
@@ -15241,7 +15349,7 @@ function withEnglishUtterance(
  */
 function withUtterance(
   text,
-  { rate = 1, lang = "de-DE", onStart, onEnd, onError } = {}
+  { rate = 1, lang = "de-DE", voiceId, speakerKey, onStart, onEnd, onError } = {}
 ) {
   const gen = ttsSpeakGen;
   if (!String(lang || "").toLowerCase().startsWith("de")) {
@@ -15252,7 +15360,10 @@ function withUtterance(
   void unlockPiperAudio();
 
   const run = async () => {
-    if (gen !== ttsSpeakGen) return;
+    if (gen !== ttsSpeakGen) {
+      console.info("[piper] speak dropped — cancelled before start");
+      return;
+    }
     if (!isPiperReady()) {
       piperLoadState = "loading";
       syncTtsVoiceMenu();
@@ -15277,9 +15388,14 @@ function withUtterance(
         return;
       }
     }
-    if (gen !== ttsSpeakGen) return;
+    if (gen !== ttsSpeakGen) {
+      console.info("[piper] speak dropped — cancelled while voice loaded");
+      return;
+    }
     await speakGermanPiper(text, {
       rate,
+      voiceId,
+      speakerKey,
       onStart: (info) => {
         if (gen !== ttsSpeakGen) return;
         onStart?.(info);
@@ -15304,12 +15420,8 @@ function withGermanUtterance(text, opts = {}) {
 }
 
 function speakGerman(text, rate = 1, onEnd) {
-  if (!navCaps().audio) {
-    if (typeof onEnd === "function") queueMicrotask(onEnd);
-    return;
-  }
-  void unlockPiperAudio();
   stopSpeech({ keepAdvance: true });
+  void unlockPiperAudio();
   withUtterance(text, { rate, lang: "de-DE", onEnd });
 }
 
@@ -16195,10 +16307,6 @@ function renderSounds() {
       "btn btn-primary play-btn",
       "sounds-listen-play"
     );
-    if (!navCaps().audio) {
-      playBtn.disabled = true;
-      playBtn.title = "Audio is off for this session";
-    }
     playRow.appendChild(playBtn);
 
     choices.hidden = false;
@@ -16220,6 +16328,10 @@ function renderSounds() {
       actionBtn("Help", openSoundsHelp, "btn", null, false, "lightbulb"),
     ];
     actions.appendChild(soundsNavRow(backBtn, skipBtn, mid));
+    queueMicrotask(() => {
+      if (state.soundsChecked || !item?.play) return;
+      speakGerman(item.play);
+    });
     return;
   }
 
@@ -16251,6 +16363,7 @@ function renderSounds() {
       actionBtn("Help", openSoundsHelp, "btn", null, false, "lightbulb"),
     ];
     actions.appendChild(soundsNavRow(backBtn, nextBtn, mid));
+    queueMicrotask(() => playKaraoke(item));
   }
 }
 
@@ -16268,6 +16381,12 @@ function actionBtn(label, onClick, className, id, hidden, icon) {
   }
   if (id) btn.id = id;
   if (hidden) btn.hidden = true;
+  if (String(className).includes("play-btn")) {
+    btn.addEventListener("pointerdown", (e) => {
+      e.stopPropagation();
+      onClick(e);
+    });
+  }
   btn.addEventListener("click", onClick);
   return btn;
 }
@@ -16324,10 +16443,6 @@ function playKaraoke(item) {
 /** Full-word TTS with flowing syllable highlight (chart examples + quiz Play word). */
 function playKaraokeFlow(tts, syllables, nodes, opts = {}) {
   const { keepAdvance = false, onEnd, onError } = opts;
-  if (!navCaps().audio) {
-    onEnd?.();
-    return;
-  }
   stopSpeech({ keepAdvance });
   if (!nodes.length || !tts) {
     onError?.();

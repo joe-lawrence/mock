@@ -104,21 +104,56 @@ let audioCtxUnlocked = false;
 let htmlMediaUnlocked = false;
 /** @type {Promise<boolean> | null} */
 let htmlUnlockInFlight = null;
+/** @type {MediaStreamAudioDestinationNode | null} */
+let streamDest = null;
+/** True once el.play() was started on the stream inside a gesture. */
+let streamPlayArmed = false;
+/** @type {GainNode | null} */
+let streamGain = null;
 /** @type {AudioBufferSourceNode | null} */
 let currentSource = null;
 /** @type {string | null} */
 let currentObjectUrl = null;
 let speakGen = 0;
 
-/** iPhone / iPod / iPad (incl. iPadOS desktop UA). */
+/**
+ * iPhone / iPod / iPad, including iPadOS "desktop site" (Safari).
+ * Desktop Chrome often reports platform MacIntel and maxTouchPoints > 1
+ * (touchscreen laptops, reduced UA). That is not iOS — treating it as iOS
+ * skipped the stream output and left ctx.destination silent on Linux.
+ */
 function isIOSAudio() {
   const ua = navigator.userAgent || "";
   if (/iPhone|iPad|iPod/i.test(ua)) return true;
-  return (
-    navigator.platform === "MacIntel" &&
-    typeof navigator.maxTouchPoints === "number" &&
-    navigator.maxTouchPoints > 1
-  );
+  if (
+    /Chrome|Chromium|Edg\/|Firefox|Linux|Windows|Android|CrOS|X11/i.test(ua)
+  ) {
+    return false;
+  }
+  const platform =
+    navigator.userAgentData?.platform || navigator.platform || "";
+  if (/Linux|Windows|Android|Chrome OS/i.test(platform)) return false;
+  return platform === "MacIntel" && navigator.maxTouchPoints > 1;
+}
+
+/**
+ * Desktop Chromium on Linux: WebAudio often stays silent (PipeWire/Pulse
+ * sample-rate mismatch) while HTMLAudioElement plays. Android Chrome is fine.
+ */
+function isLinuxChromium() {
+  const ua = navigator.userAgent || "";
+  const platform =
+    navigator.userAgentData?.platform || navigator.platform || "";
+  const linux =
+    ((/Linux|X11/i.test(ua) || /Linux/i.test(platform)) &&
+      !/Android/i.test(ua));
+  if (!linux) return false;
+  return /Chrome|Chromium|Edg\//i.test(ua);
+}
+
+/** Platforms where blob <audio> is the reliable speech path. */
+function prefersHtmlPlayback() {
+  return isIOSAudio() || isLinuxChromium();
 }
 
 function ensurePlayAudioEl() {
@@ -130,7 +165,12 @@ function ensurePlayAudioEl() {
   el.playsInline = true;
   el.muted = false;
   el.volume = 1;
-  el.style.display = "none";
+  // display:none can drop output on some Chromium builds; keep it off-screen.
+  el.style.position = "absolute";
+  el.style.width = "1px";
+  el.style.height = "1px";
+  el.style.opacity = "0";
+  el.style.pointerEvents = "none";
   try {
     document.body?.appendChild(el);
   } catch {
@@ -146,12 +186,111 @@ function ensurePiperAudioCtx() {
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return null;
   try {
+    // Let Chrome pick the output device rate. Forcing 48 kHz is silent when
+    // the Linux sink is 44.1 kHz (and the reverse).
     piperAudioCtx = new AC();
   } catch (err) {
     console.warn("[piper] AudioContext create failed", err);
     return null;
   }
   return piperAudioCtx;
+}
+
+/**
+ * ctx.destination is often silent (Linux PipeWire/Pulse, and some desktops
+ * mis-detected as iOS). A media element started inside the click, fed by a
+ * MediaStream from the same context, still accepts PCM after the voice loads.
+ * el.play() must run synchronously in the gesture — do not await first.
+ */
+function armStreamOutput(ctx) {
+  if (!ctx) return;
+  let el;
+  try {
+    el = ensurePlayAudioEl();
+    if (!streamDest || streamDest.context !== ctx) {
+      streamGain = ctx.createGain();
+      streamGain.gain.value = 1;
+      streamDest = ctx.createMediaStreamDestination();
+      streamGain.connect(streamDest);
+    }
+  } catch (err) {
+    console.warn("[piper] stream output unavailable", err);
+    streamDest = null;
+    streamGain = null;
+    return;
+  }
+  if (keepAliveGain && streamGain) {
+    try {
+      keepAliveGain.connect(streamGain);
+    } catch {
+      /* already connected */
+    }
+  }
+  // Setting el.src (the silent unlock clip) detaches srcObject. Clear both.
+  if (el.srcObject !== streamDest.stream) {
+    try {
+      el.pause();
+    } catch {
+      /* ignore */
+    }
+    el.removeAttribute("src");
+    el.src = "";
+    el.srcObject = streamDest.stream;
+  }
+  el.muted = false;
+  el.volume = 1;
+  streamPlayArmed = true;
+  const started = el.play();
+  if (started && typeof started.then === "function") {
+    started.then(
+      () => {
+        htmlMediaUnlocked = true;
+        console.info("[piper] stream output armed, ctx=", ctx.state);
+      },
+      (err) => {
+        streamPlayArmed = false;
+        console.warn(
+          "[piper] stream play() rejected",
+          err?.name,
+          err?.message
+        );
+      }
+    );
+  }
+}
+
+function streamOutputLive() {
+  const el = playAudioEl;
+  return !!(
+    streamPlayArmed &&
+    streamGain &&
+    el &&
+    streamDest &&
+    el.srcObject === streamDest.stream
+  );
+}
+
+function ensureStreamPlaying() {
+  if (!streamDest) return;
+  const el = ensurePlayAudioEl();
+  if (el.srcObject !== streamDest.stream) {
+    el.removeAttribute("src");
+    el.srcObject = streamDest.stream;
+  }
+  el.muted = false;
+  el.volume = 1;
+  if (el.paused) {
+    const started = el.play();
+    if (started && typeof started.then === "function") {
+      started.catch((err) => {
+        console.warn(
+          "[piper] stream resume rejected",
+          err?.name,
+          err?.message
+        );
+      });
+    }
+  }
 }
 
 function startKeepAlive(ctx) {
@@ -164,6 +303,7 @@ function startKeepAlive(ctx) {
     gain.gain.value = 0.0008;
     osc.connect(gain);
     gain.connect(ctx.destination);
+    if (streamGain && streamGain.context === ctx) gain.connect(streamGain);
     osc.start();
     keepAliveOsc = osc;
     keepAliveGain = gain;
@@ -322,7 +462,7 @@ function pcm2wav(buffer, numChannels, sampleRate) {
   return view.buffer;
 }
 
-function releasePlayback() {
+function releasePlayback({ pauseMedia = true } = {}) {
   if (currentSource) {
     try {
       currentSource.onended = null;
@@ -337,17 +477,18 @@ function releasePlayback() {
     }
     currentSource = null;
   }
-  if (playAudioEl) {
+  if (playAudioEl && pauseMedia && !htmlUnlockInFlight) {
     try {
       playAudioEl.onended = null;
       playAudioEl.onerror = null;
-      // On iOS, pause() after a gesture unlock can forfeit later play() rights.
-      if (!isIOSAudio()) playAudioEl.pause();
+      // Pausing the element that was started inside the click forfeits later
+      // play() on iOS and on Linux Chrome (the stream output stays armed).
+      if (!isIOSAudio() && !streamOutputLive()) playAudioEl.pause();
     } catch {
       /* ignore */
     }
   }
-  if (currentObjectUrl) {
+  if (currentObjectUrl && !isLinuxChromium()) {
     try {
       URL.revokeObjectURL(currentObjectUrl);
     } catch {
@@ -361,8 +502,8 @@ export function stopPiperAudio() {
   speakGen += 1;
   pending = null;
   releasePlayback();
-  // Keep keep-alive on iOS so the next demo still has a running context.
-  if (!isIOSAudio()) stopKeepAlive();
+  // Keep the context running across the synth gap (iOS and Linux Chrome).
+  if (!isIOSAudio() && !streamDest) stopKeepAlive();
 }
 
 /**
@@ -404,8 +545,13 @@ export function unlockPiperAudio() {
     return Promise.resolve(audioCtxUnlocked || htmlMediaUnlocked);
   }
 
-  // Synchronous create inside the gesture (do not await first).
+  // Resume and, on Linux, start the media element in this click. Speech
+  // arrives later (after the voice loads) and must not need a second play().
   const ctx = ensurePiperAudioCtx();
+  if (ctx && ctx.state === "suspended") void ctx.resume();
+  // iOS plays BufferSource → destination. A MediaStream element stays silent
+  // there and can take the audio session away from the context.
+  if (ctx && !isIOSAudio()) armStreamOutput(ctx);
   // Also warm the shared SFX context when provided.
   try {
     audioCtxProvider?.();
@@ -418,14 +564,27 @@ export function unlockPiperAudio() {
     if (!ctx) return false;
     startKeepAlive(ctx);
     audioCtxUnlocked = ctx.state === "running";
-    console.info("[piper] unlock ctx=", ctx.state, "ios=", isIOSAudio());
+    console.info(
+      "[piper] unlock ctx=",
+      ctx.state,
+      "ios=",
+      isIOSAudio(),
+      "linux=",
+      isLinuxChromium(),
+      "stream=",
+      streamOutputLive(),
+      "platform=",
+      navigator.userAgentData?.platform || navigator.platform || ""
+    );
     return audioCtxUnlocked;
   };
 
+  // Silent-WAV unlock sets el.src and detaches the gesture-started stream.
+  // On iOS the running AudioContext is the output — don't start a second element.
   const htmlPrime =
-    isIOSAudio() || !ctx
-      ? unlockHtmlMedia()
-      : Promise.resolve(htmlMediaUnlocked);
+    isIOSAudio() || streamDest || isLinuxChromium() || !(prefersHtmlPlayback() || !ctx)
+      ? Promise.resolve(htmlMediaUnlocked)
+      : unlockHtmlMedia();
 
   const ctxPrime = !ctx
     ? Promise.resolve(false)
@@ -745,6 +904,13 @@ function duckKeepAlive(on) {
 }
 
 async function playViaHtmlAudio(wav, opts, gen) {
+  if (htmlUnlockInFlight) {
+    try {
+      await htmlUnlockInFlight;
+    } catch {
+      /* ignore */
+    }
+  }
   // iOS: allow blob play once the page audio session is active (blue speaker /
   // keep-alive), even if the silent-HTML prime failed earlier.
   const sessionLive =
@@ -752,6 +918,8 @@ async function playViaHtmlAudio(wav, opts, gen) {
   if (isIOSAudio() && !sessionLive) return false;
 
   const el = ensurePlayAudioEl();
+  // Drop a WebAudio stream if one was attached earlier; it blocks WAV playback.
+  if (el.srcObject) el.srcObject = null;
   // Clear prior blob handlers without pause() on iOS (keeps session).
   el.onended = null;
   el.onerror = null;
@@ -840,6 +1008,7 @@ async function playViaWebAudio(wav, pcm, sampleRate, opts, gen) {
     console.warn("[piper] WebAudio ctx not running:", ctx.state);
     return false;
   }
+  ensureStreamPlaying();
   if (gen !== speakGen) return false;
 
   if (currentSource) {
@@ -852,10 +1021,10 @@ async function playViaWebAudio(wav, pcm, sampleRate, opts, gen) {
     currentSource = null;
   }
 
-  // iOS: decodeAudioData on our WAV is flaky — always use PCM → context rate.
-  // Desktop: prefer decodeAudioData, fall back to PCM.
+  // Linux stream output is already playing — feed it PCM. decodeAudioData
+  // on our WAV is also flaky in Chrome, so skip it there.
   let buffer;
-  if (isIOSAudio()) {
+  if (isIOSAudio() || isLinuxChromium()) {
     buffer = pcmToAudioBuffer(ctx, pcm, sampleRate);
   } else {
     try {
@@ -884,7 +1053,11 @@ async function playViaWebAudio(wav, pcm, sampleRate, opts, gen) {
   duckKeepAlive(true);
   const gain = ctx.createGain();
   gain.gain.value = 1;
-  gain.connect(ctx.destination);
+  if (!isIOSAudio() && streamOutputLive() && streamGain && streamGain.context === ctx) {
+    gain.connect(streamGain);
+  } else {
+    gain.connect(ctx.destination);
+  }
 
   const source = ctx.createBufferSource();
   source.buffer = buffer;
@@ -936,15 +1109,23 @@ async function playSynthesized(wav, pcm, sampleRate, opts, gen) {
     htmlMediaUnlocked,
     "keepalive=",
     !!keepAliveOsc,
+    "stream=",
+    streamOutputLive(),
     "pcm=",
     pcm?.length,
     "sr=",
     sampleRate
   );
 
-  // iOS with blue speaker / keep-alive: try HTML blob first (uses active session),
-  // then WebAudio PCM. Desktop: WebAudio first.
-  const order = isIOSAudio() ? ["html", "webaudio"] : ["webaudio", "html"];
+  // Gesture-started media stream: feed it PCM. A later <audio>.play() of the
+  // WAV is blocked once the voice-load await has left the click, and it also
+  // detaches srcObject.
+  const streamLive = !isIOSAudio() && streamOutputLive();
+  const order = streamLive
+    ? ["webaudio"]
+    : ctx?.state === "running"
+      ? ["webaudio", "html"]
+      : ["html", "webaudio"];
 
   for (const how of order) {
     if (gen !== speakGen) return;
@@ -963,6 +1144,7 @@ async function playSynthesized(wav, pcm, sampleRate, opts, gen) {
   console.info(
     "[piper] audio queued — tap once more to hear speech (iOS autoplay)"
   );
+  opts?.onError?.(new Error("Audio did not start"));
 }
 
 /**
@@ -972,7 +1154,8 @@ async function playSynthesized(wav, pcm, sampleRate, opts, gen) {
 export async function speakGermanPiper(text, opts = {}) {
   speakGen += 1;
   pending = null;
-  releasePlayback();
+  // Do not pause the click-started stream; only stop a previous buffer.
+  releasePlayback({ pauseMedia: false });
   const gen = speakGen;
 
   try {
