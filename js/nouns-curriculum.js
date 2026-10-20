@@ -10,6 +10,19 @@ import {
   getInteractionPreset,
   enrichModeWithPreset,
 } from "./interaction-presets.js";
+import {
+  directionsForStepMode,
+  isDirectionPlayable,
+  DIRECTION,
+  DEFAULT_DIRECTIONS,
+} from "./reverse-direction.js";
+
+export {
+  directionsForStepMode,
+  isDirectionPlayable,
+  DIRECTION,
+  DEFAULT_DIRECTIONS,
+};
 
 /**
  * @typedef {object} NounsStep
@@ -18,6 +31,7 @@ import {
  * @property {boolean} playable
  * @property {string[]} [modes] — shared preset ids; order = soft intro
  * @property {string[]} [plannedModes] — coming-soon chips when !playable or extras
+ * @property {Record<string, ("forward"|"reverse")[]>} [directions] — per-preset direction allowlist (default forward-only)
  * @property {string} [blurb]
  * @property {boolean} [intro] — soft “try first” unit under its topic
  * @property {string} [familyId] — @deprecated alias of id (launch / playlist)
@@ -50,7 +64,9 @@ export const NOUNS_TOPICS = [
         intro: true,
         modes: ["choose"],
         plannedModes: ["convert"],
-        blurb: "Novel nouns — apply suffix → gender, or ? if insufficient.",
+        directions: { choose: ["forward", "reverse"] },
+        blurb:
+          "Novel nouns — apply suffix → gender, or ? if insufficient. Reverse: article → pick a matching lemma.",
       },
       {
         id: "real-words",
@@ -58,7 +74,9 @@ export const NOUNS_TOPICS = [
         playable: true,
         modes: ["choose"],
         plannedModes: ["convert"],
-        blurb: "Same task on cued lexicon lemmas. Skip ahead anytime.",
+        directions: { choose: ["forward", "reverse"] },
+        blurb:
+          "Same task on cued lexicon lemmas. Reverse: article → pick the matching lemma.",
       },
       {
         id: "proofread",
@@ -66,13 +84,6 @@ export const NOUNS_TOPICS = [
         playable: true,
         modes: ["proofread"],
         blurb: "Is “der X” right? Richtig / Falsch.",
-      },
-      {
-        id: "reverse-mc",
-        label: "Reverse",
-        playable: true,
-        modes: ["choose"],
-        blurb: "Article given — pick the matching lemma.",
       },
     ],
   },
@@ -126,8 +137,9 @@ export const NOUNS_TOPICS = [
           "visual-freeform",
           "set-dial",
         ],
+        directions: { convert: ["forward", "reverse"] },
         blurb:
-          "Compass: listen / convert / name (MC or type) or set the needle from a German cue.",
+          "Compass: listen / convert / name (MC or type) or set the needle from a German cue. Convert reverse: German → type English.",
       },
     ],
   },
@@ -277,6 +289,16 @@ export function isNounsCellPlayable(topicId, stepId, modeId) {
   const mode = getInteractionPreset(modeId);
   if (!topic?.playable || !step?.playable || !mode?.playable) return false;
   return modesForNounsStep(topicId, stepId).some((m) => m.id === modeId);
+}
+
+/** Directions allowed for a Nouns cell (default forward-only). */
+export function directionsForNounsCell(topicId, stepId, modeId) {
+  return directionsForStepMode(getNounsStep(topicId, stepId), modeId);
+}
+
+export function isNounsDirectionPlayable(topicId, stepId, modeId, direction) {
+  if (!isNounsCellPlayable(topicId, stepId, modeId)) return false;
+  return isDirectionPlayable(getNounsStep(topicId, stepId), modeId, direction);
 }
 
 /** Planned preset chips (coming soon) for a step. */

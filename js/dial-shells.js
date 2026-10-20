@@ -1,21 +1,27 @@
 /**
- * Interactive dial answer shells — compass needle / clock hands (set-dial).
+ * Interactive dial answer shells — compass / clock / pie (set-dial).
  */
 
-import { RESPONSE } from "./interaction-presets.js?v=20261018-compass11";
-import { prepareAnswerHost } from "./answer-shells.js?v=20261018-compass11";
+import { RESPONSE } from "./interaction-presets.js?v=20261019-dyn1";
+import { prepareAnswerHost } from "./answer-shells.js?v=20261019-dyn1";
 import {
   COMPASS_BEARINGS,
   compassSvg,
   clockFaceSvg,
+  pieSvg,
+  setPieSvgFraction,
+  PIE_DIAL_DENOM,
+  PIE_DIAL_GUIDE_TICKS,
+  simplifyFraction,
   bearingIdFromAngleDeg,
   angleDegFromPointer,
   minutesFromAngleDeg,
   hourFromAngleDeg,
+  numeratorFromAngleDeg,
   snapClockTime,
   pickClockHandFromPointer,
   syncClockHandTransforms,
-} from "./quiz-extras.js?v=20261018-compass11";
+} from "./quiz-extras.js?v=20261019-dyn1";
 
 /**
  * @param {SVGElement} svg
@@ -271,6 +277,121 @@ export function mountClockDialShell(host, opts) {
         t?.minutes ?? minutes,
         minuteStep
       ));
+      paint();
+    },
+    checkBtn,
+  };
+}
+
+/**
+ * Pie dial: drag/tap to set a filled sector.
+ * Snaps on a fine grid ({@link PIE_DIAL_DENOM}); guide ticks stay at
+ * {@link PIE_DIAL_GUIDE_TICKS} so the target denominator is not revealed.
+ * @param {HTMLElement} host
+ * @param {{
+ *   denominator?: number,
+ *   numerator?: number,
+ *   guideTicks?: number,
+ *   ariaLabel?: string,
+ *   checkLabel?: string,
+ *   isDisabled?: () => boolean,
+ *   onChange?: (t: { numerator: number, denominator: number }) => void,
+ *   onSubmit: (t: { numerator: number, denominator: number }) => void,
+ * }} opts
+ */
+export function mountPieDialShell(host, opts) {
+  prepareAnswerHost(host, { response: RESPONSE.DIAL });
+  host.classList.add("answer-shell--dial", "answer-shell--pie-dial");
+  host.setAttribute("aria-label", opts.ariaLabel || "Set the pie chart");
+
+  const denominator = Math.max(
+    1,
+    Math.floor(Number(opts.denominator ?? PIE_DIAL_DENOM)) || PIE_DIAL_DENOM
+  );
+  const guideTicks =
+    opts.guideTicks != null
+      ? Math.max(0, Math.floor(Number(opts.guideTicks)) || 0)
+      : PIE_DIAL_GUIDE_TICKS;
+  let numerator = Math.max(
+    0,
+    Math.min(denominator, Math.floor(Number(opts.numerator)) || 0)
+  );
+  /** @type {(() => void)|null} */
+  let unbind = null;
+
+  const face = document.createElement("div");
+  face.className = "dial-face-host";
+
+  const status = document.createElement("p");
+  status.className = "dial-status";
+  status.setAttribute("aria-live", "polite");
+
+  const checkBtn = document.createElement("button");
+  checkBtn.type = "button";
+  checkBtn.className = "btn btn-primary answer-shell-check";
+  checkBtn.textContent = opts.checkLabel || "Check";
+
+  const formatStatus = () => {
+    const [sn, sd] = simplifyFraction(numerator, denominator);
+    return `${sn}/${sd}`;
+  };
+
+  const paint = () => {
+    unbind?.();
+    unbind = null;
+    face.innerHTML = pieSvg(numerator, denominator, {
+      interactive: true,
+      guideTicks,
+    });
+    const svg = face.querySelector("svg");
+    if (svg) {
+      svg.style.touchAction = "none";
+      svg.style.cursor = "grab";
+      svg.setAttribute("aria-label", `Pie set to ${formatStatus()}`);
+      status.textContent = formatStatus();
+      checkBtn.disabled = !!opts.isDisabled?.();
+      unbind = bindDialPointer(
+        svg,
+        (deg) => {
+          if (opts.isDisabled?.()) return;
+          svg.style.cursor = "grabbing";
+          const next = numeratorFromAngleDeg(deg, denominator);
+          if (next === numerator) return;
+          numerator = next;
+          setPieSvgFraction(svg, numerator, denominator);
+          status.textContent = formatStatus();
+          svg.setAttribute("aria-label", `Pie set to ${formatStatus()}`);
+          opts.onChange?.({ numerator, denominator });
+        },
+        () => {
+          svg.style.cursor = "grab";
+        }
+      );
+    } else {
+      status.textContent = formatStatus();
+      checkBtn.disabled = !!opts.isDisabled?.();
+    }
+  };
+
+  checkBtn.addEventListener("click", () => {
+    if (opts.isDisabled?.()) return;
+    opts.onSubmit({ numerator, denominator });
+  });
+
+  host.append(face, status, checkBtn);
+  paint();
+
+  return {
+    host,
+    getValue: () => ({ numerator, denominator }),
+    setValue: (t) => {
+      numerator = Math.max(
+        0,
+        Math.min(
+          denominator,
+          Math.floor(Number(t?.numerator ?? numerator)) || 0
+        )
+      );
       paint();
     },
     checkBtn,

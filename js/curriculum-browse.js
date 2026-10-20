@@ -13,7 +13,7 @@ import {
   NOUNS_TOPICS,
   modesForNounsStep,
   plannedNounsModeChips,
-} from "./nouns-curriculum.js?v=20261018-compass13";
+} from "./nouns-curriculum.js?v=20261018-compass14";
 import {
   vocabularyAreas,
   vocabularyForTopic,

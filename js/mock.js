@@ -68,7 +68,8 @@ import {
   suggestNumbersFocus,
   formatNumbersFocusLabel,
   mixableSteps,
-} from "./numbers-curriculum.js?v=20261018-compass4";
+  directionsForNumbersCell,
+} from "./numbers-curriculum.js?v=20261019-dyn1";
 import {
   GENDER_SHORTCUTS_UNITS,
   NOUNS_STUB_TOPICS,
@@ -82,14 +83,44 @@ import {
   topicIdForStep,
   introModeForNounsStep,
   modesForNounsStep,
-} from "./nouns-curriculum.js?v=20261018-compass13";
+  directionsForNounsCell,
+  isNounsDirectionPlayable,
+} from "./nouns-curriculum.js?v=20261018-compass14";
+import {
+  DIRECTION,
+  DIRECTION_LABELS,
+  isReverse,
+  reverseNounArticleChoose,
+  reverseNumbersConvert,
+  reverseCompassConvert,
+} from "./reverse-direction.js?v=20261018-compass15";
 
 import { DECIMAL_POOLS } from "./decimals-pools.js?v=20260930-ref1";
-import { FRACTION_POOLS } from "./fractions-pools.js?v=20260929-dmo4";
-import { TIME_POOLS } from "./time-pools.js?v=20260929-dmo4";
-import { DATE_POOLS } from "./dates-pools.js?v=20260929-dmo4";
-import { MEASURE_POOLS } from "./measure-pools.js?v=20260929-dmo4";
-import { ORDINAL_POOLS } from "./ordinals-pools.js?v=20260929-dmo4";
+import {
+  FRACTION_POOLS,
+  FRACTION_POOL_BUILDERS,
+  buildFractionPool,
+} from "./fractions-pools.js?v=20261019-dyn1";
+import {
+  TIME_POOLS,
+  TIME_POOL_BUILDERS,
+  buildTimePool,
+} from "./time-pools.js?v=20261019-dyn1";
+import {
+  DATE_POOLS,
+  DATE_POOL_BUILDERS,
+  buildDatePool,
+} from "./dates-pools.js?v=20261019-dyn1";
+import {
+  MEASURE_POOLS,
+  MEASURE_POOL_BUILDERS,
+  buildMeasurePool,
+} from "./measure-pools.js?v=20261019-dyn1";
+import {
+  ORDINAL_POOLS,
+  ORDINAL_POOL_BUILDERS,
+  buildOrdinalPool,
+} from "./ordinals-pools.js?v=20261019-dyn1";
 import {
   makeClozeExercise,
   makeProofreadExercise,
@@ -100,7 +131,9 @@ import {
   makeNounReverseChoices,
   compassDirectionPool,
   COMPASS_BEARINGS,
-} from "./quiz-extras.js?v=20261018-compass11";
+  PIE_DIAL_DENOM,
+  pieDialMatchesFraction,
+} from "./quiz-extras.js?v=20261019-dyn1";
 
 import { mountNavCarousel } from "./nav-carousel.js?v=20260930-vocab17";
 import {
@@ -235,7 +268,8 @@ import {
 import {
   mountCompassDialShell,
   mountClockDialShell,
-} from "./dial-shells.js?v=20261018-compass11";
+  mountPieDialShell,
+} from "./dial-shells.js?v=20261019-dyn1";
 
 /**
  * Mount Numbers prompt via stimulus shell + mark stage Q×A attrs.
@@ -1366,9 +1400,31 @@ function ensureStepDeck() {
   }
 }
 
+/** Pool builders that regenerate combinations on each deck reshuffle. */
+const DYNAMIC_POOL_BUILDERS = {
+  ...FRACTION_POOL_BUILDERS,
+  ...TIME_POOL_BUILDERS,
+  ...DATE_POOL_BUILDERS,
+  ...MEASURE_POOL_BUILDERS,
+  ...ORDINAL_POOL_BUILDERS,
+};
+
+function buildDynamicPool(poolId) {
+  if (FRACTION_POOL_BUILDERS[poolId]) return buildFractionPool(poolId);
+  if (TIME_POOL_BUILDERS[poolId]) return buildTimePool(poolId);
+  if (DATE_POOL_BUILDERS[poolId]) return buildDatePool(poolId);
+  if (MEASURE_POOL_BUILDERS[poolId]) return buildMeasurePool(poolId);
+  if (ORDINAL_POOL_BUILDERS[poolId]) return buildOrdinalPool(poolId);
+  return null;
+}
+
 function currentNumberPool() {
   const step = getNumbersStep(state.numbersTopic, state.numbersStep);
   const key = step?.pool;
+  // Rebuild from ranges / grids (not a frozen quiz list).
+  if (key && DYNAMIC_POOL_BUILDERS[key]) {
+    return buildDynamicPool(key);
+  }
   if (key && numberPools[key]) return numberPools[key];
   return numberPools.compounds;
 }
@@ -4051,7 +4107,64 @@ function isNounCategoryMode() {
 }
 
 function isNounDiscriminateMode() {
-  return state.nounsMode === "proofread" || state.nounsMode === "reverse-mc";
+  // reverse-mc unit folded into choose + quizDirection=reverse
+  return state.nounsMode === "proofread";
+}
+
+function currentDirectionsAllowlist() {
+  if (state.view === "numbers" && state.phase?.numbers === "practice") {
+    return directionsForNumbersCell(
+      state.numbersTopic,
+      state.numbersStep,
+      state.numbersQuizMode
+    );
+  }
+  if (state.view === "nouns" && state.phase?.nouns === "practice") {
+    const topicId = state.nounsTopic || state.nounsLearnUnit;
+    const stepId = state.nounsStep || state.nounsMode;
+    return directionsForNounsCell(topicId, stepId, state.nounsQuizMode);
+  }
+  return [DIRECTION.FORWARD];
+}
+
+function ensureQuizDirectionValid() {
+  const allowed = currentDirectionsAllowlist();
+  if (!allowed.includes(state.quizDirection)) {
+    state.quizDirection = allowed[0] || DIRECTION.FORWARD;
+  }
+  return state.quizDirection;
+}
+
+function setQuizDirection(dir) {
+  const allowed = currentDirectionsAllowlist();
+  if (!allowed.includes(dir)) return;
+  if (state.quizDirection === dir) return;
+  state.quizDirection = dir;
+  syncDirectionChrome();
+  if (state.view === "numbers") renderNumbers();
+  else if (state.view === "nouns") renderNouns();
+}
+
+function syncDirectionChrome() {
+  const host = document.getElementById("session-direction");
+  if (!host) return;
+  ensureQuizDirectionValid();
+  const allowed = currentDirectionsAllowlist();
+  const show = allowed.length > 1 && (state.view === "numbers" || state.view === "nouns");
+  host.hidden = !show;
+  if (!show) return;
+  host.replaceChildren();
+  for (const d of allowed) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "session-direction-btn";
+    btn.dataset.direction = d;
+    btn.textContent = DIRECTION_LABELS[d] || d;
+    btn.setAttribute("aria-pressed", String(state.quizDirection === d));
+    if (state.quizDirection === d) btn.classList.add("is-active");
+    btn.addEventListener("click", () => setQuizDirection(d));
+    host.appendChild(btn);
+  }
 }
 
 function recordFamilyAttempt(patternId, ok) {
@@ -5122,6 +5235,24 @@ function answerKeyVisualHtml(opts = {}) {
     return visualForMeta({ kind: "clock", hours, minutes })?.html || "";
   }
 
+  const numer =
+    exercise?.resolution?.numerator ?? meta?.numerator;
+  const denom =
+    exercise?.resolution?.denominator ?? meta?.denominator;
+  if (
+    numer != null &&
+    denom != null &&
+    (isFractionPieMeta(meta) || /pie|fraction|set-dial\.pie/i.test(templateId))
+  ) {
+    return (
+      visualForMeta({
+        kind: "fraction",
+        numerator: numer,
+        denominator: denom,
+      })?.html || ""
+    );
+  }
+
   if (
     /compass/i.test(templateId) ||
     meta?.kind === "compass" ||
@@ -5141,6 +5272,14 @@ function answerKeyVisualHtml(opts = {}) {
   }
 
   return "";
+}
+
+/** Proper fraction metas that can be answered with a pie dial. */
+function isFractionPieMeta(meta) {
+  if (!meta || meta.numerator == null || meta.denominator == null) return false;
+  if (meta.kind === "mixed-fraction") return false;
+  const k = String(meta.kind || "");
+  return k === "fraction" || k.startsWith("fraction");
 }
 
 /**
@@ -5231,7 +5370,7 @@ const NUMBERS_INSTRUCTION = {
   proofread: "Fix the spelling",
   visual: "Name what you see",
   "visual-freeform": "Type what you see",
-  "set-dial": "Set the clock",
+  "set-dial": "Set the dial",
   sentence: "Read the sentence",
 };
 
@@ -5820,6 +5959,11 @@ const state = {
   nounsTopic: "suffixes",
   nounsStep: "wugs",
   nounsQuizMode: "choose",
+  /**
+   * Forward | reverse for the active cell (opt-in via curriculum `directions`).
+   * @type {"forward"|"reverse"}
+   */
+  quizDirection: "forward",
   /** Gender Shortcuts learn unit: suffixes | categories — alias of nounsTopic. */
   nounsLearnUnit: "suffixes",
   /** focus | family-mix */
@@ -6603,6 +6747,8 @@ function updateSessionCrumb(view) {
   const inTerritory = isSession && state.phase[view] !== "hub";
   if (!inTerritory || !state.sessionMode) {
     bar.hidden = true;
+    const dirHost = document.getElementById("session-direction");
+    if (dirHost) dirHost.hidden = true;
     destroyPlaylistMount();
     return;
   }
@@ -6683,6 +6829,7 @@ function updateSessionCrumb(view) {
 
   bar.hidden = false;
   syncPlaylistDropdown();
+  syncDirectionChrome();
 }
 
 function navigate(view, opts = {}) {
@@ -7096,9 +7243,13 @@ function startNumbersPractice(focus) {
   state.numbersMixEntries = [{ topicId: focus.topicId, stepId: focus.stepId }];
   state.numbersMixSteps = [focus.stepId];
   state.numbersMixTopic = focus.topicId;
+  if (focus.direction === DIRECTION.REVERSE || focus.direction === DIRECTION.FORWARD) {
+    state.quizDirection = focus.direction;
+  }
   if (focus.modeId && focus.modeId !== "either") {
     // Single-modality focus when user picked a specific mode chip
     if (!applyNumbersFocus(focus)) return;
+    ensureQuizDirectionValid();
     state.phase.numbers = "practice";
     state.preservePractice.numbers = false;
     // navigate() — not showTerritoryPhase alone — so cold starts
@@ -7107,6 +7258,7 @@ function startNumbersPractice(focus) {
     syncPlaylistDropdown();
     return;
   }
+  ensureQuizDirectionValid();
   rebuildSessionFromPlaylist();
   navigate("numbers", { keepPhase: true });
 }
@@ -7222,6 +7374,9 @@ function consumeCurriculumLaunch() {
     const modeId = launchIx.presetId || "";
     if (!topicId || !stepId || !modeId) return false;
     if (!isNumbersCellPlayable(topicId, stepId, modeId)) return false;
+    const dirRaw = params.get("direction");
+    const direction =
+      dirRaw === DIRECTION.REVERSE ? DIRECTION.REVERSE : DIRECTION.FORWARD;
     startNumbersPractice({
       topicId,
       stepId,
@@ -7229,6 +7384,7 @@ function consumeCurriculumLaunch() {
       difficulty,
       lock: true,
       bypassCaps: true,
+      direction,
     });
     return true;
   }
@@ -7247,13 +7403,24 @@ function consumeCurriculumLaunch() {
       ]);
       return true;
     }
-    const stepId = params.get("step") || params.get("family") || "";
-    const topicId = params.get("topic") || topicIdForStep(stepId) || "";
+    let stepId = params.get("step") || params.get("family") || "";
+    let topicId = params.get("topic") || topicIdForStep(stepId) || "";
     const launchIx = normalizeLaunchInteraction(params);
-    const modeId =
+    let modeId =
       launchIx.presetId ||
       introModeForNounsStep(topicId, stepId)?.id ||
       "choose";
+    let direction =
+      params.get("direction") === DIRECTION.REVERSE
+        ? DIRECTION.REVERSE
+        : DIRECTION.FORWARD;
+    // Legacy Suffixes · Reverse unit deep link.
+    if (stepId === "reverse-mc" || stepId.includes("reverse")) {
+      topicId = topicId || "suffixes";
+      stepId = "real-words";
+      modeId = "choose";
+      direction = DIRECTION.REVERSE;
+    }
     if (!topicId || !stepId || !modeId) return false;
     if (!isNounsCellPlayable(topicId, stepId, modeId)) return false;
     return startNounsPractice({
@@ -7261,6 +7428,7 @@ function consumeCurriculumLaunch() {
       stepId,
       modeId,
       difficulty,
+      direction,
     });
   }
 
@@ -7343,7 +7511,8 @@ function nounsFamilyForNavUnit(unit) {
   if (id.includes("wugs") && !id.includes("plural")) return "wugs";
   if (id.includes("real-words") || id.includes("real_words")) return "real-words";
   if (id.includes("proofread")) return "proofread";
-  if (id.includes("reverse")) return "reverse-mc";
+  // Legacy Suffixes · Reverse unit → Real Words choose + reverse direction.
+  if (id.includes("reverse")) return "real-words";
   if (id.includes("gender-recognition") || id.includes("gender_recognition"))
     return "gender-recognition";
   if (id.includes("article-application") || id.includes("article_application"))
@@ -7418,7 +7587,11 @@ function startNounsPractice(focus) {
   if (focus.difficulty === "core" || focus.difficulty === "assisted") {
     applyDifficultyAsLayerPrefs(focus.difficulty);
   }
+  if (focus.direction === DIRECTION.REVERSE || focus.direction === DIRECTION.FORWARD) {
+    state.quizDirection = focus.direction;
+  }
   applyNounsCell(topicId, stepId, modeId);
+  ensureQuizDirectionValid();
   state.nounsHubPracticePick = "";
   state.nounsSessionKind = "focus";
   state.nounsFamilyMix = [];
@@ -8723,7 +8896,10 @@ function currentGuidedQuestionCue() {
         "—";
       return joinQaCue(statement, instr || "Richtig oder Falsch?");
     }
-    if (state.nounsMode === "reverse-mc") {
+    if (
+      isNounArticleLikeMode() &&
+      isReverse(state.quizDirection)
+    ) {
       const art = ex.resolution?.article || ex.prompt?.text || "—";
       return joinQaCue(art, instr || "Pick the noun");
     }
@@ -10454,19 +10630,25 @@ function renderNumbersVisualFreeform() {
 }
 
 /**
- * Written German time cue → set interactive clock hands (set-dial).
- * Clock metas only; other visuals fall back to convert.
+ * German cue → set interactive dial (clock hands or fraction pie).
  */
 function renderNumbersSetDial() {
   clearNumbersAdvance();
   stopSpeech();
   const meta = currentNumberMeta();
-  if (!isClockMeta(meta) || meta.hours == null || meta.minutes == null) {
-    state.numbersQuizMode = "convert";
-    renderNumbersConvert();
+  if (isFractionPieMeta(meta)) {
+    renderNumbersSetDialPie(meta);
     return;
   }
+  if (isClockMeta(meta) && meta.hours != null && meta.minutes != null) {
+    renderNumbersSetDialClock(meta);
+    return;
+  }
+  state.numbersQuizMode = "convert";
+  renderNumbersConvert();
+}
 
+function renderNumbersSetDialClock(meta) {
   const saved = state.numbersQuizMode;
   state.numbersQuizMode = "build";
   const exercise = currentWrittenishExercise(meta);
@@ -10531,7 +10713,79 @@ function renderNumbersSetDial() {
     ariaLabel: "Set the clock to match the German time",
     isDisabled: () => state.numbersChecked,
     onSubmit: (t) => {
-      checkNumbersSetDial(t);
+      checkNumbersSetDialClock(t);
+    },
+  });
+  syncTerritoryMenu("numbers");
+}
+
+function renderNumbersSetDialPie(meta) {
+  const saved = state.numbersQuizMode;
+  state.numbersQuizMode = "build";
+  const exercise = currentWrittenishExercise(meta);
+  state.numbersQuizMode = saved;
+  if (!exercise) {
+    state.numbersQuizMode = "convert";
+    renderNumbersConvert();
+    return;
+  }
+
+  const answer = exercise.resolution.form || meta.form;
+  const expNumer = meta.numerator;
+  const expDenom = meta.denominator;
+
+  setCurrentExercise({
+    ...exercise,
+    templateId: "numbers.set-dial.pie",
+    materials: {
+      ...exercise.materials,
+      form: answer,
+      hint: "Fill the pie to match the German fraction.",
+    },
+    resolution: {
+      ...exercise.resolution,
+      form: answer,
+      numerator: expNumer,
+      denominator: expDenom,
+    },
+  });
+  state.numbersChecked = false;
+  state.numbersConvertRetryUsed = false;
+  clearItemFirstMiss();
+  ensureSessionChip();
+
+  const stage = document.getElementById("numbers-stage");
+  if (stage) stage.dataset.mode = "set-dial";
+  markQuizStage(stage, {
+    presetId: "set-dial",
+    stimulus: STIMULUS.VALUE,
+    response: RESPONSE.DIAL,
+  });
+
+  const cue = answer || meta.form || "";
+  mountNumbersStimulus(STIMULUS.VALUE, {
+    bodyHtml: `<span lang="de" class="dial-cue">${escapeHtml(cue)}</span>`,
+    ask: "Set the pie",
+  });
+  clearAnswerReveal("numbers");
+  const back = document.getElementById("numbers-back");
+  if (back) back.disabled = numbersBackDisabled();
+
+  const slots = document.getElementById("numbers-slots");
+  if (slots) {
+    slots.hidden = true;
+    slots.innerHTML = "";
+  }
+
+  const tray = document.getElementById("numbers-tray");
+  mountPieDialShell(tray, {
+    // Always Zwölftel grid — do not pass the target denom (that leaks the answer).
+    denominator: PIE_DIAL_DENOM,
+    numerator: 0,
+    ariaLabel: "Set the pie chart to match the German fraction",
+    isDisabled: () => state.numbersChecked,
+    onSubmit: (t) => {
+      checkNumbersSetDialPie(t);
     },
   });
   syncTerritoryMenu("numbers");
@@ -10545,7 +10799,7 @@ function clockDialMatches(got, expHours, expMinutes) {
   return got.hours % 12 === expHours % 12;
 }
 
-function checkNumbersSetDial(t) {
+function checkNumbersSetDialClock(t) {
   if (state.numbersChecked) return;
   const exercise = state.currentExercise;
   const meta = currentNumberMeta();
@@ -10582,6 +10836,60 @@ function checkNumbersSetDial(t) {
     meta?.english ||
     (meta?.value != null ? englishCardinal(meta.value) : "") ||
     "";
+  presentCorrectAnswer({
+    prefix: "numbers",
+    answerEls: [],
+    wrongEls: [],
+    reveal: {
+      word: form,
+      parts,
+      en: revealEn,
+      ok,
+    },
+    then: (nodes) => {
+      playAnswerKeyThenAdvance(form, parts, nodes, scheduleNumbersAdvance);
+    },
+  });
+}
+
+function pieDialMatches(got, expNumer, expDenom) {
+  return pieDialMatchesFraction(got, expNumer, expDenom);
+}
+
+function checkNumbersSetDialPie(t) {
+  if (state.numbersChecked) return;
+  const exercise = state.currentExercise;
+  const meta = currentNumberMeta();
+  if (!exercise) return;
+  const expNumer = exercise.resolution?.numerator;
+  const expDenom = exercise.resolution?.denominator;
+  const form = exercise.resolution?.form || "";
+  const ok = pieDialMatches(t, expNumer, expDenom);
+  const typed = `${t.numerator}/${t.denominator}`;
+  const expected = `${expNumer}/${expDenom}`; // canonical target; dial is always /12
+
+  if (!ok && !state.numbersConvertRetryUsed) {
+    state.numbersConvertRetryUsed = true;
+    playFeedbackSound("bad");
+    noteFirstMiss({ answer: typed, expected });
+    showAttemptFeedback("numbers", "Try again");
+    return;
+  }
+
+  state.numbersChecked = true;
+  clearExerciseFeedback("numbers");
+  if (!ok) noteFirstMiss({ answer: typed, expected });
+  logGuidedQaFinal({
+    question: currentGuidedQuestionCue(),
+    answer: typed,
+    expected,
+    status: ok ? "correct" : "incorrect",
+  });
+
+  const parts = resolveAnswerPronunciation(
+    exercise.materials?.answerParts || form
+  ).parts;
+  const revealEn = meta?.english || meta?.written || expected;
   presentCorrectAnswer({
     prefix: "numbers",
     answerEls: [],
@@ -11358,36 +11666,69 @@ function renderNumbersConvert() {
   if (stage) stage.dataset.mode = "convert";
 
   ensureSessionChip();
+  ensureQuizDirectionValid();
+  const reverse = isReverse(state.quizDirection);
 
-  const convertLead = numbersLead(meta);
-  // Written-decimal cues: show Komma vs point as written forms; answer is spoken.
-  // No English *gloss* of the spoken reading — point form is orthography, not a translation.
   let promptHtml;
   const showEn = supportOn("english");
-  if (meta?.kind === "money") {
-    promptHtml =
-      promptWrittenDecimalHtml(convertLead, "", { money: true }) +
-      (showEn ? promptTaskHtml(numbersEnTaskAsk("convert", meta)) : "");
-  } else if (meta?.kind === "decimal") {
-    const example = convertReadingExample(meta);
-    const convertAsk = (() => {
-      if (isWrittenishMeta(meta)) {
-        const ex = example
-          ? ` — e.g. <span lang="de">${example}</span>`
-          : "";
-        return `Write out the German reading${ex}`;
-      }
-      return "Write out the German form";
-    })();
-    promptHtml = `${promptWrittenDecimalHtml(
-      convertLead,
-      showEn ? meta.english || "" : ""
-    )}${showEn ? `<span class="convert-ask">${convertAsk}</span>` : ""}`;
+  let accepted =
+    exercise.resolution?.acceptedForms || acceptedConvertForms(meta);
+  let placeholder = "German form";
+  let ariaLabel = "German number form";
+
+  if (reverse) {
+    const pack = reverseNumbersConvert({
+      kind: meta?.kind,
+      value: exercise.resolution?.value ?? meta?.value,
+      n: meta?.n,
+      form: exercise.resolution?.form || meta?.form,
+      written: meta?.written,
+      english: meta?.english || meta?.englishWritten,
+    });
+    exercise.materials = {
+      ...exercise.materials,
+      hint: pack.hint,
+      reversePack: pack,
+    };
+    exercise.resolution = {
+      ...exercise.resolution,
+      acceptedForms: pack.acceptedForms,
+      reverseAnswer: pack.answer,
+    };
+    accepted = pack.acceptedForms;
+    placeholder = pack.placeholder;
+    ariaLabel = pack.ariaLabel;
+    promptHtml = numbersPromptPairHtml(pack.cue, pack.ask, meta);
+    mountNumbersStimulus(STIMULUS.VALUE, { bodyHtml: promptHtml });
   } else {
-    const convertAsk = numbersEnTaskAsk("convert", meta);
-    promptHtml = numbersPromptPairHtml(convertLead, convertAsk, meta);
+    const convertLead = numbersLead(meta);
+    // Written-decimal cues: show Komma vs point as written forms; answer is spoken.
+    // No English *gloss* of the spoken reading — point form is orthography, not a translation.
+    if (meta?.kind === "money") {
+      promptHtml =
+        promptWrittenDecimalHtml(convertLead, "", { money: true }) +
+        (showEn ? promptTaskHtml(numbersEnTaskAsk("convert", meta)) : "");
+    } else if (meta?.kind === "decimal") {
+      const example = convertReadingExample(meta);
+      const convertAsk = (() => {
+        if (isWrittenishMeta(meta)) {
+          const ex = example
+            ? ` — e.g. <span lang="de">${example}</span>`
+            : "";
+          return `Write out the German reading${ex}`;
+        }
+        return "Write out the German form";
+      })();
+      promptHtml = `${promptWrittenDecimalHtml(
+        convertLead,
+        showEn ? meta.english || "" : ""
+      )}${showEn ? `<span class="convert-ask">${convertAsk}</span>` : ""}`;
+    } else {
+      const convertAsk = numbersEnTaskAsk("convert", meta);
+      promptHtml = numbersPromptPairHtml(convertLead, convertAsk, meta);
+    }
+    mountNumbersStimulus(STIMULUS.DIGIT, { bodyHtml: promptHtml });
   }
-  mountNumbersStimulus(STIMULUS.DIGIT, { bodyHtml: promptHtml });
 
   clearAnswerReveal("numbers");
   const back = document.getElementById("numbers-back");
@@ -11406,14 +11747,12 @@ function renderNumbersConvert() {
 
   const tray = document.getElementById("numbers-tray");
   const liveCheck = supportOn("liveCheck");
-  const accepted =
-    exercise.resolution?.acceptedForms || acceptedConvertForms(meta);
 
   // Freeform answer shell (live-check Enter still uses prefix-aware commit below).
   const { input, checkBtn } = mountFreeformShell(tray, {
     inputId: "numbers-convert-input",
-    placeholder: liveCheck ? "start typing…" : "German form",
-    ariaLabel: "German number form",
+    placeholder: liveCheck ? "start typing…" : placeholder,
+    ariaLabel,
     assisted: liveCheck,
     isDisabled: () => state.numbersChecked,
     onInput: (value, el) => {
@@ -11421,7 +11760,9 @@ function renderNumbersConvert() {
         el.classList.remove("is-ok", "is-bad", "is-prefix-ok");
         return;
       }
-      const target = convertTargetForm(exercise);
+      const target = reverse
+        ? exercise.resolution.reverseAnswer
+        : convertTargetForm(exercise);
       const { typed, isPrefix, isComplete } = convertInputMatches(
         value,
         target,
@@ -11442,7 +11783,9 @@ function renderNumbersConvert() {
         checkNumbersConvert(value);
         return;
       }
-      const target = convertTargetForm(exercise);
+      const target = reverse
+        ? exercise.resolution.reverseAnswer
+        : convertTargetForm(exercise);
       const { typed, isPrefix, isComplete } = convertInputMatches(
         value,
         target,
@@ -11468,21 +11811,46 @@ function checkNumbersConvert(raw, opts = {}) {
   if (state.numbersChecked) return;
   const exercise = state.currentExercise || currentNumberExercise();
   const meta = currentNumberMeta();
-  const form = convertTargetForm(exercise);
+  const reverse = isReverse(state.quizDirection);
+  const form = reverse
+    ? String(exercise.resolution?.reverseAnswer || "")
+    : convertTargetForm(exercise);
   const typed = normalizeConvertInput(raw);
   if (!typed) return;
 
-  const accepted =
-    exercise.resolution?.acceptedForms || acceptedConvertForms(meta);
+  const accepted = reverse
+    ? exercise.resolution?.acceptedForms || [form]
+    : exercise.resolution?.acceptedForms || acceptedConvertForms(meta);
   const audit = convertAnswerAudit(
     raw,
-    exercise.resolution.form || form,
+    form,
     accepted
   );
   let ok = audit.ok;
+  // Reverse convert: also accept the numeric value / ordinal n parse.
+  if (reverse && !ok) {
+    const expectedNum =
+      exercise.resolution?.value ?? meta?.value ?? meta?.n ?? null;
+    if (expectedNum != null) {
+      const cleaned = String(raw || "")
+        .trim()
+        .replace(/\s+/g, "")
+        .replace(/\.$/, "");
+      const asNum = Number(cleaned);
+      if (Number.isFinite(asNum) && asNum === Number(expectedNum)) {
+        ok = true;
+        audit.ok = true;
+        audit.status = "accepted-alternative";
+        audit.answer = String(raw || "").trim();
+        audit.expected = form;
+        audit.note = "accepted via value";
+      }
+    }
+  }
   // Cardinal compounds: allow value-parse only when casing already matches
   // the all-lowercase cardinal orthography (no capitals to police).
   if (
+    !reverse &&
     !ok &&
     exercise.resolution?.value != null &&
     meta?.kind === "cardinal"
@@ -11524,7 +11892,7 @@ function checkNumbersConvert(raw, opts = {}) {
     state.numbersConvertRetryUsed = true;
     noteFirstMiss({
       answer: audit.answer || "—",
-      expected: exercise.resolution.form,
+      expected: form,
     });
     if (input) {
       input.classList.remove("is-ok", "is-prefix-ok");
@@ -11541,7 +11909,9 @@ function checkNumbersConvert(raw, opts = {}) {
     }
     showExerciseFeedback(
       "numbers",
-      "Not quite — check the spelling and try once more.",
+      reverse
+        ? "Not quite — check the digits and try once more."
+        : "Not quite — check the spelling and try once more.",
       { hint: true }
     );
     return;
@@ -11553,13 +11923,13 @@ function checkNumbersConvert(raw, opts = {}) {
   if (input) {
     input.disabled = true;
     input.classList.remove("is-bad", "is-prefix-ok");
-    input.value = exercise.resolution.form;
+    input.value = form;
   }
 
   logGuidedQaFinal({
     question: currentGuidedQuestionCue(),
     answer: audit.answer || "—",
-    expected: audit.expected || exercise.resolution.form,
+    expected: audit.expected || form,
     status: ok ? audit.status : "incorrect",
     note: ok ? audit.note : "",
   });
@@ -12449,16 +12819,11 @@ function renderNounArticleLike(exercise, { familyLine = "" } = {}) {
   });
 }
 
-function renderNounsArticles() {
-  const fam = document.getElementById("nouns-family-progress");
-  if (fam) {
-    fam.hidden = true;
-    fam.textContent = "";
-  }
-  renderNounArticleLike(currentNounArticleExercise());
-}
-
 function renderNounsAssociation() {
+  if (isReverse(ensureQuizDirectionValid())) {
+    renderNounsArticleReverse();
+    return;
+  }
   const exercise = currentNounAssociationExercise();
   const suffix = exercise.materials.familySuffix || "family";
   renderNounArticleLike(exercise, {
@@ -12467,8 +12832,206 @@ function renderNounsAssociation() {
 }
 
 function renderNounsWugs() {
+  if (isReverse(ensureQuizDirectionValid())) {
+    renderNounsArticleReverse();
+    return;
+  }
   // No legend / “Wug · apply …” chrome — just the nonce + article choices.
   renderNounArticleLike(currentNounWugExercise(), { familyLine: "" });
+}
+
+function renderNounsArticles() {
+  if (isReverse(ensureQuizDirectionValid())) {
+    renderNounsArticleReverse();
+    return;
+  }
+  const fam = document.getElementById("nouns-family-progress");
+  if (fam) {
+    fam.hidden = true;
+    fam.textContent = "";
+  }
+  renderNounArticleLike(currentNounArticleExercise());
+}
+
+/**
+ * Choose · reverse: article cue → pick matching lemma (ex Suffixes Reverse unit).
+ */
+function renderNounsArticleReverse() {
+  const deck = ensureNounDeck("Reverse");
+  const indexKey = "nounsReverseIndex";
+  const item = deck[state[indexKey] % Math.max(1, deck.length)];
+  const article = ARTICLES[item.gender] || "die";
+  const candidates = nounAssociationPool.map((x) => ({
+    lemma: x.lemma,
+    article: ARTICLES[x.gender] || "die",
+  }));
+  const pack = reverseNounArticleChoose(item.lemma, article, candidates);
+  const answerParts =
+    NOUN_SINGULAR_PARTS[item.lemma] || fallbackSingularParts(item.lemma);
+  const gloss = LEXICON[item.lemma]?.gloss || item.translation || "";
+
+  setCurrentExercise({
+    templateId: "nouns.choose.reverse",
+    materials: {
+      hint: pack.hint,
+      answerParts,
+      choices: [...pack.choices],
+    },
+    resolution: {
+      expected: pack.answer,
+      feedbackOk: `Yes — ${article} ${item.lemma}.`,
+      feedbackBad: `Target was ${article} ${item.lemma}.`,
+      form: `${article} ${item.lemma}`,
+      lemma: item.lemma,
+      article,
+      gender: item.gender,
+      answerParts,
+      translation: gloss,
+    },
+    scaffolding: { allowRetryWrongChoice: true },
+  });
+
+  state.nounsArticle = null;
+  state.nounsChecked = false;
+  state.nounsFilled = [];
+  state.nounsDiscriminateRetryUsed = false;
+  clearItemFirstMiss();
+
+  const legend = document.getElementById("nouns-legend");
+  if (legend) legend.hidden = true;
+  const helpBtn = document.getElementById("nouns-help");
+  if (helpBtn) helpBtn.hidden = false;
+
+  const help = document.getElementById("nouns-help-line");
+  if (help) {
+    help.hidden = true;
+    help.textContent = "";
+  }
+  const translationEl = document.getElementById("nouns-translation");
+  if (translationEl) {
+    translationEl.hidden = true;
+    translationEl.textContent = "";
+  }
+
+  const fam = document.getElementById("nouns-family-progress");
+  if (fam) {
+    fam.hidden = false;
+    fam.textContent = "Reverse · article → noun";
+  }
+
+  setActionInstruction("nouns", pack.ask);
+
+  const prompt = document.getElementById("nouns-prompt");
+  if (prompt) {
+    prompt.hidden = false;
+    mountStimulusShell(prompt, {
+      stimulus: STIMULUS.VALUE,
+      cueHtml: `<span lang="de" class="dial-cue">${escapeHtml(pack.cue)}</span>`,
+      ask: pack.ask,
+    });
+  }
+
+  const slotsRow = document.getElementById("nouns-slots");
+  if (slotsRow) {
+    slotsRow.innerHTML = "";
+    slotsRow.hidden = true;
+  }
+
+  clearAnswerReveal("nouns");
+  const feedback = document.getElementById("nouns-attempt-feedback");
+  if (feedback) {
+    feedback.hidden = true;
+    feedback.textContent = "";
+  }
+
+  setNounsBackDisabled();
+
+  const tray = document.getElementById("nouns-tray");
+  mountMultiSelectShell(tray, {
+    choices: pack.choices,
+    stacked: true,
+    ariaLabel: "Noun choices",
+    isDisabled: () => state.nounsChecked,
+    onPick: (choice) => {
+      placeNounArticleReverse(choice);
+    },
+  });
+}
+
+function placeNounArticleReverse(id) {
+  if (state.nounsChecked || !isNounArticleLikeMode()) return;
+  if (!isReverse(state.quizDirection)) return;
+  state.nounsArticle = id;
+  document
+    .querySelectorAll("#nouns-tray .choice, #nouns-tray .piece")
+    .forEach((p) => {
+      const pid = p.dataset.value || p.dataset.id;
+      p.classList.toggle("is-placed", pid === id);
+      p.setAttribute("aria-pressed", String(pid === id));
+    });
+  checkNounsArticleReverse();
+}
+
+function checkNounsArticleReverse() {
+  if (
+    state.nounsChecked ||
+    !state.nounsArticle ||
+    !isNounArticleLikeMode() ||
+    !isReverse(state.quizDirection)
+  ) {
+    return;
+  }
+  const exercise = state.currentExercise;
+  if (!exercise) return;
+  const expected = exercise.resolution.expected;
+  const ok = state.nounsArticle === expected;
+  state.nounsChecked = true;
+
+  document
+    .querySelectorAll("#nouns-tray .piece, #nouns-tray .choice")
+    .forEach((p) => {
+      p.disabled = true;
+    });
+  const chosen =
+    document.querySelector(
+      `#nouns-tray [data-value="${CSS.escape(state.nounsArticle)}"]`
+    ) ||
+    document.querySelector(
+      `#nouns-tray [data-id="${CSS.escape(state.nounsArticle)}"]`
+    );
+
+  if (ok) {
+    if (chosen) chosen.classList.add("is-ok");
+    playFeedbackSound("ok");
+  } else {
+    if (chosen) {
+      chosen.classList.add("is-bad");
+      chosen.classList.remove("is-placed");
+    }
+    playFeedbackSound("bad");
+    noteFirstMiss({ answer: state.nounsArticle, expected });
+    const correct =
+      document.querySelector(
+        `#nouns-tray [data-value="${CSS.escape(expected)}"]`
+      ) ||
+      document.querySelector(
+        `#nouns-tray [data-id="${CSS.escape(expected)}"]`
+      );
+    if (correct) correct.classList.add("is-ok");
+  }
+
+  const res = exercise.resolution || {};
+  const phrase = res.form || `${res.article || ""} ${res.lemma || ""}`.trim();
+  const parts = res.answerParts || [];
+  const gloss = supportOn("english") ? res.translation || "" : "";
+  const nodes = fillAnswerReveal("nouns", {
+    word: phrase,
+    parts,
+    en: gloss,
+    ok,
+    verdictLabel: ok ? "Correct" : "Answer",
+  });
+  playAnswerKeyThenAdvance(phrase, parts, nodes, scheduleNounsAdvance);
 }
 
 /** Categories — Gender Recognition / Article / Imposter / Sentence Validation. */
@@ -12864,26 +13427,36 @@ function buildCardinalDirectionExercise(item) {
     lemma,
   });
   const mode = state.nounsQuizMode;
+  const convertReverse =
+    mode === "convert" && isReverse(ensureQuizDirectionValid());
   const freeform = mode === "visual-freeform" || mode === "convert";
   const setDial = mode === "set-dial";
   const listen = mode === "listen";
   const showCompass = mode === "visual" || mode === "visual-freeform" || mode === "choose";
+  const reversePack = convertReverse
+    ? reverseCompassConvert({ lemma, english })
+    : null;
 
   let templateId = "nouns.visual.compass";
   if (setDial) templateId = "nouns.set-dial.compass";
   else if (listen) templateId = "nouns.listen.compass";
-  else if (mode === "convert") templateId = "nouns.convert.compass";
+  else if (mode === "convert")
+    templateId = convertReverse
+      ? "nouns.convert.compass.reverse"
+      : "nouns.convert.compass";
   else if (mode === "visual-freeform") templateId = "nouns.visual.compass.freeform";
   else if (mode === "visual") templateId = "nouns.visual.compass.mc";
 
   let ask = visual?.ask || "Name what you see";
   if (setDial) ask = "Set the compass";
   else if (listen) ask = "What did you hear?";
+  else if (convertReverse) ask = reversePack.ask;
   else if (freeform) ask = "Type the German direction";
 
   let hint = "Read the compass needle — name the German direction.";
   if (setDial) hint = "Point the needle to match the German direction.";
   else if (listen) hint = "Hear the German direction — pick the matching form.";
+  else if (convertReverse) hint = reversePack.hint;
   else if (mode === "convert")
     hint = "See the English direction — type the German form.";
 
@@ -12891,7 +13464,15 @@ function buildCardinalDirectionExercise(item) {
     templateId,
     target: { kind: "compass-direction", lemma, bearing: lemma },
     prompt: {
-      kind: setDial ? "lemma" : listen ? "tts" : mode === "convert" ? "english" : "compass",
+      kind: setDial
+        ? "lemma"
+        : listen
+          ? "tts"
+          : convertReverse
+            ? "german-lemma"
+            : mode === "convert"
+              ? "english"
+              : "compass",
       bearing: lemma,
       ask,
       translation: english,
@@ -12904,14 +13485,17 @@ function buildCardinalDirectionExercise(item) {
       visualHtml: showCompass ? visual?.html || "" : "",
       spoken: listen ? lemma : "",
       form: lemma,
+      reversePack,
     },
     resolution: {
-      expected: lemma,
+      expected: convertReverse ? english : lemma,
       lemma,
       article,
       gender,
       form: lemma,
-      acceptedForms: cardinalDirectionAcceptedForms(lemma, article),
+      acceptedForms: convertReverse
+        ? reversePack.acceptedForms
+        : cardinalDirectionAcceptedForms(lemma, article),
       answerParts,
       translation: english,
       feedbackOk: `Yes — ${article} ${lemma}.`,
@@ -13027,9 +13611,13 @@ function renderNounsCardinalDirections() {
         ask: exercise.prompt.ask,
       });
     } else if (mode === "convert") {
+      const rev = isReverse(state.quizDirection);
+      const cue = rev
+        ? exercise.resolution.lemma
+        : english || exercise.resolution.lemma || "";
       mountStimulusShell(prompt, {
-        stimulus: STIMULUS.DIGIT,
-        cueHtml: `<span lang="en" class="dial-cue">${escapeHtml(english || exercise.resolution.lemma || "")}</span>`,
+        stimulus: rev ? STIMULUS.VALUE : STIMULUS.DIGIT,
+        cueHtml: `<span lang="${rev ? "de" : "en"}" class="dial-cue">${escapeHtml(cue)}</span>`,
         ask: exercise.prompt.ask,
       });
     } else {
@@ -13092,10 +13680,17 @@ function renderNounsCardinalDirections() {
   if (freeform) {
     const accepted = exercise.resolution.acceptedForms || [];
     const liveCheck = supportOn("liveCheck");
+    const convertRev = mode === "convert" && isReverse(state.quizDirection);
     const { input } = mountFreeformShell(tray, {
       inputId: "nouns-convert-input",
-      placeholder: liveCheck ? "start typing…" : "German direction",
-      ariaLabel: "German direction for the compass",
+      placeholder: liveCheck
+        ? "start typing…"
+        : convertRev
+          ? "English direction"
+          : "German direction",
+      ariaLabel: convertRev
+        ? "English direction for the compass"
+        : "German direction for the compass",
       assisted: liveCheck,
       isDisabled: () => state.nounsChecked,
       onInput: (value, el) => {
@@ -13212,7 +13807,13 @@ function checkNounsCardinalDirectionType(raw, opts = {}) {
     .replace(/\s+/g, " ");
   if (!display) return;
 
-  const ok = cardinalTypedMatches(display, lemma, article);
+  const convertRev =
+    state.nounsQuizMode === "convert" && isReverse(state.quizDirection);
+  const ok = convertRev
+    ? (exercise.resolution.acceptedForms || []).some(
+        (f) => normalizeAnswerCandidate(f).toLowerCase() === display.toLowerCase()
+      )
+    : cardinalTypedMatches(display, lemma, article);
   state.nounsArticle = display;
 
   const input = document.getElementById("nouns-convert-input");
@@ -13329,9 +13930,12 @@ function checkNounsCardinalDirection() {
         feedback.textContent = "Try again";
       }
       window.setTimeout(() => {
-        document.querySelectorAll("#nouns-tray .piece").forEach((p) => {
-          if (!p.classList.contains("is-bad")) p.disabled = false;
-        });
+        // Compass visual MC uses .choice (not .piece) — re-enable both.
+        document
+          .querySelectorAll("#nouns-tray .piece, #nouns-tray .choice")
+          .forEach((p) => {
+            if (!p.classList.contains("is-bad")) p.disabled = false;
+          });
       }, 400);
       return;
     }
@@ -13339,9 +13943,13 @@ function checkNounsCardinalDirection() {
       answer: state.nounsArticle || "—",
       expected,
     });
-    const correct = document.querySelector(
-      `#nouns-tray [data-id="${CSS.escape(expected)}"]`
-    );
+    const correct =
+      document.querySelector(
+        `#nouns-tray [data-value="${CSS.escape(expected)}"]`
+      ) ||
+      document.querySelector(
+        `#nouns-tray [data-id="${CSS.escape(expected)}"]`
+      );
     if (correct) correct.classList.add("is-ok");
     revealNounCardinalDirection(exercise, false);
   }
@@ -13849,14 +14457,27 @@ function nounsDeckKindForMode(mode = state.nounsMode) {
   }
   if (mode === "plurals") return "Plural";
   if (mode === "association") return "Association";
-  if (mode === "wugs") return "Wug";
+  if (mode === "wugs") {
+    return isReverse(state.quizDirection) ? "Reverse" : "Wug";
+  }
   if (mode === "proofread") return "Proofread";
-  if (mode === "reverse-mc") return "Reverse";
+  if (mode === "real-words" || mode === "articles") {
+    return isReverse(state.quizDirection) ? "Reverse" : "Article";
+  }
   if (mode === "cardinal-directions") return "CardinalDirections";
   return "Article";
 }
 
 function nounsIndexKeyForMode(mode = state.nounsMode) {
+  if (
+    isReverse(state.quizDirection) &&
+    (mode === "wugs" ||
+      mode === "real-words" ||
+      mode === "articles" ||
+      mode === "association")
+  ) {
+    return "nounsReverseIndex";
+  }
   switch (mode) {
     case "article-application":
       return "nounsCategoryArticleApplicationIndex";
@@ -13874,8 +14495,6 @@ function nounsIndexKeyForMode(mode = state.nounsMode) {
       return "nounsWugIndex";
     case "proofread":
       return "nounsProofreadIndex";
-    case "reverse-mc":
-      return "nounsReverseIndex";
     case "cardinal-directions":
       return "nounsCardinalDirectionsIndex";
     default:

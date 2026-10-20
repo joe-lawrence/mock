@@ -1,5 +1,6 @@
 /**
  * Ordinals quiz pools for the Numbers mock.
+ * Combinations from ranges (rebuild via builders).
  */
 
 import {
@@ -54,10 +55,23 @@ export function buildOrdinalCompoundsPool() {
   return items;
 }
 
-/** am + dative — bridge to Dates. */
+/** am + dative — all calendar days 1–31. */
 export function buildOrdinalDatesUsePool() {
-  const days = [1, 2, 3, 4, 5, 7, 8, 10, 11, 12, 15, 20, 21, 22, 23, 28, 30, 31];
-  return days.map(ordinalAmMeta);
+  return Array.from({ length: 31 }, (_, i) => ordinalAmMeta(i + 1));
+}
+
+/** @type {Record<string, () => object[]>} */
+export const ORDINAL_POOL_BUILDERS = {
+  "ordinal-1-12": buildOrdinal112Pool,
+  "ordinal-teens": buildOrdinalTeensPool,
+  "ordinal-tens": buildOrdinalTensPool,
+  "ordinal-compounds": buildOrdinalCompoundsPool,
+  "ordinal-dates-use": buildOrdinalDatesUsePool,
+};
+
+export function buildOrdinalPool(poolId) {
+  const build = ORDINAL_POOL_BUILDERS[poolId];
+  return build ? build() : [];
 }
 
 export const ORDINAL_POOLS = {

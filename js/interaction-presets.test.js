@@ -72,7 +72,8 @@ describe("interaction presets (Slice 0–1)", () => {
       }
     }
     // 144 + 7 visual-freeform − 10 cloze = 141
-    assert.equal(n, 145);
+    // +3 set-dial on fraction steps (half-quarter, unit, proper)
+    assert.equal(n, 148);
   });
 
   it("normalizeLaunchInteraction uses preset= / stimulus×response (not mode=)", () => {
@@ -141,8 +142,8 @@ describe("interaction presets (Slice 0–1)", () => {
         }
       }
     }
-    // 11 prior + listen/convert/visual on cardinal-directions = 14
-    assert.equal(n, 14);
+    // reverse-mc unit folded into choose+direction → 13 cells
+    assert.equal(n, 13);
   });
 
   it("Nouns launch shape matches Numbers (topic + step + mode)", () => {
@@ -156,8 +157,12 @@ describe("interaction presets (Slice 0–1)", () => {
       isNounsCellPlayable("categories", "cardinal-directions", "visual-freeform")
     );
     assert.ok(isNounsCellPlayable("categories", "cardinal-directions", "set-dial"));
+    assert.equal(isNounsCellPlayable("suffixes", "reverse-mc", "choose"), false);
     assert.ok(isNumbersCellPlayable("time", "whole-hours", "set-dial"));
     assert.ok(isNumbersCellPlayable("time", "minutes", "set-dial"));
+    assert.ok(isNumbersCellPlayable("fractions", "half-quarter", "set-dial"));
+    assert.ok(isNumbersCellPlayable("fractions", "unit-fractions", "set-dial"));
+    assert.ok(isNumbersCellPlayable("fractions", "proper-fractions", "set-dial"));
     assert.equal(isNounsCellPlayable("suffixes", "wugs", "listen"), false);
     assert.equal(isNounsCellPlayable("plurals", "productive", "build"), false);
   });

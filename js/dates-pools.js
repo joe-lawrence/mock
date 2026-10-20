@@ -1,5 +1,6 @@
 /**
  * Dates quiz pools for the Numbers mock.
+ * Combinations are generated from calendar ranges (rebuild via builders).
  */
 
 import {
@@ -7,6 +8,7 @@ import {
   monthAnalysis,
   ordinalAmAnalysis,
   calendarDateAnalysis,
+  daysInMonth,
 } from "../engine/numbers/index.js?v=20260930-dmo16";
 
 function weekdayMeta(index) {
@@ -77,35 +79,40 @@ export function buildOrdinalDaysPool() {
   return Array.from({ length: 31 }, (_, i) => ordinalDayMeta(i + 1));
 }
 
+/**
+ * All valid day·month (no year), plus stratified day·month·year samples
+ * (engine year range 2000–2035; we use recent years).
+ */
 export function buildFullDatesPool() {
   const items = [];
-  const samples = [
-    [1, 1],
-    [3, 3],
-    [8, 5],
-    [12, 6],
-    [15, 7],
-    [20, 8],
-    [23, 9],
-    [28, 2],
-    [31, 12],
-    [1, 5],
-    [14, 2],
-    [24, 12],
-    [4, 10],
-    [11, 11],
-  ];
-  for (const [d, m] of samples) items.push(dateMeta(d, m));
-  for (const [d, m, y] of [
-    [3, 3, 2024],
-    [1, 1, 2025],
-    [9, 11, 2020],
-    [15, 8, 2026],
-    [24, 12, 2023],
-  ]) {
-    items.push(dateMeta(d, m, y));
+  for (let month = 1; month <= 12; month++) {
+    const max = daysInMonth(month);
+    for (let day = 1; day <= max; day++) {
+      items.push(dateMeta(day, month));
+    }
+  }
+  // With year: 1st / mid / last of each month × 2020–2026
+  for (let year = 2020; year <= 2026; year++) {
+    for (let month = 1; month <= 12; month++) {
+      const max = daysInMonth(month);
+      const days = new Set([1, Math.ceil(max / 2), max]);
+      for (const day of days) items.push(dateMeta(day, month, year));
+    }
   }
   return items;
+}
+
+/** @type {Record<string, () => object[]>} */
+export const DATE_POOL_BUILDERS = {
+  weekdays: buildWeekdaysPool,
+  months: buildMonthsPool,
+  "ordinal-days": buildOrdinalDaysPool,
+  "full-dates": buildFullDatesPool,
+};
+
+export function buildDatePool(poolId) {
+  const build = DATE_POOL_BUILDERS[poolId];
+  return build ? build() : [];
 }
 
 export const DATE_POOLS = {

@@ -13,8 +13,21 @@ import {
   enrichModeWithPreset,
   getInteractionPreset,
 } from "./interaction-presets.js";
+import {
+  directionsForStepMode,
+  isDirectionPlayable,
+  DIRECTION,
+  DEFAULT_DIRECTIONS,
+} from "./reverse-direction.js";
 
-/** @typedef {"build"|"listen"|"convert"|"proofread"|"visual"|"visual-freeform"|"sentence"} NumbersQuizModeId */
+export {
+  directionsForStepMode,
+  isDirectionPlayable,
+  DIRECTION,
+  DEFAULT_DIRECTIONS,
+};
+
+/** @typedef {"build"|"listen"|"convert"|"proofread"|"visual"|"visual-freeform"|"set-dial"|"sentence"} NumbersQuizModeId */
 
 /** @typedef {"introduce"|"focus"|"mix"} SessionPolicy */
 
@@ -25,6 +38,7 @@ import {
  * @property {boolean} playable
  * @property {string} [pool] — key into mock numberPools / listen filters
  * @property {NumbersQuizModeId[]} [modes] — modality allowlist; array order = soft intro order (omit = all modes)
+ * @property {Record<string, ("forward"|"reverse")[]>} [directions] — per-preset direction allowlist (default forward-only)
  * @property {string} [blurb]
  * @property {string} [softAfter] — prior unit id for soft “usually after …” cue (not a lock)
  * @property {string} [chartTab] — Learn: Numbers chart tab id (unit property, not per-modality)
@@ -54,6 +68,7 @@ export const NUMBERS_TOPICS = [
         playable: true,
         pool: "base",
         modes: ["build", "listen", "convert", "proofread"],
+        directions: { convert: ["forward", "reverse"] },
         blurb: "Foundational blocks; 11 and 12 are unique.",
         chartTab: "base",
       },
@@ -63,6 +78,7 @@ export const NUMBERS_TOPICS = [
         playable: true,
         pool: "teens",
         modes: ["build", "listen", "convert", "proofread"],
+        directions: { convert: ["forward", "reverse"] },
         blurb: "13–19 as base + zehn.",
         softAfter: "base",
         chartTab: "teens",
@@ -73,6 +89,7 @@ export const NUMBERS_TOPICS = [
         playable: true,
         pool: "tens",
         modes: ["build", "listen", "convert", "proofread"],
+        directions: { convert: ["forward", "reverse"] },
         blurb: "20–90 as stem + zig/ßig.",
         softAfter: "teens",
         chartTab: "tens",
@@ -83,6 +100,7 @@ export const NUMBERS_TOPICS = [
         playable: true,
         pool: "compounds",
         modes: ["build", "listen", "convert", "proofread"],
+        directions: { convert: ["forward", "reverse"] },
         blurb: "21–99 ones + und + tens.",
         softAfter: "tens",
         chartTab: "compounds",
@@ -93,6 +111,7 @@ export const NUMBERS_TOPICS = [
         playable: true,
         pool: "hundreds",
         modes: ["build", "listen", "convert", "proofread"],
+        directions: { convert: ["forward", "reverse"] },
         blurb: "Full 100–1000 — hundert / tausend, then the 0–99 tail.",
         softAfter: "compounds",
         chartTab: "hundreds",
@@ -165,7 +184,15 @@ export const NUMBERS_TOPICS = [
         label: "halb & Viertel",
         playable: true,
         pool: "half-quarter",
-        modes: ["listen", "build", "convert", "visual", "visual-freeform", "proofread"],
+        modes: [
+          "listen",
+          "build",
+          "convert",
+          "visual",
+          "visual-freeform",
+          "set-dial",
+          "proofread",
+        ],
         blurb: "High-frequency halves and quarters (lexical + pattern).",
         chartTab: "fractions",
       },
@@ -174,7 +201,15 @@ export const NUMBERS_TOPICS = [
         label: "Unit fractions",
         playable: true,
         pool: "unit-fractions",
-        modes: ["build", "listen", "convert", "visual", "visual-freeform", "proofread"],
+        modes: [
+          "build",
+          "listen",
+          "convert",
+          "visual",
+          "visual-freeform",
+          "set-dial",
+          "proofread",
+        ],
         blurb: "Drittel, Fünftel, … — stem + -tel.",
         softAfter: "half-quarter",
         chartTab: "fractions",
@@ -184,7 +219,15 @@ export const NUMBERS_TOPICS = [
         label: "Proper fractions",
         playable: true,
         pool: "proper-fractions",
-        modes: ["build", "convert", "listen", "visual", "visual-freeform", "proofread"],
+        modes: [
+          "build",
+          "convert",
+          "listen",
+          "visual",
+          "visual-freeform",
+          "set-dial",
+          "proofread",
+        ],
         blurb: "zwei Drittel, drei Viertel — number + fraction noun.",
         softAfter: "unit-fractions",
         chartTab: "fractions",
@@ -317,6 +360,7 @@ export const NUMBERS_TOPICS = [
         playable: true,
         pool: "weekdays",
         modes: ["listen", "build", "convert", "proofread"],
+        directions: { convert: ["forward", "reverse"] },
         blurb: "Montag … Sonntag — names and order.",
         chartTab: "dates",
       },
@@ -326,6 +370,7 @@ export const NUMBERS_TOPICS = [
         playable: true,
         pool: "months",
         modes: ["listen", "build", "convert", "proofread"],
+        directions: { convert: ["forward", "reverse"] },
         blurb: "Januar … Dezember.",
         softAfter: "weekdays",
         chartTab: "dates",
@@ -336,6 +381,7 @@ export const NUMBERS_TOPICS = [
         playable: true,
         pool: "ordinal-days",
         modes: ["build", "convert", "listen", "proofread"],
+        directions: { convert: ["forward", "reverse"] },
         blurb: "9. / on the 9th → am neunten — calendar-date day construction.",
         softAfter: "months",
         chartTab: "dates",
@@ -346,6 +392,7 @@ export const NUMBERS_TOPICS = [
         playable: true,
         pool: "full-dates",
         modes: ["convert", "listen", "build", "proofread"],
+        directions: { convert: ["forward", "reverse"] },
         blurb: "9.11.2020 → am neunten November zweitausendzwanzig — spoken German for a written date.",
         softAfter: "ordinal-days",
         chartTab: "dates",
@@ -427,6 +474,7 @@ export const NUMBERS_TOPICS = [
         playable: true,
         pool: "ordinal-1-12",
         modes: ["build", "listen", "convert", "sentence", "proofread"],
+        directions: { convert: ["forward", "reverse"] },
         blurb: "erste … zwölfte — base/citation ordinal forms (not full NPs).",
         chartTab: "ordinals",
       },
@@ -436,6 +484,7 @@ export const NUMBERS_TOPICS = [
         playable: true,
         pool: "ordinal-teens",
         modes: ["build", "listen", "convert", "sentence", "proofread"],
+        directions: { convert: ["forward", "reverse"] },
         blurb: "Ordinal teens (dreizehnte …).",
         softAfter: "ordinal-1-12",
         chartTab: "ordinals",
@@ -446,6 +495,7 @@ export const NUMBERS_TOPICS = [
         playable: true,
         pool: "ordinal-tens",
         modes: ["build", "listen", "convert", "sentence", "proofread"],
+        directions: { convert: ["forward", "reverse"] },
         blurb: "zwanzigste, dreißigste …",
         softAfter: "ordinal-teens",
         chartTab: "ordinals",
@@ -456,6 +506,7 @@ export const NUMBERS_TOPICS = [
         playable: true,
         pool: "ordinal-compounds",
         modes: ["build", "convert", "listen", "sentence", "proofread"],
+        directions: { convert: ["forward", "reverse"] },
         blurb: "einundzwanzigste — ones + und + tens + -te/-ste.",
         softAfter: "ordinal-tens",
         chartTab: "ordinals",
@@ -466,6 +517,7 @@ export const NUMBERS_TOPICS = [
         playable: true,
         pool: "ordinal-dates-use",
         modes: ["listen", "convert", "build", "proofread"],
+        directions: { convert: ["forward", "reverse"] },
         blurb: "9. → am neunten — ordinal used as a calendar day.",
         softAfter: "ordinal-compounds",
         chartTab: "ordinals",
@@ -507,6 +559,7 @@ export const NUMBERS_MODES = [
   "proofread",
   "visual",
   "visual-freeform",
+  "set-dial",
   "sentence",
 ].map((id) => {
   const p = INTERACTION_PRESETS[id];
@@ -571,6 +624,16 @@ export function isNumbersCellPlayable(topicId, stepId, modeId) {
   const mode = getNumbersMode(modeId);
   if (!topic?.playable || !step?.playable || !mode?.playable) return false;
   return modesForStep(topicId, stepId).some((m) => m.id === modeId);
+}
+
+/** Directions allowed for a Numbers cell (default forward-only). */
+export function directionsForNumbersCell(topicId, stepId, modeId) {
+  return directionsForStepMode(getNumbersStep(topicId, stepId), modeId);
+}
+
+export function isNumbersDirectionPlayable(topicId, stepId, modeId, direction) {
+  if (!isNumbersCellPlayable(topicId, stepId, modeId)) return false;
+  return isDirectionPlayable(getNumbersStep(topicId, stepId), modeId, direction);
 }
 
 /**

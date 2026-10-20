@@ -151,7 +151,8 @@ describe("answer shells (Slice 2)", () => {
         }
       }
     }
-    assert.equal(n, 145);
+    // +3 set-dial on fraction steps (half-quarter, unit, proper)
+    assert.equal(n, 148);
   });
 
   it("mountMultiSelectShell creates choice buttons", () => {

@@ -8,11 +8,25 @@ import {
   minutesFromAngleDeg,
   snapClockTime,
   clockFaceSvg,
+  pieSvg,
+  numeratorFromAngleDeg,
+  PIE_DIAL_DENOM,
+  PIE_DIAL_GUIDE_TICKS,
+  pieFractionsEqual,
+  pieDialMatchesFraction,
+  dialNumeratorForFraction,
+  simplifyFraction,
   pickClockHandFromPointer,
   CLOCK_HOUR_HAND_LEN,
   CLOCK_MINUTE_HAND_LEN,
   clockHandTip,
 } from "./quiz-extras.js";
+import { isNumbersCellPlayable } from "./numbers-curriculum.js";
+import {
+  buildFractionPool,
+  buildProperFractionsPool,
+  buildUnitFractionsPool,
+} from "./fractions-pools.js";
 import {
   getNounsStep,
   isNounsCellPlayable,
@@ -81,6 +95,12 @@ describe("compass directions quiz", () => {
     assert.ok(isNounsCellPlayable("categories", "cardinal-directions", "set-dial"));
   });
 
+  it("Suffixes reverse-mc unit is retired (choose + reverse direction)", () => {
+    assert.equal(getNounsStep("suffixes", "reverse-mc")?.playable, undefined);
+    assert.ok(isNounsCellPlayable("suffixes", "real-words", "choose"));
+    assert.ok(isNounsCellPlayable("suffixes", "wugs", "choose"));
+  });
+
   it("set-dial preset uses dial response", () => {
     assert.equal(INTERACTION_PRESETS["set-dial"].response, RESPONSE.DIAL);
   });
@@ -99,6 +119,45 @@ describe("compass directions quiz", () => {
     assert.match(html, /height="128"/);
     assert.match(html, /clock-hand--hour/);
     assert.match(html, /clock-hand--minute/);
+  });
+
+  it("pie chart and angle→numerator for set-dial", () => {
+    const html = pieSvg(3, 4, { interactive: true });
+    assert.match(html, /quiz-pie-svg/);
+    assert.match(html, /quiz-visual-svg/); // answer-key scales via .answer-reveal-visual .quiz-visual-svg
+    assert.match(html, /is-interactive/);
+    assert.match(html, /width="128"/);
+    assert.equal(numeratorFromAngleDeg(0, 4), 0);
+    assert.equal(numeratorFromAngleDeg(90, 4), 1);
+    assert.equal(numeratorFromAngleDeg(270, 4), 3);
+    const staticHtml = pieSvg(1, 2);
+    assert.match(staticHtml, /quiz-visual-svg/);
+    assert.ok(isNumbersCellPlayable("fractions", "half-quarter", "set-dial"));
+    assert.ok(isNumbersCellPlayable("fractions", "proper-fractions", "set-dial"));
+    assert.equal(isNumbersCellPlayable("fractions", "mixed-numbers", "set-dial"), false);
+  });
+
+  it("set-dial pie uses fine snap + guide ticks; matches any pool fraction", () => {
+    assert.equal(PIE_DIAL_DENOM, 360);
+    assert.equal(PIE_DIAL_GUIDE_TICKS, 12);
+    assert.equal(dialNumeratorForFraction(1, 2), 180);
+    assert.equal(dialNumeratorForFraction(3, 4), 270);
+    assert.equal(dialNumeratorForFraction(1, 3), 120);
+    assert.ok(pieDialMatchesFraction({ numerator: 180, denominator: 360 }, 1, 2));
+    assert.ok(pieDialMatchesFraction({ numerator: 72, denominator: 360 }, 1, 5));
+    assert.ok(pieFractionsEqual(1, 2, 180, 360));
+    assert.deepEqual(simplifyFraction(180, 360), [1, 2]);
+    const dialHtml = pieSvg(90, 360, { interactive: true, guideTicks: 12 });
+    assert.match(dialHtml, /pie-guide-tick/);
+    assert.match(dialHtml, /pie-fill-arc|pie-dynamic-fill/);
+  });
+
+  it("fraction pools are generated combinatorially", () => {
+    assert.equal(buildUnitFractionsPool().length, 10);
+    assert.equal(buildProperFractionsPool().length, 55);
+    assert.equal(buildFractionPool("half-quarter").length, 4);
+    assert.equal(buildFractionPool("unit-fractions").length, 10);
+    assert.notEqual(buildFractionPool("proper-fractions"), buildFractionPool("proper-fractions"));
   });
 
   it("picks hour vs minute hand by tip proximity", () => {

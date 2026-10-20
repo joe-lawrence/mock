@@ -1,5 +1,6 @@
 /**
  * Time / duration quiz pools for the Numbers mock.
+ * Combinations are generated from hour×minute / duration ranges.
  */
 
 import {
@@ -75,60 +76,58 @@ export function buildQuartersPool() {
   return items;
 }
 
-/** Common minute offsets (not :00/:15/:30/:45). */
+/**
+ * Minute offsets other than :00/:15/:30/:45 — full 24h × 5-minute grid
+ * excluding quarter/half/hour (those live in sibling units).
+ */
 export function buildMinutesPool() {
   const mins = [5, 10, 20, 25, 35, 40, 50, 55];
   const items = [];
-  for (let h = 1; h <= 12; h++) {
+  for (let h = 0; h <= 23; h++) {
     for (const m of mins) items.push(clockMeta(h, m));
   }
-  // a few afternoon exemplars
-  for (const h of [14, 16, 19]) {
-    for (const m of [5, 20, 40, 55]) items.push(clockMeta(h, m));
-  }
   return items;
 }
 
-/** Digital / 24h readings. */
+/** Digital / 24h: every hour × 5-minute steps (incl. :00 quarters). */
 export function buildDigital24hPool() {
   const items = [];
-  for (let h = 0; h <= 23; h++) items.push(digitalMeta(h, 0));
-  for (const [h, m] of [
-    [8, 5],
-    [9, 15],
-    [12, 30],
-    [13, 5],
-    [14, 20],
-    [16, 45],
-    [18, 10],
-    [20, 55],
-    [22, 30],
-    [0, 15],
-    [1, 5],
-    [7, 45],
-  ]) {
-    items.push(digitalMeta(h, m));
+  for (let h = 0; h <= 23; h++) {
+    for (let m = 0; m < 60; m += 5) {
+      items.push(digitalMeta(h, m));
+    }
   }
   return items;
 }
 
-/** Durations: minutes, hours, combined. */
+/**
+ * Durations: minute-only, hour-only, and hour+minute combinations.
+ */
 export function buildDurationPool() {
   const items = [];
-  for (const m of [1, 5, 10, 15, 20, 30, 45]) items.push(durationMeta(0, m));
-  for (const h of [1, 2, 3, 4, 5, 6, 8, 10, 12]) items.push(durationMeta(h, 0));
-  for (const [h, m] of [
-    [1, 15],
-    [1, 30],
-    [2, 15],
-    [2, 30],
-    [3, 20],
-    [1, 5],
-    [4, 45],
-  ]) {
-    items.push(durationMeta(h, m));
+  for (let m = 5; m <= 55; m += 5) items.push(durationMeta(0, m));
+  items.unshift(durationMeta(0, 1)); // eine Minute
+  for (let h = 1; h <= 12; h++) items.push(durationMeta(h, 0));
+  const comboMins = [5, 10, 15, 20, 30, 45];
+  for (let h = 1; h <= 6; h++) {
+    for (const m of comboMins) items.push(durationMeta(h, m));
   }
   return items;
+}
+
+/** @type {Record<string, () => object[]>} */
+export const TIME_POOL_BUILDERS = {
+  "whole-hours": buildWholeHoursPool,
+  "half-past": buildHalfPastPool,
+  quarters: buildQuartersPool,
+  minutes: buildMinutesPool,
+  "digital-24h": buildDigital24hPool,
+  duration: buildDurationPool,
+};
+
+export function buildTimePool(poolId) {
+  const build = TIME_POOL_BUILDERS[poolId];
+  return build ? build() : [];
 }
 
 export const TIME_POOLS = {

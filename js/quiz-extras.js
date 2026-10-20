@@ -247,24 +247,191 @@ export function makeProofreadExercise(meta, opts = {}) {
 }
 
 
-function pieSvg(numer, denom) {
+/**
+ * Set-dial snap resolution (fine grid). Visual guide ticks stay at
+ * {@link PIE_DIAL_GUIDE_TICKS} so the target denominator is never revealed.
+ */
+export const PIE_DIAL_DENOM = 360;
+/** Equal tick marks drawn on the interactive dial (curriculum max = 12). */
+export const PIE_DIAL_GUIDE_TICKS = 12;
+
+/** @param {number} a @param {number} b */
+function gcdInt(a, b) {
+  let x = Math.abs(Math.floor(Number(a)) || 0);
+  let y = Math.abs(Math.floor(Number(b)) || 0);
+  while (y) {
+    const t = y;
+    y = x % y;
+    x = t;
+  }
+  return x || 1;
+}
+
+/** Simplify n/d → [n', d'] (non-negative; d' ≥ 1). */
+export function simplifyFraction(numer, denom) {
+  const d0 = Math.max(1, Math.floor(Number(denom)) || 1);
+  const n0 = Math.floor(Number(numer)) || 0;
+  const n = Math.max(0, Math.min(d0, n0));
+  const g = gcdInt(n, d0);
+  return [n / g, d0 / g];
+}
+
+/** True when numer/denom equals some whole k / dialDenom. */
+export function fractionExpressibleInDenom(numer, denom, dialDenom = PIE_DIAL_DENOM) {
+  const d = Math.max(1, Math.floor(Number(denom)) || 1);
+  const n = Math.floor(Number(numer)) || 0;
+  const dd = Math.max(1, Math.floor(Number(dialDenom)) || 1);
+  return (n * dd) % d === 0;
+}
+
+/** Nearest dial numerator for a target fraction (always defined). */
+export function dialNumeratorForFraction(
+  numer,
+  denom,
+  dialDenom = PIE_DIAL_DENOM
+) {
+  const d = Math.max(1, Math.floor(Number(denom)) || 1);
+  const n = Math.max(0, Math.floor(Number(numer)) || 0);
+  const dd = Math.max(1, Math.floor(Number(dialDenom)) || 1);
+  if (fractionExpressibleInDenom(n, d, dd)) return (n * dd) / d;
+  return Math.max(0, Math.min(dd, Math.round((n / d) * dd)));
+}
+
+/** Cross-multiply equality for two fractions. */
+export function pieFractionsEqual(aNumer, aDenom, bNumer, bDenom) {
+  const an = Number(aNumer);
+  const ad = Number(aDenom);
+  const bn = Number(bNumer);
+  const bd = Number(bDenom);
+  if (![an, ad, bn, bd].every((x) => Number.isFinite(x)) || ad === 0 || bd === 0) {
+    return false;
+  }
+  return an * bd === bn * ad;
+}
+
+/**
+ * Match dial value to a target fraction (exact or within half a dial step).
+ */
+export function pieDialMatchesFraction(got, expNumer, expDenom) {
+  if (!got) return false;
+  if (pieFractionsEqual(got.numerator, got.denominator, expNumer, expDenom)) {
+    return true;
+  }
+  const gd = Number(got.denominator);
+  if (!Number.isFinite(gd) || gd <= 0) return false;
+  const gotR = Number(got.numerator) / gd;
+  const expR = Number(expNumer) / Number(expDenom);
+  if (![gotR, expR].every((x) => Number.isFinite(x))) return false;
+  return Math.abs(gotR - expR) <= 0.5 / gd;
+}
+
+/**
+ * Filled-sector path from north, clockwise, covering numer/denom of the circle.
+ */
+function pieFilledSectorPath(c, r, numer, denom) {
+  const d = Math.max(1, denom);
+  const n = Math.max(0, Math.min(d, numer));
+  if (n <= 0) return "";
+  if (n >= d) {
+    return `<circle class="pie-dynamic-fill is-filled" cx="${c}" cy="${c}" r="${r}" fill="var(--accent, #2563eb)" stroke="var(--clock-rim, #94a3b8)" stroke-width="1.5"/>`;
+  }
+  const sweep = (n / d) * 360;
+  const start = -Math.PI / 2;
+  const end = start + (sweep * Math.PI) / 180;
+  const x1 = c + r * Math.cos(start);
+  const y1 = c + r * Math.sin(start);
+  const x2 = c + r * Math.cos(end);
+  const y2 = c + r * Math.sin(end);
+  const large = sweep > 180 ? 1 : 0;
+  return `<path class="pie-dynamic-fill is-filled pie-fill-arc" d="M ${c} ${c} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z" fill="var(--accent, #2563eb)" stroke="var(--clock-rim, #94a3b8)" stroke-width="1.5"/>`;
+}
+
+/**
+ * Update the filled sector on an existing interactive pie SVG (keeps pointer capture).
+ * @param {SVGElement} svg
+ * @param {number} numer
+ * @param {number} denom
+ */
+export function setPieSvgFraction(svg, numer, denom) {
+  if (!svg) return;
+  svg.querySelectorAll(".pie-dynamic-fill").forEach((el) => el.remove());
+  const d = Math.max(1, Math.floor(Number(denom)) || 1);
+  const n = Math.max(0, Math.min(d, Math.floor(Number(numer)) || 0));
+  const html = pieFilledSectorPath(64, 54, n, d);
+  if (html) svg.insertAdjacentHTML("beforeend", html);
+}
+
+/**
+ * Pie chart for a proper fraction (filled wedges = numerator).
+ * Interactive dials with a large snap denom use one filled arc + guide ticks
+ * so the target denominator is not revealed by pre-slicing.
+ * @param {number} numer
+ * @param {number} denom
+ * @param {{ interactive?: boolean, guideTicks?: number }} [opts]
+ */
+export function pieSvg(numer, denom, opts = {}) {
   const size = 128;
   const c = size / 2;
   const r = 54;
-  const slice = 360 / denom;
+  const d = Math.max(1, Math.floor(Number(denom)) || 1);
+  const n = Math.max(0, Math.min(d, Math.floor(Number(numer)) || 0));
+  const guideTicks =
+    opts.guideTicks != null
+      ? Math.max(0, Math.floor(Number(opts.guideTicks)) || 0)
+      : opts.interactive && d > 24
+        ? PIE_DIAL_GUIDE_TICKS
+        : 0;
+
   let paths = "";
-  for (let i = 0; i < denom; i++) {
-    const start = (i * slice - 90) * (Math.PI / 180);
-    const end = ((i + 1) * slice - 90) * (Math.PI / 180);
-    const x1 = c + r * Math.cos(start);
-    const y1 = c + r * Math.sin(start);
-    const x2 = c + r * Math.cos(end);
-    const y2 = c + r * Math.sin(end);
-    const large = slice > 180 ? 1 : 0;
-    const fill = i < numer ? "var(--accent, #2563eb)" : "#fff";
-    paths += `<path d="M ${c} ${c} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z" fill="${fill}" stroke="#94a3b8" stroke-width="1.5"/>`;
+  if (guideTicks > 0 || d > 24) {
+    paths += `<circle class="pie-face" cx="${c}" cy="${c}" r="${r}" fill="var(--clock-face, #fff)" stroke="var(--clock-rim, #94a3b8)" stroke-width="1.5"/>`;
+    const ticks = guideTicks > 0 ? guideTicks : 0;
+    for (let i = 0; i < ticks; i++) {
+      const ang = ((i * 360) / ticks - 90) * (Math.PI / 180);
+      const x1 = c + (r - 6) * Math.cos(ang);
+      const y1 = c + (r - 6) * Math.sin(ang);
+      const x2 = c + r * Math.cos(ang);
+      const y2 = c + r * Math.sin(ang);
+      paths += `<line class="pie-guide-tick" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--clock-rim, #94a3b8)" stroke-width="1.5" stroke-linecap="round"/>`;
+    }
+    paths += pieFilledSectorPath(c, r, n, d);
+  } else {
+    const slice = 360 / d;
+    for (let i = 0; i < d; i++) {
+      const start = (i * slice - 90) * (Math.PI / 180);
+      const end = ((i + 1) * slice - 90) * (Math.PI / 180);
+      const x1 = c + r * Math.cos(start);
+      const y1 = c + r * Math.sin(start);
+      const x2 = c + r * Math.cos(end);
+      const y2 = c + r * Math.sin(end);
+      const large = slice > 180 ? 1 : 0;
+      const fill = i < n ? "var(--accent, #2563eb)" : "var(--clock-face, #fff)";
+      paths += `<path class="pie-wedge${i < n ? " is-filled" : ""}" data-index="${i}" d="M ${c} ${c} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z" fill="${fill}" stroke="var(--clock-rim, #94a3b8)" stroke-width="1.5"/>`;
+    }
   }
-  return `<svg class="quiz-visual-svg" viewBox="0 0 ${size} ${size}" width="128" height="128" aria-hidden="true">${paths}</svg>`;
+  const cls = [
+    "quiz-visual-svg",
+    "quiz-pie-svg",
+    opts.interactive ? "is-interactive" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return `<svg class="${cls}" viewBox="0 0 ${size} ${size}" width="128" height="128" role="${opts.interactive ? "img" : "presentation"}" aria-hidden="${opts.interactive ? "false" : "true"}">${paths}</svg>`;
+}
+
+/**
+ * Angle clockwise from north → filled wedge count 0…denom.
+ * @param {number} deg
+ * @param {number} denom
+ */
+export function numeratorFromAngleDeg(deg, denom) {
+  const d = Math.max(1, Math.floor(Number(denom)) || 1);
+  const n = ((Number(deg) % 360) + 360) % 360;
+  // Map angle to nearest wedge boundary; empty near 12 o'clock → 0 when very small.
+  let count = Math.round(n / (360 / d));
+  if (count >= d) count = d;
+  if (count < 0) count = 0;
+  return count;
 }
 
 function clockSvg(hours, minutes) {

@@ -1,5 +1,6 @@
 /**
  * Measurement quiz pools for the Numbers mock.
+ * Value × unit grids (rebuild via builders).
  */
 
 import { measureAnalysis } from "../engine/numbers/index.js?v=20260930-dmo16";
@@ -28,30 +29,63 @@ function expand(values, units) {
 
 export function buildLengthPool() {
   return expand(
-    [1, 2, 3, 5, 10, 12, 20, 25, 50, 100],
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25, 30, 40, 50, 75, 100, 150, 200],
     ["Meter", "Zentimeter", "Kilometer"]
   );
 }
 
 export function buildWeightPool() {
   return [
-    ...expand([1, 2, 5, 10, 100, 200, 250, 500], ["Gramm"]),
-    ...expand([1, 2, 3, 5, 10], ["Kilo", "Kilogramm"]),
+    ...expand(
+      [1, 2, 5, 10, 20, 25, 50, 75, 100, 150, 200, 250, 300, 400, 500, 750],
+      ["Gramm"]
+    ),
+    ...expand(
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25, 50],
+      ["Kilo", "Kilogramm"]
+    ),
   ];
 }
 
 export function buildVolumePool() {
   return [
-    ...expand([1, 2, 3, 5, 10], ["Liter"]),
-    ...expand([100, 200, 250, 500], ["Milliliter"]),
+    ...expand(
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25, 50],
+      ["Liter"]
+    ),
+    ...expand(
+      [50, 75, 100, 125, 150, 200, 250, 300, 330, 400, 500, 750],
+      ["Milliliter"]
+    ),
   ];
 }
 
 export function buildTempSpeedPool() {
+  const temps = [];
+  for (let t = 1; t <= 40; t++) temps.push(t);
+  const speeds = [];
+  for (let s = 10; s <= 200; s += 10) speeds.push(s);
+  for (const s of [5, 15, 25, 35, 45, 55, 65, 75, 85, 95, 110, 130, 150, 180]) {
+    if (!speeds.includes(s)) speeds.push(s);
+  }
+  speeds.sort((a, b) => a - b);
   return [
-    ...expand([1, 5, 10, 15, 20, 25, 30], ["Grad"]),
-    ...expand([30, 50, 80, 100, 120], ["Stundenkilometer"]),
+    ...expand(temps, ["Grad"]),
+    ...expand(speeds, ["Stundenkilometer"]),
   ];
+}
+
+/** @type {Record<string, () => object[]>} */
+export const MEASURE_POOL_BUILDERS = {
+  length: buildLengthPool,
+  weight: buildWeightPool,
+  volume: buildVolumePool,
+  "temp-speed": buildTempSpeedPool,
+};
+
+export function buildMeasurePool(poolId) {
+  const build = MEASURE_POOL_BUILDERS[poolId];
+  return build ? build() : [];
 }
 
 export const MEASURE_POOLS = {

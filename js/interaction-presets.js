@@ -139,7 +139,8 @@ export const INTERACTION_PRESETS = Object.freeze({
     response: RESPONSE.DIAL,
     playable: true,
     seedDifficulty: 0.6,
-    blurb: "See the German form — set the compass or clock to match.",
+    blurb:
+      "See the German form — set the compass, clock, or pie chart to match.",
   },
   sentence: {
     id: "sentence",
