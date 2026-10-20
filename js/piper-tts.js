@@ -136,6 +136,13 @@ function isIOSAudio() {
   return platform === "MacIntel" && navigator.maxTouchPoints > 1;
 }
 
+/** iPhone/iPad Safari. Chrome iOS (CriOS) can use WebAudio; Safari often cannot. */
+function isIOSSafari() {
+  if (!isIOSAudio()) return false;
+  const ua = navigator.userAgent || "";
+  return !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(ua);
+}
+
 /**
  * Desktop Chromium on Linux: WebAudio often stays silent (PipeWire/Pulse
  * sample-rate mismatch) while HTMLAudioElement plays. Android Chrome is fine.
@@ -509,17 +516,32 @@ export function stopPiperAudio() {
 /**
  * Unlock HTMLAudio on a user gesture (iOS requires this for later blob play).
  */
+function kickAudioContext(ctx) {
+  try {
+    const buffer = ctx.createBuffer(1, 1, ctx.sampleRate || 48000);
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(ctx.destination);
+    src.start(0);
+  } catch (err) {
+    console.warn("[piper] ctx kick failed", err);
+  }
+}
+
 function unlockHtmlMedia() {
-  if (htmlMediaUnlocked) return Promise.resolve(true);
+  const el = ensurePlayAudioEl();
+  // Loop silence so Safari keeps the hardware audio session open until speech.
+  if (isIOSAudio()) el.loop = true;
+  if (htmlMediaUnlocked && !el.paused) return Promise.resolve(true);
   if (htmlUnlockInFlight) return htmlUnlockInFlight;
 
-  const el = ensurePlayAudioEl();
   el.src = SILENT_WAV;
 
   htmlUnlockInFlight = el
     .play()
     .then(() => {
       htmlMediaUnlocked = true;
+      console.info("[piper] HTML unlock ok", "loop=", el.loop);
       return true;
     })
     .catch((err) => {
@@ -548,15 +570,19 @@ export function unlockPiperAudio() {
   // Resume and, on Linux, start the media element in this click. Speech
   // arrives later (after the voice loads) and must not need a second play().
   const ctx = ensurePiperAudioCtx();
-  if (ctx && ctx.state === "suspended") void ctx.resume();
-  // iOS plays BufferSource → destination. A MediaStream element stays silent
-  // there and can take the audio session away from the context.
+  // Safari reports "running" and still stays silent until resume() runs inside the tap.
+  if (ctx) void ctx.resume();
+  if (ctx && isIOSAudio()) kickAudioContext(ctx);
+  // iOS Safari plays a media element. A MediaStream element stays silent there
+  // and can take the audio session away from the context.
   if (ctx && !isIOSAudio()) armStreamOutput(ctx);
-  // Also warm the shared SFX context when provided.
-  try {
-    audioCtxProvider?.();
-  } catch {
-    /* ignore */
+  // A second AudioContext steals the only iOS audio session.
+  if (!isIOSAudio()) {
+    try {
+      audioCtxProvider?.();
+    } catch {
+      /* ignore */
+    }
   }
   ensurePlayAudioEl();
 
@@ -580,11 +606,13 @@ export function unlockPiperAudio() {
   };
 
   // Silent-WAV unlock sets el.src and detaches the gesture-started stream.
-  // On iOS the running AudioContext is the output — don't start a second element.
+  // iOS Safari needs that play() inside the tap; start it before any await.
   const htmlPrime =
-    isIOSAudio() || streamDest || isLinuxChromium() || !(prefersHtmlPlayback() || !ctx)
-      ? Promise.resolve(htmlMediaUnlocked)
-      : unlockHtmlMedia();
+    isIOSAudio()
+      ? unlockHtmlMedia()
+      : streamDest || isLinuxChromium() || !(prefersHtmlPlayback() || !ctx)
+        ? Promise.resolve(htmlMediaUnlocked)
+        : unlockHtmlMedia();
 
   const ctxPrime = !ctx
     ? Promise.resolve(false)
@@ -965,13 +993,16 @@ async function playViaHtmlAudio(wav, opts, gen) {
         durationMs: Math.max(200, (el.duration || 0) * 1000),
       });
     };
+    el.loop = false;
     el.muted = false;
     el.volume = 1;
     el.src = url;
-    try {
-      el.load();
-    } catch {
-      /* ignore */
+    if (!isIOSAudio()) {
+      try {
+        el.load();
+      } catch {
+        /* ignore */
+      }
     }
     duckKeepAlive(true);
     el.play().then(
@@ -1123,9 +1154,11 @@ async function playSynthesized(wav, pcm, sampleRate, opts, gen) {
   const streamLive = !isIOSAudio() && streamOutputLive();
   const order = streamLive
     ? ["webaudio"]
-    : ctx?.state === "running"
-      ? ["webaudio", "html"]
-      : ["html", "webaudio"];
+    : isIOSSafari()
+      ? ["html", "webaudio"]
+      : ctx?.state === "running"
+        ? ["webaudio", "html"]
+        : ["html", "webaudio"];
 
   for (const how of order) {
     if (gen !== speakGen) return;

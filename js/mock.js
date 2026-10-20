@@ -155,7 +155,7 @@ import {
   speakGermanPiper,
   stopPiperAudio,
   unlockPiperAudio,
-} from "./piper-tts.js?v=20261020-piper-demo6";
+} from "./piper-tts.js?v=20261020-piper-demo7";
 
 import {
   buildSoundsChart,
@@ -15157,7 +15157,8 @@ function syncTtsVoiceMenu() {
   // this menu and the click never fired, so Replay never synthesized.
   warmBtn.addEventListener("pointerdown", (e) => {
     e.stopPropagation();
-    e.preventDefault();
+    // Unlock before anything else. preventDefault here cancels Safari's
+    // user-gesture token, so later play() is silent.
     void unlockPiperAudio();
     void selectAndDemoVoice(voicePref);
   });
