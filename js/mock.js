@@ -26,16 +26,12 @@ import {
   createCalendarDateConstructionExercise,
   createMeasureConstructionExercise,
   submitExerciseAttempt,
-} from "../engine/exercise/index.js?v=20261021-pl1";
+} from "../engine/exercise/index.js";
 import {
   EXERCISE_LAYER_VERSION,
   TEMPLATES,
   scaffoldingFor,
-} from "../engine/exercise/modes.js?v=20261021-pl1";
-import { pluralExercise } from "../engine/nouns/exercise.js?v=20261021-pl1";
-import { evaluatePluralConstruction } from "../engine/nouns/evaluate.js?v=20261021-pl1";
-import { recordNounAttempt } from "../engine/nouns/attempt.js?v=20261021-pl1";
-import { productivePluralSpec } from "../engine/nouns/plural-rules.js?v=20261021-pl1";
+} from "../engine/exercise/modes.js";
 import {
   associationLemmas,
   wugForms,
@@ -48,7 +44,11 @@ import {
   categoryValidationItems,
   GENDER_IMPOSTER_VARIANTS,
   matchSuffixPattern,
-} from "../engine/nouns/index.js?v=20261021-pl1";
+  pluralExercise,
+  evaluatePluralConstruction,
+  recordNounAttempt,
+  productivePluralSpec,
+} from "../engine/nouns/index.js";
 import {
   cardinalForm,
   parseCardinalForm,
@@ -94,7 +94,7 @@ import {
   directionsForNounsCell,
   isNounsDirectionPlayable,
 } from "./nouns-curriculum.js?v=20261021-pl1";
-import { pluralPool } from "./plurals-pools.js?v=20261021-pl1";
+import { pluralPool } from "./plurals-pools.js";
 import {
   DIRECTION,
   isReverse,
