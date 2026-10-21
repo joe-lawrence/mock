@@ -4,12 +4,13 @@
  * Patterns is one lexicon example per rule. Lexical is everything else recorded.
  */
 
-import { LEXICON, WUGS } from "../../engine/nouns/data.js";
-import { lemmasWithPlural } from "../../engine/nouns/exercise.js";
 import {
+  LEXICON,
+  WUGS,
+  lemmasWithPlural,
   productivePluralSpec,
   pluralMatchesProductiveRule,
-} from "../../engine/nouns/plural-rules.js";
+} from "../engine/nouns/index.js";
 
 const SURFACE_ENDINGS = ["e", "en", "er", "n", "s", "—"];
 
