@@ -10,6 +10,7 @@ import {
   clockFaceSvg,
   pieSvg,
   numeratorFromAngleDeg,
+  snapPieDialNumerator,
   PIE_DIAL_DENOM,
   PIE_DIAL_GUIDE_TICKS,
   pieFractionsEqual,
@@ -137,9 +138,21 @@ describe("compass directions quiz", () => {
     assert.equal(isNumbersCellPlayable("fractions", "mixed-numbers", "set-dial"), false);
   });
 
-  it("set-dial pie uses fine snap + guide ticks; matches any pool fraction", () => {
+  it("set-dial pie snaps to twelfths; storage stays /360", () => {
     assert.equal(PIE_DIAL_DENOM, 360);
     assert.equal(PIE_DIAL_GUIDE_TICKS, 12);
+    assert.equal(snapPieDialNumerator(0), 0);
+    assert.equal(snapPieDialNumerator(14), 0);
+    assert.equal(snapPieDialNumerator(15), 30);
+    assert.equal(snapPieDialNumerator(60), 60);
+    assert.equal(snapPieDialNumerator(50), 60);
+    assert.deepEqual(simplifyFraction(snapPieDialNumerator(60), 360), [1, 6]);
+    assert.deepEqual(simplifyFraction(snapPieDialNumerator(90), 360), [1, 4]);
+    assert.ok(pieDialMatchesFraction({ numerator: 60, denominator: 360 }, 1, 6));
+    assert.equal(
+      pieDialMatchesFraction({ numerator: 60, denominator: 360 }, 1, 5),
+      false
+    );
     assert.equal(dialNumeratorForFraction(1, 2), 180);
     assert.equal(dialNumeratorForFraction(3, 4), 270);
     assert.equal(dialNumeratorForFraction(1, 3), 120);

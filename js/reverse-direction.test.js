@@ -7,9 +7,12 @@ import {
   directionsForStepMode,
   isDirectionPlayable,
   reverseNounArticleChoose,
+  wugReverseChoose,
   reverseNumbersConvert,
   reverseCompassConvert,
 } from "./reverse-direction.js";
+import { LEXICON, WUGS } from "../../engine/nouns/index.js";
+import { vocabulary } from "./generated/vocabulary.js";
 import {
   directionsForNounsCell,
   isNounsDirectionPlayable,
@@ -131,6 +134,44 @@ describe("reverse direction", () => {
     });
     assert.equal(pack.cue, "Nordosten");
     assert.equal(pack.answer, "northeast");
+  });
+
+  it("wug reverse stays on nonce forms and vocab does not list them", () => {
+    const forms = new Set(WUGS.map((w) => w.form));
+    for (const form of forms) assert.equal(LEXICON[form], undefined);
+    const pack = wugReverseChoose("Klappung");
+    assert.equal(pack.cue, "die");
+    assert.equal(pack.answer, "Klappung");
+    assert.equal(pack.ask, "Pick the matching wug");
+    assert.equal(pack.suffixCue, "-ung");
+    assert.match(pack.patternNote, /-ung/);
+    assert.equal(pack.wug, true);
+    assert.doesNotMatch(`${pack.ask} ${pack.hint}`, /nonce/i);
+    assert.ok(pack.choices.includes("Klappung"));
+    for (const choice of pack.choices) {
+      assert.ok(forms.has(choice));
+      assert.equal(LEXICON[choice], undefined);
+    }
+    const bare = wugReverseChoose("Plork");
+    assert.equal(bare.cue, "?");
+    assert.equal(bare.answer, "Plork");
+    assert.equal(bare.suffixCue, null);
+    assert.equal(bare.ask, "Pick the matching wug");
+    for (const choice of bare.choices) assert.ok(forms.has(choice));
+    const surfaces = new Set();
+    for (const item of Object.values(vocabulary)) {
+      if (item?.surface) surfaces.add(item.surface);
+      if (item?.engine?.lemma) surfaces.add(item.engine.lemma);
+    }
+    for (const form of forms) assert.equal(surfaces.has(form), false);
+    assert.deepEqual(
+      directionsForNounsCell("plurals", "plural-wugs", "choose"),
+      ["forward"]
+    );
+    assert.deepEqual(
+      directionsForNounsCell("plurals", "plural-wugs", "build"),
+      ["forward"]
+    );
   });
 
   it("Suffixes wugs/real-words choose allow reverse; reverse-mc unit is gone", () => {
@@ -256,7 +297,7 @@ describe("reverse direction", () => {
     );
   });
 
-  it("Nouns playable cell count includes Plurals (25)", () => {
+  it("Nouns playable cell count includes Plurals (21)", () => {
     let n = 0;
     for (const t of NOUNS_TOPICS) {
       for (const s of t.steps || []) {
@@ -265,7 +306,7 @@ describe("reverse direction", () => {
         }
       }
     }
-    // 13 after reverse-mc fold, plus 4 plural steps × 3 presets
-    assert.equal(n, 25);
+    // 13 after reverse-mc fold, plus Patterns build/proofread and two steps × 3 presets
+    assert.equal(n, 21);
   });
 });

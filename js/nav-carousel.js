@@ -4,7 +4,12 @@
  */
 
 import { NUMBERS_TOPICS, modesForStep } from "./numbers-curriculum.js?v=20260930-dmo18";
-import { genderShortcutsNavUnits, modalitiesForUnit } from "./nouns-curriculum.js?v=20261018-nouns2";
+import {
+  genderShortcutsNavUnits,
+  modalitiesForUnit,
+  modesForNounsStep,
+  pluralNavUnits,
+} from "./nouns-curriculum.js?v=20261021-pl20";
 import { topicHasVocabulary } from "./vocabulary-ui.js?v=20260930-vocab16";
 
 const CAPS_KEY = "schnapp-nav-caps";
@@ -20,7 +25,7 @@ const GAME_SVG = `<svg viewBox="0 0 16 16" width="52" height="52" fill="currentC
 
 const PLAY_SVG = `<svg viewBox="0 0 16 16" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M11.596 8.697l-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>`;
 
-/** Nouns territory: Vocabulary + Gender Shortcuts; Plurals / Articles stubbed. */
+/** Nouns territory: Vocabulary, Gender Shortcuts, and Plurals. */
 const NOUNS_BRANCH = {
   id: "nouns",
   title: "Nouns",
@@ -52,15 +57,7 @@ const NOUNS_BRANCH = {
       title: "Plurals",
       type: "subtopic",
       territory: "nouns",
-      children: [
-        {
-          id: "nouns:plurals:soon",
-          title: "Coming soon",
-          type: "unit",
-          territory: "nouns",
-          playable: false,
-        },
-      ],
+      children: pluralNavUnits(),
     },
     {
       id: "nouns:articles",
@@ -319,6 +316,16 @@ export function mountNavCarousel(container, options = {}) {
     }
     if (u.kind === "vocabulary" || u.vocabTopic) {
       return topicHasVocabulary(u.vocabTopic || u.territory);
+    }
+    if (u.territory === "nouns" && u.topicId && u.stepId) {
+      const modes = modesForNounsStep(u.topicId, u.stepId);
+      if (c.audio === "only") return modes.some((m) => m.id === "listen");
+      if (c.keyboard === "only") {
+        return modes.some((m) => m.id === "convert" || m.id === "proofread");
+      }
+      return modes.some(
+        (m) => m.id === "build" || m.id === "choose" || m.id === "proofread"
+      );
     }
     if (u.territory === "nouns" && u.learnUnitId) {
       if (c.keyboard === "only") {

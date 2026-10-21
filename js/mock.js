@@ -48,6 +48,7 @@ import {
   evaluatePluralConstruction,
   recordNounAttempt,
   productivePluralSpec,
+  WUGS,
 } from "../engine/nouns/index.js";
 import {
   cardinalForm,
@@ -93,15 +94,16 @@ import {
   modesForNounsStep,
   directionsForNounsCell,
   isNounsDirectionPlayable,
-} from "./nouns-curriculum.js?v=20261021-pl1";
+} from "./nouns-curriculum.js?v=20261021-pl20";
 import { pluralPool } from "./plurals-pools.js";
 import {
   DIRECTION,
   isReverse,
   reverseNounArticleChoose,
+  wugReverseChoose,
   reverseNumbersConvert,
   reverseCompassConvert,
-} from "./reverse-direction.js?v=20261021-dir3";
+} from "./reverse-direction.js?v=20261021-pl6";
 
 import { DECIMAL_POOLS } from "./decimals-pools.js?v=20260930-ref1";
 import {
@@ -141,9 +143,9 @@ import {
   COMPASS_BEARINGS,
   PIE_DIAL_DENOM,
   pieDialMatchesFraction,
-} from "./quiz-extras.js?v=20261020-compass-key";
+} from "./quiz-extras.js?v=20261021-pie12";
 
-import { mountNavCarousel } from "./nav-carousel.js?v=20260930-vocab17";
+import { mountNavCarousel } from "./nav-carousel.js?v=20261021-pl20";
 import {
   dealExercise,
   WEAK_ACCURACY,
@@ -180,7 +182,7 @@ import {
   buildHelpModel,
   renderHelpSheetHtml,
   wireHelpSheet,
-} from "./help-sheet.js?v=20261018-s08s";
+} from "./help-sheet.js?v=20261021-pl7";
 import {
   freshSupportVector,
   climbHelpRung,
@@ -277,7 +279,7 @@ import {
   mountCompassDialShell,
   mountClockDialShell,
   mountPieDialShell,
-} from "./dial-shells.js?v=20261019-dyn1";
+} from "./dial-shells.js?v=20261021-pie12";
 
 /**
  * Mount Numbers prompt via stimulus shell + mark stage Q×A attrs.
@@ -3936,12 +3938,15 @@ const nounCategorySentenceValidationPool = () =>
   categoryValidationItems().map((x) => ({ itemId: x.id }));
 
 function pluralDeckItems(stepId) {
-  return pluralPool(stepId).map((item) => ({
-    ...item,
-    translation: NOUN_PLURAL_EN[item.lemma] || item.translation || "",
-    answerParts:
-      NOUN_PLURAL_PARTS[item.lemma] || fallbackPluralParts(item.lemma),
-  }));
+  return pluralPool(stepId).map((item) => {
+    if (!item.lemma) return { ...item };
+    return {
+      ...item,
+      translation: NOUN_PLURAL_EN[item.lemma] || item.translation || "",
+      answerParts:
+        NOUN_PLURAL_PARTS[item.lemma] || fallbackPluralParts(item.lemma),
+    };
+  });
 }
 
 function nounDeckSource(kind) {
@@ -3952,6 +3957,7 @@ function nounDeckSource(kind) {
   if (kind === "PluralPattern") return pluralDeckItems("plural-patterns");
   if (kind === "PluralLexical") return pluralDeckItems("plural-lexical");
   if (kind === "Association") return nounAssociationPool;
+  if (kind === "Wug" || kind === "WugReverse") return nounWugPool;
   if (kind === "Proofread" || kind === "Reverse") return nounAssociationPool;
   if (kind === "CategoryGenderRecognition") return nounCategoryGenderRecognitionPool();
   if (kind === "CategoryArticleApplication") return nounCategoryArticleApplicationPool();
@@ -3987,7 +3993,9 @@ function nounDeckFingerprint(kind, source) {
     return `${kind}:${source.map((x) => x.lemma || x).sort().join("|")}`;
   }
   if (String(kind).startsWith("Plural")) {
-    return `${kind}:${source.map((x) => x.lemma || "").join("|")}`;
+    return `${kind}:${source
+      .map((x) => x.lemma || x.patternId || x.cue || "")
+      .join("|")}`;
   }
   return `${kind}:len=${source.length}`;
 }
@@ -4162,7 +4170,13 @@ function pluralDeckKind(mode = state.nounsMode) {
 
 function currentPluralDeckItem() {
   const pin = state.nounsPinnedSnap;
-  if (pin && isPluralStep(pin.mode) && pin.item?.lemma) return pin.item;
+  if (
+    pin &&
+    isPluralStep(pin.mode) &&
+    (pin.item?.lemma || pin.item?.patternId)
+  ) {
+    return pin.item;
+  }
   const deck = ensureNounDeck(pluralDeckKind());
   if (!deck.length) return null;
   const indexKey = nounsIndexKeyForMode();
@@ -4174,7 +4188,7 @@ function buildNounPluralExercise(lemma, opts = {}) {
   const mode = opts.mode || "assisted";
   const truth = pluralExercise(lemma, {
     translation: opts.translation,
-    patternNote: opts.patternNote,
+    patternNote: opts.suppressPatternHint ? undefined : opts.patternNote,
   });
   const templateId = TEMPLATES.NOUN_PLURAL_CONSTRUCTION;
   const scaffolding = scaffoldingFor(templateId, mode);
@@ -4209,6 +4223,7 @@ function buildNounPluralExercise(lemma, opts = {}) {
       singularArticle: truth.singularArticle,
       translation: opts.translation || truth.translation,
       rules: truth.rules,
+      patternNote: opts.patternNote || "",
     },
   };
 }
@@ -4221,6 +4236,7 @@ function currentNounPluralExercise() {
     translation: meta.translation,
     answerParts: meta.answerParts,
     patternNote: meta.patternNote,
+    suppressPatternHint: state.nounsStep === "plural-patterns",
   });
 }
 
@@ -5560,8 +5576,7 @@ const NOUNS_INSTRUCTION = {
   plurals: "Build the plural",
   "plural-wugs": "Build the plural",
   "plural-real-words": "Build the plural",
-  "plural-patterns": "Build the plural",
-  "plural-lexical": "Build the plural",
+  "plural-patterns": "Supply the ending",
   proofread: "Right or wrong?",
   "reverse-mc": "Pick the noun",
   "gender-recognition": "Pick the gender",
@@ -5749,6 +5764,7 @@ function fillAnswerReveal(prefix, {
   silent,
   skipPronunciation,
   visualHtml,
+  lang,
 }) {
   const root = document.getElementById(`${prefix}-reveal`);
   const wordEl = document.getElementById(`${prefix}-reveal-word`);
@@ -5789,7 +5805,7 @@ function fillAnswerReveal(prefix, {
   }
 
   wordEl.classList.remove("is-correct-flash");
-  wordEl.setAttribute("lang", "de");
+  wordEl.setAttribute("lang", lang || "de");
   if (wordHtml) wordEl.innerHTML = wordHtml;
   else wordEl.textContent = softHyphenateGerman(word, parts);
 
@@ -5958,6 +5974,16 @@ function joinAnswerNotes(...parts) {
     .map((s) => String(s || "").trim())
     .filter(Boolean)
     .join(" · ");
+}
+
+/** Patterns answer caption: gloss, then the ending rule (not shown on the question). */
+function pluralAnswerCaption(gloss, patternNote) {
+  const g = String(gloss || "").trim();
+  if (state.nounsStep !== "plural-patterns") return g;
+  const note = String(patternNote || "").trim();
+  if (!note) return g;
+  if (!g) return note;
+  return `${g}, ${note}`;
 }
 
 /**
@@ -7686,6 +7712,22 @@ function nounsChartTabForUnit(unit) {
 }
 
 /** Resolve practice family id from a nav unit or explicit family. */
+function nounsStepIdsFromNavUnits(nounsUnits) {
+  const fams = [];
+  for (const u of nounsUnits) {
+    if (u.stepId) {
+      if (!fams.includes(u.stepId)) fams.push(u.stepId);
+      continue;
+    }
+    const learnId = u.learnUnitId || unitIdForFamily(nounsFamilyForNavUnit(u));
+    for (const f of familiesForUnit(learnId)) {
+      if (!fams.includes(f.id)) fams.push(f.id);
+    }
+  }
+  return fams;
+}
+
+/** Resolve practice family id from a nav unit or explicit family. */
 function nounsFamilyForNavUnit(unit) {
   if (unit?.nounsMode) return unit.nounsMode;
   if (unit?.familyId) return unit.familyId;
@@ -8147,13 +8189,32 @@ function renderNounsHub() {
 
   const pluralsTopic = getNounsTopic("plurals");
   const pluralRows = (pluralsTopic?.steps || [])
-    .filter((s) => s.playable)
     .map((s) => {
-      const buttons = ["build", "choose", "proofread"]
+      if (!s.playable) {
+        return `<li class="numbers-step-row is-preview">
+      <div class="numbers-step-copy">
+        <strong>${escapeHtml(s.label)}</strong>
+        <span class="numbers-step-cue">Coming soon</span>
+        ${
+          s.blurb
+            ? `<span class="numbers-step-blurb">${escapeHtml(s.blurb)}</span>`
+            : ""
+        }
+      </div>
+      <div class="numbers-step-actions">
+        <button type="button" class="btn" disabled>Learn</button>
+        <button type="button" class="btn btn-primary" disabled>Practice</button>
+      </div>
+    </li>`;
+      }
+      const presets = s.modes?.length
+        ? s.modes
+        : ["build", "choose", "proofread"];
+      const buttons = presets
         .map(
-          (preset) =>
+          (preset, i) =>
             `<button type="button" class="btn${
-              preset === "build" ? " btn-primary" : ""
+              i === 0 ? " btn-primary" : ""
             }" data-nouns-start-step="${s.id}" data-preset="${preset}">${
               preset === "build"
                 ? "Build"
@@ -8558,12 +8619,7 @@ function handleNavCarouselStart({ mode, units, keyboard, audio, practice, guided
         stepId: u.stepId,
       })));
     } else if (nounsUnits.length) {
-      const fams = [];
-      for (const u of nounsUnits) {
-        const learnId = u.learnUnitId || unitIdForFamily(nounsFamilyForNavUnit(u));
-        for (const f of familiesForUnit(learnId)) fams.push(f.id);
-      }
-      seedNounsPlaylist(fams);
+      seedNounsPlaylist(nounsStepIdsFromNavUnits(nounsUnits));
     }
     startLearnSeries(units);
     return;
@@ -8587,11 +8643,7 @@ function handleNavCarouselStart({ mode, units, keyboard, audio, practice, guided
 
   // Play → randomly interleave Numbers and Nouns when both are selected
   if (hasNumbers && hasNouns) {
-    const fams = [];
-    for (const u of nounsUnits) {
-      const learnId = u.learnUnitId || unitIdForFamily(nounsFamilyForNavUnit(u));
-      for (const f of familiesForUnit(learnId)) fams.push(f.id);
-    }
+    const fams = nounsStepIdsFromNavUnits(nounsUnits);
     seedCrossTerritoryPlaylist(
       numbersUnits.map((u) => ({ topicId: u.topicId, stepId: u.stepId })),
       fams
@@ -8613,12 +8665,7 @@ function handleNavCarouselStart({ mode, units, keyboard, audio, practice, guided
 
   if (hasNouns) {
     if (!prepareNounsFromPlaylist(nounsUnits, practice)) return;
-    const fams = [];
-    for (const u of nounsUnits) {
-      const learnId = u.learnUnitId || unitIdForFamily(nounsFamilyForNavUnit(u));
-      for (const f of familiesForUnit(learnId)) fams.push(f.id);
-    }
-    seedNounsPlaylist(fams);
+    seedNounsPlaylist(nounsStepIdsFromNavUnits(nounsUnits));
     state.phase.nouns = "practice";
     state.preservePractice.nouns = false;
     navigate("nouns", { keepPhase: true });
@@ -9193,14 +9240,20 @@ function currentGuidedQuestionCue() {
     }
     if (isPluralStep()) {
       const quiz = state.nounsQuizMode;
-      const task =
-        quiz === "choose"
+      const pattern =
+        ex?.resolution?.patternOnly || ex?.templateId === "nouns.plural.pattern";
+      const task = pattern
+        ? pluralPatternTask(quiz)
+        : quiz === "choose"
           ? "Pick the plural"
           : quiz === "proofread"
             ? "Right or wrong?"
             : "Build the plural";
-      const lead =
-        quiz === "proofread"
+      const lead = pattern
+        ? quiz === "proofread"
+          ? ex.resolution?.statement || ex.prompt?.cue || "—"
+          : ex.prompt?.cue || "—"
+        : quiz === "proofread"
           ? ex.resolution?.statement || ex.target?.lemma || "—"
           : ex.target?.lemma || ex.prompt?.lemma || "—";
       return joinQaCue(lead, task);
@@ -10020,6 +10073,24 @@ function prepareNumbersMixState() {
 function prepareNounsFromPlaylist(nounsUnits, practice) {
   const playable = nounsUnits.filter((u) => u.playable !== false);
   if (!playable.length) return false;
+
+  if (playable.every((u) => u.topicId && u.stepId)) {
+    const stepId = playable[0].stepId;
+    const topicId = playable[0].topicId;
+    const presetId = introModeForNounsStep(topicId, stepId)?.id || "build";
+    if (playable.length === 1) {
+      state.nounsSessionKind = "focus";
+      state.nounsFamilyMix = [];
+    } else {
+      state.nounsSessionKind = "family-mix";
+      state.nounsFamilyMix = playable.map((u) => u.stepId);
+    }
+    applyNounsCell(topicId, stepId, presetId);
+    state.nounsModality = legacyModalityForNounsPreset(topicId, presetId);
+    state.nounsHubPracticePick = "";
+    resetNounsDeckForMode();
+    return true;
+  }
 
   const learnIds = [
     ...new Set(
@@ -12872,6 +12943,7 @@ function paintNounArticleLemma(exercise) {
   const prompt = document.getElementById("nouns-prompt");
   if (prompt) {
     prompt.hidden = true;
+    prompt.lang = "de";
     prompt.innerHTML = "";
   }
   const nounSlot = document.getElementById("nouns-noun-slot");
@@ -12907,11 +12979,13 @@ function renderNouns() {
   if (isPluralStep()) {
     const quiz = state.nounsQuizMode;
     const instruction =
-      quiz === "choose"
-        ? "Pick the plural"
-        : quiz === "proofread"
-          ? "Right or wrong?"
-          : "Build the plural";
+      state.nounsStep === "plural-patterns"
+        ? pluralPatternTask(quiz)
+        : quiz === "choose"
+          ? "Pick the plural"
+          : quiz === "proofread"
+            ? "Right or wrong?"
+            : "Build the plural";
     setActionInstruction("nouns", instruction);
     const prompt = document.getElementById("nouns-prompt");
     if (prompt) prompt.hidden = false;
@@ -13096,7 +13170,7 @@ function renderNounsWugs() {
     renderNounsArticleReverse();
     return;
   }
-  // No legend / “Wug · apply …” chrome — just the nonce + article choices.
+  // No legend / “Wug · apply …” chrome — just the wug + article choices.
   renderNounArticleLike(currentNounWugExercise(), { familyLine: "" });
 }
 
@@ -13114,43 +13188,88 @@ function renderNounsArticles() {
 }
 
 /**
- * Choose · reverse: article cue → pick matching lemma (ex Suffixes Reverse unit).
+ * Choose · reverse: article cue → pick the matching noun.
+ * Wugs stay on wug forms. Real Words use lexicon lemmas.
  */
 function renderNounsArticleReverse() {
+  const wugMode = state.nounsMode === "wugs";
   const pin = state.nounsPinnedSnap;
-  const deck = ensureNounDeck("Reverse");
+  const deck = ensureNounDeck(wugMode ? "WugReverse" : "Reverse");
   const indexKey = "nounsReverseIndex";
-  const item =
-    pin?.kind === "Reverse" && pin.item?.lemma
-      ? pin.item
-      : deck[state[indexKey] % Math.max(1, deck.length)];
-  const article = ARTICLES[item.gender] || "die";
-  const candidates = nounAssociationPool.map((x) => ({
-    lemma: x.lemma,
-    article: ARTICLES[x.gender] || "die",
-  }));
-  const pack = reverseNounArticleChoose(item.lemma, article, candidates);
-  const answerParts =
-    NOUN_SINGULAR_PARTS[item.lemma] || fallbackSingularParts(item.lemma);
-  const gloss = LEXICON[item.lemma]?.gloss || item.translation || "";
+  const dealt = deck[state[indexKey] % Math.max(1, deck.length)];
+  let pack;
+  let item;
+  if (wugMode) {
+    const raw =
+      pin?.mode === "wugs" && pin.item != null ? pin.item : dealt;
+    const form = typeof raw === "string" ? raw : raw.form || raw.lemma;
+    const dealtForm = WUGS.some((w) => w.form === form) ? form : dealt;
+    pack = wugReverseChoose(
+      typeof dealtForm === "string" ? dealtForm : String(dealtForm)
+    );
+    item = { lemma: pack.answer, gender: pack.gender, wug: true };
+  } else {
+    item =
+      pin?.kind === "Reverse" && pin.item?.lemma
+        ? pin.item
+        : dealt;
+    const article = ARTICLES[item.gender] || "die";
+    const candidates = nounAssociationPool.map((x) => ({
+      lemma: x.lemma,
+      article: ARTICLES[x.gender] || "die",
+    }));
+    pack = reverseNounArticleChoose(item.lemma, article, candidates);
+  }
+  const article = pack.cue;
+  const answerParts = wugMode
+    ? article === "?"
+      ? [{ text: item.lemma }]
+      : [
+          { text: article, source: "article" },
+          { text: item.lemma },
+        ]
+    : NOUN_SINGULAR_PARTS[item.lemma] || fallbackSingularParts(item.lemma);
+  const gloss = wugMode
+    ? ""
+    : LEXICON[item.lemma]?.gloss || item.translation || "";
+  const phrase =
+    wugMode && article === "?" ? item.lemma : `${article} ${item.lemma}`;
 
   setCurrentExercise({
     templateId: "nouns.choose.reverse",
+    ...(wugMode
+      ? {
+          target: { wug: true, lemma: item.lemma },
+          prompt: { cue: pack.suffixCue || null, lemma: item.lemma },
+        }
+      : {}),
     materials: {
       hint: pack.hint,
-      answerParts,
+      answerParts: wugMode ? [] : answerParts,
       choices: [...pack.choices],
+      ...(wugMode
+        ? { cue: pack.suffixCue || null, patternBlurb: pack.patternNote || "" }
+        : {}),
     },
     resolution: {
       expected: pack.answer,
-      feedbackOk: `Yes — ${article} ${item.lemma}.`,
-      feedbackBad: `Target was ${article} ${item.lemma}.`,
-      form: `${article} ${item.lemma}`,
+      feedbackOk: wugMode
+        ? pack.suffixCue
+          ? `Yes — ${pack.suffixCue} → ${article}.`
+          : "Yes — no reliable gender cue."
+        : `Yes — ${phrase}.`,
+      feedbackBad: wugMode
+        ? pack.suffixCue
+          ? `Target ending was ${pack.suffixCue}.`
+          : "Target was a wug with no reliable gender cue."
+        : `Target was ${phrase}.`,
+      form: wugMode ? pack.suffixCue || "insufficient information" : phrase,
       lemma: item.lemma,
       article,
       gender: item.gender,
-      answerParts,
+      answerParts: wugMode ? [] : answerParts,
       translation: gloss,
+      ...(wugMode ? { note: pack.patternNote || "" } : {}),
     },
     scaffolding: { allowRetryWrongChoice: true },
   });
@@ -13180,7 +13299,9 @@ function renderNounsArticleReverse() {
   const fam = document.getElementById("nouns-family-progress");
   if (fam) {
     fam.hidden = false;
-    fam.textContent = "Reverse · article → noun";
+    fam.textContent = wugMode
+      ? "Reverse · article → wug"
+      : "Reverse · article → noun";
   }
 
   setActionInstruction("nouns", pack.ask);
@@ -13282,6 +13403,11 @@ function checkNounsArticleReverse() {
         `#nouns-tray [data-id="${CSS.escape(expected)}"]`
       );
     if (correct) correct.classList.add("is-ok");
+  }
+
+  if (exercise.target?.wug) {
+    fillWugAnswerReveal(exercise, ok, { silent: true });
+    return;
   }
 
   const res = exercise.resolution || {};
@@ -14519,8 +14645,343 @@ function revealNounCategory(exercise, ok) {
   playAnswerKey(word, parts, nodes);
 }
 
+function isPluralPatternItem(item) {
+  return !!(item && item.patternId && !item.lemma);
+}
+
+function pluralEndingLabel(ending) {
+  return ending === "—" ? "—" : `-${ending}`;
+}
+
+function pluralPatternChoiceLabel(ending) {
+  return ending === "—" ? "No change" : `-${ending}`;
+}
+
+function pluralPatternTask(quiz = state.nounsQuizMode) {
+  if (quiz === "proofread") return "Right or wrong?";
+  if (quiz === "build") return "Supply the ending";
+  return "Pick the ending";
+}
+
+/**
+ * Presentation only. Spec §3 treats these suffix drills as high-confidence
+ * patterns, and the implementation selects them by spelling. Questions and
+ * captions say “usually”. A morpheme-scoped categorical label is later work.
+ */
+function pluralPatternQuestion(suffix) {
+  return `How do words ending in -${suffix} usually form the plural?`;
+}
+
+/** Standalone answer/proofread sentence. Same certainty as the question. */
+function pluralPatternClaimSentence(suffix, ending) {
+  if (ending === "—") {
+    return `Words ending in -${suffix} usually keep the same form in the plural.`;
+  }
+  return `Words ending in -${suffix} usually form the plural by adding -${ending}.`;
+}
+
+function endingClaimedByProof(shown) {
+  const adds = String(shown || "").match(/^-.+ adds -(.+)$/);
+  if (adds) return adds[1];
+  if (/stays the same$/.test(String(shown || ""))) return "—";
+  return null;
+}
+
+function pluralPatternRevealCopy(res) {
+  const suffix = res.suffix || String(res.cue || "").replace(/^-/, "");
+  const en = pluralPatternClaimSentence(suffix, res.ending);
+  if (res.ending === "—") {
+    return { word: "No change", en, lang: "en" };
+  }
+  return { word: `-${res.ending}`, en, lang: "de" };
+}
+
+function buildPluralPatternExercise(item) {
+  const quiz = state.nounsQuizMode;
+  const proof = quiz === "proofread";
+  return {
+    id: `ex.nouns.plural.pattern.${item.patternId}.${quiz}`,
+    templateId: "nouns.plural.pattern",
+    territoryId: "nouns",
+    mode: "assisted",
+    target: { patternId: item.patternId, suffix: item.suffix },
+    scaffolding: {
+      showHintButton: true,
+      showReferenceButton: false,
+      allowRetryWrongChoice: quiz !== "proofread",
+      chipTray: quiz === "build",
+    },
+    prompt: {
+      cue: proof
+        ? pluralPatternClaimSentence(
+            item.suffix,
+            endingClaimedByProof(item.proofShown) ?? item.ending
+          )
+        : pluralPatternQuestion(item.suffix),
+      kind: "plural-pattern",
+    },
+    materials: {
+      hint: proof
+        ? "Decide whether this claim about the suffix is true."
+        : "Predict the plural this ending usually forms.",
+      parts: [item.ending],
+    },
+    resolution: {
+      expected: proof ? item.proofAnswer : item.ending,
+      ending: item.ending,
+      suffix: item.suffix,
+      patternNote: item.patternNote,
+      statement: proof
+        ? pluralPatternClaimSentence(
+            item.suffix,
+            endingClaimedByProof(item.proofShown) ?? item.ending
+          )
+        : "",
+      patternOnly: true,
+      cue: item.cue,
+    },
+  };
+}
+
+function revealPluralPattern(exercise, ok) {
+  const res = exercise.resolution || {};
+  const copy = pluralPatternRevealCopy(res);
+  logGuidedQaFinal({
+    question: currentGuidedQuestionCue(),
+    answer: state.nounsArticle || state.nounsFilled?.[0] || "—",
+    expected: res.expected || copy.word,
+    status: ok ? "correct" : "incorrect",
+  });
+  presentCorrectAnswer({
+    prefix: "nouns",
+    answerEls: [],
+    reveal: {
+      word: copy.word,
+      wordHtml: `<span class="answer-wug-cue">${escapeHtml(copy.word)}</span>`,
+      parts: [],
+      skipPronunciation: true,
+      lang: copy.lang,
+      en: copy.en,
+      ok,
+      verdictLabel: ok ? "Correct" : "Answer",
+    },
+  });
+}
+
+function renderPluralPatternJudgment(item) {
+  const exercise = buildPluralPatternExercise(item);
+  const proof = state.nounsQuizMode === "proofread";
+  const choices = proof ? ["Richtig", "Falsch"] : item.chooseForms || [item.ending];
+  setCurrentExercise(exercise);
+
+  state.nounsArticle = null;
+  state.nounsChecked = false;
+  state.nounsFilled = [];
+  state.nounsPluralChoiceRetryUsed = false;
+  clearItemFirstMiss();
+
+  applyNounScaffoldingChrome(exercise);
+  const legend = document.getElementById("nouns-legend");
+  if (legend) legend.hidden = true;
+  const fam = document.getElementById("nouns-family-progress");
+  if (fam) {
+    fam.hidden = true;
+    fam.textContent = "";
+  }
+
+  const prompt = document.getElementById("nouns-prompt");
+  const slotsRow = document.getElementById("nouns-slots");
+  if (slotsRow) {
+    slotsRow.innerHTML = "";
+    slotsRow.hidden = true;
+  }
+  if (prompt) {
+    prompt.hidden = false;
+    prompt.lang = "en";
+    const text = proof
+      ? exercise.resolution.statement
+      : exercise.prompt.cue;
+    prompt.innerHTML = `<strong>${escapeHtml(text)}</strong>`;
+  }
+
+  clearAnswerReveal("nouns");
+  const feedback = document.getElementById("nouns-attempt-feedback");
+  if (feedback) {
+    feedback.hidden = true;
+    feedback.textContent = "";
+  }
+  setNounsBackDisabled();
+
+  const tray = document.getElementById("nouns-tray");
+  tray.innerHTML = "";
+  for (const choice of choices) {
+    const piece = document.createElement("button");
+    piece.type = "button";
+    piece.className = "piece";
+    piece.dataset.id = choice;
+    piece.dataset.text = choice;
+    if (isJudgmentChoiceLabel(choice, choice)) {
+      fillJudgmentPiece(piece, choice, choice);
+    } else {
+      const label = pluralPatternChoiceLabel(choice);
+      piece.textContent = label;
+      piece.setAttribute("aria-label", label);
+      if (choice === "—") piece.title = label;
+    }
+    piece.addEventListener("click", () => {
+      if (piece.disabled || state.nounsChecked) return;
+      placeNounPluralJudgment(choice);
+    });
+    tray.appendChild(piece);
+  }
+}
+
+function renderPluralPatternBuild(item) {
+  const exercise = buildPluralPatternExercise(item);
+  setCurrentExercise(exercise);
+  state.nounsFilled = [null];
+  state.nounsArticle = null;
+  state.nounsChecked = false;
+  state.nounsPluralRetryUsed = false;
+  clearItemFirstMiss();
+
+  applyNounScaffoldingChrome(exercise);
+  const legend = document.getElementById("nouns-legend");
+  if (legend) legend.hidden = true;
+  const fam = document.getElementById("nouns-family-progress");
+  if (fam) {
+    fam.hidden = true;
+    fam.textContent = "";
+  }
+
+  const prompt = document.getElementById("nouns-prompt");
+  if (prompt) {
+    prompt.hidden = false;
+    prompt.lang = "en";
+    prompt.innerHTML = escapeHtml(exercise.prompt.cue);
+  }
+  clearAnswerReveal("nouns");
+  setNounsBackDisabled();
+
+  const slots = document.getElementById("nouns-slots");
+  slots.hidden = false;
+  slots.innerHTML = "";
+  const slot = document.createElement("div");
+  slot.className = "slot";
+  slot.dataset.index = "0";
+  slot.tabIndex = 0;
+  slot.textContent = "Ending";
+  slot.addEventListener("click", () => {
+    if (state.nounsChecked) return;
+    if (state.nounsFilled[0]) clearPluralPatternSlot();
+  });
+  slot.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      slot.click();
+    }
+  });
+  slots.appendChild(slot);
+
+  const tray = document.getElementById("nouns-tray");
+  tray.innerHTML = "";
+  const endings = item.buildEndings || ["e", "en", "er", "n", "s", "—"];
+  endings.forEach((ending, i) => {
+    const piece = document.createElement("button");
+    piece.type = "button";
+    piece.className = "piece";
+    const label = pluralPatternChoiceLabel(ending);
+    piece.dataset.id = `pe${i}`;
+    piece.dataset.text = ending;
+    piece.textContent = label;
+    piece.title = label;
+    piece.setAttribute("aria-label", label);
+    piece.addEventListener("click", () => {
+      if (state.nounsChecked || state.nounsFilled[0]) return;
+      placePluralPatternEnding(ending);
+    });
+    tray.appendChild(piece);
+  });
+}
+
+function placePluralPatternEnding(ending) {
+  state.nounsFilled[0] = ending;
+  const slot = document.querySelector('#nouns-slots [data-index="0"]');
+  if (slot) {
+    slot.classList.add("is-filled");
+    slot.classList.remove("is-ok", "is-bad");
+    slot.textContent = pluralPatternChoiceLabel(ending);
+    slot.setAttribute(
+      "aria-label",
+      `${pluralPatternChoiceLabel(ending)}, tap to remove`
+    );
+  }
+  clearSelection();
+  checkPluralPatternBuild();
+}
+
+function clearPluralPatternSlot() {
+  if (state.nounsChecked) return;
+  state.nounsFilled[0] = null;
+  const slot = document.querySelector('#nouns-slots [data-index="0"]');
+  if (slot) {
+    slot.classList.remove("is-filled", "is-ok", "is-bad");
+    slot.textContent = "Ending";
+    slot.removeAttribute("aria-label");
+  }
+  clearSelection();
+}
+
+function checkPluralPatternBuild() {
+  if (state.nounsChecked) return;
+  const exercise = state.currentExercise;
+  const expected = exercise?.resolution?.ending;
+  const built = state.nounsFilled[0];
+  if (!built || !exercise?.resolution?.patternOnly) return;
+  const slot = document.querySelector('#nouns-slots [data-index="0"]');
+  if (built === expected) {
+    state.nounsChecked = true;
+    if (slot) slot.classList.add("is-ok");
+    revealPluralPattern(exercise, true);
+    return;
+  }
+  if (slot) slot.classList.add("is-bad");
+  if (!state.nounsPluralRetryUsed) {
+    state.nounsPluralRetryUsed = true;
+    noteFirstMiss({
+      answer: pluralPatternChoiceLabel(built),
+      expected: pluralPatternChoiceLabel(expected),
+    });
+    showAttemptFeedback("nouns", "Try again — pick the ending");
+    window.setTimeout(() => {
+      if (state.nounsChecked) return;
+      clearPluralPatternSlot();
+      showAttemptFeedback("nouns", "Try again — pick the ending", {
+        sound: false,
+      });
+    }, 650);
+    return;
+  }
+  state.nounsChecked = true;
+  clearAttemptFeedback("nouns");
+  noteFirstMiss({
+    answer: pluralPatternChoiceLabel(built),
+    expected: pluralPatternChoiceLabel(expected),
+  });
+  if (slot) {
+    slot.classList.remove("is-bad");
+    slot.classList.add("is-filled");
+    slot.textContent = pluralPatternChoiceLabel(expected);
+  }
+  revealPluralPattern(exercise, false);
+}
+
 function renderNounPluralJudgment() {
   const item = currentPluralDeckItem();
+  if (isPluralPatternItem(item)) {
+    renderPluralPatternJudgment(item);
+    return;
+  }
   const exercise = currentNounPluralExercise();
   if (!item || !exercise) return;
   const proof = state.nounsQuizMode === "proofread";
@@ -14547,9 +15008,8 @@ function renderNounPluralJudgment() {
 
   const fam = document.getElementById("nouns-family-progress");
   if (fam) {
-    const note = state.nounsStep === "plural-patterns" ? item.patternNote : "";
-    fam.hidden = !note;
-    fam.textContent = note || "";
+    fam.hidden = true;
+    fam.textContent = "";
   }
 
   const prompt = document.getElementById("nouns-prompt");
@@ -14632,7 +15092,8 @@ function checkNounPluralJudgment() {
 
   if (accepted) {
     if (chosen) chosen.classList.add("is-ok");
-    revealNounPluralJudgment(exercise, true);
+    if (exercise.resolution?.patternOnly) revealPluralPattern(exercise, true);
+    else revealNounPluralJudgment(exercise, true);
     return;
   }
 
@@ -14664,7 +15125,8 @@ function checkNounPluralJudgment() {
     `#nouns-tray [data-id="${CSS.escape(expected)}"]`
   );
   if (correct) correct.classList.add("is-ok");
-  revealNounPluralJudgment(exercise, false);
+  if (exercise.resolution?.patternOnly) revealPluralPattern(exercise, false);
+  else revealNounPluralJudgment(exercise, false);
 }
 
 function revealNounPluralJudgment(exercise, ok) {
@@ -14690,7 +15152,7 @@ function revealNounPluralJudgment(exercise, ok) {
       word: phrase,
       wordHtml: construction ? nounPluralAnswerWordHtml(construction) : phrase,
       parts,
-      en: res.translation || "",
+      en: pluralAnswerCaption(res.translation, res.patternNote),
       ok,
     },
     then: (nodes) => {
@@ -14700,6 +15162,11 @@ function revealNounPluralJudgment(exercise, ok) {
 }
 
 function renderNounsPlurals() {
+  const patternItem = currentPluralDeckItem();
+  if (isPluralPatternItem(patternItem)) {
+    renderPluralPatternBuild(patternItem);
+    return;
+  }
   const exercise = currentNounPluralExercise();
   if (!exercise) return;
   setCurrentExercise(exercise);
@@ -14725,18 +15192,17 @@ function renderNounsPlurals() {
   applyNounScaffoldingChrome(exercise);
   const legend = document.getElementById("nouns-legend");
   if (legend) legend.hidden = true;
-  const deckItem = currentPluralDeckItem();
   const fam = document.getElementById("nouns-family-progress");
   if (fam) {
-    const note =
-      state.nounsStep === "plural-patterns" ? deckItem?.patternNote || "" : "";
-    fam.hidden = !note;
-    fam.textContent = note;
+    fam.hidden = true;
+    fam.textContent = "";
   }
 
-  document.getElementById("nouns-prompt").innerHTML = `
+  const pluralPrompt = document.getElementById("nouns-prompt");
+  pluralPrompt.lang = "en";
+  pluralPrompt.innerHTML = `
     Plural of
-    <strong>${item.lemma}</strong>
+    <strong lang="de">${escapeHtml(item.lemma)}</strong>
   `;
 
   setNounsBackDisabled();
@@ -14782,8 +15248,8 @@ function renderNounsPlurals() {
     piece.dataset.text = text;
     piece.textContent = text;
     if (text === "—") {
-      piece.title = "No ending (plural same as singular)";
-      piece.setAttribute("aria-label", "No ending — plural same as singular");
+      piece.title = "No change";
+      piece.setAttribute("aria-label", "No change");
     }
     piece.addEventListener("click", () => {
       if (state.nounsChecked) return;
@@ -14922,7 +15388,7 @@ function nounsDeckKindForMode(mode = state.nounsMode) {
   if (isPluralStep(mode)) return pluralDeckKind(mode);
   if (mode === "association") return "Association";
   if (mode === "wugs") {
-    return isReverse(state.quizDirection) ? "Reverse" : "Wug";
+    return isReverse(state.quizDirection) ? "WugReverse" : "Wug";
   }
   if (mode === "proofread") return "Proofread";
   if (mode === "real-words" || mode === "articles") {
@@ -14981,6 +15447,7 @@ function nounsAppearanceId(mode, item) {
     return `${mode}:${item.categoryId}:v${item.variant}`;
   }
   if (item.categoryId) return `${mode}:${item.categoryId}`;
+  if (item.patternId && !item.lemma) return `${mode}:pattern:${item.patternId}`;
   if (item.lemma) return `${mode}:${item.lemma}`;
   try {
     return `${mode}:${JSON.stringify(item)}`;
@@ -15210,6 +15677,36 @@ function scheduleNounsAdvance(delayMs = 1500) {
   }, delayMs);
 }
 
+/** Wug answer key: tinted ending (or “insufficient information”). No karaoke of the fake word. */
+function fillWugAnswerReveal(exercise, ok, { silent = false } = {}) {
+  const cue = exercise.materials?.cue || exercise.prompt?.cue;
+  const gender = exercise.resolution?.gender;
+  const note = answerGenderPatternNotes(
+    exercise.target?.lemma || exercise.resolution?.lemma || "",
+    {
+      patternBlurb: exercise.materials?.patternBlurb,
+      note: exercise.resolution?.note,
+    }
+  );
+  let wordHtml;
+  if (cue) {
+    const tint = articleColorClass(null, gender);
+    wordHtml = `<span class="answer-wug-cue${tint ? ` ${tint}` : ""}">${escapeHtml(cue)}</span>`;
+  } else {
+    wordHtml = `<span class="answer-insufficient">insufficient information</span>`;
+  }
+  fillAnswerReveal("nouns", {
+    word: cue || "insufficient information",
+    wordHtml,
+    parts: [],
+    skipPronunciation: true,
+    silent,
+    en: note,
+    ok,
+    verdictLabel: ok ? "Right call" : "Answer",
+  });
+}
+
 function revealNounAnswer(exercise, ok = true) {
   paintNounArticleLemma(exercise);
 
@@ -15222,30 +15719,8 @@ function revealNounAnswer(exercise, ok = true) {
     status: ok ? "correct" : "incorrect",
   });
 
-  // Wugs: no TTS for nonce words — answer mode always shows tinted cue + pattern note.
   if (exercise.target?.wug || state.nounsMode === "wugs") {
-    const cue = exercise.materials.cue || exercise.prompt.cue;
-    const gender = exercise.resolution.gender;
-    const note = answerGenderPatternNotes(exercise.target?.lemma || "", {
-      patternBlurb: exercise.materials.patternBlurb,
-      note: exercise.resolution.note,
-    });
-    let wordHtml;
-    if (cue) {
-      const tint = articleColorClass(null, gender);
-      wordHtml = `<span class="answer-wug-cue${tint ? ` ${tint}` : ""}">${escapeHtml(cue)}</span>`;
-    } else {
-      wordHtml = `<span class="answer-insufficient">insufficient information</span>`;
-    }
-    fillAnswerReveal("nouns", {
-      word: cue || "insufficient information",
-      wordHtml,
-      parts: [],
-      skipPronunciation: true,
-      en: note,
-      ok,
-      verdictLabel: ok ? "Right call" : "Answer",
-    });
+    fillWugAnswerReveal(exercise, ok);
     return;
   }
 
@@ -15479,7 +15954,10 @@ function checkNounsPlurals() {
       word: phrase,
       wordHtml: nounPluralAnswerWordHtml(construction),
       parts,
-      en: exercise.resolution.translation || "",
+      en: pluralAnswerCaption(
+        exercise.resolution.translation,
+        exercise.resolution.patternNote
+      ),
       ok: accepted,
     },
     then: (nodes) => {
@@ -16559,7 +17037,7 @@ function wirePracticeSwipeNav() {
       if (e.pointerType !== "touch") return;
       if (
         e.target.closest(
-          "button, input, textarea, select, a, .assist-stepper, .piece, .choice, .slot, .syl"
+          "button, input, textarea, select, a, .assist-stepper, .piece, .choice, .slot, .syl, .answer-shell--dial, .dial-face-host, svg"
         )
       ) {
         return;

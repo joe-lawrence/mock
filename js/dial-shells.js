@@ -17,11 +17,11 @@ import {
   angleDegFromPointer,
   minutesFromAngleDeg,
   hourFromAngleDeg,
-  numeratorFromAngleDeg,
+  snapPieDialNumerator,
   snapClockTime,
   pickClockHandFromPointer,
   syncClockHandTransforms,
-} from "./quiz-extras.js?v=20261019-dyn1";
+} from "./quiz-extras.js?v=20261021-pie12";
 
 /**
  * @param {SVGElement} svg
@@ -31,6 +31,7 @@ import {
 function bindDialPointer(svg, onAngle, onEnd) {
   if (!svg) return () => {};
   let active = false;
+  let pointerId = null;
 
   const read = (ev) => {
     const rect = svg.getBoundingClientRect();
@@ -41,18 +42,24 @@ function bindDialPointer(svg, onAngle, onEnd) {
   const onDown = (ev) => {
     if (ev.button != null && ev.button !== 0) return;
     active = true;
+    pointerId = ev.pointerId;
+    // Keep the stage swipe from treating a dial drag as next/back.
+    ev.stopPropagation();
     svg.setPointerCapture?.(ev.pointerId);
     read(ev);
     ev.preventDefault();
   };
   const onMove = (ev) => {
     if (!active) return;
+    if (pointerId != null && ev.pointerId !== pointerId) return;
     read(ev);
     ev.preventDefault();
   };
   const onUp = (ev) => {
     if (!active) return;
+    if (pointerId != null && ev.pointerId !== pointerId) return;
     active = false;
+    pointerId = null;
     try {
       svg.releasePointerCapture?.(ev.pointerId);
     } catch {
@@ -62,15 +69,16 @@ function bindDialPointer(svg, onAngle, onEnd) {
   };
 
   svg.addEventListener("pointerdown", onDown);
-  svg.addEventListener("pointermove", onMove);
-  svg.addEventListener("pointerup", onUp);
-  svg.addEventListener("pointercancel", onUp);
+  // Window, not the SVG: iOS often drops pointermove on an SVG after capture.
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+  window.addEventListener("pointercancel", onUp);
 
   return () => {
     svg.removeEventListener("pointerdown", onDown);
-    svg.removeEventListener("pointermove", onMove);
-    svg.removeEventListener("pointerup", onUp);
-    svg.removeEventListener("pointercancel", onUp);
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    window.removeEventListener("pointercancel", onUp);
   };
 }
 
@@ -285,8 +293,8 @@ export function mountClockDialShell(host, opts) {
 
 /**
  * Pie dial: drag/tap to set a filled sector.
- * Snaps on a fine grid ({@link PIE_DIAL_DENOM}); guide ticks stay at
- * {@link PIE_DIAL_GUIDE_TICKS} so the target denominator is not revealed.
+ * Snaps to the Zwölftel guide ticks ({@link PIE_DIAL_GUIDE_TICKS}), stored in
+ * {@link PIE_DIAL_DENOM} parts so ein Sechstel is 2/12, not an arbitrary degree.
  * @param {HTMLElement} host
  * @param {{
  *   denominator?: number,
@@ -355,7 +363,7 @@ export function mountPieDialShell(host, opts) {
         (deg) => {
           if (opts.isDisabled?.()) return;
           svg.style.cursor = "grabbing";
-          const next = numeratorFromAngleDeg(deg, denominator);
+          const next = snapPieDialNumerator(deg, denominator, guideTicks);
           if (next === numerator) return;
           numerator = next;
           setPieSvgFraction(svg, numerator, denominator);

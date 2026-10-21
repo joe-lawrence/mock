@@ -21,6 +21,7 @@ import {
   NOUNS_TOPICS,
   modesForNounsStep,
   isNounsCellPlayable,
+  introModeForNounsStep,
   GENDER_SHORTCUTS_UNITS,
 } from "./nouns-curriculum.js";
 import {
@@ -141,8 +142,8 @@ describe("interaction presets (Slice 0–1)", () => {
         }
       }
     }
-    // reverse-mc folded (13) plus Plurals 4 steps × build/choose/proofread
-    assert.equal(n, 25);
+    // reverse-mc folded (13) plus Plurals: Patterns build/proofread, Wugs and Real words × 3
+    assert.equal(n, 21);
   });
 
   it("Nouns launch shape matches Numbers (topic + step + mode)", () => {
@@ -167,7 +168,16 @@ describe("interaction presets (Slice 0–1)", () => {
     assert.ok(isNounsCellPlayable("plurals", "plural-wugs", "build"));
     assert.ok(isNounsCellPlayable("plurals", "plural-wugs", "choose"));
     assert.ok(isNounsCellPlayable("plurals", "plural-wugs", "proofread"));
-    assert.ok(isNounsCellPlayable("plurals", "plural-lexical", "build"));
+    const pluralTopic = NOUNS_TOPICS.find((t) => t.id === "plurals");
+    assert.ok(!pluralTopic?.steps?.some((s) => s.id === "plural-lexical"));
+    assert.deepEqual(
+      pluralTopic.steps.map((s) => s.id),
+      ["plural-patterns", "plural-wugs", "plural-real-words"]
+    );
+    assert.equal(introModeForNounsStep("plurals", "plural-patterns").id, "build");
+    assert.equal(isNounsCellPlayable("plurals", "plural-patterns", "choose"), false);
+    assert.ok(isNounsCellPlayable("plurals", "plural-patterns", "build"));
+    assert.ok(isNounsCellPlayable("plurals", "plural-patterns", "proofread"));
   });
 });
 

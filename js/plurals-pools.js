@@ -1,30 +1,20 @@
 /**
  * Nominative plural decks for the Plurals topic.
- * Wugs are nonce nouns. Real words follow a productive rule.
- * Patterns is one lexicon example per rule. Lexical is everything else recorded.
+ * Patterns is suffix → ending, with no noun.
+ * Wugs apply that ending to an invented noun. Real words apply it to known nouns.
+ * Lexical leftovers stay in the pool for tests; they are not a playable unit.
  */
 
 import {
   LEXICON,
   WUGS,
+  PRODUCTIVE_PLURAL_RULES,
   lemmasWithPlural,
   productivePluralSpec,
   pluralMatchesProductiveRule,
 } from "../engine/nouns/index.js";
 
 const SURFACE_ENDINGS = ["e", "en", "er", "n", "s", "—"];
-
-const PATTERN_EXEMPLARS = {
-  ung: "Zeitung",
-  heit: "Freiheit",
-  keit: "Möglichkeit",
-  schaft: "Freundschaft",
-  ion: "Nation",
-  chen: "Mädchen",
-  lein: "Fräulein",
-  ner: "Rentner",
-  er: "Fahrer",
-};
 
 const LEXICAL_NOTE = "This plural is a lexical fact — learn the form.";
 
@@ -103,25 +93,53 @@ function lexiconItem(lemma, entry, spec, productive) {
   });
 }
 
+function patternClaim(suffix, ending) {
+  if (ending === "—") return `-${suffix} stays the same`;
+  return `-${suffix} adds -${ending}`;
+}
+
+function patternChooseEndings(rule) {
+  const wrongs = SURFACE_ENDINGS.filter((ending) => ending !== rule.ending).slice(0, 2);
+  return stableOrder(hashString(rule.id), [rule.ending, ...wrongs]);
+}
+
+function patternProof(rule) {
+  const correct = rule.note;
+  const showWrong = hashString(rule.id) % 2 === 0;
+  if (!showWrong) return { proofShown: correct, proofAnswer: "Richtig" };
+  const wrongEnding = SURFACE_ENDINGS.find((ending) => ending !== rule.ending) || "e";
+  return {
+    proofShown: patternClaim(rule.suffix, wrongEnding),
+    proofAnswer: "Falsch",
+  };
+}
+
+function patternItem(rule) {
+  const proof = patternProof(rule);
+  return Object.freeze({
+    patternId: rule.id,
+    suffix: rule.suffix,
+    cue: `-${rule.suffix}`,
+    ending: rule.ending,
+    patternNote: rule.note,
+    chooseForms: Object.freeze(patternChooseEndings(rule)),
+    buildEndings: Object.freeze(SURFACE_ENDINGS),
+    proofShown: proof.proofShown,
+    proofAnswer: proof.proofAnswer,
+  });
+}
+
 function buildPools() {
   const real = [];
   const lexical = [];
-  /** @type {Map<string, object>} */
-  const byPattern = new Map();
   const lemmas = lemmasWithPlural().slice().sort((a, b) => a.localeCompare(b, "de"));
   for (const lemma of lemmas) {
     const entry = LEXICON[lemma];
     const spec = productivePluralSpec(lemma);
     const productive = pluralMatchesProductiveRule(lemma, entry?.plural);
     const item = lexiconItem(lemma, entry, spec, productive);
-    if (productive) {
-      real.push(item);
-      if (!byPattern.has(spec.patternId)) byPattern.set(spec.patternId, item);
-    } else lexical.push(item);
-  }
-  for (const [patternId, preferred] of Object.entries(PATTERN_EXEMPLARS)) {
-    const picked = real.find((item) => item.lemma === preferred);
-    if (picked) byPattern.set(patternId, picked);
+    if (productive) real.push(item);
+    else lexical.push(item);
   }
 
   const wugs = [];
@@ -145,7 +163,7 @@ function buildPools() {
   return {
     "plural-wugs": Object.freeze(wugs),
     "plural-real-words": Object.freeze(real),
-    "plural-patterns": Object.freeze([...byPattern.values()]),
+    "plural-patterns": Object.freeze(PRODUCTIVE_PLURAL_RULES.map(patternItem)),
     "plural-lexical": Object.freeze(lexical),
   };
 }

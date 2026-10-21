@@ -434,6 +434,26 @@ export function numeratorFromAngleDeg(deg, denom) {
   return count;
 }
 
+/**
+ * Pie drag snaps to the guide ticks (Zwölftel), then is stored in `denom` parts.
+ * A finger can hit 1/12, 1/6, 1/4, … — not every degree.
+ * @param {number} deg
+ * @param {number} [denom]
+ * @param {number} [ticks]
+ */
+export function snapPieDialNumerator(
+  deg,
+  denom = PIE_DIAL_DENOM,
+  ticks = PIE_DIAL_GUIDE_TICKS
+) {
+  const d = Math.max(1, Math.floor(Number(denom)) || 1);
+  const t = Math.max(1, Math.floor(Number(ticks)) || 1);
+  const steps = numeratorFromAngleDeg(deg, t);
+  if (steps <= 0) return 0;
+  if (steps >= t) return d;
+  return Math.max(0, Math.min(d, Math.round((steps / t) * d)));
+}
+
 function clockSvg(hours, minutes) {
   const h = hours % 12;
   const minuteDeg = minutes * 6;

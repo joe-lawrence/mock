@@ -6,6 +6,7 @@
  * When both are allowed, play deals a direction per question.
  */
 
+import { ARTICLES, SUFFIX_PATTERNS, WUGS } from "../engine/nouns/index.js";
 import { makeNounReverseChoices } from "./quiz-extras.js";
 
 /** @typedef {"forward"|"reverse"} QuizDirection */
@@ -161,6 +162,42 @@ export function reverseNounArticleChoose(targetLemma, targetArticle, candidates)
     choices: pack.options,
     ask: "Pick the matching noun",
     hint: `Look for a ${targetArticle}-gender cue.`,
+  };
+}
+
+function wugSuffixCue(patternId) {
+  if (!patternId) return null;
+  const pattern = SUFFIX_PATTERNS.find((p) => p.id === patternId);
+  return pattern?.suffix ? `-${pattern.suffix}` : null;
+}
+
+/**
+ * Wug reverse stays on wug forms (never lexicon lemmas).
+ * Cue is der/die/das, or "?" when the wug has no gender cue.
+ * Answer key uses suffixCue + patternNote (ending ↔ gender), not the fake word.
+ * @param {string} form
+ */
+export function wugReverseChoose(form) {
+  const entry = WUGS.find((w) => w.form === form);
+  if (!entry) throw new Error(`wugReverseChoose: unknown wug ${form}`);
+  const candidates = WUGS.map((w) => ({
+    lemma: w.form,
+    article: w.intendedGender ? ARTICLES[w.intendedGender] : "?",
+    gender: w.intendedGender || null,
+  }));
+  const target = candidates.find((c) => c.lemma === form);
+  const pack = reverseNounArticleChoose(target.lemma, target.article, candidates);
+  const bare = target.article === "?";
+  return {
+    ...pack,
+    ask: "Pick the matching wug",
+    hint: bare
+      ? "No reliable suffix — pick the wug with no gender cue."
+      : `Look for a wug with a ${target.article} suffix cue.`,
+    gender: target.gender,
+    wug: true,
+    suffixCue: wugSuffixCue(entry.patternId),
+    patternNote: entry.note || "",
   };
 }
 

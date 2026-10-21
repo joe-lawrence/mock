@@ -66,7 +66,7 @@ export const NOUNS_TOPICS = [
         plannedModes: ["convert"],
         directions: { choose: ["forward", "reverse"] },
         blurb:
-          "Novel nouns — apply suffix → gender, or ? if insufficient. Reverse: article → pick a matching lemma.",
+          "Novel nouns — apply suffix → gender, or ? if insufficient. Reverse stays on those wugs: article → pick a matching wug.",
       },
       {
         id: "real-words",
@@ -148,16 +148,24 @@ export const NOUNS_TOPICS = [
     label: "Plurals",
     playable: true,
     blurb:
-      "Nominative plural: die plus a productive ending, then the forms you memorize.",
+      "Nominative plural. Suffix to ending, then the same ending on a wug, then on a known noun.",
     chartTab: "plurals",
     steps: [
+      {
+        id: "plural-patterns",
+        label: "Patterns",
+        playable: true,
+        intro: true,
+        modes: ["build", "proofread"],
+        blurb: "Suffix to ending. No noun yet.",
+      },
       {
         id: "plural-wugs",
         label: "Wugs",
         playable: true,
-        intro: true,
+        softAfter: "plural-patterns",
         modes: ["build", "choose", "proofread"],
-        blurb: "Nonce nouns. Apply the ending the suffix predicts.",
+        blurb: "The same ending on a wug.",
       },
       {
         id: "plural-real-words",
@@ -165,23 +173,7 @@ export const NOUNS_TOPICS = [
         playable: true,
         softAfter: "plural-wugs",
         modes: ["build", "choose", "proofread"],
-        blurb: "Known nouns whose plural follows the same suffix rule.",
-      },
-      {
-        id: "plural-patterns",
-        label: "Patterns",
-        playable: true,
-        softAfter: "plural-real-words",
-        modes: ["build", "choose", "proofread"],
-        blurb: "One example of each productive ending.",
-      },
-      {
-        id: "plural-lexical",
-        label: "Lexical facts",
-        playable: true,
-        softAfter: "plural-patterns",
-        modes: ["build", "choose", "proofread"],
-        blurb: "Umlauts and other plurals the lexicon records.",
+        blurb: "The same ending on a noun you know.",
       },
     ],
   },
@@ -420,5 +412,20 @@ export function genderShortcutsNavUnits() {
     learnUnitId: u.id,
     chartTab: u.chartTab,
     playable: u.playable,
+  }));
+}
+
+/** Play carousel cards for the Plurals topic (one per unit). */
+export function pluralNavUnits() {
+  const topic = getNounsTopic("plurals");
+  return (topic?.steps || []).map((s) => ({
+    id: `nouns:plurals:${s.id}`,
+    title: s.label,
+    type: "unit",
+    territory: "nouns",
+    playable: !!s.playable,
+    topicId: "plurals",
+    stepId: s.playable ? s.id : undefined,
+    chartTab: topic.chartTab || "plurals",
   }));
 }

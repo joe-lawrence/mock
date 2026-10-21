@@ -20,6 +20,19 @@ import {
   COMPOUND_ONES,
   TENS,
 } from "../engine/numbers/data.js?v=20260930-ref1";
+import { productivePluralSpec, WUGS } from "../engine/nouns/index.js";
+
+/** Singular and productive-plural surfaces of invented wugs — never Help vocab. */
+const WUG_SURFACES = new Set();
+for (const wug of WUGS) {
+  if (wug?.form) WUG_SURFACES.add(wug.form);
+  const plural = productivePluralSpec(wug?.form);
+  if (plural?.form) WUG_SURFACES.add(plural.form);
+}
+
+function isWugSurface(raw) {
+  return WUG_SURFACES.has(String(raw || "").trim());
+}
 
 function esc(s) {
   return String(s || "")
@@ -190,7 +203,7 @@ export function lemmasOnExercise(exercise) {
   const add = (raw) => {
     if (raw == null) return;
     const s = String(raw).trim();
-    if (!s || SKIP_CHOICE.has(s.toLowerCase())) return;
+    if (!s || SKIP_CHOICE.has(s.toLowerCase()) || isWugSurface(s)) return;
     // Sentence / phrase answers are not vocab lemmas (e.g. sentence-ordinal MC).
     if (looksLikePhrase(s)) return;
     // Prefer capitalized German nouns / known surfaces; allow lowercase number words.

@@ -131,7 +131,7 @@ export function evaluateWugArticle({
       canonicalAnswers: ["insufficient"],
       matchedAnswer: chosen,
       explanation:
-        "This nonce form has no strong gender suffix — prefer insufficient information over guessing.",
+        "This wug has no strong gender suffix — prefer insufficient information over guessing.",
       evidenceIds: [...evidenceIds, "eval.wug.guessed-without-cue"],
       gender: null,
     };

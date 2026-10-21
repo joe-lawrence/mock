@@ -15,7 +15,7 @@ import {
   modesForNounsStep,
   plannedNounsModeChips,
   directionsForNounsCell,
-} from "./nouns-curriculum.js?v=20261021-pl1";
+} from "./nouns-curriculum.js?v=20261021-pl20";
 import {
   vocabularyAreas,
   vocabularyForTopic,
