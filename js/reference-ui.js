@@ -7,7 +7,7 @@ import {
   reference,
   referenceNav,
   REFERENCE_VERSION,
-} from "./generated/reference.js?v=20261002-ref2";
+} from "./generated/reference.js?v=20261021-am1";
 
 function esc(s) {
   return String(s || "")
@@ -225,8 +225,6 @@ export function referenceIdForPracticeContext(ctx) {
       duration: "numbers.time",
       weekdays: "numbers.dates",
       months: "numbers.dates",
-      "ordinal-days": "numbers.dates",
-      "full-dates": "numbers.dates",
       length: "numbers.measurements",
       weight: "numbers.measurements",
       volume: "numbers.measurements",
@@ -241,7 +239,7 @@ export function referenceIdForPracticeContext(ctx) {
   }
   if (ctx.territory === "nouns") {
     const mode = ctx.mode || "";
-    if (mode === "plurals") return "nouns.plurals";
+    if (mode === "plurals" || mode.startsWith("plural-")) return "nouns.plurals";
     if (
       mode === "gender-recognition" ||
       mode === "article-application" ||

@@ -16,6 +16,12 @@ export {
   pluralConstructionParts,
 } from "./evaluate.js";
 
+export {
+  PRODUCTIVE_PLURAL_RULES,
+  productivePluralSpec,
+  pluralMatchesProductiveRule,
+} from "./plural-rules.js";
+
 export { recordNounAttempt } from "./attempt.js";
 
 export {

@@ -151,8 +151,8 @@ describe("answer shells (Slice 2)", () => {
         }
       }
     }
-    // +3 set-dial on fraction steps (half-quarter, unit, proper)
-    assert.equal(n, 148);
+    // 148 − 12 am-dative date/ordinal cells
+    assert.equal(n, 136);
   });
 
   it("mountMultiSelectShell creates choice buttons", () => {

@@ -1861,7 +1861,7 @@ export const reference = {
     "territory": "numbers",
     "section": "dates",
     "status": "active",
-    "summary": "All weekdays and months with karaoke; am + ordinal day; full dates (Tag.Monat).",
+    "summary": "Weekday and month names with karaoke. Calendar-day “am …” waits until dative.",
     "order": 100,
     "chartTab": "dates",
     "related": [
@@ -1872,11 +1872,11 @@ export const reference = {
       "numbers.months.build"
     ],
     "sections": {
-      "summary": "All weekdays and months with karaoke; am + ordinal day; full dates (Tag.Monat).",
+      "summary": "Weekday and month names with karaoke. Calendar-day “am …” waits until dative.",
       "pattern": "",
       "rule": "",
       "examples": "",
-      "limitations": "Spoken year readings on full dates are practiced in the Full dates step.",
+      "limitations": "Day-of-month and full-date readings use am + dative and are not charted yet.",
       "notes": "",
       "pronunciation": ""
     },
@@ -1975,16 +1975,6 @@ export const reference = {
         "cue": "Dezember",
         "german": "Dezember",
         "note": ""
-      },
-      {
-        "cue": "3.",
-        "german": "am dritten",
-        "note": "day of month → am + …en"
-      },
-      {
-        "cue": "3.3.",
-        "german": "am dritten März",
-        "note": "Tag.Monat spoken with am"
       }
     ],
     "chart": [
@@ -2292,40 +2282,6 @@ export const reference = {
           }
         ],
         "note": ""
-      },
-      {
-        "n": "3.",
-        "parts": [
-          {
-            "text": "am",
-            "guide": "ahm"
-          },
-          {
-            "text": "dritten",
-            "guide": "DRIT-ten",
-            "stress": true
-          }
-        ],
-        "note": "day of month → am + …en"
-      },
-      {
-        "n": "3.3.",
-        "parts": [
-          {
-            "text": "am",
-            "guide": "ahm"
-          },
-          {
-            "text": "dritten",
-            "guide": "DRIT-ten",
-            "stress": true
-          },
-          {
-            "text": "März",
-            "guide": "MEHRTS"
-          }
-        ],
-        "note": "Tag.Monat spoken with am"
       }
     ],
     "flags": [],
@@ -2917,7 +2873,7 @@ export const reference = {
     "territory": "numbers",
     "section": "ordinals",
     "status": "active",
-    "summary": "erste …; teens + te; tens/compounds + ste; am + -en.",
+    "summary": "erste …; teens + te; tens/compounds + ste. Citation forms only — no am + dative.",
     "order": 120,
     "chartTab": "ordinals",
     "related": [
@@ -2928,7 +2884,7 @@ export const reference = {
       "numbers.ordinal-1-12.build"
     ],
     "sections": {
-      "summary": "erste …; teens + te; tens/compounds + ste; am + -en.",
+      "summary": "erste …; teens + te; tens/compounds + ste. Citation forms only — no am + dative.",
       "pattern": "",
       "rule": "",
       "examples": "",
@@ -4503,7 +4459,7 @@ export const referenceNav = {
           {
             "id": "numbers.dates",
             "title": "Dates",
-            "summary": "All weekdays and months with karaoke; am + ordinal day; full dates (Tag.Monat).",
+            "summary": "Weekday and month names with karaoke. Calendar-day “am …” waits until dative.",
             "chartTab": "dates"
           }
         ]
@@ -4527,7 +4483,7 @@ export const referenceNav = {
           {
             "id": "numbers.ordinals",
             "title": "Ordinals",
-            "summary": "erste …; teens + te; tens/compounds + ste; am + -en.",
+            "summary": "erste …; teens + te; tens/compounds + ste. Citation forms only — no am + dative.",
             "chartTab": "ordinals"
           }
         ]

@@ -145,6 +145,32 @@ describe("exercises + attempts", () => {
     assert.equal(ex.translation, "cars");
   });
 
+  it("grades a nonce -ung plural from the productive rule", () => {
+    assert.deepEqual(pluralConstructionParts("Klappung"), [
+      "die",
+      "Klappung",
+      "en",
+    ]);
+    const exact = evaluatePluralConstruction({
+      lemma: "Klappung",
+      parts: ["die", "Klappung", "en"],
+    });
+    assert.equal(exact.status, "correct");
+    const fused = evaluatePluralConstruction({
+      lemma: "Klappung",
+      parts: ["die", "Klappungen"],
+    });
+    assert.equal(fused.status, "accepted-alternative");
+    const ex = pluralExercise("Klappung");
+    assert.equal(ex.form, "Klappungen");
+    assert.match(ex.hint, /-ung adds -en/);
+  });
+
+  it("does not invent a plural for a suffix without a simple rule", () => {
+    assert.equal(pluralConstructionParts("Murfling"), null);
+    assert.throws(() => pluralExercise("Murfling"), /no plural/);
+  });
+
   it("recordNounAttempt stamps versions", () => {
     const evaluation = evaluateDefiniteArticle({
       lemma: "Mädchen",

@@ -4,6 +4,7 @@
 
 import { nounAnalysis, definiteArticle } from "./noun.js";
 import { PLURAL_ARTICLE } from "./data.js";
+import { productivePluralSpec } from "./plural-rules.js";
 
 function normalizeArticle(a) {
   return String(a || "").trim().toLowerCase();
@@ -174,25 +175,58 @@ export function evaluateWugArticle({
 }
 
 /**
+ * Lexical plural when recorded; otherwise a productive suffix rule (wugs).
+ * @param {string} lemma
+ */
+function resolvePluralTarget(lemma) {
+  const analysis = nounAnalysis(lemma);
+  if (analysis.known && analysis.plural) {
+    return {
+      analysis,
+      missing: false,
+      lexical: true,
+      form: analysis.plural.form,
+      stem: analysis.plural.stem,
+      ending: analysis.plural.ending,
+      rules: analysis.rules || [],
+    };
+  }
+  const spec = productivePluralSpec(lemma);
+  if (spec) {
+    return {
+      analysis,
+      missing: false,
+      lexical: false,
+      form: spec.form,
+      stem: spec.stem,
+      ending: spec.ending,
+      rules: [...(analysis.rules || []), `plural.rule.${spec.patternId}`],
+    };
+  }
+  return { analysis, missing: true, rules: analysis.rules || [] };
+}
+
+/**
  * Expected construction parts: [die, stem, ending].
  * @param {string} lemma
  * @returns {string[] | null}
  */
 export function pluralConstructionParts(lemma) {
-  const analysis = nounAnalysis(lemma);
-  if (!analysis.known || !analysis.plural) return null;
-  return [PLURAL_ARTICLE, analysis.plural.stem, analysis.plural.ending];
+  const target = resolvePluralTarget(lemma);
+  if (target.missing) return null;
+  return [PLURAL_ARTICLE, target.stem, target.ending];
 }
 
 /**
  * @param {{ lemma: string, parts: string[] }} input
  */
 export function evaluatePluralConstruction({ lemma, parts }) {
-  const analysis = nounAnalysis(lemma);
-  const evidenceIds = [...(analysis.rules || []), "eval.noun.plural"];
+  const target = resolvePluralTarget(lemma);
+  const analysis = target.analysis;
+  const evidenceIds = [...target.rules, "eval.noun.plural"];
   const normalized = normalizeParts(parts);
 
-  if (!analysis.known) {
+  if (target.missing && !analysis.known) {
     return {
       status: "incorrect",
       canonicalAnswers: [],
@@ -202,7 +236,7 @@ export function evaluatePluralConstruction({ lemma, parts }) {
     };
   }
 
-  if (!analysis.plural) {
+  if (target.missing) {
     return {
       status: "incorrect",
       canonicalAnswers: [],
@@ -212,8 +246,8 @@ export function evaluatePluralConstruction({ lemma, parts }) {
     };
   }
 
-  const expected = pluralConstructionParts(lemma);
-  const canonicalForm = `${PLURAL_ARTICLE} ${analysis.plural.form}`;
+  const expected = [PLURAL_ARTICLE, target.stem, target.ending];
+  const canonicalForm = `${PLURAL_ARTICLE} ${target.form}`;
   const builtNoun = joinPluralParts(normalized.slice(1));
   const builtPhrase = `${normalizeArticle(normalized[0]) || ""} ${builtNoun}`.trim();
 
@@ -225,8 +259,13 @@ export function evaluatePluralConstruction({ lemma, parts }) {
       status: "correct",
       canonicalAnswers: [canonicalForm],
       matchedAnswer: builtPhrase,
-      explanation: "Plural construction matches lexical form.",
-      evidenceIds: [...evidenceIds, "lexical.plural"],
+      explanation: target.lexical
+        ? "Plural construction matches lexical form."
+        : "Plural construction matches the productive pattern.",
+      evidenceIds: [
+        ...evidenceIds,
+        target.lexical ? "lexical.plural" : "plural.rule",
+      ],
       slotMatch: expected.map(() => true),
     };
   }
@@ -234,7 +273,7 @@ export function evaluatePluralConstruction({ lemma, parts }) {
   // Same plural noun orthography with different chips / fused stem+ending
   if (
     normalizeArticle(normalized[0]) === PLURAL_ARTICLE &&
-    builtNoun === analysis.plural.form
+    builtNoun === target.form
   ) {
     return {
       status: "accepted-alternative",
@@ -248,7 +287,7 @@ export function evaluatePluralConstruction({ lemma, parts }) {
   }
 
   // Wrong article but right plural noun
-  if (builtNoun === analysis.plural.form && normalizeArticle(normalized[0]) !== PLURAL_ARTICLE) {
+  if (builtNoun === target.form && normalizeArticle(normalized[0]) !== PLURAL_ARTICLE) {
     return {
       status: "valid-but-unintended",
       canonicalAnswers: [canonicalForm],

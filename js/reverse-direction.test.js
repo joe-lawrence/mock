@@ -99,8 +99,17 @@ describe("reverse direction", () => {
     assert.ok(
       isNumbersDirectionPlayable("dates", "weekdays", "convert", "reverse")
     );
-    assert.ok(
-      isNumbersDirectionPlayable("dates", "full-dates", "convert", "reverse")
+    assert.equal(
+      isNumbersCellPlayable("dates", "ordinal-days", "convert"),
+      false
+    );
+    assert.equal(
+      isNumbersCellPlayable("dates", "full-dates", "convert"),
+      false
+    );
+    assert.equal(
+      isNumbersCellPlayable("ordinals", "ordinal-dates-use", "convert"),
+      false
     );
     assert.ok(
       isNumbersDirectionPlayable("ordinals", "ordinal-1-12", "convert", "reverse")
@@ -137,6 +146,93 @@ describe("reverse direction", () => {
     );
   });
 
+  it("builds written-value convert reverse packs", () => {
+    const dec = reverseNumbersConvert({
+      kind: "decimal",
+      form: "drei Komma eins vier",
+      written: "3,14",
+    });
+    assert.equal(dec.cue, "drei Komma eins vier");
+    assert.equal(dec.answer, "3,14");
+
+    const money = reverseNumbersConvert({
+      kind: "money",
+      form: "drei Euro fünfzig",
+      written: "3,50 €",
+    });
+    assert.equal(money.answer, "3,50 €");
+    assert.ok(money.acceptedForms.includes("3,50€"));
+
+    const frac = reverseNumbersConvert({
+      kind: "fraction",
+      form: "zwei Drittel",
+      written: "2/3",
+    });
+    assert.equal(frac.answer, "2/3");
+
+    const clock = reverseNumbersConvert({
+      kind: "clock",
+      form: "halb vier",
+      written: "03:30",
+    });
+    assert.equal(clock.answer, "03:30");
+    assert.ok(clock.acceptedForms.includes("3:30"));
+
+    const dur = reverseNumbersConvert({
+      kind: "duration",
+      form: "zwei Stunden dreißig Minuten",
+      written: "2h 30min",
+    });
+    assert.equal(dur.answer, "2h 30min");
+    assert.ok(dur.acceptedForms.includes("2h30min"));
+
+    const meas = reverseNumbersConvert({
+      kind: "measure",
+      value: 3,
+      form: "drei Meter",
+      written: "3 m",
+    });
+    assert.equal(meas.answer, "3 m");
+    assert.ok(!meas.acceptedForms.includes("3"));
+  });
+
+  it("Convert reverse covers decimals, fractions, time, and measure", () => {
+    const cells = [
+      ["decimals", "komma-read"],
+      ["decimals", "money-euros"],
+      ["decimals", "money-cents"],
+      ["fractions", "half-quarter"],
+      ["fractions", "unit-fractions"],
+      ["fractions", "proper-fractions"],
+      ["fractions", "mixed-numbers"],
+      ["time", "whole-hours"],
+      ["time", "half-past"],
+      ["time", "quarters"],
+      ["time", "minutes"],
+      ["time", "digital-24h"],
+      ["time", "duration"],
+      ["measurement", "length"],
+      ["measurement", "weight"],
+      ["measurement", "volume"],
+      ["measurement", "temp-speed"],
+    ];
+    for (const [topicId, stepId] of cells) {
+      assert.ok(
+        isNumbersDirectionPlayable(topicId, stepId, "convert", "reverse"),
+        `${topicId}/${stepId}`
+      );
+      assert.equal(
+        isNumbersDirectionPlayable(topicId, stepId, "listen", "reverse"),
+        false,
+        `${topicId}/${stepId} listen`
+      );
+    }
+    assert.equal(
+      isNumbersDirectionPlayable("decimals", "place-value", "build", "reverse"),
+      false
+    );
+  });
+
   it("Cardinals convert and compass convert allow reverse", () => {
     assert.ok(isNumbersDirectionPlayable("cardinals", "base", "convert", "reverse"));
     assert.ok(
@@ -160,7 +256,7 @@ describe("reverse direction", () => {
     );
   });
 
-  it("Nouns playable cell count after reverse-mc fold (13)", () => {
+  it("Nouns playable cell count includes Plurals (25)", () => {
     let n = 0;
     for (const t of NOUNS_TOPICS) {
       for (const s of t.steps || []) {
@@ -169,7 +265,7 @@ describe("reverse direction", () => {
         }
       }
     }
-    // Was 14 with reverse-mc unit; fold removes that step → 13
-    assert.equal(n, 13);
+    // 13 after reverse-mc fold, plus 4 plural steps × 3 presets
+    assert.equal(n, 25);
   });
 });

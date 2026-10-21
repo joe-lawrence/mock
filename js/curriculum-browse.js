@@ -8,12 +8,14 @@ import {
   NUMBERS_MODES,
   modesForStep,
   plannedModeChips,
-} from "./numbers-curriculum.js?v=20261018-compass5";
+  directionsForNumbersCell,
+} from "./numbers-curriculum.js?v=20261021-am1";
 import {
   NOUNS_TOPICS,
   modesForNounsStep,
   plannedNounsModeChips,
-} from "./nouns-curriculum.js?v=20261018-compass14";
+  directionsForNounsCell,
+} from "./nouns-curriculum.js?v=20261021-pl1";
 import {
   vocabularyAreas,
   vocabularyForTopic,
@@ -39,7 +41,7 @@ import {
  * @property {string} unitLabel
  * @property {string} [blurb]
  * @property {boolean} playable
- * @property {{ id: string, label: string, playable: boolean, planned?: boolean }[]} quizTypes
+ * @property {{ id: string, label: string, playable: boolean, planned?: boolean, reversible?: boolean }[]} quizTypes
  */
 
 const SOUNDS_TOPICS = [
@@ -102,6 +104,9 @@ function numbersRows() {
         id: m.id,
         label: m.label,
         playable: true,
+        reversible: directionsForNumbersCell(topic.id, step.id, m.id).includes(
+          "reverse"
+        ),
       }));
       const liveIds = new Set(live.map((m) => m.id));
       const planned = (step.playable ? [] : plannedModeChips(step))
@@ -137,6 +142,9 @@ function nounsRows() {
         id: m.id,
         label: m.label,
         playable: true,
+        reversible: directionsForNounsCell(topic.id, step.id, m.id).includes(
+          "reverse"
+        ),
       }));
       const liveIds = new Set(live.map((m) => m.id));
       const plannedSrc = step.playable
@@ -595,15 +603,24 @@ function matrixTableHtml(moduleId, moduleLabel, moduleRows, filters) {
             return `<td class="cb-cell is-na" title="Not offered">·</td>`;
           }
           if (hit.playable && !hit.planned) {
+            const rev = Boolean(hit.reversible);
+            const cls = rev
+              ? "cb-cell is-live is-reversible"
+              : "cb-cell is-live";
             const href = launchHref(row, hit);
+            const what = rev
+              ? `${hit.label} — forward and reverse are both dealt`
+              : hit.label;
             if (href) {
-              return `<td class="cb-cell is-live"><a class="cb-matrix-launch" href="${escapeHtml(
+              return `<td class="${cls}"><a class="cb-matrix-launch" href="${escapeHtml(
                 href
               )}" target="_blank" rel="noopener noreferrer" title="Play ${escapeHtml(
-                hit.label
+                what
               )} — new window"><span>●</span></a></td>`;
             }
-            return `<td class="cb-cell is-live" title="Playable"><span>●</span></td>`;
+            return `<td class="${cls}" title="${
+              rev ? "Playable · reverse dealt too" : "Playable"
+            }"><span>●</span></td>`;
           }
           return `<td class="cb-cell is-soon" title="Planned / coming soon"><span>○</span></td>`;
         })
@@ -659,7 +676,7 @@ function renderMatrix(rows, filters) {
   }
 
   root.innerHTML = `${sections.join("")}
-    <p class="cb-matrix-legend"><span class="is-live">●</span> Playable (click to launch) · <span class="is-soon">○</span> Planned · · Not offered</p>`;
+    <p class="cb-matrix-legend"><span class="is-live">●</span> Playable (click to launch) · <span class="is-reversible">●</span> Reverse also dealt · <span class="is-soon">○</span> Planned · · Not offered</p>`;
 }
 
 function syncTopicSelect(rows, filters) {

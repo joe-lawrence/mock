@@ -71,9 +71,8 @@ describe("interaction presets (Slice 0–1)", () => {
         }
       }
     }
-    // 144 + 7 visual-freeform − 10 cloze = 141
-    // +3 set-dial on fraction steps (half-quarter, unit, proper)
-    assert.equal(n, 148);
+    // 148 − 12 am-dative date/ordinal cells (days, full dates, ordinals-in-dates)
+    assert.equal(n, 136);
   });
 
   it("normalizeLaunchInteraction uses preset= / stimulus×response (not mode=)", () => {
@@ -142,8 +141,8 @@ describe("interaction presets (Slice 0–1)", () => {
         }
       }
     }
-    // reverse-mc unit folded into choose+direction → 13 cells
-    assert.equal(n, 13);
+    // reverse-mc folded (13) plus Plurals 4 steps × build/choose/proofread
+    assert.equal(n, 25);
   });
 
   it("Nouns launch shape matches Numbers (topic + step + mode)", () => {
@@ -165,6 +164,10 @@ describe("interaction presets (Slice 0–1)", () => {
     assert.ok(isNumbersCellPlayable("fractions", "proper-fractions", "set-dial"));
     assert.equal(isNounsCellPlayable("suffixes", "wugs", "listen"), false);
     assert.equal(isNounsCellPlayable("plurals", "productive", "build"), false);
+    assert.ok(isNounsCellPlayable("plurals", "plural-wugs", "build"));
+    assert.ok(isNounsCellPlayable("plurals", "plural-wugs", "choose"));
+    assert.ok(isNounsCellPlayable("plurals", "plural-wugs", "proofread"));
+    assert.ok(isNounsCellPlayable("plurals", "plural-lexical", "build"));
   });
 });
 

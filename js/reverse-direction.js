@@ -1,8 +1,9 @@
 /**
- * Quiz direction — forward | reverse as a per-cell flag (not a matrix column).
+ * Quiz direction — forward | reverse for one interaction preset (not a matrix column).
  *
- * Reverse flips cue ↔ answer for the same interaction preset. Units opt in via
+ * Reverse flips cue ↔ answer. Units opt in via
  * `directions: { [presetId]: ["forward","reverse"] }` on curriculum steps.
+ * When both are allowed, play deals a direction per question.
  */
 
 import { makeNounReverseChoices } from "./quiz-extras.js";
@@ -61,6 +62,87 @@ export function isDirectionPlayable(step, modeId, direction) {
 
 export function isReverse(direction) {
   return direction === DIRECTION.REVERSE;
+}
+
+function uniqueForms(forms) {
+  const out = [];
+  for (const f of forms) {
+    const s = String(f || "").trim();
+    if (s && !out.includes(s)) out.push(s);
+  }
+  return out;
+}
+
+/** `03:30` and `3:30` both count. */
+function clockWrittenForms(written) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(written || "").trim());
+  if (!m) return [String(written || "").trim()].filter(Boolean);
+  const h = String(Number(m[1]));
+  return [`${h.padStart(2, "0")}:${m[2]}`, `${h}:${m[2]}`];
+}
+
+/**
+ * German spoken form → the canonical written value (decimal, money, fraction,
+ * clock, duration, measure).
+ * @param {{ kind?: string, form?: string, written?: string }} meta
+ */
+function writtenFormReverse(meta) {
+  const kind = meta?.kind;
+  const form = String(meta?.form || "").trim();
+  const written = String(meta?.written || "").trim();
+  let accepted = written ? [written] : [];
+  let ask = "Type the written form";
+  let hint = "Read the German — type the written form.";
+  let placeholder = "written form";
+  let ariaLabel = "Written form";
+
+  if (kind === "decimal") {
+    ask = "Type the decimal";
+    hint = "Read the German — type it with a Komma (e.g. 3,14).";
+    placeholder = "e.g. 3,14";
+    ariaLabel = "Written decimal";
+  } else if (kind === "money") {
+    ask = "Type the amount";
+    hint = "Read the German — type the amount (e.g. 3,50 €).";
+    placeholder = "e.g. 3,50 €";
+    ariaLabel = "Euro amount";
+    if (written) accepted.push(written.replace(/\s+€/g, "€"));
+  } else if (kind === "fraction" || kind === "mixed-fraction") {
+    ask = "Type the fraction";
+    hint = "Read the German — type the fraction (e.g. 2/3).";
+    placeholder = kind === "mixed-fraction" ? "e.g. 2 1/2" : "e.g. 2/3";
+    ariaLabel = "Fraction";
+  } else if (kind === "clock" || kind === "digital-time") {
+    ask = "Type the time";
+    hint = "Read the German — type the time (e.g. 03:30).";
+    placeholder = "e.g. 03:30";
+    ariaLabel = "Time";
+    accepted = clockWrittenForms(written);
+  } else if (kind === "duration") {
+    ask = "Type the duration";
+    hint = "Read the German — type the duration (e.g. 2h 30min).";
+    placeholder = "e.g. 2h 30min";
+    ariaLabel = "Duration";
+    if (written) accepted.push(written.replace(/\s+/g, ""));
+  } else if (kind === "measure") {
+    ask = "Type the measurement";
+    hint = "Read the German — type the amount and unit (e.g. 3 m).";
+    placeholder = "e.g. 3 m";
+    ariaLabel = "Measurement";
+    if (written) accepted.push(written.replace(/\s+/g, ""));
+  }
+
+  return {
+    direction: DIRECTION.REVERSE,
+    cue: form,
+    cueKind: "german-form",
+    answer: written,
+    acceptedForms: uniqueForms(accepted),
+    ask,
+    hint,
+    placeholder,
+    ariaLabel,
+  };
 }
 
 /**
@@ -153,6 +235,19 @@ export function reverseNumbersConvert(meta) {
       placeholder: "e.g. 9.11.",
       ariaLabel: "Written date",
     };
+  }
+
+  if (
+    kind === "decimal" ||
+    kind === "money" ||
+    kind === "fraction" ||
+    kind === "mixed-fraction" ||
+    kind === "clock" ||
+    kind === "digital-time" ||
+    kind === "duration" ||
+    kind === "measure"
+  ) {
+    return writtenFormReverse(meta);
   }
 
   // Cardinals (default): German → digits.

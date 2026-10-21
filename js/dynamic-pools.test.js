@@ -1,10 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import {
-  buildFullDatesPool,
-  buildDatePool,
-  DATE_POOL_BUILDERS,
-} from "./dates-pools.js";
+import { buildDatePool, DATE_POOL_BUILDERS } from "./dates-pools.js";
 import {
   buildMinutesPool,
   buildDigital24hPool,
@@ -17,10 +13,7 @@ import {
   buildTempSpeedPool,
   MEASURE_POOL_BUILDERS,
 } from "./measure-pools.js";
-import {
-  buildOrdinalDatesUsePool,
-  ORDINAL_POOL_BUILDERS,
-} from "./ordinals-pools.js";
+import { ORDINAL_POOL_BUILDERS } from "./ordinals-pools.js";
 import {
   buildMixedNumbersPool,
   FRACTION_POOL_BUILDERS,
@@ -29,14 +22,14 @@ import {
 describe("dynamic Numbers pools", () => {
   it("exposes builders for every expanded pool family", () => {
     for (const id of [
-      "full-dates",
+      "weekdays",
       "minutes",
       "digital-24h",
       "duration",
       "length",
       "volume",
       "temp-speed",
-      "ordinal-dates-use",
+      "ordinal-1-12",
       "mixed-numbers",
     ]) {
       assert.ok(
@@ -48,19 +41,6 @@ describe("dynamic Numbers pools", () => {
         `missing builder: ${id}`
       );
     }
-  });
-
-  it("full-dates covers every valid day·month plus year samples", () => {
-    const pool = buildFullDatesPool();
-    assert.ok(pool.length >= 365 + 12 * 3);
-    assert.ok(pool.every((m) => m.kind === "calendar-date"));
-    assert.ok(pool.some((m) => m.year == null));
-    assert.ok(pool.some((m) => m.year != null));
-    // Feb has no day 30
-    assert.equal(
-      pool.some((m) => m.month === 2 && m.day === 30 && m.year == null),
-      false
-    );
   });
 
   it("time minutes / digital / duration are full grids", () => {
@@ -78,15 +58,14 @@ describe("dynamic Numbers pools", () => {
     assert.ok(buildTempSpeedPool().length >= 60);
   });
 
-  it("ordinal dates-use is 1–31; mixed numbers are rule-generated", () => {
-    assert.equal(buildOrdinalDatesUsePool().length, 31);
+  it("mixed numbers are rule-generated", () => {
     const mixed = buildMixedNumbersPool();
     assert.ok(mixed.length >= 80);
     assert.ok(mixed.every((m) => m.kind === "mixed-fraction"));
   });
 
   it("builders return fresh arrays", () => {
-    assert.notEqual(buildDatePool("full-dates"), buildDatePool("full-dates"));
+    assert.notEqual(buildDatePool("weekdays"), buildDatePool("weekdays"));
     assert.notEqual(buildMinutesPool(), buildMinutesPool());
   });
 });

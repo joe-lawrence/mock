@@ -3,28 +3,12 @@
  * Combinations from ranges (rebuild via builders).
  */
 
-import {
-  ordinalAnalysis,
-  ordinalAmAnalysis,
-} from "../engine/numbers/index.js?v=20261001-ordam1";
+import { ordinalAnalysis } from "../engine/numbers/index.js?v=20261001-ordam1";
 
 function ordinalMeta(n) {
   const a = ordinalAnalysis(n);
   return {
     kind: "ordinal",
-    n,
-    written: a.written,
-    form: a.form,
-    english: a.englishWritten,
-    grain: "construction",
-    parts: [...a.segments.construction],
-  };
-}
-
-function ordinalAmMeta(n) {
-  const a = ordinalAmAnalysis(n);
-  return {
-    kind: "ordinal-am",
     n,
     written: a.written,
     form: a.form,
@@ -55,18 +39,12 @@ export function buildOrdinalCompoundsPool() {
   return items;
 }
 
-/** am + dative — all calendar days 1–31. */
-export function buildOrdinalDatesUsePool() {
-  return Array.from({ length: 31 }, (_, i) => ordinalAmMeta(i + 1));
-}
-
 /** @type {Record<string, () => object[]>} */
 export const ORDINAL_POOL_BUILDERS = {
   "ordinal-1-12": buildOrdinal112Pool,
   "ordinal-teens": buildOrdinalTeensPool,
   "ordinal-tens": buildOrdinalTensPool,
   "ordinal-compounds": buildOrdinalCompoundsPool,
-  "ordinal-dates-use": buildOrdinalDatesUsePool,
 };
 
 export function buildOrdinalPool(poolId) {
@@ -79,5 +57,4 @@ export const ORDINAL_POOLS = {
   "ordinal-teens": buildOrdinalTeensPool(),
   "ordinal-tens": buildOrdinalTensPool(),
   "ordinal-compounds": buildOrdinalCompoundsPool(),
-  "ordinal-dates-use": buildOrdinalDatesUsePool(),
 };

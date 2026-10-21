@@ -2,9 +2,9 @@
  * Exercise shells from noun engine truth.
  */
 
-import { LEXICON, WUGS, SUFFIX_PATTERNS } from "./data.js";
+import { LEXICON, WUGS, SUFFIX_PATTERNS, PLURAL_ARTICLE } from "./data.js";
 import { matchSuffixPattern, definiteArticle, nounAnalysis } from "./noun.js";
-import { pluralConstructionParts } from "./evaluate.js";
+import { productivePluralSpec } from "./plural-rules.js";
 import {
   getGenderCategory,
   associationChoiceLabel,
@@ -404,39 +404,49 @@ export function wugForms() {
  */
 export function pluralExercise(lemma, opts = {}) {
   const analysis = nounAnalysis(lemma);
-  if (!analysis.known || !analysis.plural) {
+  const lexical = analysis.known && analysis.plural ? analysis.plural : null;
+  const spec = lexical ? null : productivePluralSpec(lemma);
+  const plural = lexical || (spec
+    ? { form: spec.form, stem: spec.stem, ending: spec.ending }
+    : null);
+  if (!plural) {
     throw new Error(`pluralExercise: no plural for ${lemma}`);
   }
-  const parts = pluralConstructionParts(lemma);
+  const lemmaName = analysis.known ? analysis.lemma : spec.lemma;
+  const parts = [PLURAL_ARTICLE, plural.stem, plural.ending];
   const distractors = unique([
     "e",
     "en",
     "er",
     "s",
     "n",
-    analysis.lemma !== analysis.plural.stem ? analysis.lemma : null,
+    lemmaName !== plural.stem ? lemmaName : null,
   ])
     .filter((d) => !parts.includes(d))
     .slice(0, 3);
 
   let hint = `Nominative plural always uses die (given here — number, not gender). Build the stem and ending.`;
-  if (analysis.plural.ending === "—") {
+  if (plural.ending === "—") {
     hint += ` This noun keeps the same form (use — for no ending).`;
-  } else if (analysis.plural.stem !== analysis.lemma) {
+  } else if (plural.stem !== lemmaName) {
     hint += ` Stem changes (umlaut/spelling) — use the stem chip as given.`;
   } else {
     hint += ` Ending tendencies track the singular noun’s gender (e.g. many masculines take -e).`;
   }
+  const note = opts.patternNote || spec?.note;
+  if (note) hint = `${note} ${hint}`;
 
   return {
-    lemma: analysis.lemma,
+    lemma: lemmaName,
     singularArticle: analysis.article,
     translation: opts.translation || analysis.gloss || "",
     parts,
-    form: analysis.plural.form,
+    form: plural.form,
     distractors,
     hint,
-    rules: analysis.rules,
+    rules: spec
+      ? [...(analysis.rules || []), `plural.rule.${spec.patternId}`]
+      : analysis.rules,
   };
 }
 

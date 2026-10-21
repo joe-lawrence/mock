@@ -417,7 +417,10 @@ export function createNounWugExercise(form, opts = {}) {
  */
 export function createNounPluralExercise(lemma, opts = {}) {
   const mode = opts.mode || "assisted";
-  const truth = pluralExercise(lemma, { translation: opts.translation });
+  const truth = pluralExercise(lemma, {
+    translation: opts.translation,
+    patternNote: opts.patternNote,
+  });
   const templateId = TEMPLATES.NOUN_PLURAL_CONSTRUCTION;
   const scaffolding = scaffoldingFor(templateId, mode);
 
