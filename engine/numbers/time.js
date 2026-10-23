@@ -226,6 +226,19 @@ export function clockFormAlternates(hours, minutes) {
 }
 
 /**
+ * Answer-key caption when :25 / :35 have an everyday halb reading and an
+ * hour-count reading. Empty for other times.
+ * @param {number} hours
+ * @param {number} minutes
+ */
+export function clockEverydayNote(hours, minutes) {
+  if (minutes !== 25 && minutes !== 35) return "";
+  const [everyday, ...extra] = clockFormAlternates(hours, minutes);
+  if (!everyday || !extra.length) return "";
+  return `Everyday form. Also accepted: ${extra.join("; ")}.`;
+}
+
+/**
  * Digital / 24h style: "vierzehn Uhr fünf"
  * Construction may split teens/compounds; form uses fused spoken hour/minutes.
  * @param {number} hours — 0–23

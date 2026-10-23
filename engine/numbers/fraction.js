@@ -122,36 +122,30 @@ export function mixedFractionAnalysis(whole, numerator, denominator) {
     throw new RangeError(`fraction part must be proper: ${numerator}/${denominator}`);
   }
 
-  // …einhalb
+  // …einhalb — citation spelling (fünfeinhalb, not the spoken füneinhalb).
   if (numerator === 1 && denominator === 2) {
-    const form =
-      whole === 1
-        ? "eineinhalb"
-        : whole === 2
-          ? "zweieinhalb"
-          : whole === 3
-            ? "dreieinhalb"
-            : whole === 4
-              ? "viereinhalb"
-              : whole === 5
-                ? "füneinhalb"
-                : whole === 6
-                  ? "sechseinhalb"
-                  : whole === 7
-                    ? "siebeneinhalb"
-                    : whole === 8
-                      ? "achteinhalb"
-                      : whole === 9
-                        ? "neuneinhalb"
-                        : whole === 10
-                          ? "zehneinhalb"
-                          : `${cardinalForm(whole)}einhalb`;
+    const writtenHalf = {
+      1: "eineinhalb",
+      2: "zweieinhalb",
+      3: "dreieinhalb",
+      4: "viereinhalb",
+      5: "fünfeinhalb",
+      6: "sechseinhalb",
+      7: "siebeneinhalb",
+      8: "achteinhalb",
+      9: "neuneinhalb",
+      10: "zehneinhalb",
+    };
+    const form = writtenHalf[whole] || `${cardinalForm(whole)}einhalb`;
+    // Spoken contraction and umlaut-free spellings still parse; the key shows `form`.
+    const alternates = whole === 5 ? ["füneinhalb", "funeinhalb", "funfeinhalb"] : [];
     return {
       whole,
       numerator,
       denominator,
       kind: "fraction-mixed-half",
       form,
+      alternates,
       written: `${whole} 1/2`,
       englishWritten: `${whole} 1/2`,
       segments: { construction: [form], spoken: [form] },
@@ -208,6 +202,8 @@ export function parseFractionForm(raw) {
     zweieinhalb: 2,
     dreieinhalb: 3,
     viereinhalb: 4,
+    fünfeinhalb: 5,
+    funfeinhalb: 5,
     funeinhalb: 5,
     füneinhalb: 5,
     sechseinhalb: 6,

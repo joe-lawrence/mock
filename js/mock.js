@@ -61,11 +61,13 @@ import {
   parseFractionForm,
   parseOrdinalForm,
   mixedFractionForm,
+  mixedFractionAnalysis,
   measureAcceptedForms,
   clockFormAlternates,
+  clockEverydayNote,
   clockForm,
   digitalTimeForm,
-} from "../engine/numbers/index.js?v=20261018-practice9";
+} from "../engine/numbers/index.js?v=20261023-clockalt1";
 import {
   NUMBERS_TOPICS,
   getNumbersTopic,
@@ -76,7 +78,6 @@ import {
   isNumbersCellPlayable,
   suggestNumbersFocus,
   formatNumbersFocusLabel,
-  mixableSteps,
   directionsForNumbersCell,
 } from "./numbers-curriculum.js?v=20261021-am1";
 import {
@@ -94,7 +95,9 @@ import {
   modesForNounsStep,
   directionsForNounsCell,
   isNounsDirectionPlayable,
-} from "./nouns-curriculum.js?v=20261021-pl20";
+  nounPresetMatchesCaps,
+  nounsCellsMatchingCaps,
+} from "./nouns-curriculum.js?v=20261023-suffixplay";
 import { pluralPool } from "./plurals-pools.js";
 import {
   DIRECTION,
@@ -103,7 +106,11 @@ import {
   wugReverseChoose,
   reverseNumbersConvert,
   reverseCompassConvert,
-} from "./reverse-direction.js?v=20261021-pl6";
+} from "./reverse-direction.js?v=20261023-time24";
+import {
+  compassPlaceholder,
+  freeformPlaceholder,
+} from "./answer-placeholders.js?v=20261023-time24";
 
 import { DECIMAL_POOLS } from "./decimals-pools.js?v=20260930-ref1";
 import {
@@ -145,7 +152,7 @@ import {
   pieDialMatchesFraction,
 } from "./quiz-extras.js?v=20261021-pie12";
 
-import { mountNavCarousel } from "./nav-carousel.js?v=20261021-pl20";
+import { mountNavCarousel } from "./nav-carousel.js?v=20261023-caps1";
 import {
   dealExercise,
   WEAK_ACCURACY,
@@ -262,9 +269,11 @@ import {
 import {
   normalizeLaunchInteraction,
   getInteractionPreset,
+  presetMatchesCaps,
+  stepDealsForMix,
   STIMULUS,
   RESPONSE,
-} from "./interaction-presets.js?v=20261018-compass6";
+} from "./interaction-presets.js?v=20261023-caps1";
 import {
   mountMultiSelectShell,
   mountFreeformShell,
@@ -1195,8 +1204,9 @@ function buildMixDeckFromEntries(entries, modeId) {
     (resolved === "convert" || resolved === "either");
   const wantEitherExtras = resolved === "either";
   const wantNamed = (id) => {
-    if (capExclusive(caps.keyboard)) return id === "proofread";
-    if (capExclusive(caps.audio)) return false;
+    if (capExclusive(caps.keyboard) || capExclusive(caps.audio)) {
+      return modeAllowedByCaps(id);
+    }
     return resolved === id || wantEitherExtras;
   };
   // Cross-topic Play mixes: cap each step×mode so huge pools (decimals)
@@ -1844,6 +1854,8 @@ function resolvePhonToken(token) {
   if (tens?.length) return tens;
   const fracNoun = fractionNounAnswerParts(text);
   if (fracNoun?.length) return fracNoun;
+  const half = mixedHalfAnswerParts(text);
+  if (half?.length) return half;
   // Whole cardinal compounds (fünfundvierzig) and ordinals (siebzehnten)
   const cardN = parseCardinalForm(text.replace(/\s+/g, ""));
   if (cardN != null) {
@@ -2454,7 +2466,53 @@ function acceptedConvertForms(meta) {
   if (meta.kind === "measure" && meta.value != null && meta.unit) {
     return measureAcceptedForms(meta.value, meta.unit);
   }
+  if (
+    meta.kind === "mixed-fraction" &&
+    meta.whole != null &&
+    meta.numerator != null &&
+    meta.denominator != null
+  ) {
+    const a = mixedFractionAnalysis(meta.whole, meta.numerator, meta.denominator);
+    return [a.form, ...(a.alternates || [])].filter(Boolean);
+  }
   return meta.form ? [meta.form] : [];
+}
+
+/**
+ * Fused N+½ citation form → karaoke beats (fünfeinhalb → fünf + ein + halb).
+ * Stem guides come from the number chart. Returns null if the stem is unknown.
+ * @param {string} token
+ * @returns {object[]|null}
+ */
+function mixedHalfAnswerParts(token) {
+  const raw = String(token || "").trim();
+  const m = raw.match(/^(.+)einhalb$/i);
+  if (!m) return null;
+  const stem = m[1];
+  let stemBeats = null;
+  if (/^ein$/i.test(stem)) {
+    stemBeats = [
+      { text: "ein", guide: "INE", stress: true, source: "fraction-compose" },
+    ];
+  } else {
+    const n = parseCardinalForm(stem);
+    if (n == null) return null;
+    const morph = synthesizeMorphGuides(n);
+    if (!morph?.length) return null;
+    const joined = morph.map((p) => p.text).join("").toLowerCase();
+    if (joined !== stem.toLowerCase()) return null;
+    stemBeats = morph.map((p, i) => ({
+      text: p.text,
+      guide: i === 0 ? String(p.guide || p.text).toUpperCase() : p.guide,
+      stress: i === 0 || !!p.stress,
+      source: p.source || "fraction-compose",
+    }));
+  }
+  return [
+    ...stemBeats,
+    { text: "ein", guide: "ine", source: "fraction-compose" },
+    { text: "halb", guide: "halp", source: "fraction-compose" },
+  ];
 }
 
 /** Fused N+½ exemplar for mixed-fraction asks — never spaced “zwei ein halb”. */
@@ -5766,6 +5824,17 @@ function fillAnswerReveal(prefix, {
   visualHtml,
   lang,
 }) {
+  let caption = en || "";
+  if (prefix === "numbers") {
+    const meta = currentNumberMeta();
+    if (meta?.kind === "clock" && meta.hours != null && meta.minutes != null) {
+      const note = clockEverydayNote(meta.hours, meta.minutes);
+      if (note) {
+        const time = formatClockWritten(meta.written || "");
+        caption = time ? `${time}. ${note}` : note;
+      }
+    }
+  }
   const root = document.getElementById(`${prefix}-reveal`);
   const wordEl = document.getElementById(`${prefix}-reveal-word`);
   const phonEl = document.getElementById(`${prefix}-reveal-phonetic`);
@@ -5816,9 +5885,9 @@ function fillAnswerReveal(prefix, {
     phonEl.classList.remove("is-unavailable");
     phonEl.removeAttribute("data-pronunciation");
     if (enEl) {
-      if (en) {
+      if (caption) {
         enEl.hidden = false;
-        enEl.textContent = en;
+        enEl.textContent = caption;
       } else {
         enEl.hidden = true;
         enEl.textContent = "";
@@ -5837,9 +5906,9 @@ function fillAnswerReveal(prefix, {
     phonEl.innerHTML =
       '<span class="phon-unavailable">Pronunciation guide unavailable</span>';
     if (enEl) {
-      if (en) {
+      if (caption) {
         enEl.hidden = false;
-        enEl.textContent = en;
+        enEl.textContent = caption;
       } else {
         enEl.hidden = true;
         enEl.textContent = "";
@@ -5866,9 +5935,9 @@ function fillAnswerReveal(prefix, {
   });
 
   if (enEl) {
-    if (en) {
+    if (caption) {
       enEl.hidden = false;
-      enEl.textContent = en;
+      enEl.textContent = caption;
     } else {
       enEl.hidden = true;
       enEl.textContent = "";
@@ -6321,26 +6390,7 @@ function navCaps() {
 }
 
 function modeAllowedByCaps(modeId) {
-  const caps = navCaps();
-  const preset = getInteractionPreset(modeId);
-  const isFreeform =
-    modeId === "convert" ||
-    modeId === "proofread" ||
-    modeId === "visual-freeform" ||
-    preset?.response === RESPONSE.FREEFORM;
-  const isListen =
-    modeId === "listen" || preset?.stimulus === STIMULUS.TTS;
-  if (capExclusive(caps.keyboard)) {
-    return isFreeform;
-  }
-  if (capExclusive(caps.audio)) {
-    return isListen;
-  }
-  if (isListen && !capEnabled(caps.audio)) return false;
-  if (isFreeform && !capEnabled(caps.keyboard)) {
-    return false;
-  }
-  return true;
+  return presetMatchesCaps(modeId, navCaps());
 }
 
 function filterModesForCaps(modes) {
@@ -6626,7 +6676,7 @@ function rebuildSessionFromPlaylist() {
       applyNounsCell(
         topicId,
         uniqueFamilies[0],
-        introModeForNounsStep(topicId, uniqueFamilies[0])?.id
+        nounsPresetForCaps(topicId, uniqueFamilies[0])
       );
     } else {
       state.nounsSessionKind = "family-mix";
@@ -6638,7 +6688,7 @@ function rebuildSessionFromPlaylist() {
       applyNounsCell(
         topicIdForStep(stepId) || topicId,
         stepId,
-        introModeForNounsStep(topicIdForStep(stepId) || topicId, stepId)?.id
+        nounsPresetForCaps(topicIdForStep(stepId) || topicId, stepId)
       );
     }
     resetNounsDeckForMode();
@@ -6683,7 +6733,7 @@ function rebuildSessionFromPlaylist() {
         applyNounsCell(
           topicId,
           uniqueFamilies[0],
-          introModeForNounsStep(topicId, uniqueFamilies[0])?.id
+          nounsPresetForCaps(topicId, uniqueFamilies[0])
         );
       } else {
         state.nounsSessionKind = "family-mix";
@@ -6695,7 +6745,7 @@ function rebuildSessionFromPlaylist() {
         applyNounsCell(
           topicIdForStep(stepId) || topicId,
           stepId,
-          introModeForNounsStep(topicIdForStep(stepId) || topicId, stepId)?.id
+          nounsPresetForCaps(topicIdForStep(stepId) || topicId, stepId)
         );
       }
       resetNounsDeckForMode();
@@ -7552,6 +7602,8 @@ function currentFeedbackContext() {
  *         (family= accepted as alias for step=)
  * Vocab: ?launch=1&module=numbers&vocab=1&mode=learn&area=core  (mode= learn|practice only)
  * Sounds: ?launch=1&module=sounds&preset=karaoke
+ * Reference: ?launch=1&reference=numbers.fractions
+ * Learn chart: ?launch=1&module=numbers&learn=1&topic=fractions&step=unit-fractions
  */
 function consumeCurriculumLaunch() {
   const params = new URLSearchParams(location.search);
@@ -7562,6 +7614,17 @@ function consumeCurriculumLaunch() {
     params.get("difficulty") === "assisted" ? "assisted" : "core";
   // Optional one-shot layer prefs from difficulty= (not a learner menu).
   applyDifficultyAsLayerPrefs(difficulty);
+
+  const referenceId = params.get("reference");
+  if (referenceId) {
+    openReferenceBrowse({ id: referenceId });
+    return true;
+  }
+
+  if (params.get("learn") === "1" && moduleId === "numbers") {
+    openNumbersStepLearn(params.get("topic") || "", params.get("step") || "");
+    return true;
+  }
 
   if (params.get("vocab") === "1") {
     if (moduleId !== "numbers" && moduleId !== "nouns") return false;
@@ -8633,8 +8696,9 @@ function handleNavCarouselStart({ mode, units, keyboard, audio, practice, guided
     seedNumbersPlaylist(
       numbersUnits.map((u) => ({ topicId: u.topicId, stepId: u.stepId }))
     );
+    const prefModes = practice?.numbersModes || [];
     state.numbersMixMode = mixModeForCaps(
-      (practice?.numbersModes || [])[0] || "either"
+      prefModes.length === 1 ? prefModes[0] : "either"
     );
     rebuildSessionFromPlaylist();
     navigate("numbers", { keepPhase: true });
@@ -9998,8 +10062,8 @@ function prepareNumbersFromPlaylist(numbersUnits, practice) {
     if (!u?.topicId || !u?.stepId) continue;
     const key = `${u.topicId}:${u.stepId}`;
     if (seen.has(key)) continue;
-    const eligible = mixableSteps(u.topicId, mixMode);
-    if (!eligible.some((s) => s.id === u.stepId)) continue;
+    const modeIds = modesForStep(u.topicId, u.stepId).map((m) => m.id);
+    if (!stepDealsForMix(modeIds, mixMode, navCaps())) continue;
     seen.add(key);
     entries.push({ topicId: u.topicId, stepId: u.stepId });
   }
@@ -10044,7 +10108,11 @@ function prepareNumbersMixState() {
     }));
   }
   entries = entries.filter(({ topicId, stepId }) =>
-    mixableSteps(topicId, mode).some((s) => s.id === stepId)
+    stepDealsForMix(
+      modesForStep(topicId, stepId).map((m) => m.id),
+      mode,
+      navCaps()
+    )
   );
   if (!entries.length) return false;
 
@@ -10066,6 +10134,18 @@ function prepareNumbersMixState() {
   return !!(state.numbersMixDeck?.length);
 }
 
+/** Intro preset when it fits the caps; otherwise the first preset that does. */
+function nounsPresetForCaps(topicId, stepId) {
+  const modes = modesForNounsStep(topicId, stepId);
+  const caps = navCaps();
+  const allowed = modes.filter((m) => nounPresetMatchesCaps(m.id, caps));
+  const intro = modes[0];
+  return (
+    (allowed.find((m) => m.id === intro?.id) || allowed[0] || intro)?.id ||
+    "choose"
+  );
+}
+
 /**
  * Set up Nouns family mix from carousel units. Does not navigate.
  * @returns {boolean}
@@ -10077,7 +10157,7 @@ function prepareNounsFromPlaylist(nounsUnits, practice) {
   if (playable.every((u) => u.topicId && u.stepId)) {
     const stepId = playable[0].stepId;
     const topicId = playable[0].topicId;
-    const presetId = introModeForNounsStep(topicId, stepId)?.id || "build";
+    const presetId = nounsPresetForCaps(topicId, stepId);
     if (playable.length === 1) {
       state.nounsSessionKind = "focus";
       state.nounsFamilyMix = [];
@@ -10100,47 +10180,28 @@ function prepareNounsFromPlaylist(nounsUnits, practice) {
     ),
   ];
 
-  let uniqueFamilies = [];
-  for (const learnId of learnIds) {
-    for (const f of familiesForUnit(learnId)) {
-      if (!uniqueFamilies.includes(f.id)) uniqueFamilies.push(f.id);
-    }
-  }
-  if (!uniqueFamilies.length) {
-    const intro = introFamilyForUnit(learnIds[0]);
-    uniqueFamilies = [intro?.id || "wugs"];
-  }
-
-  const prefFamilies = (practice?.nounsFamilies || []).filter((id) =>
-    uniqueFamilies.includes(id)
-  );
-  if (prefFamilies.length) uniqueFamilies = prefFamilies;
-
   const caps = navCaps();
-  const modality =
-    (practice?.nounsModalities || []).find((id) => {
-      if (id === "category-gender") return true;
-      if (id === "choose-article") return true;
-      if (id === "type-article") return caps.keyboard;
-      return false;
-    }) ||
-    (learnIds.includes("categories") ? "category-gender" : "choose-article");
-  const stepId = uniqueFamilies[0];
-  const topicId = unitIdForFamily(stepId);
-  const presetId =
-    modality === "type-article"
-      ? "convert"
-      : introModeForNounsStep(topicId, stepId)?.id || "choose";
-  if (uniqueFamilies.length === 1) {
+  let cells = [];
+  for (const learnId of learnIds) {
+    cells.push(...nounsCellsMatchingCaps(learnId, caps));
+  }
+  const prefFamilies = (practice?.nounsFamilies || []).filter((id) =>
+    cells.some((c) => c.stepId === id)
+  );
+  if (prefFamilies.length) {
+    cells = cells.filter((c) => prefFamilies.includes(c.stepId));
+  }
+  if (!cells.length) return false;
+
+  const first = cells[0];
+  if (cells.length === 1) {
     state.nounsSessionKind = "focus";
     state.nounsFamilyMix = [];
   } else {
     state.nounsSessionKind = "family-mix";
-    state.nounsFamilyMix = uniqueFamilies;
+    state.nounsFamilyMix = [...new Set(cells.map((c) => c.stepId))];
   }
-  applyNounsCell(topicId, stepId, presetId);
-  // Keep preferred legacy modality when caps/prefs asked for it.
-  state.nounsModality = modality;
+  applyNounsCell(first.topicId || unitIdForFamily(first.stepId), first.stepId, first.modeId);
   state.nounsHubPracticePick = "";
   resetNounsDeckForMode();
   return true;
@@ -10589,7 +10650,7 @@ function renderNumbersProofread() {
   };
   const { input } = mountFreeformShell(tray, {
     inputId: "numbers-convert-input",
-    placeholder: liveCheck ? "start typing…" : "correct form…",
+    placeholder: "correct form…",
     ariaLabel: "Correct German form",
     assisted: liveCheck,
     isDisabled: () => state.numbersChecked,
@@ -10913,7 +10974,7 @@ function renderNumbersVisualFreeform() {
   const liveCheck = supportOn("liveCheck");
   const { input } = mountFreeformShell(tray, {
     inputId: "numbers-convert-input",
-    placeholder: liveCheck ? "start typing…" : "German form",
+    placeholder: freeformPlaceholder(meta),
     ariaLabel: "German form for what you see",
     assisted: liveCheck,
     isDisabled: () => state.numbersChecked,
@@ -11637,10 +11698,6 @@ function renderNumbersListen() {
 
   const listenWritten = exercise.templateId === "numbers.listen.written";
   const listenReadTime = exercise.templateId === "numbers.listen.read-time";
-  const listenKind = exercise.resolution?.kind || meta?.kind || "";
-  const listenIsDecimalish =
-    listenWritten &&
-    (listenKind === "decimal" || listenKind === "money");
   const listenSelect = numbersListenUsesChoices();
   const clockReg = listenReadTime ? clockReadingRegister(meta) : null;
   if (listenReadTime) {
@@ -11734,12 +11791,9 @@ function renderNumbersListen() {
         : listenWritten
           ? "Enter the written form"
           : "Enter the number",
-      placeholder: listenReadTime
-        ? "German form"
-        : listenWritten
-          ? listenWrittenExample(meta) ||
-            (listenIsDecimalish ? "e.g. 16,42" : "written form")
-          : "",
+      placeholder: freeformPlaceholder(meta, {
+        reverse: !listenReadTime,
+      }),
       inputMode: !listenWritten && !listenReadTime
         ? "numeric"
         : listenReadTime
@@ -11994,7 +12048,6 @@ function renderNumbersConvert() {
   const showEn = supportOn("english");
   let accepted =
     exercise.resolution?.acceptedForms || acceptedConvertForms(meta);
-  let placeholder = "German form";
   let ariaLabel = "German number form";
 
   if (reverse) {
@@ -12017,7 +12070,6 @@ function renderNumbersConvert() {
       reverseAnswer: pack.answer,
     };
     accepted = pack.acceptedForms;
-    placeholder = pack.placeholder;
     ariaLabel = pack.ariaLabel;
     promptHtml = numbersPromptPairHtml(pack.cue, pack.ask, meta);
     mountNumbersStimulus(STIMULUS.VALUE, { bodyHtml: promptHtml });
@@ -12072,7 +12124,7 @@ function renderNumbersConvert() {
   // Freeform answer shell (live-check Enter still uses prefix-aware commit below).
   const { input, checkBtn } = mountFreeformShell(tray, {
     inputId: "numbers-convert-input",
-    placeholder: liveCheck ? "start typing…" : placeholder,
+    placeholder: freeformPlaceholder(meta, { reverse }),
     ariaLabel,
     assisted: liveCheck,
     isDisabled: () => state.numbersChecked,
@@ -14080,11 +14132,11 @@ function renderNounsCardinalDirections() {
     const convertRev = mode === "convert" && isReverse(state.quizDirection);
     const { input } = mountFreeformShell(tray, {
       inputId: "nouns-convert-input",
-      placeholder: liveCheck
-        ? "start typing…"
-        : convertRev
-          ? "English direction"
-          : "German direction",
+      placeholder: compassPlaceholder(convertRev, [
+        exercise.resolution?.lemma,
+        exercise.resolution?.translation,
+        exercise.prompt?.text,
+      ]),
       ariaLabel: convertRev
         ? "English direction for the compass"
         : "German direction for the compass",
@@ -15623,11 +15675,7 @@ function advanceNounsIndex() {
     const mix = state.nounsFamilyMix;
     const stepId = mix[Math.floor(Math.random() * mix.length)] || state.nounsStep;
     const topicId = topicIdForStep(stepId) || state.nounsTopic;
-    applyNounsCell(
-      topicId,
-      stepId,
-      introModeForNounsStep(topicId, stepId)?.id || state.nounsQuizMode
-    );
+    applyNounsCell(topicId, stepId, nounsPresetForCaps(topicId, stepId));
   }
   const topicId = state.nounsTopic || state.nounsLearnUnit;
   const stepId = state.nounsStep || state.nounsMode;

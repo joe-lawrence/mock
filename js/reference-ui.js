@@ -208,6 +208,7 @@ export function referenceIdForPracticeContext(ctx) {
       teens: "numbers.cardinal.13-19",
       tens: "numbers.cardinal.tens",
       compounds: "numbers.cardinal.compound",
+      hundreds: "numbers.cardinal.hundreds",
       "hundreds-plus": "numbers.cardinal.hundreds",
       "komma-read": "numbers.decimals.komma",
       "place-value": "numbers.decimals.komma",

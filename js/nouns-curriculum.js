@@ -9,6 +9,8 @@ import {
   INTERACTION_PRESETS,
   getInteractionPreset,
   enrichModeWithPreset,
+  RESPONSE,
+  STIMULUS,
 } from "./interaction-presets.js";
 import {
   directionsForStepMode,
@@ -397,6 +399,53 @@ export function modalitiesForUnit(unitId) {
       ? { ...m, playable: false }
       : m
   );
+}
+
+/**
+ * Whether a nouns preset can run under carousel caps.
+ * Same rule as the session: proofread counts as write; pick stays on
+ * unless Write or Listen is exclusive.
+ * @param {string} modeId
+ * @param {{ keyboard?: boolean|"only", audio?: boolean|"only" }} [caps]
+ */
+export function nounPresetMatchesCaps(
+  modeId,
+  caps = { keyboard: true, audio: true }
+) {
+  const preset = getInteractionPreset(modeId);
+  const isWrite =
+    modeId === "convert" ||
+    modeId === "proofread" ||
+    modeId === "visual-freeform" ||
+    preset?.response === RESPONSE.FREEFORM;
+  const isListen = modeId === "listen" || preset?.stimulus === STIMULUS.TTS;
+  if (caps.keyboard === "only") return isWrite;
+  if (caps.audio === "only") return isListen;
+  if (isListen && caps.audio === false) return false;
+  if (isWrite && caps.keyboard === false) return false;
+  return true;
+}
+
+/**
+ * One playable cell per step whose preset fits the caps.
+ * Intro preset wins when it fits; otherwise the first allowed preset.
+ * @param {string} topicId
+ * @param {{ keyboard?: boolean|"only", audio?: boolean|"only" }} [caps]
+ * @returns {{ topicId: string, stepId: string, modeId: string }[]}
+ */
+export function nounsCellsMatchingCaps(topicId, caps) {
+  const topic = getNounsTopic(topicId);
+  const cells = [];
+  for (const step of topic?.steps || []) {
+    if (!step.playable) continue;
+    const modes = modesForNounsStep(topicId, step.id);
+    const allowed = modes.filter((m) => nounPresetMatchesCaps(m.id, caps));
+    if (!allowed.length) continue;
+    const intro = modes[0];
+    const picked = allowed.find((m) => m.id === intro?.id) || allowed[0];
+    cells.push({ topicId, stepId: step.id, modeId: picked.id });
+  }
+  return cells;
 }
 
 /**

@@ -9,13 +9,15 @@ import {
   modesForStep,
   plannedModeChips,
   directionsForNumbersCell,
+  getNumbersStep,
 } from "./numbers-curriculum.js?v=20261021-am1";
 import {
   NOUNS_TOPICS,
   modesForNounsStep,
   plannedNounsModeChips,
   directionsForNounsCell,
-} from "./nouns-curriculum.js?v=20261021-pl20";
+  getNounsTopic,
+} from "./nouns-curriculum.js?v=20261023-suffixplay";
 import {
   vocabularyAreas,
   vocabularyForTopic,
@@ -28,6 +30,8 @@ import {
   getInteractionPreset,
   MATRIX_PRESET_IDS,
 } from "./interaction-presets.js?v=20261018-compass5";
+import { hintSamplesForUnit } from "./hint-review.js";
+import { referenceIdForPracticeContext } from "./reference-ui.js";
 
 /** @typedef {"numbers"|"nouns"|"sounds"} ModuleId */
 
@@ -442,6 +446,95 @@ function renderStats(filtered, all) {
   el.textContent = `${filtered.length} of ${all.length} units · ${playable} playable · ${quizCells} live quiz cells`;
 }
 
+function referenceHref(row) {
+  const id = referenceIdForPracticeContext({
+    territory: row.moduleId,
+    stepId: row.unitId,
+    mode: row.unitId,
+  });
+  if (!id) return "";
+  if (id.endsWith(".overview") && row.moduleId !== "sounds") return "";
+  return `./index.html?launch=1&reference=${encodeURIComponent(id)}`;
+}
+
+function learnHref(row) {
+  if (row.moduleId === "numbers") {
+    const step = getNumbersStep(row.topicId, row.unitId);
+    if (!step?.chartTab) return "";
+    const params = new URLSearchParams({
+      launch: "1",
+      module: "numbers",
+      learn: "1",
+      topic: row.topicId,
+      step: row.unitId,
+    });
+    return `./index.html?${params.toString()}`;
+  }
+  if (row.moduleId === "nouns") {
+    const topic = getNounsTopic(row.topicId);
+    if (!topic?.chartTab) return "";
+    const params = new URLSearchParams({
+      launch: "1",
+      module: "nouns",
+      learn: "1",
+      topic: row.topicId,
+    });
+    return `./index.html?${params.toString()}`;
+  }
+  return "";
+}
+
+function unitResourceLinks(row) {
+  const links = [];
+  const learn = learnHref(row);
+  const reference = referenceHref(row);
+  if (learn) {
+    links.push(
+      `<a href="${escapeHtml(learn)}" target="_blank" rel="noopener">Learn chart</a>`
+    );
+  }
+  if (reference) {
+    links.push(
+      `<a href="${escapeHtml(reference)}" target="_blank" rel="noopener">Reference</a>`
+    );
+  }
+  if (!links.length) return "";
+  return `<p class="cb-unit-links">${links.join('<span aria-hidden="true"> · </span>')}</p>`;
+}
+
+function renderHints(rows) {
+  const root = document.getElementById("cb-results");
+  if (!root) return;
+  if (!rows.length) {
+    root.innerHTML = `<p class="cb-empty">No units match these filters.</p>`;
+    return;
+  }
+  const cards = rows
+    .map((row) => {
+      const samples = hintSamplesForUnit(row.moduleId, row.topicId, row.unitId);
+      const body = samples.length
+        ? samples
+            .map(
+              (s) => `<p class="cb-hint-line">
+                <span class="cb-hint-sample">${escapeHtml(s.sample)}</span>
+                ${escapeHtml(s.hint)}
+              </p>`
+            )
+            .join("")
+        : `<p class="cb-hint-line is-empty">No Help hint for this unit.</p>`;
+      return `<article class="cb-hint">
+        <header>
+          <span class="cb-kicker">${escapeHtml(row.moduleLabel)} · ${escapeHtml(row.topicLabel)}</span>
+          <h3>${escapeHtml(row.unitLabel)}</h3>
+          ${unitResourceLinks(row)}
+        </header>
+        ${body}
+      </article>`;
+    })
+    .join("");
+  root.innerHTML = `<p class="cb-hint-note">Help hint for one example in each unit. The fixed English wording is the part to review. German pieces are filled from that example and change with the question.</p>${cards}`;
+}
+
 function renderCatalog(rows, filters) {
   const root = document.getElementById("cb-results");
   if (!root) return;
@@ -484,6 +577,7 @@ function renderCatalog(rows, filters) {
                 ? `<p class="cb-unit-blurb">${escapeHtml(row.blurb)}</p>`
                 : ""
             }
+            ${unitResourceLinks(row)}
             <div class="cb-chips" aria-label="Quiz types">${quizChipsHtml(
               row,
               filters.quiz
@@ -764,6 +858,7 @@ function mount() {
   const searchInput = document.getElementById("cb-search");
   const viewCatalog = document.getElementById("cb-view-catalog");
   const viewMatrix = document.getElementById("cb-view-matrix");
+  const viewHints = document.getElementById("cb-view-hints");
 
   if (moduleSel) {
     moduleSel.innerHTML =
@@ -786,26 +881,21 @@ function mount() {
     filters.quiz = quizSel?.value || "all";
     filters.status = statusSel?.value || "all";
     filters.q = searchInput?.value || "";
-    filters.view = viewMatrix?.classList.contains("is-on")
-      ? "matrix"
-      : "catalog";
-
     writeFiltersToUrl(filters);
     const filtered = filterRows(rows, filters);
     renderStats(filtered, rows);
     if (filters.view === "matrix") renderMatrix(filtered, filters);
+    else if (filters.view === "hints") renderHints(filtered);
     else renderCatalog(filtered, filters);
 
-    viewCatalog?.classList.toggle("is-on", filters.view === "catalog");
-    viewMatrix?.classList.toggle("is-on", filters.view === "matrix");
-    viewCatalog?.setAttribute(
-      "aria-pressed",
-      String(filters.view === "catalog")
-    );
-    viewMatrix?.setAttribute(
-      "aria-pressed",
-      String(filters.view === "matrix")
-    );
+    for (const [btn, view] of [
+      [viewCatalog, "catalog"],
+      [viewMatrix, "matrix"],
+      [viewHints, "hints"],
+    ]) {
+      btn?.classList.toggle("is-on", filters.view === view);
+      btn?.setAttribute("aria-pressed", String(filters.view === view));
+    }
   }
 
   moduleSel?.addEventListener("change", () => {
@@ -820,13 +910,15 @@ function mount() {
   searchInput?.addEventListener("input", paint);
 
   viewCatalog?.addEventListener("click", () => {
-    viewCatalog.classList.add("is-on");
-    viewMatrix?.classList.remove("is-on");
+    filters.view = "catalog";
     paint();
   });
   viewMatrix?.addEventListener("click", () => {
-    viewMatrix.classList.add("is-on");
-    viewCatalog?.classList.remove("is-on");
+    filters.view = "matrix";
+    paint();
+  });
+  viewHints?.addEventListener("click", () => {
+    filters.view = "hints";
     paint();
   });
 
@@ -867,11 +959,6 @@ function mount() {
       })
     );
   });
-
-  if (filters.view === "matrix") {
-    viewMatrix?.classList.add("is-on");
-    viewCatalog?.classList.remove("is-on");
-  }
 
   paint();
 }

@@ -218,6 +218,26 @@ describe("reverse direction", () => {
     });
     assert.equal(clock.answer, "03:30");
     assert.ok(clock.acceptedForms.includes("3:30"));
+    assert.equal(clock.ask, "Type the time");
+
+    const morning = reverseNumbersConvert({
+      kind: "clock",
+      form: "Viertel nach neun",
+      written: "09:15",
+    });
+    assert.ok(morning.acceptedForms.includes("09:15"));
+    assert.ok(morning.acceptedForms.includes("9:15"));
+    assert.equal(morning.ask, "Type the time");
+
+    const evening = reverseNumbersConvert({
+      kind: "clock",
+      form: "Viertel nach neun",
+      written: "21:15",
+    });
+    assert.ok(evening.acceptedForms.includes("21:15"));
+    assert.equal(evening.acceptedForms.includes("9:15"), false);
+    assert.equal(evening.ask, "Type the time (24-hour)");
+    assert.match(evening.placeholder, /24h/);
 
     const dur = reverseNumbersConvert({
       kind: "duration",

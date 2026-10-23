@@ -5,6 +5,7 @@ import {
   fractionParts,
   fractionAnalysis,
   mixedFractionForm,
+  mixedFractionAnalysis,
   mixedFractionParts,
   parseFractionForm,
   evaluateFractionConstruction,
@@ -14,6 +15,7 @@ import {
   clockForm,
   clockParts,
   clockFormAlternates,
+  clockEverydayNote,
   digitalTimeForm,
   digitalTimeParts,
   durationForm,
@@ -47,7 +49,12 @@ describe("fractions", () => {
   it("mixed …einhalb fused", () => {
     assert.equal(mixedFractionForm(1, 1, 2), "eineinhalb");
     assert.equal(mixedFractionForm(2, 1, 2), "zweieinhalb");
-    assert.equal(mixedFractionForm(5, 1, 2), "füneinhalb");
+    assert.equal(mixedFractionForm(5, 1, 2), "fünfeinhalb");
+    assert.deepEqual(mixedFractionAnalysis(5, 1, 2).alternates, [
+      "füneinhalb",
+      "funeinhalb",
+      "funfeinhalb",
+    ]);
   });
 
   it("mixed with und", () => {
@@ -77,6 +84,19 @@ describe("fractions", () => {
       numerator: 1,
       denominator: 2,
     });
+    for (const spelling of [
+      "fünfeinhalb",
+      "funfeinhalb",
+      "füneinhalb",
+      "funeinhalb",
+    ]) {
+      assert.deepEqual(parseFractionForm(spelling), {
+        kind: "mixed",
+        whole: 5,
+        numerator: 1,
+        denominator: 2,
+      });
+    }
     assert.deepEqual(parseFractionForm("drei und ein Viertel"), {
       kind: "mixed",
       whole: 3,
@@ -145,6 +165,15 @@ describe("time", () => {
       "fünf nach halb fünf",
       "fünfundzwanzig vor fünf",
     ]);
+    assert.equal(
+      clockEverydayNote(8, 35),
+      "Everyday form. Also accepted: fünfundzwanzig vor neun."
+    );
+    assert.equal(
+      clockEverydayNote(8, 25),
+      "Everyday form. Also accepted: fünfundzwanzig nach acht."
+    );
+    assert.equal(clockEverydayNote(8, 20), "");
   });
 
   it("digital 24h", () => {

@@ -74,7 +74,23 @@ function uniqueForms(forms) {
   return out;
 }
 
-/** `03:30` and `3:30` both count. */
+/** Hour of a `H:MM` / `HH:MM` written time, or null. */
+function writtenClockHour(written) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(written || "").trim());
+  if (!m) return null;
+  return Number(m[1]);
+}
+
+/**
+ * Colloquial clock speech is 12-hour, but the stored time can be 00:xx or 13–23.
+ * Those items need a 24-hour answer (`21:15`, not `9:15`).
+ */
+function clockWrittenIs24h(written) {
+  const h = writtenClockHour(written);
+  return h != null && (h === 0 || h >= 13);
+}
+
+/** `09:15` and `9:15` both count. `21:15` does not also accept `9:15`. */
 function clockWrittenForms(written) {
   const m = /^(\d{1,2}):(\d{2})$/.exec(String(written || "").trim());
   if (!m) return [String(written || "").trim()].filter(Boolean);
@@ -113,10 +129,19 @@ function writtenFormReverse(meta) {
     hint = "Read the German — type the fraction (e.g. 2/3).";
     placeholder = kind === "mixed-fraction" ? "e.g. 2 1/2" : "e.g. 2/3";
     ariaLabel = "Fraction";
-  } else if (kind === "clock" || kind === "digital-time") {
+  } else if (kind === "digital-time") {
     ask = "Type the time";
-    hint = "Read the German — type the time (e.g. 03:30).";
-    placeholder = "e.g. 03:30";
+    hint = "Read the German — type the time (e.g. 14:05).";
+    placeholder = "e.g. 14:05";
+    ariaLabel = "Time";
+    accepted = clockWrittenForms(written);
+  } else if (kind === "clock") {
+    const twentyFour = clockWrittenIs24h(written);
+    ask = twentyFour ? "Type the time (24-hour)" : "Type the time";
+    hint = twentyFour
+      ? "Read the German — type the 24-hour time (e.g. 21:15)."
+      : "Read the German — type the time (9:15 or 09:15).";
+    placeholder = twentyFour ? "e.g. 21:15 (24h)" : "e.g. 9:15";
     ariaLabel = "Time";
     accepted = clockWrittenForms(written);
   } else if (kind === "duration") {
@@ -301,7 +326,7 @@ export function reverseNumbersConvert(meta) {
       : [],
     ask: "Type the number",
     hint: "Read the German form — type the digits.",
-    placeholder: "number",
+    placeholder: "e.g. 13",
     ariaLabel: "Number value",
   };
 }

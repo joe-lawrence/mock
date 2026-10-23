@@ -8,6 +8,8 @@ import {
   enrichModeWithPreset,
   presetIdForPair,
   normalizeLaunchInteraction,
+  presetMatchesCaps,
+  stepDealsForMix,
   MATRIX_PRESET_IDS,
 } from "./interaction-presets.js";
 import {
@@ -23,6 +25,8 @@ import {
   isNounsCellPlayable,
   introModeForNounsStep,
   GENDER_SHORTCUTS_UNITS,
+  nounsCellsMatchingCaps,
+  nounPresetMatchesCaps,
 } from "./nouns-curriculum.js";
 import {
   CURRICULUM_PACKAGE_SCHEMA,
@@ -178,6 +182,91 @@ describe("interaction presets (Slice 0–1)", () => {
     assert.equal(isNounsCellPlayable("plurals", "plural-patterns", "choose"), false);
     assert.ok(isNounsCellPlayable("plurals", "plural-patterns", "build"));
     assert.ok(isNounsCellPlayable("plurals", "plural-patterns", "proofread"));
+  });
+
+  it("Suffixes stays startable when Write is exclusive", () => {
+    const writeOnly = nounsCellsMatchingCaps("suffixes", {
+      keyboard: "only",
+      audio: true,
+    });
+    assert.deepEqual(
+      writeOnly.map((c) => c.stepId),
+      ["proofread"]
+    );
+    assert.equal(writeOnly[0].modeId, "proofread");
+
+    const both = nounsCellsMatchingCaps("suffixes", {
+      keyboard: true,
+      audio: true,
+    });
+    assert.deepEqual(
+      both.map((c) => [c.stepId, c.modeId]),
+      [
+        ["wugs", "choose"],
+        ["real-words", "choose"],
+        ["proofread", "proofread"],
+      ]
+    );
+
+    const listenOnly = nounsCellsMatchingCaps("suffixes", {
+      keyboard: true,
+      audio: "only",
+    });
+    assert.equal(listenOnly.length, 0);
+  });
+
+  it("Numbers units without Build or Convert still deal under the matching cap", () => {
+    const both = { keyboard: true, audio: true };
+    const writeOnly = { keyboard: "only", audio: true };
+    const komma = modesForStep("decimals", "komma-read").map((m) => m.id);
+    const place = modesForStep("decimals", "place-value").map((m) => m.id);
+    assert.equal(komma.includes("build"), false);
+    assert.equal(stepDealsForMix(komma, "either", both), true);
+    assert.equal(place.includes("convert"), false);
+    assert.equal(stepDealsForMix(place, "convert", writeOnly), true);
+    assert.equal(presetMatchesCaps("visual-freeform", writeOnly), true);
+    assert.equal(presetMatchesCaps("set-dial", both), true);
+
+    for (const id of [
+      "build",
+      "choose",
+      "listen",
+      "convert",
+      "proofread",
+      "visual",
+      "visual-freeform",
+      "set-dial",
+      "sentence",
+    ]) {
+      for (const caps of [both, writeOnly, { keyboard: true, audio: "only" }]) {
+        assert.equal(
+          nounPresetMatchesCaps(id, caps),
+          presetMatchesCaps(id, caps),
+          id
+        );
+      }
+    }
+
+    for (const t of NUMBERS_TOPICS) {
+      if (!t.playable) continue;
+      for (const s of t.steps || []) {
+        if (!s.playable) continue;
+        const ids = modesForStep(t.id, s.id).map((m) => m.id);
+        if (!ids.some((id) => presetMatchesCaps(id, both))) continue;
+        assert.equal(
+          stepDealsForMix(ids, "either", both),
+          true,
+          `${t.id}/${s.id}`
+        );
+        if (ids.some((id) => presetMatchesCaps(id, writeOnly))) {
+          assert.equal(
+            stepDealsForMix(ids, "convert", writeOnly),
+            true,
+            `${t.id}/${s.id} write`
+          );
+        }
+      }
+    }
   });
 });
 

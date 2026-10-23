@@ -6,10 +6,11 @@
 import { NUMBERS_TOPICS, modesForStep } from "./numbers-curriculum.js?v=20260930-dmo18";
 import {
   genderShortcutsNavUnits,
-  modalitiesForUnit,
   modesForNounsStep,
+  nounPresetMatchesCaps,
+  nounsCellsMatchingCaps,
   pluralNavUnits,
-} from "./nouns-curriculum.js?v=20261021-pl20";
+} from "./nouns-curriculum.js?v=20261023-suffixplay";
 import { topicHasVocabulary } from "./vocabulary-ui.js?v=20260930-vocab16";
 
 const CAPS_KEY = "schnapp-nav-caps";
@@ -284,10 +285,6 @@ export function mountNavCarousel(container, options = {}) {
     };
   }
 
-  function capOn(v) {
-    return v === true || v === "only";
-  }
-
   /**
    * Unit supports practice under current caps.
    * Pick-style (Build / Choose article) is always available when the unit allows it;
@@ -296,50 +293,20 @@ export function mountNavCarousel(container, options = {}) {
   function unitMatchesCaps(u, c = caps()) {
     if (!u || u.playable === false) return false;
     if (u.territory === "numbers" && u.topicId && u.stepId) {
-      if (c.keyboard === "only") {
-        return modesForStep(u.topicId, u.stepId).some(
-          (m) => m.id === "convert" || m.id === "proofread"
-        );
-      }
-      if (c.audio === "only") {
-        return modesForStep(u.topicId, u.stepId).some((m) => m.id === "listen");
-      }
-      return modesForStep(u.topicId, u.stepId).some(
-        (m) =>
-          m.id === "build" ||
-          m.id === "cloze" ||
-          m.id === "visual" ||
-          m.id === "sentence" ||
-          (m.id === "listen" && capOn(c.audio)) ||
-          ((m.id === "convert" || m.id === "proofread") && capOn(c.keyboard))
+      return modesForStep(u.topicId, u.stepId).some((m) =>
+        nounPresetMatchesCaps(m.id, c)
       );
     }
     if (u.kind === "vocabulary" || u.vocabTopic) {
       return topicHasVocabulary(u.vocabTopic || u.territory);
     }
     if (u.territory === "nouns" && u.topicId && u.stepId) {
-      const modes = modesForNounsStep(u.topicId, u.stepId);
-      if (c.audio === "only") return modes.some((m) => m.id === "listen");
-      if (c.keyboard === "only") {
-        return modes.some((m) => m.id === "convert" || m.id === "proofread");
-      }
-      return modes.some(
-        (m) => m.id === "build" || m.id === "choose" || m.id === "proofread"
+      return modesForNounsStep(u.topicId, u.stepId).some((m) =>
+        nounPresetMatchesCaps(m.id, c)
       );
     }
     if (u.territory === "nouns" && u.learnUnitId) {
-      if (c.keyboard === "only") {
-        return modalitiesForUnit(u.learnUnitId).some(
-          (m) => m.playable && m.id === "type-article"
-        );
-      }
-      return modalitiesForUnit(u.learnUnitId).some(
-        (m) =>
-          m.playable &&
-          (m.id === "choose-article" ||
-            m.id === "category-gender" ||
-            (m.id === "type-article" && capOn(c.keyboard)))
-      );
+      return nounsCellsMatchingCaps(u.learnUnitId, c).length > 0;
     }
     return false;
   }

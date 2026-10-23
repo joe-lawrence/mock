@@ -39,6 +39,7 @@ export {
   clockForm,
   clockParts,
   clockFormAlternates,
+  clockEverydayNote,
   digitalTimeAnalysis,
   digitalTimeForm,
   digitalTimeParts,

@@ -179,6 +179,52 @@ export function getInteractionPreset(presetId) {
 }
 
 /**
+ * Whether a preset can run under carousel caps.
+ * Proofread and typed visuals count as write. Pick stays available
+ * unless Write or Listen is exclusive.
+ * @param {string} modeId
+ * @param {{ keyboard?: boolean|"only", audio?: boolean|"only" }} [caps]
+ */
+export function presetMatchesCaps(
+  modeId,
+  caps = { keyboard: true, audio: true }
+) {
+  const preset = getInteractionPreset(modeId);
+  const isWrite =
+    modeId === "convert" ||
+    modeId === "proofread" ||
+    modeId === "visual-freeform" ||
+    preset?.response === RESPONSE.FREEFORM;
+  const isListen = modeId === "listen" || preset?.stimulus === STIMULUS.TTS;
+  if (caps.keyboard === "only") return isWrite;
+  if (caps.audio === "only") return isListen;
+  if (isListen && caps.audio === false) return false;
+  if (isWrite && caps.keyboard === false) return false;
+  return true;
+}
+
+/**
+ * A step is dealt when one of its presets fits the caps.
+ * An exclusive cap ignores a single mix id (Convert / Build / Listen):
+ * Place value has no Convert quiz, but Proofread is still write.
+ * @param {string[]} modeIds
+ * @param {string} [mixMode]
+ * @param {{ keyboard?: boolean|"only", audio?: boolean|"only" }} [caps]
+ */
+export function stepDealsForMix(
+  modeIds,
+  mixMode,
+  caps = { keyboard: true, audio: true }
+) {
+  const ids = modeIds || [];
+  const exclusive = caps.keyboard === "only" || caps.audio === "only";
+  if (exclusive || mixMode === "either" || !mixMode) {
+    return ids.some((id) => presetMatchesCaps(id, caps));
+  }
+  return ids.includes(mixMode) && presetMatchesCaps(mixMode, caps);
+}
+
+/**
  * Enrich a legacy mode descriptor with stimulus/response from the map.
  * @param {{ id: string, label?: string, playable?: boolean, blurb?: string }} mode
  */
