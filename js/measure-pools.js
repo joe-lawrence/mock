@@ -3,7 +3,7 @@
  * Value × unit grids (rebuild via builders).
  */
 
-import { measureAnalysis } from "../engine/numbers/index.js?v=20260930-dmo16";
+import { measureAnalysis } from "../../engine/numbers/index.js?v=20260930-dmo16";
 
 function measureMeta(value, unit) {
   const a = measureAnalysis(value, unit);

@@ -6,7 +6,7 @@
 import {
   weekdayAnalysis,
   monthAnalysis,
-} from "../engine/numbers/index.js?v=20260930-dmo16";
+} from "../../engine/numbers/index.js?v=20260930-dmo16";
 
 function weekdayMeta(index) {
   const a = weekdayAnalysis(index);

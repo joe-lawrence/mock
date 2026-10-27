@@ -3,7 +3,7 @@
  * cloze, proofread, visual (pie/clock), sentence ordinals.
  */
 
-import { cardinalForm, constructionParts } from "../engine/numbers/index.js?v=20260930-dmo16";
+import { cardinalForm, constructionParts } from "../../engine/numbers/index.js?v=20260930-dmo16";
 
 const BLANK_PREF = new Set([
   "und",

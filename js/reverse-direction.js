@@ -6,7 +6,7 @@
  * When both are allowed, play deals a direction per question.
  */
 
-import { ARTICLES, SUFFIX_PATTERNS, WUGS } from "../engine/nouns/index.js";
+import { ARTICLES, SUFFIX_PATTERNS, WUGS } from "../../engine/nouns/index.js";
 import { makeNounReverseChoices } from "./quiz-extras.js";
 
 /** @typedef {"forward"|"reverse"} QuizDirection */

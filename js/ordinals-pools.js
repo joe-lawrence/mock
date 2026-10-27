@@ -3,7 +3,7 @@
  * Combinations from ranges (rebuild via builders).
  */
 
-import { ordinalAnalysis } from "../engine/numbers/index.js?v=20261001-ordam1";
+import { ordinalAnalysis } from "../../engine/numbers/index.js?v=20261001-ordam1";
 
 function ordinalMeta(n) {
   const a = ordinalAnalysis(n);

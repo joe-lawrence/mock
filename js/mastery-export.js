@@ -13,7 +13,7 @@ import {
   grainsOfKind,
   weakConcepts,
 } from "./multi-grain-evidence.js";
-import { WEAK_ACCURACY } from "../engine/dealer.js";
+import { WEAK_ACCURACY } from "../../engine/dealer.js";
 
 /**
  * @param {string} key e.g. numbers:cardinals:tens or numbers:cardinals:tens×convert

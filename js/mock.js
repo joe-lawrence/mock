@@ -26,12 +26,12 @@ import {
   createCalendarDateConstructionExercise,
   createMeasureConstructionExercise,
   submitExerciseAttempt,
-} from "../engine/exercise/index.js";
+} from "../../engine/exercise/index.js";
 import {
   EXERCISE_LAYER_VERSION,
   TEMPLATES,
   scaffoldingFor,
-} from "../engine/exercise/modes.js";
+} from "../../engine/exercise/modes.js";
 import {
   associationLemmas,
   wugForms,
@@ -51,7 +51,7 @@ import {
   recordNounAttempt,
   productivePluralSpec,
   WUGS,
-} from "../engine/nouns/index.js";
+} from "../../engine/nouns/index.js";
 import {
   cardinalForm,
   parseCardinalForm,
@@ -69,7 +69,7 @@ import {
   clockEverydayNote,
   clockForm,
   digitalTimeForm,
-} from "../engine/numbers/index.js?v=20261023-clockalt1";
+} from "../../engine/numbers/index.js?v=20261023-clockalt1";
 import {
   NUMBERS_TOPICS,
   getNumbersTopic,
@@ -111,7 +111,7 @@ import {
   caseAttemptEvidence,
   caseDeckForPreset,
   pickNextCaseQuestion,
-} from "../engine/nouns/case-questions.js?v=20261026-caserewrite";
+} from "../../engine/nouns/case-questions.js?v=20261026-caserewrite";
 import {
   addUserCard,
   buildReviewQuestion,
@@ -187,7 +187,7 @@ import {
   dealExercise,
   WEAK_ACCURACY,
   DEALER_REASONS,
-} from "../engine/dealer.js?v=20261018-s08s";
+} from "../../engine/dealer.js?v=20261018-s08s";
 import {
   PIPER_VOICES,
   ensurePiperReady,

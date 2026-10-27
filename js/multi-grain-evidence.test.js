@@ -13,7 +13,7 @@ import {
   EVIDENCE_GRAIN,
 } from "./multi-grain-evidence.js";
 import { ATTEMPT_RECORD_FIELDS } from "./guidance-contracts.js";
-import { dealExercise } from "../engine/dealer.js";
+import { dealExercise } from "../../engine/dealer.js";
 
 describe("multi-grain evidence (Slice 5)", () => {
   it("builds unit, unit×preset, and concept keys", () => {
