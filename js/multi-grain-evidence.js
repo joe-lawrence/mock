@@ -10,7 +10,7 @@
  * flat unit maps / legacy mirrors.
  */
 
-import { cardinalAnalysis } from "../../engine/numbers/cardinal.js";
+import { cardinalAnalysis } from "../engine/numbers/cardinal.js";
 
 /** @typedef {{ correct: number, total: number, kind: string, label?: string, conceptId?: string, presetId?: string }} GrainStat */
 /** @typedef {{ grains: Record<string, GrainStat> }} EvidenceStore */

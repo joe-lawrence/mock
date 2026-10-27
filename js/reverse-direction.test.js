@@ -11,7 +11,7 @@ import {
   reverseNumbersConvert,
   reverseCompassConvert,
 } from "./reverse-direction.js";
-import { LEXICON, WUGS } from "../../engine/nouns/index.js";
+import { LEXICON, WUGS } from "../engine/nouns/index.js";
 import { vocabulary } from "./generated/vocabulary.js";
 import {
   directionsForNounsCell,

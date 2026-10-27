@@ -26,12 +26,12 @@ import {
   createCalendarDateConstructionExercise,
   createMeasureConstructionExercise,
   submitExerciseAttempt,
-} from "../../engine/exercise/index.js";
+} from "../engine/exercise/index.js";
 import {
   EXERCISE_LAYER_VERSION,
   TEMPLATES,
   scaffoldingFor,
-} from "../../engine/exercise/modes.js";
+} from "../engine/exercise/modes.js";
 import {
   associationLemmas,
   wugForms,
@@ -51,7 +51,7 @@ import {
   recordNounAttempt,
   productivePluralSpec,
   WUGS,
-} from "../../engine/nouns/index.js";
+} from "../engine/nouns/index.js";
 import {
   cardinalForm,
   parseCardinalForm,
@@ -69,7 +69,7 @@ import {
   clockEverydayNote,
   clockForm,
   digitalTimeForm,
-} from "../../engine/numbers/index.js?v=20261023-clockalt1";
+} from "../engine/numbers/index.js?v=20261023-clockalt1";
 import {
   NUMBERS_TOPICS,
   getNumbersTopic,
@@ -104,14 +104,14 @@ import {
   CASE_TOPICS,
   getCaseStep,
   getCaseTopic,
-} from "./case-curriculum.js?v=20261026-caserewrite";
+} from "./case-curriculum.js?v=20261027-relengine";
 import {
   buildCaseUnitQuestions,
   buildCasePlayDeck,
   caseAttemptEvidence,
   caseDeckForPreset,
   pickNextCaseQuestion,
-} from "../../engine/nouns/case-questions.js?v=20261026-caserewrite";
+} from "../engine/nouns/case-questions.js?v=20261026-caserewrite";
 import {
   addUserCard,
   buildReviewQuestion,
@@ -120,14 +120,14 @@ import {
   introduceUnit,
   recordReviewResult,
   reviewQueue,
-} from "./word-bank.js?v=20261025-case4";
+} from "./word-bank.js?v=20261027-relengine";
 import {
   caseHubHtml,
   caseLearnHtml,
   caseUserFormHtml,
   casePassageHtml,
 } from "./case-practice.js?v=20261026-caseread";
-import { pluralPool } from "./plurals-pools.js";
+import { pluralPool } from "./plurals-pools.js?v=20261027-relengine";
 import {
   DIRECTION,
   isReverse,
@@ -135,7 +135,7 @@ import {
   wugReverseChoose,
   reverseNumbersConvert,
   reverseCompassConvert,
-} from "./reverse-direction.js?v=20261023-time24";
+} from "./reverse-direction.js?v=20261027-relengine";
 import {
   compassPlaceholder,
   caseFormExample,
@@ -143,32 +143,32 @@ import {
   freeformPlaceholder,
 } from "./answer-placeholders.js?v=20261027-listen";
 
-import { DECIMAL_POOLS } from "./decimals-pools.js?v=20260930-ref1";
+import { DECIMAL_POOLS } from "./decimals-pools.js?v=20261027-relengine";
 import {
   FRACTION_POOLS,
   FRACTION_POOL_BUILDERS,
   buildFractionPool,
-} from "./fractions-pools.js?v=20261019-dyn1";
+} from "./fractions-pools.js?v=20261027-relengine";
 import {
   TIME_POOLS,
   TIME_POOL_BUILDERS,
   buildTimePool,
-} from "./time-pools.js?v=20261019-dyn1";
+} from "./time-pools.js?v=20261027-relengine";
 import {
   DATE_POOLS,
   DATE_POOL_BUILDERS,
   buildDatePool,
-} from "./dates-pools.js?v=20261021-am1";
+} from "./dates-pools.js?v=20261027-relengine";
 import {
   MEASURE_POOLS,
   MEASURE_POOL_BUILDERS,
   buildMeasurePool,
-} from "./measure-pools.js?v=20261019-dyn1";
+} from "./measure-pools.js?v=20261027-relengine";
 import {
   ORDINAL_POOLS,
   ORDINAL_POOL_BUILDERS,
   buildOrdinalPool,
-} from "./ordinals-pools.js?v=20261021-am1";
+} from "./ordinals-pools.js?v=20261027-relengine";
 import {
   makeClozeExercise,
   makeProofreadExercise,
@@ -180,14 +180,14 @@ import {
   compassDirectionPool,
   COMPASS_BEARINGS,
   pieDialMatchesFraction,
-} from "./quiz-extras.js?v=20261026-pie13";
+} from "./quiz-extras.js?v=20261027-relengine";
 
 import { mountNavCarousel } from "./nav-carousel.js?v=20261025-case6";
 import {
   dealExercise,
   WEAK_ACCURACY,
   DEALER_REASONS,
-} from "../../engine/dealer.js?v=20261018-s08s";
+} from "../engine/dealer.js?v=20261018-s08s";
 import {
   PIPER_VOICES,
   ensurePiperReady,
@@ -221,7 +221,7 @@ import {
   buildHelpModel,
   renderHelpSheetHtml,
   wireHelpSheet,
-} from "./help-sheet.js?v=20261026-caseread";
+} from "./help-sheet.js?v=20261027-relengine";
 import {
   freshSupportVector,
   climbHelpRung,
@@ -249,7 +249,7 @@ import {
   weakConcepts,
   grainAccuracy,
   EVIDENCE_GRAIN,
-} from "./multi-grain-evidence.js?v=20261018-s05";
+} from "./multi-grain-evidence.js?v=20261027-relengine";
 import {
   loadProfileStore,
   saveProfileStore,
@@ -274,7 +274,7 @@ import {
   fullAuditToPlaintext,
   buildReportCard,
   buildFullAudit,
-} from "./mastery-export.js?v=20261018-s07";
+} from "./mastery-export.js?v=20261027-relengine";
 import {
   mountVocabularyPanel,
   topicHasVocabulary,

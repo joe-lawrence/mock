@@ -15,13 +15,13 @@ import {
 } from "./generated/vocabulary.js?v=20260930-vocab17";
 import {
   parseCardinalForm,
-} from "../../engine/numbers/index.js?v=20260930-ref1";
+} from "../engine/numbers/index.js?v=20260930-ref1";
 import {
   ATOMIC,
   COMPOUND_ONES,
   TENS,
-} from "../../engine/numbers/data.js?v=20260930-ref1";
-import { productivePluralSpec, WUGS } from "../../engine/nouns/index.js";
+} from "../engine/numbers/data.js?v=20260930-ref1";
+import { productivePluralSpec, WUGS } from "../engine/nouns/index.js";
 
 /** Singular and productive-plural surfaces of invented wugs — never Help vocab. */
 const WUG_SURFACES = new Set();

@@ -16,8 +16,8 @@ import {
   weekdayExercise,
   monthExercise,
   measureExercise,
-} from "../../engine/numbers/exercise.js";
-import { pluralExercise, wugExercise } from "../../engine/nouns/exercise.js";
+} from "../engine/numbers/exercise.js";
+import { pluralExercise, wugExercise } from "../engine/nouns/exercise.js";
 
 /**
  * @typedef {{ sample: string, hint: string }} HintSample

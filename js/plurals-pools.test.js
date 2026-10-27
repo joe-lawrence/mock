@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { pluralPool } from "./plurals-pools.js";
-import { productivePluralSpec } from "../../engine/nouns/plural-rules.js";
+import { productivePluralSpec } from "../engine/nouns/plural-rules.js";
 
 describe("plural pools", () => {
   it("predicts the suffix endings used in the ladder", () => {

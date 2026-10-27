@@ -5,7 +5,7 @@
  * and from frames whose units are already introduced.
  */
 
-import { articleForm, nounAnalysis } from "../../engine/nouns/noun.js";
+import { articleForm, nounAnalysis } from "../engine/nouns/noun.js";
 import {
   CASE_ACCUSATIVE_CONCEPTS,
   CASE_ACC_MASC_GENDERS,
@@ -13,7 +13,7 @@ import {
   CASE_FRAME_UNITS,
   composeCaseAccusativeItems,
   composeCaseFrameItems,
-} from "../../engine/nouns/practice-compose.js";
+} from "../engine/nouns/practice-compose.js";
 
 export function emptyWordBank() {
   return { introducedUnits: [], cards: {} };

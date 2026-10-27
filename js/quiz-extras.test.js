@@ -34,7 +34,7 @@ import {
   modesForNounsStep,
 } from "./nouns-curriculum.js";
 import { INTERACTION_PRESETS, RESPONSE } from "./interaction-presets.js";
-import { LEXICON } from "../../engine/nouns/data.js";
+import { LEXICON } from "../engine/nouns/data.js";
 
 
 describe("compass directions quiz", () => {

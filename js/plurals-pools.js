@@ -12,7 +12,7 @@ import {
   lemmasWithPlural,
   productivePluralSpec,
   pluralMatchesProductiveRule,
-} from "../../engine/nouns/index.js";
+} from "../engine/nouns/index.js";
 
 const SURFACE_ENDINGS = ["e", "en", "er", "n", "s", "—"];
 

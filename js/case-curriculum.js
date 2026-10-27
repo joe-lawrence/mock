@@ -5,7 +5,7 @@
  * `modes` are the interactions that unit's practice deck actually deals.
  */
 
-import { caseUnitModes } from "../../engine/nouns/case-questions.js";
+import { caseUnitModes } from "../engine/nouns/case-questions.js";
 
 export const CASE_CHART_ID = "case.chart.definite";
 

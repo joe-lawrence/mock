@@ -8,7 +8,7 @@
 import {
   fractionAnalysis,
   mixedFractionAnalysis,
-} from "../../engine/numbers/index.js?v=20260930-dmo16";
+} from "../engine/numbers/index.js?v=20260930-dmo16";
 
 /** Curriculum max denominator (Zwölftel). */
 export const FRACTION_MAX_DENOM = 12;

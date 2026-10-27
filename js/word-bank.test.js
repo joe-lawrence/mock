@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { nounAnalysis } from "../../engine/nouns/noun.js";
+import { nounAnalysis } from "../engine/nouns/noun.js";
 import {
   addUserCard,
   buildReviewQuestion,
