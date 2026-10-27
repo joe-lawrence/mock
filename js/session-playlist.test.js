@@ -3,10 +3,12 @@ import { describe, it } from "node:test";
 import {
   buildNumbersCatalog,
   buildNounsCatalog,
+  buildCaseCatalog,
   catalogUnitIds,
   enabledQuizEntries,
   enabledVocabAreas,
   enabledNounFamilies,
+  enabledCaseUnits,
   playlistScopeLabel,
   playlistHasQuiz,
   playlistHasVocab,
@@ -116,6 +118,38 @@ describe("session playlist catalog", () => {
         enabledUnitIds: catalogUnitIds(catalog),
       }),
       [{ familyId: "wugs", learnUnitId: "feminine" }]
+    );
+  });
+
+  it("lists case topics and only returns enabled units", () => {
+    const catalog = buildCaseCatalog([
+      {
+        id: "accusative",
+        label: "Accusative",
+        playable: true,
+        steps: [
+          { id: "masc", label: "Masculine change", playable: true },
+          { id: "ohne", label: "ohne", playable: true },
+        ],
+      },
+      {
+        id: "dative",
+        label: "Dative",
+        playable: false,
+        steps: [{ id: "mit", label: "mit", playable: true }],
+      },
+    ]);
+    assert.deepEqual(catalogUnitIds(catalog), [
+      "case:accusative:masc",
+      "case:accusative:ohne",
+    ]);
+    assert.equal(catalog[0].children[0].label, "Masculine change");
+    assert.deepEqual(
+      enabledCaseUnits({
+        catalog,
+        enabledUnitIds: ["case:accusative:ohne"],
+      }),
+      [{ topicId: "accusative", stepId: "ohne" }]
     );
   });
 });

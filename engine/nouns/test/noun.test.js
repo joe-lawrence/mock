@@ -188,6 +188,16 @@ describe("exercises + attempts", () => {
     assert.equal(attempt.evaluation.status, "correct");
   });
 
+  it("case lesson nouns are lexical facts", () => {
+    assert.equal(nounArticle("Hund"), "der");
+    assert.equal(nounArticle("Frau"), "die");
+    assert.equal(nounArticle("Kind"), "das");
+    assert.equal(LEXICON.Hund.plural.form, "Hunde");
+    assert.equal(LEXICON.Kind.plural.form, "Kinder");
+    assert.equal(LEXICON.Mann.plural, undefined);
+    assert.equal(nounAnalysis("Hund").pattern, null);
+  });
+
   it("every lexicon entry with gender has a definable article", () => {
     for (const lemma of Object.keys(LEXICON)) {
       assert.ok(nounArticle(lemma), lemma);

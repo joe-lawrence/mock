@@ -158,6 +158,16 @@ describe("compass directions quiz", () => {
     assert.equal(dialNumeratorForFraction(1, 3), 120);
     assert.ok(pieDialMatchesFraction({ numerator: 180, denominator: 360 }, 1, 2));
     assert.ok(pieDialMatchesFraction({ numerator: 72, denominator: 360 }, 1, 5));
+    // Elftel is not a twelfth. The dial must snap to 11 wedges.
+    assert.equal(snapPieDialNumerator(98, 11, 11), 3);
+    assert.equal(numeratorFromAngleDeg(98, 11), 3);
+    assert.ok(pieDialMatchesFraction({ numerator: 3, denominator: 11 }, 3, 11));
+    assert.equal(
+      pieDialMatchesFraction({ numerator: 90, denominator: 360 }, 3, 11),
+      false
+    );
+    const elftel = pieSvg(0, 11, { interactive: true, guideTicks: 0 });
+    assert.equal((elftel.match(/pie-wedge/g) || []).length, 11);
     assert.ok(pieFractionsEqual(1, 2, 180, 360));
     assert.deepEqual(simplifyFraction(180, 360), [1, 2]);
     const dialHtml = pieSvg(90, 360, { interactive: true, guideTicks: 12 });

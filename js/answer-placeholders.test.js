@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  caseTypePlaceholder,
   compassPlaceholder,
   freeformPlaceholder,
 } from "./answer-placeholders.js";
@@ -102,6 +103,21 @@ describe("freeform placeholders", () => {
         { reverse: true }
       ),
       "e.g. 21 °C"
+    );
+  });
+
+  it("shows an article format that is not the accusative answer", () => {
+    assert.equal(
+      caseTypePlaceholder({ case: "accusative", correct: "den" }),
+      "e.g. die"
+    );
+    assert.equal(
+      caseTypePlaceholder({
+        case: "dative",
+        target: "noun",
+        correct: "Hunden",
+      }),
+      "e.g. Kindern"
     );
   });
 

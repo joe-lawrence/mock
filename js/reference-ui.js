@@ -6,62 +6,8 @@ import {
   getReference,
   reference,
   referenceNav,
-  REFERENCE_VERSION,
-} from "./generated/reference.js?v=20261021-am1";
-
-function esc(s) {
-  return String(s || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function mdLite(text) {
-  if (!text) return "";
-  // Very small subset: paragraphs + inline code + bold + tables already HTML-escaped lines
-  const blocks = String(text).trim().split(/\n\n+/);
-  return blocks
-    .map((block) => {
-      const lines = block.split("\n");
-      if (lines.every((l) => l.trim().startsWith("|"))) {
-        return tableHtml(lines);
-      }
-      if (lines.every((l) => /^\s*[-*]\s+/.test(l))) {
-        const items = lines
-          .map((l) => l.replace(/^\s*[-*]\s+/, ""))
-          .map((l) => `<li>${inline(l)}</li>`)
-          .join("");
-        return `<ul>${items}</ul>`;
-      }
-      return `<p>${inline(lines.join(" "))}</p>`;
-    })
-    .join("");
-}
-
-function inline(s) {
-  return esc(s)
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-}
-
-function tableHtml(lines) {
-  const rows = lines
-    .map((l) =>
-      l
-        .split("|")
-        .map((c) => c.trim())
-        .filter((_, i, a) => i > 0 && i < a.length - 1)
-    )
-    .filter((r) => r.length && !r.every((c) => /^-+$/.test(c)));
-  if (rows.length < 2) return "";
-  const [head, ...body] = rows;
-  return `<table class="ref-table"><thead><tr>${head
-    .map((c) => `<th>${inline(c)}</th>`)
-    .join("")}</tr></thead><tbody>${body
-    .map((r) => `<tr>${r.map((c) => `<td>${inline(c)}</td>`).join("")}</tr>`)
-    .join("")}</tbody></table>`;
-}
+} from "./generated/reference.js?v=20261025-case3";
+import { escapeHtml as esc, renderInline, renderProse } from "./md-lite.js";
 
 function examplesTableHtml(rows) {
   if (!Array.isArray(rows) || !rows.length) return "";
@@ -72,7 +18,7 @@ function examplesTableHtml(rows) {
     .join("")}</tr></thead><tbody>${rows
     .map(
       (r) =>
-        `<tr>${keys.map((k) => `<td>${inline(String(r[k] ?? ""))}</td>`).join("")}</tr>`
+        `<tr>${keys.map((k) => `<td>${renderInline(String(r[k] ?? ""))}</td>`).join("")}</tr>`
     )
     .join("")}</tbody></table>`;
 }
@@ -81,42 +27,86 @@ function sectionBlock(title, body) {
   if (!body || !String(body).trim()) return "";
   // Skip raw JSON section if it leaked
   if (/^```json/m.test(body)) return "";
-  return `<section class="ref-section"><h4>${esc(title)}</h4>${mdLite(body)}</section>`;
+  return `<section class="ref-section"><h4>${esc(title)}</h4>${renderProse(body)}</section>`;
 }
 
-/** HTML for a single Reference unit entry. */
+function missingReferenceHtml(id) {
+  return `<p class="ref-missing">Unknown reference: <code>${esc(id)}</code></p>`;
+}
+
+function summaryHtml(unit) {
+  if (!unit?.summary) return "";
+  return `<p class="ref-summary">${renderInline(unit.summary)}</p>`;
+}
+
+/** Body summary, when the page wrote one that is not the short card line. */
+function learnSummaryHtml(unit) {
+  const body = String(unit?.sections?.summary || "").trim();
+  const line = String(unit?.summary || "").trim();
+  if (!body || body === line) return "";
+  return sectionBlock("Summary", body);
+}
+
+function examplesBlock(unit) {
+  if (unit?.examplesTable?.length > 0) {
+    return `<section class="ref-section"><h4>Examples</h4>${examplesTableHtml(unit.examplesTable)}</section>`;
+  }
+  return sectionBlock("Examples", unit?.sections?.examples);
+}
+
+/**
+ * Full curriculum reading: summary, Pattern, Rule, Examples, Limitations, Notes.
+ * @param {string} id
+ */
+export function renderLearnReadingHtml(id) {
+  const u = getReference(id);
+  if (!u) return missingReferenceHtml(id);
+  return `
+    <article class="ref-entry" data-ref-id="${esc(u.id)}" data-ref-view="learn">
+      <h3 class="ref-title">${esc(u.title)}</h3>
+      ${summaryHtml(u)}
+      ${learnSummaryHtml(u)}
+      ${sectionBlock("Pattern", u.sections?.pattern)}
+      ${sectionBlock("Rule", u.sections?.rule)}
+      ${examplesBlock(u)}
+      ${sectionBlock("Limitations", u.sections?.limitations)}
+      ${sectionBlock("Notes", u.sections?.notes)}
+    </article>`;
+}
+
+/**
+ * Chart appended under a Learn reading: summary and examples only.
+ * @param {string} id
+ */
+export function renderChartLookupHtml(id) {
+  const u = getReference(id);
+  if (!u) return missingReferenceHtml(id);
+  return `
+    <article class="ref-entry ref-chart-lookup" data-ref-id="${esc(u.id)}" data-ref-view="chart">
+      <h3 class="ref-title">${esc(u.title)}</h3>
+      ${summaryHtml(u)}
+      ${examplesBlock(u)}
+    </article>`;
+}
+
+/** Short reference card: summary, examples, Related links. */
 export function renderReferenceEntryHtml(id) {
   const u = getReference(id);
-  if (!u) {
-    return `<p class="ref-missing">Unknown reference: <code>${esc(id)}</code></p>`;
-  }
+  if (!u) return missingReferenceHtml(id);
   const related = (u.related || [])
     .map((rid) => {
       const t = getReference(rid)?.title || rid;
       return `<button type="button" class="ref-link" data-ref-id="${esc(rid)}">${esc(t)}</button>`;
     })
     .join("");
-  const practice = (u.practice || [])
-    .map((pid) => `<li><code>${esc(pid)}</code></li>`)
-    .join("");
-  const examples =
-    u.examplesTable?.length > 0
-      ? `<section class="ref-section"><h4>Examples</h4>${examplesTableHtml(u.examplesTable)}</section>`
-      : sectionBlock("Examples", u.sections?.examples);
 
   return `
-    <article class="ref-entry" data-ref-id="${esc(u.id)}">
+    <article class="ref-entry" data-ref-id="${esc(u.id)}" data-ref-view="card">
       <p class="ref-kicker">${esc(u.territory)}${u.section ? ` · ${esc(u.section)}` : ""}</p>
       <h3 class="ref-title">${esc(u.title)}</h3>
-      ${u.summary ? `<p class="ref-summary">${esc(u.summary)}</p>` : ""}
-      ${sectionBlock("Pattern", u.sections?.pattern)}
-      ${sectionBlock("Rule", u.sections?.rule)}
-      ${examples}
-      ${sectionBlock("Limitations", u.sections?.limitations)}
-      ${sectionBlock("Notes", u.sections?.notes)}
+      ${summaryHtml(u)}
+      ${examplesBlock(u)}
       ${related ? `<section class="ref-section"><h4>Related</h4><div class="ref-related">${related}</div></section>` : ""}
-      ${practice ? `<section class="ref-section"><h4>Practice</h4><ul class="ref-practice">${practice}</ul><p class="ref-note">Practice capability IDs are planned links (warnings until registered).</p></section>` : ""}
-      <p class="ref-meta"><code>${esc(u.id)}</code> · ${esc(REFERENCE_VERSION)}</p>
     </article>
   `;
 }

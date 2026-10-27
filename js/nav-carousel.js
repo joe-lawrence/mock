@@ -12,6 +12,7 @@ import {
   pluralNavUnits,
 } from "./nouns-curriculum.js?v=20261023-suffixplay";
 import { topicHasVocabulary } from "./vocabulary-ui.js?v=20260930-vocab16";
+import { caseNavTopics } from "./case-curriculum.js?v=20261025-case5";
 
 const CAPS_KEY = "schnapp-nav-caps";
 const LONG_MS = 500;
@@ -125,7 +126,45 @@ export function buildNavTree() {
       children: numbersChildren,
     },
     NOUNS_BRANCH,
+    {
+      id: "case",
+      title: "Case",
+      type: "topic",
+      territory: "case",
+      children: caseNavTopics(),
+    },
   ];
+}
+
+/**
+ * Whether a nav unit can run in Play under the current write/listen caps.
+ * Case practice is Choose, so it counts unless the caps are write-only or listen-only.
+ * @param {object} u
+ * @param {{ keyboard?: boolean|"only", audio?: boolean|"only" }} [c]
+ */
+export function unitMatchesPlayCaps(u, c = { keyboard: true, audio: true }) {
+  if (!u || u.playable === false) return false;
+  if (u.territory === "numbers" && u.topicId && u.stepId) {
+    return modesForStep(u.topicId, u.stepId).some((m) =>
+      nounPresetMatchesCaps(m.id, c)
+    );
+  }
+  if (u.kind === "vocabulary" || u.vocabTopic) {
+    return topicHasVocabulary(u.vocabTopic || u.territory);
+  }
+  if (u.territory === "nouns" && u.topicId && u.stepId) {
+    return modesForNounsStep(u.topicId, u.stepId).some((m) =>
+      nounPresetMatchesCaps(m.id, c)
+    );
+  }
+  if (u.territory === "nouns" && u.learnUnitId) {
+    return nounsCellsMatchingCaps(u.learnUnitId, c).length > 0;
+  }
+  if (u.territory === "case") {
+    const modes = u.modes?.length ? u.modes : ["choose"];
+    return modes.some((id) => nounPresetMatchesCaps(id, c));
+  }
+  return false;
 }
 
 /** Depth-first unit order for Learn (and stable playlist order). */
@@ -291,24 +330,7 @@ export function mountNavCarousel(container, options = {}) {
    * Write/Listen only when those caps are on (or exclusive).
    */
   function unitMatchesCaps(u, c = caps()) {
-    if (!u || u.playable === false) return false;
-    if (u.territory === "numbers" && u.topicId && u.stepId) {
-      return modesForStep(u.topicId, u.stepId).some((m) =>
-        nounPresetMatchesCaps(m.id, c)
-      );
-    }
-    if (u.kind === "vocabulary" || u.vocabTopic) {
-      return topicHasVocabulary(u.vocabTopic || u.territory);
-    }
-    if (u.territory === "nouns" && u.topicId && u.stepId) {
-      return modesForNounsStep(u.topicId, u.stepId).some((m) =>
-        nounPresetMatchesCaps(m.id, c)
-      );
-    }
-    if (u.territory === "nouns" && u.learnUnitId) {
-      return nounsCellsMatchingCaps(u.learnUnitId, c).length > 0;
-    }
-    return false;
+    return unitMatchesPlayCaps(u, c);
   }
 
   /** Selected units that can actually run under current caps (Play). */

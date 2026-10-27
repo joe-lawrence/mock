@@ -7,7 +7,8 @@
 import {
   getReference,
   referenceIdForPracticeContext,
-} from "./reference-ui.js?v=20260930-ref1";
+} from "./reference-ui.js?v=20261026-caseread";
+import { renderInline } from "./md-lite.js";
 import {
   getVocabulary,
   vocabulary,
@@ -446,18 +447,6 @@ export function buildVocabEntries(lemmas, extraParts = [], opts = {}) {
   return rows;
 }
 
-function patternFromReference(refId) {
-  const u = getReference(refId);
-  if (!u) return null;
-  const sections = u.sections || {};
-  const text =
-    (sections.pattern && String(sections.pattern).trim()) ||
-    (sections.rule && String(sections.rule).trim()) ||
-    (u.summary && String(u.summary).trim()) ||
-    "";
-  return text || null;
-}
-
 function refineReferenceId(ctx, exercise) {
   const patternId =
     exercise?.materials?.patternId || exercise?.resolution?.patternId || null;
@@ -523,13 +512,10 @@ export function buildHelpModel(opts = {}) {
   const refId = refineReferenceId(ctx, exercise);
   const ref = refId ? getReference(refId) : null;
 
-  let pattern =
+  const pattern =
     (exercise?.materials?.patternBlurb &&
       String(exercise.materials.patternBlurb).trim()) ||
     "";
-  if (!pattern && refId) {
-    pattern = patternFromReference(refId) || "";
-  }
 
   return {
     hint: hint || null,
@@ -630,14 +616,14 @@ export function renderHelpSheetHtml(model) {
 
   if (model.pattern) {
     cards.push(
-      cardHtml("pattern", "Pattern", `<p>${esc(model.pattern)}</p>`)
+      cardHtml("pattern", "Pattern", `<p>${renderInline(model.pattern)}</p>`)
     );
   }
 
   if (model.reference) {
     const r = model.reference;
     const sum = r.summary
-      ? `<p class="help-ref-summary">${esc(r.summary)}</p>`
+      ? `<p class="help-ref-summary">${renderInline(r.summary)}</p>`
       : "";
     cards.push(
       cardHtml(

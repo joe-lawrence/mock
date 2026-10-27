@@ -210,6 +210,38 @@ export function freeformPlaceholder(meta, opts = {}) {
 }
 
 /**
+ * Article or dative-plural sample that is not the form under test.
+ * @param {{ target?: string, case?: string, articleKind?: string, kind?: string, correct?: string }} [question]
+ */
+export function caseFormExample(question) {
+  const correct = String(question?.correct || "").trim().toLowerCase();
+  if (question?.target === "noun") {
+    const nouns = ["Hunden", "Kindern", "Frauen"];
+    return nouns.find((item) => item.toLowerCase() !== correct) || nouns[0];
+  }
+  const indefinite =
+    question?.articleKind === "indefinite" || question?.kind === "dative-indef";
+  const pools = {
+    accusative: indefinite
+      ? ["eine", "ein", "einen"]
+      : ["die", "das", "den"],
+    dative: indefinite ? ["einem", "einer", "eine"] : ["der", "dem", "den"],
+    nominative: indefinite ? ["ein", "eine"] : ["die", "das", "der"],
+    genitive: indefinite ? ["eines", "einer"] : ["des", "der"],
+  };
+  const caseId = String(question?.case || "").toLowerCase();
+  const pool =
+    pools[caseId] ||
+    (indefinite ? ["eine", "einen", "einem"] : ["die", "das", "den", "dem"]);
+  return pool.find((item) => item.toLowerCase() !== correct) || pool[0];
+}
+
+/** Text-field hint for “type the article / form”, never the answer. */
+export function caseTypePlaceholder(question) {
+  return `e.g. ${caseFormExample(question)}`;
+}
+
+/**
  * Compass type-in. Reverse types the English name.
  * @param {boolean} reverse
  * @param {string[]} [avoid]

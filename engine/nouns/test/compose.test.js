@@ -10,6 +10,13 @@ import {
   eligiblePracticeContexts,
   composeArticleItem,
   composeValidationPair,
+  composeCaseAccusativeItems,
+  composeCaseFrameItems,
+  CASE_FRAME_UNITS,
+  CASE_ACCUSATIVE_FRAMES,
+  CASE_ACCUSATIVE_CONCEPTS,
+  CASE_ACC_MASC_GENDERS,
+  CASE_ACC_UNCHANGED_GENDERS,
   composeArticleApplicationItems,
   composeSentenceValidationItems,
   categoryArticleItems,
@@ -32,7 +39,7 @@ import {
   createNounCategorySentenceValidationExercise,
 } from "../../exercise/index.js";
 
-describe("article tables (nom/acc, def/indef)", () => {
+describe("article tables (nom/acc/dat singular, def/indef)", () => {
   it("definite nominative", () => {
     assert.equal(definiteArticle("masculine"), "der");
     assert.equal(definiteArticle("feminine"), "die");
@@ -64,6 +71,34 @@ describe("article tables (nom/acc, def/indef)", () => {
         case: "accusative",
       }),
       "einen"
+    );
+  });
+
+  it("definite and indefinite dative singular", () => {
+    assert.equal(definiteArticle("masculine", { case: "dative" }), "dem");
+    assert.equal(definiteArticle("feminine", { case: "dative" }), "der");
+    assert.equal(definiteArticle("neuter", { case: "dative" }), "dem");
+    assert.equal(indefiniteArticle("masculine", { case: "dative" }), "einem");
+    assert.equal(indefiniteArticle("feminine", { case: "dative" }), "einer");
+    assert.equal(indefiniteArticle("neuter", { case: "dative" }), "einem");
+    assert.equal(
+      articleForm("feminine", { kind: "indefinite", case: "dative" }),
+      "einer"
+    );
+  });
+
+  it("plural dative article is den", () => {
+    assert.equal(
+      definiteArticle("masculine", { number: "plural", case: "dative" }),
+      "den"
+    );
+    assert.equal(
+      definiteArticle("feminine", { number: "plural", case: "dative" }),
+      "den"
+    );
+    assert.equal(
+      definiteArticle("neuter", { number: "plural", case: "dative" }),
+      "den"
     );
   });
 
@@ -182,6 +217,151 @@ describe("practice composer", () => {
     });
     // masculine and neuter both "ein" — foil should be feminine "eine"
     assert.equal(foil, "eine");
+  });
+
+  it("composes Case accusative frames only when their concepts are introduced", () => {
+    assert.equal(composeCaseAccusativeItems().length, 0);
+    assert.equal(
+      composeCaseAccusativeItems({ concepts: CATEGORIES_PRACTICE_CONCEPTS }).length,
+      0
+    );
+    assert.ok(!PRACTICE_CONTEXTS.some((c) => c.id.startsWith("ich_helfe")));
+
+    const sehenOnly = composeCaseAccusativeItems({
+      concepts: ["accusative", "definite_article", "verb.sehen"],
+      genders: CASE_ACC_MASC_GENDERS,
+      lemmas: ["Hund", "Frau", "Zeitung"],
+    });
+    assert.deepEqual(
+      [...new Set(sehenOnly.map((item) => item.contextId))],
+      ["ich_sehe_acc_def"]
+    );
+    assert.deepEqual(sehenOnly.map((item) => item.lemma), ["Hund"]);
+    assert.equal(sehenOnly[0].correct, "den");
+    assert.equal(sehenOnly[0].sentence, "Ich sehe den Hund.");
+
+    const masc = composeCaseAccusativeItems({
+      concepts: CASE_ACCUSATIVE_CONCEPTS,
+      genders: CASE_ACC_MASC_GENDERS,
+    });
+    assert.ok(masc.length > 0);
+    assert.ok(masc.every((item) => item.gender === "masculine"));
+    assert.ok(CASE_ACCUSATIVE_FRAMES.every((id) => masc.some((item) => item.contextId === id)));
+    const hundIndef = masc.find(
+      (item) => item.lemma === "Hund" && item.contextId === "ich_habe_acc_indef"
+    );
+    assert.equal(hundIndef.correct, "einen");
+    assert.equal(hundIndef.sentence, "Ich habe einen Hund.");
+    assert.ok(!masc.some((item) => item.lemma === "Frau" || item.lemma === "Zeitung"));
+
+    const unchanged = composeCaseAccusativeItems({
+      concepts: CASE_ACCUSATIVE_CONCEPTS,
+      genders: CASE_ACC_UNCHANGED_GENDERS,
+    });
+    assert.ok(unchanged.every((item) => item.gender === "feminine" || item.gender === "neuter"));
+    assert.equal(
+      unchanged.find((item) => item.lemma === "Frau" && item.contextId === "ich_sehe_acc_def")
+        .correct,
+      "die"
+    );
+    assert.equal(
+      unchanged.find((item) => item.lemma === "Frau" && item.contextId === "ich_sehe_acc_indef")
+        .correct,
+      "eine"
+    );
+    assert.equal(
+      unchanged.find((item) => item.lemma === "Kind" && item.contextId === "ich_habe_acc_indef")
+        .correct,
+      "ein"
+    );
+    assert.equal(
+      unchanged.find((item) => item.lemma === "Kind" && item.contextId === "ich_sehe_acc_def")
+        .correct,
+      "das"
+    );
+    assert.ok(!unchanged.some((item) => item.lemma === "Mann"));
+  });
+
+  it("composes listed dative frames and keeps geben closed", () => {
+    assert.equal(composeCaseFrameItems("case.dat.helfen").length, 0);
+    assert.equal(
+      composeCaseFrameItems("case.dat.helfen", {
+        concepts: CATEGORIES_PRACTICE_CONCEPTS,
+      }).length,
+      0
+    );
+    const gebenFrames = [];
+    for (const [unitId, unit] of Object.entries(CASE_FRAME_UNITS)) {
+      for (const frame of unit.frames) {
+        if (frame.construction === "geben") gebenFrames.push({ unitId, frame });
+      }
+    }
+    assert.equal(gebenFrames.length, 1);
+    assert.equal(gebenFrames[0].unitId, "case.mixed");
+    assert.equal(gebenFrames[0].frame.closed, true);
+    assert.deepEqual(
+      gebenFrames[0].frame.lemmas.map((entry) => entry.lemma),
+      ["Kind", "Ball"]
+    );
+
+    const helfen = composeCaseFrameItems("case.dat.helfen", {
+      concepts: CASE_FRAME_UNITS["case.dat.helfen"].concepts,
+      lemmas: ["Mann", "Frau", "Kind", "Bus", "Zeitung"],
+    });
+    assert.deepEqual(
+      helfen.map((item) => item.lemma),
+      ["Mann", "Frau", "Kind"]
+    );
+    assert.equal(helfen.find((item) => item.lemma === "Mann").correct, "dem");
+    assert.equal(helfen.find((item) => item.lemma === "Frau").correct, "der");
+    assert.equal(helfen.find((item) => item.lemma === "Kind").sentence, "Ich helfe dem Kind.");
+    assert.ok(helfen.every((item) => item.articleKind === "definite"));
+
+    const indef = composeCaseFrameItems("case.dat.indef", {
+      concepts: CASE_FRAME_UNITS["case.dat.indef"].concepts,
+    });
+    assert.equal(indef.find((item) => item.lemma === "Frau").correct, "einer");
+    assert.equal(indef.find((item) => item.lemma === "Mann").correct, "einem");
+    assert.ok(!indef.some((item) => item.correct === "dem"));
+
+    const mit = composeCaseFrameItems("case.prep.mit", {
+      concepts: CASE_FRAME_UNITS["case.prep.mit"].concepts,
+    });
+    assert.equal(
+      mit.find((item) => item.lemma === "Bus").sentence,
+      "Ich fahre mit dem Bus."
+    );
+    assert.equal(
+      mit.find((item) => item.lemma === "Kind").sentence,
+      "Ich spiele mit dem Kind."
+    );
+    assert.ok(!mit.some((item) => item.lemma === "Mann" || item.lemma === "Zeitung"));
+
+    const gefallen = composeCaseFrameItems("case.verb.gefallen", {
+      concepts: CASE_FRAME_UNITS["case.verb.gefallen"].concepts,
+    });
+    assert.equal(CASE_FRAME_UNITS["case.verb.gefallen"].frames[0].closed, true);
+    assert.ok(gefallen.every((item) => item.sentence.startsWith("Das Buch gefällt ")));
+    assert.deepEqual(
+      gefallen.map((item) => item.lemma),
+      ["Mann", "Frau", "Kind"]
+    );
+
+    const plural = composeCaseFrameItems("case.dat.plural", {
+      concepts: CASE_FRAME_UNITS["case.dat.plural"].concepts,
+    });
+    const article = plural.filter((item) => item.target === "article");
+    const nouns = plural.filter((item) => item.target === "noun");
+    assert.deepEqual(
+      article.map((item) => item.sentence),
+      ["Ich helfe den Kindern.", "Ich helfe den Frauen.", "Ich spiele mit den Hunden."]
+    );
+    assert.ok(article.every((item) => item.correct === "den"));
+    assert.deepEqual(
+      nouns.map((item) => item.correct),
+      ["Kindern", "Hunden", "Frauen"]
+    );
+    assert.ok(!plural.some((item) => item.lemma === "Mann"));
   });
 
   it("gates contexts by requires / case", () => {

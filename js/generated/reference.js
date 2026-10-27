@@ -9,6 +9,2050 @@
  */
 export const REFERENCE_VERSION = "20261002-ref2";
 export const reference = {
+  "case.acc.masc": {
+    "id": "case.acc.masc",
+    "title": "Masculine accusative",
+    "territory": "case",
+    "section": "accusative",
+    "status": "active",
+    "summary": "In the accusative forms covered here, masculine `der` becomes `den` and masculine `ein` becomes `einen`.",
+    "order": 2,
+    "related": [
+      "case.chart.definite",
+      "case.acc.unchanged",
+      "case.prep.fuer",
+      "case.prep.ohne"
+    ],
+    "practice": [],
+    "sections": {
+      "summary": "One of the most useful early German case patterns is easy to spot: with a masculine singular noun, the article changes in the accusative. The noun itself does not change in these examples.",
+      "pattern": "",
+      "rule": "Compare the basic noun phrase with the accusative noun phrase:\n\n- `der Hund` → `den Hund`\n- `ein Hund` → `einen Hund`\n- `der Mann` → `den Mann`\n- `ein Mann` → `einen Mann`\n\nIn the sentences on this page, **sehen** (“to see”) and **haben** (“to have”) take an accusative object. That is why the masculine article has the accusative form:\n\n- Ich sehe **den Hund**. — I see the dog.\n- Ich habe **einen Hund**. — I have a dog.\n- Ich sehe **den Mann**. — I see the man.\n\nThe visible change is in the article: `der → den`, `ein → einen`. Do not add an ending to the noun just because the case changed.",
+      "examples": "",
+      "limitations": "This page covers masculine singular noun phrases with definite and indefinite articles. Feminine and neuter accusative articles behave differently: their forms stay the same in the examples in the next page. This is not a complete guide to all German cases or all determiners.",
+      "notes": "The article's form depends on both the noun's gender and the grammatical case of the noun phrase. It is not enough to look at the English translation. A noun such as *Hund* remains masculine even when it is the thing being seen or had.\n\nThe indefinite forms are introduced here alongside the definite forms because they follow the same masculine accusative contrast. You may encounter the definite form first in other learning material; the pattern is still useful to recognize as a pair.",
+      "pronunciation": ""
+    },
+    "examplesTable": [
+      {
+        "cue": "der → den",
+        "german": "Ich sehe den Hund.",
+        "note": "sehen + masculine accusative"
+      },
+      {
+        "cue": "ein → einen",
+        "german": "Ich habe einen Hund.",
+        "note": "haben + masculine accusative"
+      },
+      {
+        "cue": "der → den",
+        "german": "Ich sehe den Mann.",
+        "note": "another masculine noun"
+      },
+      {
+        "cue": "ein → einen",
+        "german": "Ich sehe einen Mann.",
+        "note": "another masculine noun"
+      }
+    ],
+    "chart": [
+      {
+        "cue": "der → den",
+        "note": "sehen + masculine accusative",
+        "form": "Ich sehe den Hund.",
+        "parts": [
+          {
+            "text": "den",
+            "guide": "dane"
+          },
+          {
+            "text": "Hund",
+            "guide": "hoont",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "ein → einen",
+        "note": "haben + masculine accusative",
+        "form": "Ich habe einen Hund.",
+        "parts": [
+          {
+            "text": "einen",
+            "guide": "EYE-nen"
+          },
+          {
+            "text": "Hund",
+            "guide": "hoont",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "der → den",
+        "note": "another masculine noun",
+        "form": "Ich sehe den Mann.",
+        "parts": [
+          {
+            "text": "den",
+            "guide": "dane"
+          },
+          {
+            "text": "Mann",
+            "guide": "mahn",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "ein → einen",
+        "note": "another masculine noun",
+        "form": "Ich sehe einen Mann.",
+        "parts": [
+          {
+            "text": "einen",
+            "guide": "EYE-nen"
+          },
+          {
+            "text": "Mann",
+            "guide": "mahn",
+            "stress": true
+          }
+        ]
+      }
+    ],
+    "flags": [],
+    "source": "content/reference/case/accusative-masculine.md"
+  },
+  "case.acc.unchanged": {
+    "id": "case.acc.unchanged",
+    "title": "Feminine and neuter accusative",
+    "territory": "case",
+    "section": "accusative",
+    "status": "active",
+    "summary": "In these accusative examples, feminine and neuter articles keep the same forms: `die`, `das`, `eine`, and `ein`.",
+    "order": 3,
+    "related": [
+      "case.chart.definite",
+      "case.acc.masc",
+      "case.prep.fuer"
+    ],
+    "practice": [],
+    "sections": {
+      "summary": "Accusative does not mean that every article visibly changes. The masculine singular forms on the previous page change, but feminine and neuter forms in this introductory pattern stay the same.",
+      "pattern": "",
+      "rule": "With **sehen** and **haben** in the examples here:\n\n- Feminine: `die Frau` stays `die Frau`; `eine Frau` stays `eine Frau`.\n- Neuter: `das Kind` stays `das Kind`; `ein Kind` stays `ein Kind`.\n\nFor example:\n\n- Ich sehe **die Frau**. — I see the woman.\n- Ich sehe **das Kind**. — I see the child.\n- Ich habe **eine Tasche**. — I have a bag.\n- Ich habe **ein Kind**. — I have a child.\n\nThe article's form is unchanged, even though the noun phrase is used in the accusative in these sentences.",
+      "examples": "",
+      "limitations": "These are examples with verbs that take an accusative object in the sentences shown. Do not turn this page into the claim that all objects or all sentences follow one simple English-based rule. Masculine singular articles do change in the accusative: `der → den` and `ein → einen`.",
+      "notes": "This contrast is why gender matters when you learn a German noun. The English words “the” and “a” do not tell you whether the German article will change. Learn the noun together with its gender and use the German construction to determine the case form.",
+      "pronunciation": ""
+    },
+    "examplesTable": [
+      {
+        "cue": "die stays die",
+        "german": "Ich sehe die Frau.",
+        "note": "feminine definite"
+      },
+      {
+        "cue": "das stays das",
+        "german": "Ich sehe das Kind.",
+        "note": "neuter definite"
+      },
+      {
+        "cue": "eine stays eine",
+        "german": "Ich habe eine Tasche.",
+        "note": "feminine indefinite"
+      },
+      {
+        "cue": "ein stays ein",
+        "german": "Ich habe ein Kind.",
+        "note": "neuter indefinite"
+      }
+    ],
+    "chart": [
+      {
+        "cue": "die stays die",
+        "note": "feminine definite",
+        "form": "Ich sehe die Frau.",
+        "parts": [
+          {
+            "text": "die",
+            "guide": "dee"
+          },
+          {
+            "text": "Frau",
+            "guide": "frow",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "das stays das",
+        "note": "neuter definite",
+        "form": "Ich sehe das Kind.",
+        "parts": [
+          {
+            "text": "das",
+            "guide": "dahs"
+          },
+          {
+            "text": "Kind",
+            "guide": "kint",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "eine stays eine",
+        "note": "feminine indefinite",
+        "form": "Ich habe eine Tasche.",
+        "parts": [
+          {
+            "text": "eine",
+            "guide": "EYE-nuh"
+          },
+          {
+            "text": "Tasche",
+            "guide": "TAH-shuh",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "ein stays ein",
+        "note": "neuter indefinite",
+        "form": "Ich habe ein Kind.",
+        "parts": [
+          {
+            "text": "ein",
+            "guide": "ine"
+          },
+          {
+            "text": "Kind",
+            "guide": "kint",
+            "stress": true
+          }
+        ]
+      }
+    ],
+    "flags": [],
+    "source": "content/reference/case/accusative-unchanged.md"
+  },
+  "case.acc.verbs": {
+    "id": "case.acc.verbs",
+    "title": "Common accusative verbs",
+    "territory": "case",
+    "section": "accusative",
+    "status": "active",
+    "summary": "In the example patterns here, `brauchen`, `suchen`, `nehmen`, and `finden` take an accusative noun phrase.",
+    "order": 6,
+    "related": [
+      "case.acc.masc",
+      "case.acc.unchanged",
+      "case.prep.fuer",
+      "case.prep.ohne"
+    ],
+    "practice": [],
+    "sections": {
+      "summary": "Many everyday verbs are used with an accusative noun phrase. This page introduces four useful verbs in simple sentences: **brauchen** (need), **suchen** (look for), **nehmen** (take), and **finden** (find).",
+      "pattern": "",
+      "rule": "In the sentences below, the noun phrase after the verb is accusative:\n\n- Ich brauche **den Schlüssel**. — I need the key.\n- Ich suche **einen Schlüssel**. — I'm looking for a key.\n- Ich nehme **den Bus**. — I take the bus.\n- Ich finde **das Hotel**. — I find the hotel.\n\nThe article follows the noun's gender and the case required by the construction. With a masculine singular noun, the accusative article is `den` or `einen`. With feminine and neuter nouns, the forms in this slice stay `die/eine` or `das/ein`.",
+      "examples": "",
+      "limitations": "This page covers the common patterns illustrated here; it is not an exhaustive list of German verbs and their case behavior. Do not infer that every German verb takes the accusative, or that English and German always assign cases to matching phrases.",
+      "notes": "These verbs are useful because they let you practice the article pattern in different everyday meanings without changing the basic case pattern. The verb's meaning changes from sentence to sentence, but the noun phrase shown in bold is accusative in each example.",
+      "pronunciation": ""
+    },
+    "examplesTable": [
+      {
+        "cue": "brauchen + accusative",
+        "german": "Ich brauche den Schlüssel.",
+        "note": "need"
+      },
+      {
+        "cue": "suchen + accusative",
+        "german": "Ich suche einen Schlüssel.",
+        "note": "look for"
+      },
+      {
+        "cue": "nehmen + accusative",
+        "german": "Ich nehme den Bus.",
+        "note": "take"
+      },
+      {
+        "cue": "finden + accusative",
+        "german": "Ich finde das Hotel.",
+        "note": "find"
+      }
+    ],
+    "chart": [
+      {
+        "cue": "brauchen + accusative",
+        "note": "need",
+        "form": "Ich brauche den Schlüssel.",
+        "parts": [
+          {
+            "text": "brauche",
+            "guide": "BROW-khuh",
+            "stress": true
+          },
+          {
+            "text": "den",
+            "guide": "dane"
+          },
+          {
+            "text": "Schlüssel",
+            "guide": "SHLUE-sel",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "suchen + accusative",
+        "note": "look for",
+        "form": "Ich suche einen Schlüssel.",
+        "parts": [
+          {
+            "text": "suche",
+            "guide": "ZOO-khuh",
+            "stress": true
+          },
+          {
+            "text": "einen",
+            "guide": "EYE-nen"
+          },
+          {
+            "text": "Schlüssel",
+            "guide": "SHLUE-sel",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "nehmen + accusative",
+        "note": "take",
+        "form": "Ich nehme den Bus.",
+        "parts": [
+          {
+            "text": "nehme",
+            "guide": "NAY-muh",
+            "stress": true
+          },
+          {
+            "text": "den",
+            "guide": "dane"
+          },
+          {
+            "text": "Bus",
+            "guide": "boos",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "finden + accusative",
+        "note": "find",
+        "form": "Ich finde das Hotel.",
+        "parts": [
+          {
+            "text": "finde",
+            "guide": "FIN-duh",
+            "stress": true
+          },
+          {
+            "text": "das",
+            "guide": "dahs"
+          },
+          {
+            "text": "Hotel",
+            "guide": "hoh-TEL",
+            "stress": true
+          }
+        ]
+      }
+    ],
+    "flags": [],
+    "source": "content/reference/case/accusative-verbs.md"
+  },
+  "case.dat.helfen": {
+    "id": "case.dat.helfen",
+    "title": "helfen",
+    "territory": "case",
+    "section": "dative",
+    "status": "active",
+    "summary": "`Helfen` takes the dative: `dem Mann`, `der Frau`, and `dem Kind`.",
+    "order": 8,
+    "related": [
+      "case.chart.definite",
+      "case.dat.indef",
+      "case.prep.mit",
+      "case.prep.aus",
+      "case.verb.danken"
+    ],
+    "practice": [],
+    "sections": {
+      "summary": "The verb **helfen** means “help.” The person being helped is expressed with the dative in German. This is a useful first construction for learning the dative article forms.",
+      "pattern": "",
+      "rule": "With a singular noun and a definite article, the forms in this pattern are:\n\n- masculine: `der Mann` → `dem Mann`\n- feminine: `die Frau` → `der Frau`\n- neuter: `das Kind` → `dem Kind`\n\nThe noun itself stays the same in these examples. The article changes to show the dative form.\n\n- Ich helfe **dem Mann**. — I help the man.\n- Ich helfe **der Frau**. — I help the woman.\n- Ich helfe **dem Kind**. — I help the child.\n\nNotice that `der` appears in both the masculine nominative and feminine dative. You cannot identify the case from that word alone; the noun's gender and the sentence construction matter too.",
+      "examples": "",
+      "limitations": "This page covers singular nouns with definite articles. Indefinite dative forms such as `einem` and `einer`, and plural dative forms, are covered separately. It does not teach every verb that takes the dative.",
+      "notes": "Do not try to force the dative into a single English label such as “recipient.” Here the dative phrase names the person receiving help, but other dative constructions work differently. The dependable fact for this page is that **helfen takes the dative**.",
+      "pronunciation": ""
+    },
+    "examplesTable": [
+      {
+        "cue": "masculine dem",
+        "german": "Ich helfe dem Mann.",
+        "note": "helfen + dative"
+      },
+      {
+        "cue": "feminine der",
+        "german": "Ich helfe der Frau.",
+        "note": "helfen + dative"
+      },
+      {
+        "cue": "neuter dem",
+        "german": "Ich helfe dem Kind.",
+        "note": "helfen + dative"
+      }
+    ],
+    "chart": [
+      {
+        "cue": "masculine dem",
+        "note": "helfen + dative",
+        "form": "Ich helfe dem Mann.",
+        "parts": [
+          {
+            "text": "helfe",
+            "guide": "HEL-fuh",
+            "stress": true
+          },
+          {
+            "text": "dem",
+            "guide": "dame"
+          },
+          {
+            "text": "Mann",
+            "guide": "mahn",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "feminine der",
+        "note": "helfen + dative",
+        "form": "Ich helfe der Frau.",
+        "parts": [
+          {
+            "text": "helfe",
+            "guide": "HEL-fuh",
+            "stress": true
+          },
+          {
+            "text": "der",
+            "guide": "dair"
+          },
+          {
+            "text": "Frau",
+            "guide": "frow",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "neuter dem",
+        "note": "helfen + dative",
+        "form": "Ich helfe dem Kind.",
+        "parts": [
+          {
+            "text": "helfe",
+            "guide": "HEL-fuh",
+            "stress": true
+          },
+          {
+            "text": "dem",
+            "guide": "dame"
+          },
+          {
+            "text": "Kind",
+            "guide": "kint",
+            "stress": true
+          }
+        ]
+      }
+    ],
+    "flags": [],
+    "source": "content/reference/case/dative-helfen.md"
+  },
+  "case.dat.indef": {
+    "id": "case.dat.indef",
+    "title": "Indefinite dative",
+    "territory": "case",
+    "section": "dative",
+    "status": "active",
+    "summary": "The singular indefinite dative forms are `einem` for masculine and neuter nouns, and `einer` for feminine nouns.",
+    "order": 13,
+    "related": [
+      "case.dat.helfen",
+      "case.chart.definite",
+      "case.dat.plural"
+    ],
+    "practice": [],
+    "sections": {
+      "summary": "You already know the definite dative forms `dem` and `der`. When the noun phrase uses the indefinite article (“a/an”), the corresponding singular forms are `einem` and `einer`.",
+      "pattern": "",
+      "rule": "For the singular indefinite article in the dative:\n\n- masculine: `ein Mann` → `einem Mann`\n- feminine: `eine Frau` → `einer Frau`\n- neuter: `ein Kind` → `einem Kind`\n\nFor example:\n\n- Ich helfe **einem Mann**. — I help a man.\n- Ich helfe **einer Frau**. — I help a woman.\n- Ich helfe **einem Kind**. — I help a child.\n\nMasculine and neuter share `einem`; feminine uses `einer`. The noun stays the same in these examples.",
+      "examples": "",
+      "limitations": "This page covers singular indefinite articles. German does not use an indefinite article equivalent to “a/an” with plural nouns, and the plural dative pattern is covered separately.",
+      "notes": "The same forms can appear with other dative constructions already introduced, not only with `helfen`: `mit einem Bus` (“with a bus”) and `aus einer Stadt` (“from a city”) are examples of the same article pattern. The preposition or verb determines that the phrase is dative; the article then takes its dative form.",
+      "pronunciation": ""
+    },
+    "examplesTable": [
+      {
+        "cue": "einem Mann",
+        "german": "Ich helfe einem Mann.",
+        "note": "masculine indefinite dative"
+      },
+      {
+        "cue": "einer Frau",
+        "german": "Ich helfe einer Frau.",
+        "note": "feminine indefinite dative"
+      },
+      {
+        "cue": "einem Kind",
+        "german": "Ich helfe einem Kind.",
+        "note": "neuter indefinite dative"
+      },
+      {
+        "cue": "mit einem Bus",
+        "german": "Ich fahre mit einem Bus.",
+        "note": "indefinite dative after mit"
+      }
+    ],
+    "chart": [
+      {
+        "cue": "einem Mann",
+        "note": "masculine indefinite dative",
+        "form": "Ich helfe einem Mann.",
+        "parts": [
+          {
+            "text": "einem",
+            "guide": "EYE-nem"
+          },
+          {
+            "text": "Mann",
+            "guide": "mahn",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "einer Frau",
+        "note": "feminine indefinite dative",
+        "form": "Ich helfe einer Frau.",
+        "parts": [
+          {
+            "text": "einer",
+            "guide": "EYE-ner"
+          },
+          {
+            "text": "Frau",
+            "guide": "frow",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "einem Kind",
+        "note": "neuter indefinite dative",
+        "form": "Ich helfe einem Kind.",
+        "parts": [
+          {
+            "text": "einem",
+            "guide": "EYE-nem"
+          },
+          {
+            "text": "Kind",
+            "guide": "kint",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "mit einem Bus",
+        "note": "indefinite dative after mit",
+        "form": "Ich fahre mit einem Bus.",
+        "parts": [
+          {
+            "text": "mit",
+            "guide": "mit"
+          },
+          {
+            "text": "einem",
+            "guide": "EYE-nem"
+          },
+          {
+            "text": "Bus",
+            "guide": "boos",
+            "stress": true
+          }
+        ]
+      }
+    ],
+    "flags": [],
+    "source": "content/reference/case/dative-indefinite.md"
+  },
+  "case.dat.plural": {
+    "id": "case.dat.plural",
+    "title": "Dative plural",
+    "territory": "case",
+    "section": "dative",
+    "status": "active",
+    "summary": "The dative plural article is `den`. Many plural nouns also add `-n` when their existing form allows it, but this is a separate pattern.",
+    "order": 14,
+    "related": [
+      "case.dat.helfen",
+      "case.prep.mit",
+      "nouns.plurals",
+      "case.chart.definite"
+    ],
+    "practice": [],
+    "sections": {
+      "summary": "In the dative plural, the definite article is **den**. The noun may also have an extra ending, but the article and the noun ending are two separate things to learn.",
+      "pattern": "",
+      "rule": "The dative plural article is `den`, regardless of the noun's gender:\n\n- Ich helfe **den Kindern**. — I help the children.\n- Ich spiele mit **den Hunden**. — I play with the dogs.\n\nIn these examples, the familiar plural forms `Kinder` and `Hunde` gain an additional `-n` in the dative plural: `Kinder → Kindern`, `Hunde → Hunden`.",
+      "examples": "",
+      "limitations": "Many plural nouns add `-n` in the dative when their existing plural form permits it. This is not a universal instruction to append another `n` to every plural. Plurals ending in `-n` or `-s` generally do not take an additional `-n` by this pattern; other forms must be checked against the noun's actual plural. General plural formation belongs in the Plurals Reference, not here.",
+      "notes": "Think of the phrase in two parts:\n\n1. The article changes to `den` for the dative plural.\n2. The noun may gain `-n` as well.\n\nThe article rule is broad; the noun-ending pattern has limitations. Keeping the two facts separate helps you avoid assuming that every plural noun must look the same.",
+      "pronunciation": ""
+    },
+    "examplesTable": [
+      {
+        "cue": "den Kindern",
+        "german": "Ich helfe den Kindern.",
+        "note": "den + Kinder with dative plural -n"
+      },
+      {
+        "cue": "den Hunden",
+        "german": "Ich spiele mit den Hunden.",
+        "note": "den + Hunde with dative plural -n"
+      },
+      {
+        "cue": "den Frauen",
+        "german": "Ich helfe den Frauen.",
+        "note": "the plural already ends in -n"
+      }
+    ],
+    "chart": [
+      {
+        "cue": "den Kindern",
+        "note": "den + Kinder with dative plural -n",
+        "form": "Ich helfe den Kindern.",
+        "parts": [
+          {
+            "text": "den",
+            "guide": "dane"
+          },
+          {
+            "text": "Kindern",
+            "guide": "KIN-dern",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "den Hunden",
+        "note": "den + Hunde with dative plural -n",
+        "form": "Ich spiele mit den Hunden.",
+        "parts": [
+          {
+            "text": "den",
+            "guide": "dane"
+          },
+          {
+            "text": "Hunden",
+            "guide": "HOON-den",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "den Frauen",
+        "note": "the plural already ends in -n",
+        "form": "Ich helfe den Frauen.",
+        "parts": [
+          {
+            "text": "den",
+            "guide": "dane"
+          },
+          {
+            "text": "Frauen",
+            "guide": "FROW-en",
+            "stress": true
+          }
+        ]
+      }
+    ],
+    "flags": [],
+    "source": "content/reference/case/dative-plural.md"
+  },
+  "case.chart.definite": {
+    "id": "case.chart.definite",
+    "title": "Article forms",
+    "territory": "case",
+    "section": "articles",
+    "status": "active",
+    "summary": "Use these tables to look up article forms. The table is a reference, not a promise that every form has already been introduced.",
+    "order": 1,
+    "chartTab": "definite",
+    "related": [
+      "case.acc.masc",
+      "case.acc.unchanged",
+      "case.dat.helfen",
+      "case.dat.indef",
+      "case.dat.plural"
+    ],
+    "practice": [],
+    "sections": {
+      "summary": "German articles can change according to the grammatical case, the noun's gender, and whether the noun is singular or plural. This page gathers the forms used in this introductory Case section so you can look them up when needed.",
+      "pattern": "",
+      "rule": "The tables below show the forms covered here. Read across a row to compare masculine, feminine, and neuter singular nouns. The plural row applies to plural nouns, regardless of the noun's original gender.\n\n**Definite articles**\n\n| Case | Masculine | Feminine | Neuter | Plural |\n|---|---|---|---|---|\n| Nominative (basic form) | der | die | das | die |\n| Accusative | den | die | das | die |\n| Dative | dem | der | dem | den |\n\n**Indefinite articles**\n\n| Case | Masculine | Feminine | Neuter |\n|---|---|---|---|\n| Nominative (basic form) | ein | eine | ein |\n| Accusative | einen | eine | ein |\n| Dative | einem | einer | einem |\n\nThere is no ordinary indefinite article equivalent to English “a/an” for a plural noun, so the indefinite table has no plural column.",
+      "examples": "",
+      "limitations": "",
+      "notes": "You do not need to memorize the entire table before using this topic. The first accusative contrast is especially visible with masculine nouns: `der Hund` becomes `den Hund`, and `ein Hund` becomes `einen Hund`. Feminine and neuter accusative articles keep their familiar forms. Dative forms are introduced through particular verbs and prepositions before being brought together here for comparison.\n\nThe article is only one part of a noun phrase. This introductory section does not cover adjective endings, possessive determiners such as *mein*, or every possible determiner.",
+      "pronunciation": ""
+    },
+    "examplesTable": [
+      {
+        "cue": "Nominative definite",
+        "german": "der · die · das",
+        "note": "basic forms"
+      },
+      {
+        "cue": "Accusative definite",
+        "german": "den · die · das",
+        "note": "masculine changes"
+      },
+      {
+        "cue": "Dative definite",
+        "german": "dem · der · dem",
+        "note": "lookup"
+      },
+      {
+        "cue": "Nominative indefinite",
+        "german": "ein · eine · ein",
+        "note": "basic forms"
+      },
+      {
+        "cue": "Accusative indefinite",
+        "german": "einen · eine · ein",
+        "note": "masculine changes"
+      },
+      {
+        "cue": "Dative indefinite",
+        "german": "einem · einer · einem",
+        "note": "lookup"
+      },
+      {
+        "cue": "Dative plural",
+        "german": "den",
+        "note": "plural article"
+      }
+    ],
+    "chart": [
+      {
+        "cue": "Nominative definite",
+        "note": "basic forms",
+        "form": "der · die · das",
+        "parts": [
+          {
+            "text": "der",
+            "guide": "dair"
+          },
+          {
+            "text": "die",
+            "guide": "dee"
+          },
+          {
+            "text": "das",
+            "guide": "dahs"
+          }
+        ]
+      },
+      {
+        "cue": "Accusative definite",
+        "note": "masculine changes",
+        "form": "den · die · das",
+        "parts": [
+          {
+            "text": "den",
+            "guide": "dane"
+          },
+          {
+            "text": "die",
+            "guide": "dee"
+          },
+          {
+            "text": "das",
+            "guide": "dahs"
+          }
+        ]
+      },
+      {
+        "cue": "Dative definite",
+        "note": "lookup",
+        "form": "dem · der · dem",
+        "parts": [
+          {
+            "text": "dem",
+            "guide": "dame"
+          },
+          {
+            "text": "der",
+            "guide": "dair"
+          },
+          {
+            "text": "dem",
+            "guide": "dame"
+          }
+        ]
+      },
+      {
+        "cue": "Nominative indefinite",
+        "note": "basic forms",
+        "form": "ein · eine · ein",
+        "parts": [
+          {
+            "text": "ein",
+            "guide": "ine"
+          },
+          {
+            "text": "eine",
+            "guide": "EYE-nuh"
+          },
+          {
+            "text": "ein",
+            "guide": "ine"
+          }
+        ]
+      },
+      {
+        "cue": "Accusative indefinite",
+        "note": "masculine changes",
+        "form": "einen · eine · ein",
+        "parts": [
+          {
+            "text": "einen",
+            "guide": "EYE-nen"
+          },
+          {
+            "text": "eine",
+            "guide": "EYE-nuh"
+          },
+          {
+            "text": "ein",
+            "guide": "ine"
+          }
+        ]
+      },
+      {
+        "cue": "Dative indefinite",
+        "note": "lookup",
+        "form": "einem · einer · einem",
+        "parts": [
+          {
+            "text": "einem",
+            "guide": "EYE-nem"
+          },
+          {
+            "text": "einer",
+            "guide": "EYE-ner"
+          },
+          {
+            "text": "einem",
+            "guide": "EYE-nem"
+          }
+        ]
+      },
+      {
+        "cue": "Dative plural",
+        "note": "plural article",
+        "form": "den",
+        "parts": [
+          {
+            "text": "den",
+            "guide": "dane"
+          }
+        ]
+      }
+    ],
+    "flags": [],
+    "source": "content/reference/case/definite.md"
+  },
+  "case.mixed": {
+    "id": "case.mixed",
+    "title": "Accusative and dative together",
+    "territory": "case",
+    "section": "mixed",
+    "status": "active",
+    "summary": "A sentence can contain accusative and dative noun phrases. Determine the case from the particular verb or construction, then choose the matching article.",
+    "order": 16,
+    "related": [
+      "case.acc.masc",
+      "case.acc.unchanged",
+      "case.dat.helfen",
+      "case.dat.indef",
+      "case.prep.fuer",
+      "case.prep.ohne",
+      "case.prep.mit",
+      "case.prep.aus",
+      "case.prep.warten-auf",
+      "case.verb.danken",
+      "case.verb.gefallen"
+    ],
+    "practice": [],
+    "sections": {
+      "summary": "Once you know a few accusative and dative constructions, you will sometimes meet them in the same sentence. Each noun phrase has its own role in its construction, so decide the case phrase by phrase rather than giving the whole sentence one case.",
+      "pattern": "",
+      "rule": "Compare these familiar patterns:\n\n- Ich sehe **den Hund**. — `sehen` takes an accusative object.\n- Ich helfe **dem Mann**. — `helfen` takes the dative.\n- Das Geschenk ist **für die Frau**. — `für` takes the accusative.\n- Ich fahre **mit dem Bus**. — `mit` takes the dative.\n\nA sentence can contain both cases. For example:\n\n- Die Frau zeigt **dem Mann** **das Buch**. — The woman shows the man the book.\n- Ich gebe **dem Kind** **den Ball**. — I give the child the ball.\n\nIn these examples, the person shown or given something is dative, and the thing shown or given is accusative. Treat these as specific constructions, not as a universal definition of what the cases mean.",
+      "examples": "",
+      "limitations": "This mixed page uses only constructions introduced in this Case section. It is not a complete account of German case assignment. In particular, it does not cover genitive, possessive determiners, adjective endings, or the full behavior of two-way prepositions. `Auf` takes the accusative in `warten auf`, but that does not mean `auf` always takes the accusative.",
+      "notes": "A reliable approach is to ask two questions:\n\n1. Which verb or preposition governs this noun phrase in the construction I have learned?\n2. Given that case, gender, and number, which article form belongs here?\n\nDo not choose an article from the English translation alone. Also remember that an unchanged article does not prove that a noun phrase is nominative: `die Frau` can be nominative or accusative, depending on the sentence.",
+      "pronunciation": ""
+    },
+    "examplesTable": [
+      {
+        "cue": "dative + accusative",
+        "german": "Die Frau zeigt dem Mann das Buch.",
+        "note": "zeigen"
+      },
+      {
+        "cue": "dative + accusative",
+        "german": "Ich gebe dem Kind den Ball.",
+        "note": "geben"
+      },
+      {
+        "cue": "accusative after für",
+        "german": "Das Geschenk ist für den Mann.",
+        "note": "masculine"
+      },
+      {
+        "cue": "dative after mit",
+        "german": "Ich fahre mit dem Bus.",
+        "note": "masculine"
+      }
+    ],
+    "chart": [
+      {
+        "cue": "dative + accusative",
+        "note": "zeigen",
+        "form": "Die Frau zeigt dem Mann das Buch.",
+        "parts": [
+          {
+            "text": "Die",
+            "guide": "dee"
+          },
+          {
+            "text": "Frau",
+            "guide": "frow",
+            "stress": true
+          },
+          {
+            "text": "zeigt",
+            "guide": "tsaykt",
+            "stress": true
+          },
+          {
+            "text": "dem",
+            "guide": "dame"
+          },
+          {
+            "text": "Mann",
+            "guide": "mahn",
+            "stress": true
+          },
+          {
+            "text": "das",
+            "guide": "dahs"
+          },
+          {
+            "text": "Buch",
+            "guide": "bookh",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "dative + accusative",
+        "note": "geben",
+        "form": "Ich gebe dem Kind den Ball.",
+        "parts": [
+          {
+            "text": "gebe",
+            "guide": "GAY-buh",
+            "stress": true
+          },
+          {
+            "text": "dem",
+            "guide": "dame"
+          },
+          {
+            "text": "Kind",
+            "guide": "kint",
+            "stress": true
+          },
+          {
+            "text": "den",
+            "guide": "dane"
+          },
+          {
+            "text": "Ball",
+            "guide": "bahl",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "accusative after für",
+        "note": "masculine",
+        "form": "Das Geschenk ist für den Mann.",
+        "parts": [
+          {
+            "text": "Geschenk",
+            "guide": "guh-SHENK",
+            "stress": true
+          },
+          {
+            "text": "für",
+            "guide": "fewr"
+          },
+          {
+            "text": "den",
+            "guide": "dane"
+          },
+          {
+            "text": "Mann",
+            "guide": "mahn",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "dative after mit",
+        "note": "masculine",
+        "form": "Ich fahre mit dem Bus.",
+        "parts": [
+          {
+            "text": "fahre",
+            "guide": "FAH-ruh",
+            "stress": true
+          },
+          {
+            "text": "mit",
+            "guide": "mit"
+          },
+          {
+            "text": "dem",
+            "guide": "dame"
+          },
+          {
+            "text": "Bus",
+            "guide": "boos",
+            "stress": true
+          }
+        ]
+      }
+    ],
+    "flags": [],
+    "source": "content/reference/case/mixed.md"
+  },
+  "case.prep.aus": {
+    "id": "case.prep.aus",
+    "title": "aus",
+    "territory": "case",
+    "section": "dative",
+    "status": "active",
+    "summary": "`Aus` (“from” or “out of”) takes the dative.",
+    "order": 10,
+    "related": [
+      "case.dat.helfen",
+      "case.prep.mit",
+      "case.dat.indef"
+    ],
+    "practice": [],
+    "sections": {
+      "summary": "**Aus** often means “from” or “out of,” for example when describing where someone comes from or what something is made of. The noun phrase after `aus` is dative.",
+      "pattern": "",
+      "rule": "`aus` takes the dative:\n\n- aus **der Stadt** — from the city\n- aus **dem Haus** — out of the house\n- aus **einem Land** — from a country\n\nThe article depends on the noun. `Stadt` is feminine, so the phrase is `aus der Stadt`; `Haus` is neuter, so the phrase is `aus dem Haus`.",
+      "examples": "",
+      "limitations": "This page covers the common construction `aus + dative`. It does not explain every use of `aus` or the full German system of location and direction expressions.",
+      "notes": "In `Er kommt aus der Stadt.` the phrase after `aus` tells where he comes from. It is the preposition `aus` that calls for the dative form, not an English idea that all phrases about locations use the dative.",
+      "pronunciation": ""
+    },
+    "examplesTable": [
+      {
+        "cue": "aus der Stadt",
+        "german": "Er kommt aus der Stadt.",
+        "note": "feminine dative"
+      },
+      {
+        "cue": "aus dem Haus",
+        "german": "Er kommt aus dem Haus.",
+        "note": "neuter dative"
+      },
+      {
+        "cue": "aus einem Land",
+        "german": "Er kommt aus einem Land.",
+        "note": "indefinite neuter dative"
+      }
+    ],
+    "chart": [
+      {
+        "cue": "aus der Stadt",
+        "note": "feminine dative",
+        "form": "Er kommt aus der Stadt.",
+        "parts": [
+          {
+            "text": "aus",
+            "guide": "ows"
+          },
+          {
+            "text": "der",
+            "guide": "dair"
+          },
+          {
+            "text": "Stadt",
+            "guide": "shtaht",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "aus dem Haus",
+        "note": "neuter dative",
+        "form": "Er kommt aus dem Haus.",
+        "parts": [
+          {
+            "text": "aus",
+            "guide": "ows"
+          },
+          {
+            "text": "dem",
+            "guide": "dame"
+          },
+          {
+            "text": "Haus",
+            "guide": "howss",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "aus einem Land",
+        "note": "indefinite neuter dative",
+        "form": "Er kommt aus einem Land.",
+        "parts": [
+          {
+            "text": "aus",
+            "guide": "ows"
+          },
+          {
+            "text": "einem",
+            "guide": "EYE-nem"
+          },
+          {
+            "text": "Land",
+            "guide": "lahnt",
+            "stress": true
+          }
+        ]
+      }
+    ],
+    "flags": [],
+    "source": "content/reference/case/preposition-aus.md"
+  },
+  "case.prep.fuer": {
+    "id": "case.prep.fuer",
+    "title": "für",
+    "territory": "case",
+    "section": "accusative",
+    "status": "active",
+    "summary": "The preposition `für` takes the accusative: `für den Mann`, `für die Frau`, `für das Kind`.",
+    "order": 4,
+    "related": [
+      "case.acc.masc",
+      "case.acc.unchanged",
+      "case.prep.ohne"
+    ],
+    "practice": [],
+    "sections": {
+      "summary": "Use **für** when something is for someone or something. The noun phrase after `für` is accusative, so use the accusative article form.",
+      "pattern": "",
+      "rule": "`für` takes the accusative. Compare the forms you already know:\n\n- für **den Mann** — for the man\n- für **die Frau** — for the woman\n- für **das Kind** — for the child\n- für **einen Mann** — for a man\n- für **eine Frau** — for a woman\n\nThe masculine article changes (`der → den`, `ein → einen`). The feminine and neuter articles in these examples stay the same.",
+      "examples": "",
+      "limitations": "This page teaches the case used after `für`, not every meaning of the preposition. The case is determined by the German preposition, not by whether the English translation happens to use “for.”",
+      "notes": "A natural sentence might be: Das Geschenk ist für den Mann. — The gift is for the man. The gift is the subject of this sentence; the phrase after `für` tells us who the gift is intended for.",
+      "pronunciation": ""
+    },
+    "examplesTable": [
+      {
+        "cue": "für den Mann",
+        "german": "Das Geschenk ist für den Mann.",
+        "note": "für + masculine accusative"
+      },
+      {
+        "cue": "für die Frau",
+        "german": "Das Geschenk ist für die Frau.",
+        "note": "für + feminine accusative"
+      },
+      {
+        "cue": "für das Kind",
+        "german": "Das Geschenk ist für das Kind.",
+        "note": "für + neuter accusative"
+      },
+      {
+        "cue": "für einen Mann",
+        "german": "Das ist für einen Mann.",
+        "note": "indefinite masculine accusative"
+      }
+    ],
+    "chart": [
+      {
+        "cue": "für den Mann",
+        "note": "für + masculine accusative",
+        "form": "Das Geschenk ist für den Mann.",
+        "parts": [
+          {
+            "text": "für",
+            "guide": "fewr"
+          },
+          {
+            "text": "den",
+            "guide": "dane"
+          },
+          {
+            "text": "Mann",
+            "guide": "mahn",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "für die Frau",
+        "note": "für + feminine accusative",
+        "form": "Das Geschenk ist für die Frau.",
+        "parts": [
+          {
+            "text": "für",
+            "guide": "fewr"
+          },
+          {
+            "text": "die",
+            "guide": "dee"
+          },
+          {
+            "text": "Frau",
+            "guide": "frow",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "für das Kind",
+        "note": "für + neuter accusative",
+        "form": "Das Geschenk ist für das Kind.",
+        "parts": [
+          {
+            "text": "für",
+            "guide": "fewr"
+          },
+          {
+            "text": "das",
+            "guide": "dahs"
+          },
+          {
+            "text": "Kind",
+            "guide": "kint",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "für einen Mann",
+        "note": "indefinite masculine accusative",
+        "form": "Das ist für einen Mann.",
+        "parts": [
+          {
+            "text": "für",
+            "guide": "fewr"
+          },
+          {
+            "text": "einen",
+            "guide": "EYE-nen"
+          },
+          {
+            "text": "Mann",
+            "guide": "mahn",
+            "stress": true
+          }
+        ]
+      }
+    ],
+    "flags": [],
+    "source": "content/reference/case/preposition-fuer.md"
+  },
+  "case.prep.mit": {
+    "id": "case.prep.mit",
+    "title": "mit",
+    "territory": "case",
+    "section": "dative",
+    "status": "active",
+    "summary": "`Mit` (“with”) takes the dative: `mit dem Bus`, `mit der Frau`.",
+    "order": 9,
+    "related": [
+      "case.dat.helfen",
+      "case.prep.aus",
+      "case.chart.definite"
+    ],
+    "practice": [],
+    "sections": {
+      "summary": "**Mit** means “with.” Whether you mean travelling by bus or being with another person, the noun phrase after `mit` is dative.",
+      "pattern": "",
+      "rule": "`mit` takes the dative. For singular definite articles, use the familiar forms:\n\n- mit **dem Bus** — by/with the bus\n- mit **dem Kind** — with the child\n- mit **der Frau** — with the woman\n\nThe article changes according to the noun's gender: masculine and neuter use `dem`; feminine uses `der`.",
+      "examples": "",
+      "limitations": "This page teaches `mit`, not a general rule for every preposition. Other prepositions may take a different case, so learn their patterns individually.",
+      "notes": "Compare `Ich fahre mit dem Bus.` (“I go by bus”) with `Ich helfe dem Mann.` (“I help the man”). The phrases have different jobs, but both use a dative form. The dative is not simply a label for a person receiving something.",
+      "pronunciation": ""
+    },
+    "examplesTable": [
+      {
+        "cue": "mit dem Bus",
+        "german": "Ich fahre mit dem Bus.",
+        "note": "masculine dative"
+      },
+      {
+        "cue": "mit dem Kind",
+        "german": "Ich spiele mit dem Kind.",
+        "note": "neuter dative"
+      },
+      {
+        "cue": "mit der Frau",
+        "german": "Ich fahre mit der Frau.",
+        "note": "feminine dative"
+      }
+    ],
+    "chart": [
+      {
+        "cue": "mit dem Bus",
+        "note": "masculine dative",
+        "form": "Ich fahre mit dem Bus.",
+        "parts": [
+          {
+            "text": "mit",
+            "guide": "mit"
+          },
+          {
+            "text": "dem",
+            "guide": "dame"
+          },
+          {
+            "text": "Bus",
+            "guide": "boos",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "mit dem Kind",
+        "note": "neuter dative",
+        "form": "Ich spiele mit dem Kind.",
+        "parts": [
+          {
+            "text": "mit",
+            "guide": "mit"
+          },
+          {
+            "text": "dem",
+            "guide": "dame"
+          },
+          {
+            "text": "Kind",
+            "guide": "kint",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "mit der Frau",
+        "note": "feminine dative",
+        "form": "Ich fahre mit der Frau.",
+        "parts": [
+          {
+            "text": "mit",
+            "guide": "mit"
+          },
+          {
+            "text": "der",
+            "guide": "dair"
+          },
+          {
+            "text": "Frau",
+            "guide": "frow",
+            "stress": true
+          }
+        ]
+      }
+    ],
+    "flags": [],
+    "source": "content/reference/case/preposition-mit.md"
+  },
+  "case.prep.ohne": {
+    "id": "case.prep.ohne",
+    "title": "ohne",
+    "territory": "case",
+    "section": "accusative",
+    "status": "active",
+    "summary": "The preposition `ohne` takes the accusative: `ohne den Schlüssel`, `ohne die Tasche`.",
+    "order": 5,
+    "related": [
+      "case.acc.masc",
+      "case.prep.fuer"
+    ],
+    "practice": [],
+    "sections": {
+      "summary": "**Ohne** means “without.” The noun phrase that follows it is accusative.",
+      "pattern": "",
+      "rule": "Use the accusative article after `ohne`:\n\n- ohne **den Schlüssel** — without the key\n- ohne **die Tasche** — without the bag\n- ohne **das Ticket** — without the ticket\n- ohne **einen Schlüssel** — without a key\n\nThe masculine singular forms show the familiar change from `der` to `den` and from `ein` to `einen`. Feminine and neuter forms shown here do not change.",
+      "examples": "",
+      "limitations": "This is a rule for `ohne`. It is not a claim that every preposition takes the accusative. Learn the case with each preposition or construction presented in this topic.",
+      "notes": "The article form is part of the phrase after the preposition. In *Ich gehe ohne den Schlüssel.* (“I'm going without the key”), the phrase `ohne den Schlüssel` explains what the person does not have with them.",
+      "pronunciation": ""
+    },
+    "examplesTable": [
+      {
+        "cue": "ohne den Schlüssel",
+        "german": "Ich gehe ohne den Schlüssel.",
+        "note": "masculine accusative"
+      },
+      {
+        "cue": "ohne die Tasche",
+        "german": "Ich gehe ohne die Tasche.",
+        "note": "feminine accusative"
+      },
+      {
+        "cue": "ohne das Ticket",
+        "german": "Ich gehe ohne das Ticket.",
+        "note": "neuter accusative"
+      },
+      {
+        "cue": "ohne einen Schlüssel",
+        "german": "Ich gehe ohne einen Schlüssel.",
+        "note": "indefinite masculine"
+      }
+    ],
+    "chart": [
+      {
+        "cue": "ohne den Schlüssel",
+        "note": "masculine accusative",
+        "form": "Ich gehe ohne den Schlüssel.",
+        "parts": [
+          {
+            "text": "ohne",
+            "guide": "OH-nuh"
+          },
+          {
+            "text": "den",
+            "guide": "dane"
+          },
+          {
+            "text": "Schlüssel",
+            "guide": "SHLUE-sel",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "ohne die Tasche",
+        "note": "feminine accusative",
+        "form": "Ich gehe ohne die Tasche.",
+        "parts": [
+          {
+            "text": "ohne",
+            "guide": "OH-nuh"
+          },
+          {
+            "text": "die",
+            "guide": "dee"
+          },
+          {
+            "text": "Tasche",
+            "guide": "TAH-shuh",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "ohne das Ticket",
+        "note": "neuter accusative",
+        "form": "Ich gehe ohne das Ticket.",
+        "parts": [
+          {
+            "text": "ohne",
+            "guide": "OH-nuh"
+          },
+          {
+            "text": "das",
+            "guide": "dahs"
+          },
+          {
+            "text": "Ticket",
+            "guide": "TIK-et",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "ohne einen Schlüssel",
+        "note": "indefinite masculine",
+        "form": "Ich gehe ohne einen Schlüssel.",
+        "parts": [
+          {
+            "text": "ohne",
+            "guide": "OH-nuh"
+          },
+          {
+            "text": "einen",
+            "guide": "EYE-nen"
+          },
+          {
+            "text": "Schlüssel",
+            "guide": "SHLUE-sel",
+            "stress": true
+          }
+        ]
+      }
+    ],
+    "flags": [],
+    "source": "content/reference/case/preposition-ohne.md"
+  },
+  "case.prep.passen-zu": {
+    "id": "case.prep.passen-zu",
+    "title": "passen zu",
+    "territory": "case",
+    "section": "dative",
+    "status": "active",
+    "summary": "In the construction `passen zu` (“go with” or “match”), the noun phrase after `zu` is dative.",
+    "order": 15,
+    "related": [
+      "case.dat.helfen",
+      "case.dat.indef",
+      "case.prep.mit"
+    ],
+    "practice": [],
+    "sections": {
+      "summary": "The construction **passen zu** is used when something suits, matches, or goes with something else. The phrase after `zu` is dative.",
+      "pattern": "",
+      "rule": "Learn the verb and preposition together: `passen zu + dative`.\n\n- Die Jacke passt **zu dem Hemd**. — The jacket goes with the shirt.\n- Die Farbe passt **zu der Tasche**. — The color matches the bag.\n- Das passt **zu einem Kleid**. — That goes with a dress.\n\nIn everyday German, `zu dem` is often contracted to `zum`, and `zu der` to `zur`: `zum Hemd`, `zur Tasche`. These contractions are common forms of the same preposition-plus-article combination.",
+      "examples": "",
+      "limitations": "This page covers `passen zu` in the matching/suiting sense. It does not explain every use of `passen` or every use of `zu`.",
+      "notes": "The case is part of the construction `passen zu`; do not decide it from the English word “with” or “match.” Compare `mit dem Hemd` (with the shirt) and `passt zu dem Hemd` (goes with the shirt): both use dative here, but for different grammatical reasons.",
+      "pronunciation": ""
+    },
+    "examplesTable": [
+      {
+        "cue": "zu dem Hemd",
+        "german": "Die Jacke passt zu dem Hemd.",
+        "note": "masculine dative"
+      },
+      {
+        "cue": "zu der Tasche",
+        "german": "Die Farbe passt zu der Tasche.",
+        "note": "feminine dative"
+      },
+      {
+        "cue": "zu einem Kleid",
+        "german": "Das passt zu einem Kleid.",
+        "note": "indefinite dative"
+      }
+    ],
+    "chart": [
+      {
+        "cue": "zu dem Hemd",
+        "note": "masculine dative",
+        "form": "Die Jacke passt zu dem Hemd.",
+        "parts": [
+          {
+            "text": "Jacke",
+            "guide": "YAH-kuh",
+            "stress": true
+          },
+          {
+            "text": "passt",
+            "guide": "pahst"
+          },
+          {
+            "text": "zu",
+            "guide": "tsoo"
+          },
+          {
+            "text": "dem",
+            "guide": "dame"
+          },
+          {
+            "text": "Hemd",
+            "guide": "hemt",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "zu der Tasche",
+        "note": "feminine dative",
+        "form": "Die Farbe passt zu der Tasche.",
+        "parts": [
+          {
+            "text": "Farbe",
+            "guide": "FAR-buh",
+            "stress": true
+          },
+          {
+            "text": "passt",
+            "guide": "pahst"
+          },
+          {
+            "text": "zu",
+            "guide": "tsoo"
+          },
+          {
+            "text": "der",
+            "guide": "dair"
+          },
+          {
+            "text": "Tasche",
+            "guide": "TAH-shuh",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "zu einem Kleid",
+        "note": "indefinite dative",
+        "form": "Das passt zu einem Kleid.",
+        "parts": [
+          {
+            "text": "passt",
+            "guide": "pahst"
+          },
+          {
+            "text": "zu",
+            "guide": "tsoo"
+          },
+          {
+            "text": "einem",
+            "guide": "EYE-nem"
+          },
+          {
+            "text": "Kleid",
+            "guide": "klyte",
+            "stress": true
+          }
+        ]
+      }
+    ],
+    "flags": [],
+    "source": "content/reference/case/preposition-passen-zu.md"
+  },
+  "case.prep.warten-auf": {
+    "id": "case.prep.warten-auf",
+    "title": "warten auf",
+    "territory": "case",
+    "section": "accusative",
+    "status": "active",
+    "summary": "In the construction `warten auf` (“wait for”), the phrase after `auf` is accusative.",
+    "order": 7,
+    "related": [
+      "case.acc.masc",
+      "case.acc.unchanged"
+    ],
+    "practice": [],
+    "sections": {
+      "summary": "German uses the construction **warten auf** to mean “wait for.” In this construction, the noun phrase after `auf` is accusative.",
+      "pattern": "",
+      "rule": "Learn the verb and preposition together as one construction: `warten auf + accusative`.\n\n- Ich warte auf **den Zug**. — I'm waiting for the train.\n- Ich warte auf **die Frau**. — I'm waiting for the woman.\n- Ich warte auf **das Kind**. — I'm waiting for the child.\n- Ich warte auf **einen Freund**. — I'm waiting for a friend.\n\nThe masculine article changes in the familiar way (`der Zug → den Zug`, `ein Freund → einen Freund`). The feminine and neuter articles in these examples remain unchanged.",
+      "examples": "",
+      "limitations": "`Auf` is a two-way preposition in other constructions and does not always take the accusative. This page makes a narrower claim: **warten auf** takes the accusative. It does not explain the full system of two-way prepositions.",
+      "notes": "The important unit is not the word `auf` by itself but the construction **warten auf**. Remembering the verb with its preposition helps you use the right case.",
+      "pronunciation": ""
+    },
+    "examplesTable": [
+      {
+        "cue": "warten auf den Zug",
+        "german": "Ich warte auf den Zug.",
+        "note": "masculine accusative"
+      },
+      {
+        "cue": "warten auf die Frau",
+        "german": "Ich warte auf die Frau.",
+        "note": "feminine accusative"
+      },
+      {
+        "cue": "warten auf das Kind",
+        "german": "Ich warte auf das Kind.",
+        "note": "neuter accusative"
+      },
+      {
+        "cue": "warten auf einen Freund",
+        "german": "Ich warte auf einen Freund.",
+        "note": "indefinite masculine accusative"
+      }
+    ],
+    "chart": [
+      {
+        "cue": "warten auf den Zug",
+        "note": "masculine accusative",
+        "form": "Ich warte auf den Zug.",
+        "parts": [
+          {
+            "text": "warte",
+            "guide": "VAR-tuh",
+            "stress": true
+          },
+          {
+            "text": "auf",
+            "guide": "owf"
+          },
+          {
+            "text": "den",
+            "guide": "dane"
+          },
+          {
+            "text": "Zug",
+            "guide": "tsook",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "warten auf die Frau",
+        "note": "feminine accusative",
+        "form": "Ich warte auf die Frau.",
+        "parts": [
+          {
+            "text": "warte",
+            "guide": "VAR-tuh",
+            "stress": true
+          },
+          {
+            "text": "auf",
+            "guide": "owf"
+          },
+          {
+            "text": "die",
+            "guide": "dee"
+          },
+          {
+            "text": "Frau",
+            "guide": "frow",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "warten auf das Kind",
+        "note": "neuter accusative",
+        "form": "Ich warte auf das Kind.",
+        "parts": [
+          {
+            "text": "warte",
+            "guide": "VAR-tuh",
+            "stress": true
+          },
+          {
+            "text": "auf",
+            "guide": "owf"
+          },
+          {
+            "text": "das",
+            "guide": "dahs"
+          },
+          {
+            "text": "Kind",
+            "guide": "kint",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "warten auf einen Freund",
+        "note": "indefinite masculine accusative",
+        "form": "Ich warte auf einen Freund.",
+        "parts": [
+          {
+            "text": "warte",
+            "guide": "VAR-tuh",
+            "stress": true
+          },
+          {
+            "text": "auf",
+            "guide": "owf"
+          },
+          {
+            "text": "einen",
+            "guide": "EYE-nen"
+          },
+          {
+            "text": "Freund",
+            "guide": "froynt",
+            "stress": true
+          }
+        ]
+      }
+    ],
+    "flags": [],
+    "source": "content/reference/case/preposition-warten-auf.md"
+  },
+  "case.verb.danken": {
+    "id": "case.verb.danken",
+    "title": "danken",
+    "territory": "case",
+    "section": "dative",
+    "status": "active",
+    "summary": "`Danken` (“thank”) takes the dative for the person being thanked.",
+    "order": 11,
+    "related": [
+      "case.dat.helfen",
+      "case.verb.gefallen",
+      "case.dat.indef"
+    ],
+    "practice": [],
+    "sections": {
+      "summary": "**Danken** means “thank.” In German, the person you thank is expressed with the dative.",
+      "pattern": "",
+      "rule": "`danken` takes the dative. With singular definite articles:\n\n- Ich danke **dem Mann**. — I thank the man.\n- Ich danke **der Frau**. — I thank the woman.\n- Ich danke **dem Kind**. — I thank the child.\n\nThese are the same definite dative forms you saw with `helfen`: `dem` for masculine and neuter, `der` for feminine.",
+      "examples": "",
+      "limitations": "This page focuses on the person thanked and the singular definite article forms. It does not cover all possible complements or every form of the verb.",
+      "notes": "English uses a direct object in “I thank the man,” but German uses the dative for the person thanked. This is a useful reminder not to choose German case by translating an English sentence word for word.",
+      "pronunciation": ""
+    },
+    "examplesTable": [
+      {
+        "cue": "danken + dem",
+        "german": "Ich danke dem Mann.",
+        "note": "masculine dative"
+      },
+      {
+        "cue": "danken + der",
+        "german": "Ich danke der Frau.",
+        "note": "feminine dative"
+      },
+      {
+        "cue": "danken + dem",
+        "german": "Ich danke dem Kind.",
+        "note": "neuter dative"
+      }
+    ],
+    "chart": [
+      {
+        "cue": "danken + dem",
+        "note": "masculine dative",
+        "form": "Ich danke dem Mann.",
+        "parts": [
+          {
+            "text": "danke",
+            "guide": "DAHN-kuh",
+            "stress": true
+          },
+          {
+            "text": "dem",
+            "guide": "dame"
+          },
+          {
+            "text": "Mann",
+            "guide": "mahn",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "danken + der",
+        "note": "feminine dative",
+        "form": "Ich danke der Frau.",
+        "parts": [
+          {
+            "text": "danke",
+            "guide": "DAHN-kuh",
+            "stress": true
+          },
+          {
+            "text": "der",
+            "guide": "dair"
+          },
+          {
+            "text": "Frau",
+            "guide": "frow",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "danken + dem",
+        "note": "neuter dative",
+        "form": "Ich danke dem Kind.",
+        "parts": [
+          {
+            "text": "danke",
+            "guide": "DAHN-kuh",
+            "stress": true
+          },
+          {
+            "text": "dem",
+            "guide": "dame"
+          },
+          {
+            "text": "Kind",
+            "guide": "kint",
+            "stress": true
+          }
+        ]
+      }
+    ],
+    "flags": [],
+    "source": "content/reference/case/verb-danken.md"
+  },
+  "case.verb.gefallen": {
+    "id": "case.verb.gefallen",
+    "title": "gefallen",
+    "territory": "case",
+    "section": "dative",
+    "status": "active",
+    "summary": "In `Das Buch gefällt dem Mann`, `dem Mann` is dative, while `Das Buch` is the thing that pleases him.",
+    "order": 12,
+    "related": [
+      "case.dat.helfen",
+      "case.verb.danken",
+      "case.chart.definite"
+    ],
+    "practice": [],
+    "sections": {
+      "summary": "**Gefallen** is often translated as “to like,” but its sentence structure is different from English. German literally presents the thing as pleasing to someone: `Das Buch gefällt dem Mann.` — The man likes the book.",
+      "pattern": "",
+      "rule": "The person who likes something is expressed with the dative. The thing that pleases that person is the subject of the sentence.\n\n- **Das Buch** gefällt **dem Mann**. — The man likes the book.\n- **Das Buch** gefällt **der Frau**. — The woman likes the book.\n- **Das Buch** gefällt **dem Kind**. — The child likes the book.\n\nHere, `Das Buch` is the subject, and `dem Mann`, `der Frau`, or `dem Kind` is the dative phrase. The verb form `gefällt` agrees with the singular subject `Das Buch`.",
+      "examples": "",
+      "limitations": "This page uses the singular subject `Das Buch` to keep the pattern clear. Other subjects can require different verb forms, and those variations are outside this page's focus. Do not generalize from `gefallen` that every dative phrase has the same meaning or role.",
+      "notes": "It can help to read the German sentence in its own structure rather than trying to map each English word directly onto it: “The book is pleasing to the man.” That makes it easier to see why the person is dative even though English says “the man likes the book.”",
+      "pronunciation": ""
+    },
+    "examplesTable": [
+      {
+        "cue": "gefällt dem Mann",
+        "german": "Das Buch gefällt dem Mann.",
+        "note": "the person who likes it is dative"
+      },
+      {
+        "cue": "gefällt der Frau",
+        "german": "Das Buch gefällt der Frau.",
+        "note": "feminine dative"
+      },
+      {
+        "cue": "gefällt dem Kind",
+        "german": "Das Buch gefällt dem Kind.",
+        "note": "neuter dative"
+      }
+    ],
+    "chart": [
+      {
+        "cue": "gefällt dem Mann",
+        "note": "the person who likes it is dative",
+        "form": "Das Buch gefällt dem Mann.",
+        "parts": [
+          {
+            "text": "Das",
+            "guide": "dahs"
+          },
+          {
+            "text": "Buch",
+            "guide": "bookh",
+            "stress": true
+          },
+          {
+            "text": "gefällt",
+            "guide": "guh-FELT",
+            "stress": true
+          },
+          {
+            "text": "dem",
+            "guide": "dame"
+          },
+          {
+            "text": "Mann",
+            "guide": "mahn",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "gefällt der Frau",
+        "note": "feminine dative",
+        "form": "Das Buch gefällt der Frau.",
+        "parts": [
+          {
+            "text": "Das",
+            "guide": "dahs"
+          },
+          {
+            "text": "Buch",
+            "guide": "bookh",
+            "stress": true
+          },
+          {
+            "text": "gefällt",
+            "guide": "guh-FELT",
+            "stress": true
+          },
+          {
+            "text": "der",
+            "guide": "dair"
+          },
+          {
+            "text": "Frau",
+            "guide": "frow",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "gefällt dem Kind",
+        "note": "neuter dative",
+        "form": "Das Buch gefällt dem Kind.",
+        "parts": [
+          {
+            "text": "Das",
+            "guide": "dahs"
+          },
+          {
+            "text": "Buch",
+            "guide": "bookh",
+            "stress": true
+          },
+          {
+            "text": "gefällt",
+            "guide": "guh-FELT",
+            "stress": true
+          },
+          {
+            "text": "dem",
+            "guide": "dame"
+          },
+          {
+            "text": "Kind",
+            "guide": "kint",
+            "stress": true
+          }
+        ]
+      }
+    ],
+    "flags": [],
+    "source": "content/reference/case/verb-gefallen.md"
+  },
   "nouns.categories": {
     "id": "nouns.categories",
     "title": "Semantic Categories",
@@ -4627,9 +6671,122 @@ export const referenceNav = {
         ]
       }
     }
+  },
+  "case": {
+    "id": "case",
+    "label": "Case",
+    "blurb": "Accusative and dative articles in a few constructions.",
+    "sections": {
+      "articles": {
+        "id": "articles",
+        "label": "Articles",
+        "units": [
+          {
+            "id": "case.chart.definite",
+            "title": "Article forms",
+            "summary": "Use these tables to look up article forms. The table is a reference, not a promise that every form has already been introduced.",
+            "chartTab": "definite"
+          }
+        ]
+      },
+      "accusative": {
+        "id": "accusative",
+        "label": "Accusative",
+        "units": [
+          {
+            "id": "case.acc.masc",
+            "title": "Masculine accusative",
+            "summary": "In the accusative forms covered here, masculine `der` becomes `den` and masculine `ein` becomes `einen`."
+          },
+          {
+            "id": "case.acc.unchanged",
+            "title": "Feminine and neuter accusative",
+            "summary": "In these accusative examples, feminine and neuter articles keep the same forms: `die`, `das`, `eine`, and `ein`."
+          },
+          {
+            "id": "case.prep.fuer",
+            "title": "für",
+            "summary": "The preposition `für` takes the accusative: `für den Mann`, `für die Frau`, `für das Kind`."
+          },
+          {
+            "id": "case.prep.ohne",
+            "title": "ohne",
+            "summary": "The preposition `ohne` takes the accusative: `ohne den Schlüssel`, `ohne die Tasche`."
+          },
+          {
+            "id": "case.acc.verbs",
+            "title": "Common accusative verbs",
+            "summary": "In the example patterns here, `brauchen`, `suchen`, `nehmen`, and `finden` take an accusative noun phrase."
+          },
+          {
+            "id": "case.prep.warten-auf",
+            "title": "warten auf",
+            "summary": "In the construction `warten auf` (“wait for”), the phrase after `auf` is accusative."
+          }
+        ]
+      },
+      "dative": {
+        "id": "dative",
+        "label": "Dative",
+        "units": [
+          {
+            "id": "case.dat.helfen",
+            "title": "helfen",
+            "summary": "`Helfen` takes the dative: `dem Mann`, `der Frau`, and `dem Kind`."
+          },
+          {
+            "id": "case.prep.mit",
+            "title": "mit",
+            "summary": "`Mit` (“with”) takes the dative: `mit dem Bus`, `mit der Frau`."
+          },
+          {
+            "id": "case.prep.aus",
+            "title": "aus",
+            "summary": "`Aus` (“from” or “out of”) takes the dative."
+          },
+          {
+            "id": "case.verb.danken",
+            "title": "danken",
+            "summary": "`Danken` (“thank”) takes the dative for the person being thanked."
+          },
+          {
+            "id": "case.verb.gefallen",
+            "title": "gefallen",
+            "summary": "In `Das Buch gefällt dem Mann`, `dem Mann` is dative, while `Das Buch` is the thing that pleases him."
+          },
+          {
+            "id": "case.dat.indef",
+            "title": "Indefinite dative",
+            "summary": "The singular indefinite dative forms are `einem` for masculine and neuter nouns, and `einer` for feminine nouns."
+          },
+          {
+            "id": "case.dat.plural",
+            "title": "Dative plural",
+            "summary": "The dative plural article is `den`. Many plural nouns also add `-n` when their existing form allows it, but this is a separate pattern."
+          },
+          {
+            "id": "case.prep.passen-zu",
+            "title": "passen zu",
+            "summary": "In the construction `passen zu` (“go with” or “match”), the noun phrase after `zu` is dative."
+          }
+        ]
+      },
+      "mixed": {
+        "id": "mixed",
+        "label": "Mixed",
+        "units": [
+          {
+            "id": "case.mixed",
+            "title": "Accusative and dative together",
+            "summary": "A sentence can contain accusative and dative noun phrases. Determine the case from the particular verb or construction, then choose the matching article."
+          }
+        ]
+      }
+    }
   }
 };
 export const referenceChartIndex = {
+  "case:definite": "case.chart.definite",
   "nouns:categories": "nouns.categories",
   "nouns:plurals": "nouns.plurals",
   "nouns:feminine": "nouns.suffix.feminine",

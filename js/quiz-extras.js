@@ -435,8 +435,9 @@ export function numeratorFromAngleDeg(deg, denom) {
 }
 
 /**
- * Pie drag snaps to the guide ticks (Zwölftel), then is stored in `denom` parts.
- * A finger can hit 1/12, 1/6, 1/4, … — not every degree.
+ * Pie drag snaps to `ticks` equal wedges, stored in `denom` parts.
+ * Set-dial passes the question denominator (11 for Elftel) so a finger
+ * hits 3/11. The default tick count is twelfths on the 360-part grid.
  * @param {number} deg
  * @param {number} [denom]
  * @param {number} [ticks]

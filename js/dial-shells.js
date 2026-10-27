@@ -21,7 +21,7 @@ import {
   snapClockTime,
   pickClockHandFromPointer,
   syncClockHandTransforms,
-} from "./quiz-extras.js?v=20261021-pie12";
+} from "./quiz-extras.js?v=20261026-pie13";
 
 /**
  * @param {SVGElement} svg
@@ -293,8 +293,8 @@ export function mountClockDialShell(host, opts) {
 
 /**
  * Pie dial: drag/tap to set a filled sector.
- * Snaps to the Zwölftel guide ticks ({@link PIE_DIAL_GUIDE_TICKS}), stored in
- * {@link PIE_DIAL_DENOM} parts so ein Sechstel is 2/12, not an arbitrary degree.
+ * Snaps to `denominator` wedges (the question’s own parts, e.g. 11 for Elftel)
+ * so a finger lands on 3/11 rather than the nearest twelfth or degree.
  * @param {HTMLElement} host
  * @param {{
  *   denominator?: number,
@@ -363,7 +363,8 @@ export function mountPieDialShell(host, opts) {
         (deg) => {
           if (opts.isDisabled?.()) return;
           svg.style.cursor = "grabbing";
-          const next = snapPieDialNumerator(deg, denominator, guideTicks);
+          const snapTicks = guideTicks > 0 ? guideTicks : denominator;
+          const next = snapPieDialNumerator(deg, denominator, snapTicks);
           if (next === numerator) return;
           numerator = next;
           setPieSvgFraction(svg, numerator, denominator);

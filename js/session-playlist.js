@@ -531,6 +531,54 @@ export function enabledVocabAreas(playlist) {
   return areas;
 }
 
+/**
+ * Case topics → playlist topics. Every playable step is listed;
+ * the session decides which ids start enabled.
+ * @param {object[]} caseTopics
+ */
+export function buildCaseCatalog(caseTopics) {
+  const catalog = [];
+  for (const topic of caseTopics || []) {
+    if (topic.playable === false) continue;
+    const children = [];
+    for (const step of topic.steps || []) {
+      if (step.playable === false) continue;
+      children.push({
+        id: `case:${topic.id}:${step.id}`,
+        label: step.label,
+        kind: "unit",
+        unitKind: "case",
+        topicId: topic.id,
+        stepId: step.id,
+      });
+    }
+    if (!children.length) continue;
+    catalog.push({
+      id: `topic:case:${topic.id}`,
+      label: topic.label,
+      kind: "topic",
+      topicId: topic.id,
+      children,
+    });
+  }
+  return catalog;
+}
+
+/** Enabled case units in catalog order. */
+export function enabledCaseUnits(playlist) {
+  const enabled = new Set(playlist?.enabledUnitIds || []);
+  const out = [];
+  for (const topic of playlist?.catalog || []) {
+    for (const u of topic.children || []) {
+      if (!enabled.has(u.id)) continue;
+      if (u.unitKind === "case" && u.topicId && u.stepId) {
+        out.push({ topicId: u.topicId, stepId: u.stepId });
+      }
+    }
+  }
+  return out;
+}
+
 export function enabledNounFamilies(playlist) {
   const enabled = new Set(playlist.enabledUnitIds || []);
   const out = [];

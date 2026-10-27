@@ -36,6 +36,7 @@ export function isConceptEvidenceId(id) {
   if (s.includes("→")) return true;
   if (/^(compound|shorten|teen|tens|lexical)\./.test(s)) return true;
   if (/^eval\.(wrong-|pattern-|wug\.|noun\.)/.test(s)) return true;
+  if (/^(apply|article|recognize|construction)\./.test(s)) return true;
   return false;
 }
 

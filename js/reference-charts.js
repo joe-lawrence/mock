@@ -7,7 +7,7 @@ import {
   reference,
   referenceChartIndex,
   getReference,
-} from "./generated/reference.js?v=20261021-am1";
+} from "./generated/reference.js?v=20261025-case3";
 
 function unitForChart(territory, chartTab) {
   const id = referenceChartIndex[`${territory}:${chartTab}`];
@@ -98,6 +98,19 @@ export function buildNounsChart() {
   };
   for (const id of tabOrder) {
     chart[id] = unitForChart("nouns", id)?.chart || [];
+  }
+  return chart;
+}
+
+/** Definite and indefinite article lookup for the Case territory. */
+export function buildCaseChart() {
+  const tabOrder = ["definite"];
+  const labels = { definite: "Articles" };
+  const chart = {
+    tabs: tabsFromTerritory("case", tabOrder, labels),
+  };
+  for (const id of tabOrder) {
+    chart[id] = unitForChart("case", id)?.chart || [];
   }
   return chart;
 }

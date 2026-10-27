@@ -816,6 +816,14 @@ body.is-session .view.is-active.view-session {
   overflow: hidden;
 }
 
+/* Case Learn is one long page. The panel itself scrolls, so a missed
+   inner flex height cannot clip the unit under the fold. */
+body.is-session #view-case.is-active > #case-chart {
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .chart-tabs {
   display: flex;
   flex-wrap: nowrap;
@@ -3744,6 +3752,35 @@ html[data-theme="dark"] .quiz-visual-svg {
   font-weight: 650;
 }
 
+.dial-cue .case-phrase {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  font-weight: 750;
+}
+
+.dial-cue .case-noun {
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  font-style: inherit;
+  font-weight: 750;
+  letter-spacing: inherit;
+  text-decoration: none;
+}
+
+.dial-cue .case-noun.g-masc {
+  color: var(--masc-ink);
+}
+
+.dial-cue .case-noun.g-fem {
+  color: var(--fem-ink);
+}
+
+.dial-cue .case-noun.g-neut {
+  color: var(--neut-ink);
+}
+
 .answer-shell--dial {
   display: flex;
   flex-direction: column;
@@ -3907,22 +3944,26 @@ html[data-theme="dark"] .quiz-visual-svg {
   -webkit-hyphens: auto;
 }
 
-.piece.piece-judgment {
+.piece.piece-judgment,
+.answer-shell-choice.piece-judgment {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.45rem;
   overflow-wrap: normal;
   word-break: normal;
   hyphens: none;
 }
 
-.piece.piece-judgment .piece-icon {
+.piece.piece-judgment .piece-icon,
+.answer-shell-choice.piece-judgment .piece-icon {
   width: 1.15em;
   height: 1.15em;
   flex: 0 0 auto;
 }
 
-.piece.piece-judgment .piece-label {
+.piece.piece-judgment .piece-label,
+.answer-shell-choice.piece-judgment .piece-label {
   line-height: 1.1;
 }
 
@@ -4311,6 +4352,43 @@ html[data-theme="dark"] .quiz-visual-svg {
 .ref-section h4 {
   margin: 0.35rem 0 0.35rem;
   font-size: 0.85rem;
+}
+
+.ref-section p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.ref-section p + p {
+  margin-top: 0.65rem;
+}
+
+.ref-section .ref-prose {
+  margin: 0;
+  padding-left: 1.15rem;
+}
+
+.ref-section .ref-prose li + li {
+  margin-top: 0.25rem;
+}
+
+.chart-scroll .ref-entry + .ref-entry {
+  margin-top: 0.35rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+/* German form marked with backticks in Reference / Case Learn prose. */
+.ref-entry .de-form {
+  font-family: var(--font-display);
+  font-style: normal;
+  font-weight: 650;
+  font-size: 0.95em;
+  letter-spacing: -0.02em;
+  padding: 0.04em 0.32em 0.06em;
+  border-radius: 0.35em;
+  background: var(--surface-2);
+  color: var(--ink);
 }
 
 .ref-unit-list {

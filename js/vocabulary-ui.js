@@ -21,6 +21,7 @@ import {
   questionTypesForItem,
   revealDeHtml,
 } from "./vocabulary-practice.js";
+import { choiceSecondChanceOpen } from "./answer-shells.js?v=20261027-retry";
 
 /** Bootstrap Icons (outline) — same set as mock.js session chrome. */
 const BI_PATHS = {
@@ -441,6 +442,14 @@ export function mountVocabularyPanel(root, opts) {
         }
         btn.classList.add("is-bad");
         btn.disabled = true;
+        const stillOpen = choiceSecondChanceOpen(
+          root.querySelectorAll("[data-vocab-choice]"),
+          btn
+        );
+        if (!stillOpen) {
+          finish({ ...result, verdictLabel: "Answer" });
+          return;
+        }
         opts.playFeedback?.("retry");
         if (attempt) {
           attempt.hidden = false;
@@ -449,10 +458,6 @@ export function mountVocabularyPanel(root, opts) {
           void attempt.offsetWidth;
           attempt.classList.add("is-flash");
         }
-        const remaining = [
-          ...root.querySelectorAll("[data-vocab-choice]:not(:disabled)"),
-        ];
-        if (!remaining.length) finish({ ...result, verdictLabel: "Answer" });
       });
     });
   };

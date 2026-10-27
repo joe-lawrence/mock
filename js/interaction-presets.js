@@ -81,6 +81,16 @@ export const INTERACTION_PRESETS = Object.freeze({
     seedDifficulty: 0.55,
     blurb: "See the digit, type the German form — production.",
   },
+  /** Written citation → typed case form. Same freeform shell as Convert, not a digit. */
+  produce: {
+    id: "produce",
+    label: "Type",
+    stimulus: STIMULUS.VALUE,
+    response: RESPONSE.FREEFORM,
+    playable: true,
+    seedDifficulty: 0.7,
+    blurb: "See the base form, type the case form.",
+  },
   /** Generic written/value → multi-select (Nouns articles/gender; reusable). */
   choose: {
     id: "choose",
@@ -329,6 +339,7 @@ export const MATRIX_PRESET_IDS = Object.freeze([
   "build",
   "listen",
   "convert",
+  "produce",
   "choose",
   "proofread",
   "visual",

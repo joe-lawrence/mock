@@ -20,7 +20,7 @@ import {
 } from "./context-compatibility.js";
 
 /** Bump when pool membership / Phase B gates change (cache / deck fingerprint). */
-export const COMPOSE_VERSION = "0.2.1";
+export const COMPOSE_VERSION = "0.5.0";
 
 export {
   CONTEXT_FAILURE,
@@ -43,7 +43,7 @@ const GENDERS = Object.freeze(["masculine", "feminine", "neuter"]);
  * @property {string} label
  * @property {string[]} requires
  * @property {"definite"|"indefinite"} articleKind
- * @property {"nominative"|"accusative"} case
+ * @property {"nominative"|"accusative"|"dative"} case
  * @property {"singular"|"plural"} number
  * @property {string} before — text before the article blank (may be "")
  * @property {(nounForm: string) => string} after — text after the article
@@ -163,10 +163,32 @@ export const PRACTICE_CONTEXTS = Object.freeze([
     sentence: (a, n) => `Ich sehe ${a} ${n}.`,
   }),
   Object.freeze({
+    id: "ich_sehe_acc_indef",
+    label: "I see a …",
+    requires: ["accusative", "indefinite_article", "verb.sehen"],
+    articleKind: "indefinite",
+    case: "accusative",
+    number: "singular",
+    before: "Ich sehe ",
+    after: (n) => ` ${n}.`,
+    sentence: (a, n) => `Ich sehe ${a} ${n}.`,
+  }),
+  Object.freeze({
     id: "ich_habe_acc_def",
     label: "I have …",
     requires: ["accusative", "definite_article", "verb.haben"],
     articleKind: "definite",
+    case: "accusative",
+    number: "singular",
+    before: "Ich habe ",
+    after: (n) => ` ${n}.`,
+    sentence: (a, n) => `Ich habe ${a} ${n}.`,
+  }),
+  Object.freeze({
+    id: "ich_habe_acc_indef",
+    label: "I have a …",
+    requires: ["accusative", "indefinite_article", "verb.haben"],
+    articleKind: "indefinite",
     case: "accusative",
     number: "singular",
     before: "Ich habe ",
@@ -209,19 +231,855 @@ export const PRACTICE_CONTEXTS = Object.freeze([
 ]);
 
 /**
+ * First Case slice frames: masculine change and unchanged accusative
+ * on Ich sehe / Ich habe. Dative (`helfen`) is not in this list.
+ * @type {readonly string[]}
+ */
+export const CASE_ACCUSATIVE_FRAMES = Object.freeze([
+  "ich_sehe_acc_def",
+  "ich_sehe_acc_indef",
+  "ich_habe_acc_def",
+  "ich_habe_acc_indef",
+]);
+
+/**
+ * Concepts that introduce every first-slice frame.
+ * A frame stays ineligible until each of its own `requires` tags is present.
+ * @type {readonly string[]}
+ */
+export const CASE_ACCUSATIVE_CONCEPTS = Object.freeze([
+  "accusative",
+  "definite_article",
+  "indefinite_article",
+  "verb.sehen",
+  "verb.haben",
+]);
+
+/**
+ * Lesson nouns allowed in Case accusative frames.
+ * Not the whole lexicon — suffix-lesson lemmas stay out.
+ * @type {readonly string[]}
+ */
+export const CASE_ACCUSATIVE_ALLOWLIST = Object.freeze([
+  "Mann",
+  "Frau",
+  "Hund",
+  "Kind",
+  "Bus",
+  "Zug",
+  "Stadt",
+  "Stift",
+  "Ball",
+  "Schlüssel",
+  "Geschenk",
+  "Katze",
+  "Buch",
+]);
+
+/** Masculine accusative unit: der→den, ein→einen. */
+export const CASE_ACC_MASC_GENDERS = Object.freeze(["masculine"]);
+
+/** Unchanged accusative unit: die, das, eine, ein. */
+export const CASE_ACC_UNCHANGED_GENDERS = Object.freeze(["feminine", "neuter"]);
+
+/**
+ * Dative plural noun forms that are item facts, not a plural-ending rule.
+ * Only these two allowlist plurals are legal in the plural-dative unit.
+ */
+export const DATIVE_PLURAL_FORMS = Object.freeze({
+  Kind: "Kindern",
+  Hund: "Hunden",
+  /** Nominative plural already ends in -n, so the dative plural does not add another. */
+  Frau: "Frauen",
+});
+
+/**
+ * Listed Case frames after the accusative slice.
+ * Each `lemmas` array is the allowlist. A frame with `closed: true` also
+ * freezes the rest of the sentence (gefallen’s subject stays Das Buch).
+ * `geben` is not a frame.
+ * @type {Readonly<Record<string, { concepts: readonly string[], frames: readonly object[] }>>}
+ */
+export const CASE_FRAME_UNITS = Object.freeze({
+  "case.dat.helfen": {
+    concepts: ["dative", "definite_article", "verb.helfen"],
+    frames: [
+      {
+        id: "ich_helfe_dat_def",
+        requires: ["dative", "definite_article", "verb.helfen"],
+        construction: "helfen",
+        cue: "helfen takes the dative.",
+        target: "article",
+        articleKind: "definite",
+        case: "dative",
+        number: "singular",
+        before: "Ich helfe ",
+        lemmas: ["Mann", "Frau", "Kind"],
+      },
+    ],
+  },
+  "case.dat.indef": {
+    concepts: ["dative", "indefinite_article", "verb.helfen", "prep.mit", "prep.aus"],
+    frames: [
+      {
+        id: "ich_helfe_dat_indef",
+        requires: ["dative", "indefinite_article", "verb.helfen"],
+        construction: "helfen",
+        cue: "helfen takes the dative.",
+        target: "article",
+        articleKind: "indefinite",
+        case: "dative",
+        number: "singular",
+        before: "Ich helfe ",
+        lemmas: ["Mann", "Frau", "Kind"],
+      },
+      {
+        id: "mit_dat_indef",
+        requires: ["dative", "indefinite_article", "prep.mit"],
+        construction: "mit",
+        cue: "mit takes the dative.",
+        target: "article",
+        articleKind: "indefinite",
+        case: "dative",
+        number: "singular",
+        before: "Ich fahre mit ",
+        lemmas: ["Bus"],
+      },
+      {
+        id: "aus_dat_indef",
+        requires: ["dative", "indefinite_article", "prep.aus"],
+        construction: "aus",
+        cue: "aus takes the dative.",
+        target: "article",
+        articleKind: "indefinite",
+        case: "dative",
+        number: "singular",
+        before: "Er kommt aus ",
+        lemmas: ["Stadt"],
+      },
+    ],
+  },
+  "case.prep.mit": {
+    concepts: ["dative", "definite_article", "prep.mit"],
+    frames: [
+      {
+        id: "mit_dat_def",
+        requires: ["dative", "definite_article", "prep.mit"],
+        construction: "mit",
+        cue: "mit takes the dative.",
+        target: "article",
+        articleKind: "definite",
+        case: "dative",
+        number: "singular",
+        before: "Ich fahre mit ",
+        lemmas: [
+          { lemma: "Bus", before: "Ich fahre mit " },
+          { lemma: "Zug", before: "Ich fahre mit " },
+          { lemma: "Kind", before: "Ich spiele mit " },
+          { lemma: "Hund", before: "Ich spiele mit " },
+        ],
+      },
+    ],
+  },
+  "case.prep.warten-auf": {
+    concepts: ["accusative", "definite_article", "prep.warten-auf"],
+    frames: [
+      {
+        id: "warten_auf_acc_def",
+        requires: ["accusative", "definite_article", "prep.warten-auf"],
+        construction: "warten-auf",
+        cue: "warten auf takes the accusative.",
+        target: "article",
+        articleKind: "definite",
+        case: "accusative",
+        number: "singular",
+        before: "Ich warte auf ",
+        lemmas: ["Mann", "Frau", "Kind", "Zug", "Bus"],
+      },
+    ],
+  },
+  "case.verb.danken": {
+    concepts: ["dative", "definite_article", "verb.danken"],
+    frames: [
+      {
+        id: "ich_danke_dat_def",
+        requires: ["dative", "definite_article", "verb.danken"],
+        construction: "danken",
+        cue: "danken takes the dative.",
+        target: "article",
+        articleKind: "definite",
+        case: "dative",
+        number: "singular",
+        before: "Ich danke ",
+        lemmas: ["Mann", "Frau", "Kind"],
+      },
+    ],
+  },
+  "case.verb.gefallen": {
+    concepts: ["dative", "definite_article", "verb.gefallen"],
+    frames: [
+      {
+        id: "gefallen_dat_def",
+        requires: ["dative", "definite_article", "verb.gefallen"],
+        construction: "gefallen",
+        cue: "gefallen takes the dative.",
+        target: "article",
+        articleKind: "definite",
+        case: "dative",
+        number: "singular",
+        before: "Das Buch gefällt ",
+        closed: true,
+        lemmas: ["Mann", "Frau", "Kind"],
+      },
+    ],
+  },
+  "case.prep.aus": {
+    concepts: ["dative", "definite_article", "prep.aus"],
+    frames: [
+      {
+        id: "aus_dat_def",
+        requires: ["dative", "definite_article", "prep.aus"],
+        construction: "aus",
+        cue: "aus takes the dative.",
+        target: "article",
+        articleKind: "definite",
+        case: "dative",
+        number: "singular",
+        before: "Er kommt aus ",
+        lemmas: ["Stadt", "Haus"],
+      },
+    ],
+  },
+  "case.prep.fuer": {
+    concepts: ["accusative", "definite_article", "indefinite_article", "prep.fuer"],
+    frames: [
+      {
+        id: "fuer_acc_def",
+        requires: ["accusative", "definite_article", "prep.fuer"],
+        construction: "fuer",
+        cue: "für takes the accusative.",
+        target: "article",
+        articleKind: "definite",
+        case: "accusative",
+        number: "singular",
+        before: "Das Geschenk ist für ",
+        lemmas: ["Mann", "Frau", "Kind"],
+      },
+      {
+        id: "fuer_acc_indef",
+        requires: ["accusative", "indefinite_article", "prep.fuer"],
+        construction: "fuer",
+        cue: "für takes the accusative.",
+        target: "article",
+        articleKind: "indefinite",
+        case: "accusative",
+        number: "singular",
+        before: "Das ist für ",
+        lemmas: ["Mann", "Frau"],
+      },
+    ],
+  },
+  "case.prep.ohne": {
+    concepts: ["accusative", "definite_article", "indefinite_article", "prep.ohne"],
+    frames: [
+      {
+        id: "ohne_acc_def",
+        requires: ["accusative", "definite_article", "prep.ohne"],
+        construction: "ohne",
+        cue: "ohne takes the accusative.",
+        target: "article",
+        articleKind: "definite",
+        case: "accusative",
+        number: "singular",
+        before: "Ich gehe ohne ",
+        lemmas: ["Schlüssel", "Tasche", "Ticket"],
+      },
+      {
+        id: "ohne_acc_indef",
+        requires: ["accusative", "indefinite_article", "prep.ohne"],
+        construction: "ohne",
+        cue: "ohne takes the accusative.",
+        target: "article",
+        articleKind: "indefinite",
+        case: "accusative",
+        number: "singular",
+        before: "Ich gehe ohne ",
+        lemmas: ["Schlüssel"],
+      },
+    ],
+  },
+  "case.acc.verbs": {
+    concepts: [
+      "accusative",
+      "definite_article",
+      "indefinite_article",
+      "verb.brauchen",
+      "verb.suchen",
+      "verb.nehmen",
+      "verb.finden",
+    ],
+    frames: [
+      {
+        id: "brauche_acc_def",
+        requires: ["accusative", "definite_article", "verb.brauchen"],
+        construction: "brauchen",
+        cue: "brauchen takes the accusative.",
+        target: "article",
+        articleKind: "definite",
+        case: "accusative",
+        number: "singular",
+        before: "Ich brauche ",
+        lemmas: ["Schlüssel"],
+      },
+      {
+        id: "suche_acc_indef",
+        requires: ["accusative", "indefinite_article", "verb.suchen"],
+        construction: "suchen",
+        cue: "suchen takes the accusative.",
+        target: "article",
+        articleKind: "indefinite",
+        case: "accusative",
+        number: "singular",
+        before: "Ich suche ",
+        lemmas: ["Schlüssel"],
+      },
+      {
+        id: "nehme_acc_def",
+        requires: ["accusative", "definite_article", "verb.nehmen"],
+        construction: "nehmen",
+        cue: "nehmen takes the accusative.",
+        target: "article",
+        articleKind: "definite",
+        case: "accusative",
+        number: "singular",
+        before: "Ich nehme ",
+        lemmas: ["Bus"],
+      },
+      {
+        id: "finde_acc_def",
+        requires: ["accusative", "definite_article", "verb.finden"],
+        construction: "finden",
+        cue: "finden takes the accusative.",
+        target: "article",
+        articleKind: "definite",
+        case: "accusative",
+        number: "singular",
+        before: "Ich finde ",
+        lemmas: ["Hotel"],
+      },
+    ],
+  },
+  "case.dat.plural": {
+    concepts: ["dative", "definite_article", "verb.helfen", "prep.mit", "plural"],
+    frames: [
+      {
+        id: "helfe_dat_pl_article",
+        requires: ["dative", "definite_article", "verb.helfen", "plural"],
+        construction: "helfen",
+        cue: "helfen takes the dative.",
+        target: "article",
+        articleKind: "definite",
+        case: "dative",
+        number: "plural",
+        before: "Ich helfe ",
+        lemmas: [
+          { lemma: "Kind", nounForm: "Kindern" },
+          { lemma: "Frau", nounForm: "Frauen" },
+        ],
+      },
+      {
+        id: "mit_dat_pl_article",
+        requires: ["dative", "definite_article", "prep.mit", "plural"],
+        construction: "mit",
+        cue: "mit takes the dative.",
+        target: "article",
+        articleKind: "definite",
+        case: "dative",
+        number: "plural",
+        before: "Ich spiele mit ",
+        lemmas: [{ lemma: "Hund", nounForm: "Hunden" }],
+      },
+      {
+        id: "helfe_dat_pl_noun",
+        requires: ["dative", "definite_article", "verb.helfen", "plural"],
+        construction: "helfen",
+        cue: "This noun’s dative plural changes.",
+        target: "noun",
+        case: "dative",
+        number: "plural",
+        before: "Ich helfe den ",
+        lemmas: [
+          {
+            lemma: "Kind",
+            correct: "Kindern",
+            choices: ["Kindern", "Kinder", "Kind"],
+            before: "Ich helfe den ",
+          },
+        ],
+      },
+      {
+        id: "mit_dat_pl_noun",
+        requires: ["dative", "definite_article", "prep.mit", "plural"],
+        construction: "mit",
+        cue: "This noun’s dative plural changes.",
+        target: "noun",
+        case: "dative",
+        number: "plural",
+        before: "Ich spiele mit den ",
+        lemmas: [
+          {
+            lemma: "Hund",
+            correct: "Hunden",
+            choices: ["Hunden", "Hunde", "Hund"],
+            before: "Ich spiele mit den ",
+          },
+        ],
+      },
+      {
+        id: "helfe_dat_pl_frau",
+        requires: ["dative", "definite_article", "verb.helfen", "plural"],
+        construction: "helfen",
+        cue: "This plural already ends in -n.",
+        target: "noun",
+        case: "dative",
+        number: "plural",
+        before: "Ich helfe den ",
+        lemmas: [
+          {
+            lemma: "Frau",
+            correct: "Frauen",
+            choices: ["Frauen", "Frauenn", "Frau"],
+            before: "Ich helfe den ",
+            cue: "This plural already ends in -n.",
+          },
+        ],
+      },
+    ],
+  },
+  "case.prep.passen-zu": {
+    concepts: ["dative", "definite_article", "indefinite_article", "prep.passen-zu"],
+    frames: [
+      {
+        id: "passen_hemd",
+        requires: ["dative", "definite_article", "prep.passen-zu"],
+        construction: "passen-zu",
+        cue: "passen zu takes the dative.",
+        target: "article",
+        articleKind: "definite",
+        case: "dative",
+        number: "singular",
+        before: "Die Jacke passt zu ",
+        lemmas: ["Hemd"],
+      },
+      {
+        id: "passen_tasche",
+        requires: ["dative", "definite_article", "prep.passen-zu"],
+        construction: "passen-zu",
+        cue: "passen zu takes the dative.",
+        target: "article",
+        articleKind: "definite",
+        case: "dative",
+        number: "singular",
+        before: "Die Farbe passt zu ",
+        lemmas: ["Tasche"],
+      },
+      {
+        id: "passen_kleid",
+        requires: ["dative", "indefinite_article", "prep.passen-zu"],
+        construction: "passen-zu",
+        cue: "passen zu takes the dative.",
+        target: "article",
+        articleKind: "indefinite",
+        case: "dative",
+        number: "singular",
+        before: "Das passt zu ",
+        lemmas: ["Kleid"],
+      },
+    ],
+  },
+  "case.mixed": {
+    concepts: [
+      "nominative",
+      "accusative",
+      "dative",
+      "definite_article",
+      "verb.sehen",
+      "verb.zeigen",
+      "verb.geben",
+      "verb.helfen",
+    ],
+    frames: [
+      {
+        id: "zeigt_frau_mann_buch",
+        requires: ["accusative", "dative", "definite_article", "verb.zeigen"],
+        construction: "zeigen",
+        target: "article",
+        articleKind: "definite",
+        case: "dative",
+        number: "singular",
+        before: "",
+        closed: true,
+        focusLemma: true,
+        lemmas: [
+          {
+            lemma: "Mann",
+            case: "dative",
+            before: "Die Frau zeigt ",
+            rest: " das Buch",
+            cue: "zeigen takes the dative.",
+          },
+          {
+            lemma: "Buch",
+            case: "accusative",
+            before: "Die Frau zeigt dem Mann ",
+            rest: "",
+            cue: "zeigen takes the accusative.",
+          },
+        ],
+      },
+      {
+        id: "sehen_mann_hund",
+        requires: ["nominative", "accusative", "definite_article", "verb.sehen"],
+        construction: "sehen",
+        target: "article",
+        articleKind: "definite",
+        case: "nominative",
+        number: "singular",
+        before: "",
+        closed: true,
+        focusLemma: true,
+        lemmas: [
+          {
+            lemma: "Mann",
+            case: "nominative",
+            before: "",
+            rest: " sieht den Hund",
+            initial: true,
+            cue: "The subject is nominative.",
+          },
+          {
+            lemma: "Hund",
+            case: "accusative",
+            before: "Der Mann sieht ",
+            rest: "",
+            cue: "sehen takes the accusative.",
+          },
+        ],
+      },
+      {
+        id: "sehen_hund_mann",
+        requires: ["nominative", "accusative", "definite_article", "verb.sehen"],
+        construction: "sehen",
+        target: "article",
+        articleKind: "definite",
+        case: "nominative",
+        number: "singular",
+        before: "",
+        closed: true,
+        focusLemma: true,
+        lemmas: [
+          {
+            lemma: "Hund",
+            case: "nominative",
+            before: "",
+            rest: " sieht den Mann",
+            initial: true,
+            cue: "The subject is nominative.",
+          },
+          {
+            lemma: "Mann",
+            case: "accusative",
+            before: "Der Hund sieht ",
+            rest: "",
+            cue: "sehen takes the accusative.",
+          },
+        ],
+      },
+      {
+        id: "geben_kind_ball",
+        requires: ["accusative", "dative", "definite_article", "verb.geben"],
+        construction: "geben",
+        target: "article",
+        articleKind: "definite",
+        case: "dative",
+        number: "singular",
+        before: "",
+        closed: true,
+        focusLemma: true,
+        lemmas: [
+          {
+            lemma: "Kind",
+            case: "dative",
+            before: "Ich gebe ",
+            rest: " den Ball",
+            cue: "geben takes the dative.",
+          },
+          {
+            lemma: "Ball",
+            case: "accusative",
+            before: "Ich gebe dem Kind ",
+            rest: "",
+            cue: "geben takes the accusative.",
+          },
+        ],
+      },
+      {
+        id: "helfen_lehrer_schueler",
+        requires: ["nominative", "dative", "definite_article", "verb.helfen"],
+        construction: "helfen",
+        target: "article",
+        articleKind: "definite",
+        case: "nominative",
+        number: "singular",
+        before: "",
+        closed: true,
+        focusLemma: true,
+        lemmas: [
+          {
+            lemma: "Lehrer",
+            case: "nominative",
+            before: "",
+            rest: " hilft dem Schüler",
+            initial: true,
+            cue: "The subject is nominative.",
+          },
+          {
+            lemma: "Schüler",
+            case: "dative",
+            before: "Der Lehrer hilft ",
+            rest: "",
+            cue: "helfen takes the dative.",
+          },
+        ],
+      },
+    ],
+  },
+});
+
+/**
+ * Compose accusative Ich sehe / Ich habe items for Case.
+ * Contexts missing an introduced concept are skipped.
+ * Lemmas off the allowlist, of the wrong gender, or failing validation are discarded.
+ * @param {{ concepts?: Iterable<string>, genders?: Iterable<string>, lemmas?: Iterable<string> }} [opts]
+ * @returns {readonly object[]}
+ */
+export function composeCaseAccusativeItems(opts = {}) {
+  if (!opts.concepts) return Object.freeze([]);
+  const concepts = opts.concepts instanceof Set ? opts.concepts : new Set(opts.concepts);
+  const genders = opts.genders
+    ? opts.genders instanceof Set
+      ? opts.genders
+      : new Set(opts.genders)
+    : null;
+  const requested = opts.lemmas ? [...opts.lemmas] : [...CASE_ACCUSATIVE_ALLOWLIST];
+  const allow = new Set(CASE_ACCUSATIVE_ALLOWLIST);
+  const contexts = PRACTICE_CONTEXTS.filter(
+    (ctx) =>
+      CASE_ACCUSATIVE_FRAMES.includes(ctx.id) &&
+      contextIsEligible(ctx, { concepts })
+  );
+  const out = [];
+  for (const lemma of requested) {
+    if (!allow.has(lemma)) continue;
+    const analysis = nounAnalysis(lemma);
+    if (!analysis.known || !analysis.gender) continue;
+    if (genders && !genders.has(analysis.gender)) continue;
+    for (const ctx of contexts) {
+      const v = validateComposition(lemma, ctx);
+      if (!v.ok) continue;
+      out.push(
+        Object.freeze({
+          id: `case.acc.${ctx.id}.${lemma}`,
+          lemma,
+          gender: analysis.gender,
+          contextId: ctx.id,
+          articleKind: ctx.articleKind,
+          case: ctx.case,
+          number: ctx.number,
+          before: ctx.before,
+          after: ctx.after(v.nounForm),
+          nounForm: v.nounForm,
+          correct: v.expected,
+          sentence: v.sentence,
+          choices: articleChoices(ctx.articleKind, ctx.case),
+          composeVersion: COMPOSE_VERSION,
+        })
+      );
+    }
+  }
+  return Object.freeze(out);
+}
+
+function slotLemma(entry) {
+  return typeof entry === "string" ? entry : entry.lemma;
+}
+
+function slotBefore(frame, entry) {
+  if (entry && typeof entry === "object" && "before" in entry) return entry.before;
+  return frame.before;
+}
+
+function capitalizeFirst(text) {
+  const s = String(text || "");
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+function frameEligible(frame, concepts) {
+  return frame.requires.every((tag) => concepts.has(tag));
+}
+
+function composeArticleFrameItems(frame, only) {
+  const out = [];
+  for (const entry of frame.lemmas) {
+    const lemma = slotLemma(entry);
+    if (only && !only.has(lemma)) continue;
+    const slot = entry && typeof entry === "object" ? entry : {};
+    const grammaticalCase = slot.case || frame.case;
+    const articleKind = slot.articleKind || frame.articleKind;
+    const number = slot.number || frame.number;
+    const rest = typeof slot.rest === "string" ? slot.rest : "";
+    const before = slotBefore(frame, entry);
+    const ctx = {
+      articleKind,
+      case: grammaticalCase,
+      number,
+      before,
+      after: (n) => ` ${n}${rest}.`,
+      sentence: (a, n) => `${before}${a} ${n}${rest}.`,
+    };
+    const v = validateComposition(lemma, ctx);
+    if (!v.ok) continue;
+    let nounForm = v.nounForm;
+    let sentence = v.sentence;
+    const override = slot.nounForm || null;
+    if (override) {
+      if (DATIVE_PLURAL_FORMS[lemma] !== override) continue;
+      nounForm = override;
+      sentence = `${before}${v.expected} ${nounForm}${rest}.`;
+    }
+    let correct = v.expected;
+    let choices = [...articleChoices(articleKind, grammaticalCase)];
+    if (slot.initial) {
+      correct = capitalizeFirst(correct);
+      choices = choices.map(capitalizeFirst);
+      sentence = capitalizeFirst(sentence);
+    }
+    out.push(
+      Object.freeze({
+        id: `${frame.id}.${lemma}`,
+        lemma,
+        gender: v.gender,
+        contextId: frame.id,
+        articleKind,
+        case: grammaticalCase,
+        number,
+        target: "article",
+        construction: frame.construction,
+        guidedCue: slot.cue || frame.cue,
+        focusLemma: !!frame.focusLemma,
+        before,
+        after: ` ${nounForm}${rest}.`,
+        nounForm,
+        correct,
+        sentence,
+        choices: Object.freeze(choices),
+        composeVersion: COMPOSE_VERSION,
+        closed: !!frame.closed,
+      })
+    );
+  }
+  return out;
+}
+
+function composeNounFactItems(frame, only) {
+  const out = [];
+  for (const entry of frame.lemmas) {
+    const lemma = entry.lemma;
+    if (only && !only.has(lemma)) continue;
+    const fact = DATIVE_PLURAL_FORMS[lemma];
+    if (!fact || entry.correct !== fact) continue;
+    const analysis = nounAnalysis(lemma);
+    if (!analysis.known || !analysis.gender || !analysis.plural?.form) continue;
+    if (!entry.choices?.includes(fact)) continue;
+    if (!entry.choices.includes(analysis.plural.form)) continue;
+    let article;
+    try {
+      article = articleForm(analysis.gender, {
+        kind: "definite",
+        number: "plural",
+        case: "dative",
+      });
+    } catch {
+      continue;
+    }
+    if (article !== "den") continue;
+    const before = entry.before || frame.before;
+    out.push(
+      Object.freeze({
+        id: `${frame.id}.${lemma}`,
+        lemma,
+        gender: analysis.gender,
+        contextId: frame.id,
+        articleKind: null,
+        case: "dative",
+        number: "plural",
+        target: "noun",
+        construction: frame.construction,
+        guidedCue: entry.cue || frame.cue,
+        before,
+        after: ".",
+        nounForm: fact,
+        correct: fact,
+        sentence: `${before}${fact}.`,
+        choices: Object.freeze([...entry.choices]),
+        composeVersion: COMPOSE_VERSION,
+      })
+    );
+  }
+  return out;
+}
+
+/**
+ * Compose one later Case unit from its listed frames.
+ * No concepts → empty. Lemmas off the frame allowlist are dropped.
+ * @param {string} unitId
+ * @param {{ concepts?: Iterable<string>, lemmas?: Iterable<string> }} [opts]
+ */
+export function composeCaseFrameItems(unitId, opts = {}) {
+  if (!opts.concepts) return Object.freeze([]);
+  const unit = CASE_FRAME_UNITS[unitId];
+  if (!unit) return Object.freeze([]);
+  const concepts = opts.concepts instanceof Set ? opts.concepts : new Set(opts.concepts);
+  const only = opts.lemmas ? new Set(opts.lemmas) : null;
+  const out = [];
+  for (const frame of unit.frames) {
+    if (!frameEligible(frame, concepts)) continue;
+    if (frame.target === "noun") out.push(...composeNounFactItems(frame, only));
+    else out.push(...composeArticleFrameItems(frame, only));
+  }
+  return Object.freeze(out);
+}
+
+/**
  * Choice set for an article blank (known forms only).
  * @param {"definite"|"indefinite"} kind
- * @param {"nominative"|"accusative"} grammaticalCase
+ * @param {"nominative"|"accusative"|"dative"} grammaticalCase
  */
 export function articleChoices(kind, grammaticalCase) {
   if (kind === "definite") {
     if (grammaticalCase === "accusative") {
       return Object.freeze(["den", "die", "das"]);
     }
+    if (grammaticalCase === "dative") {
+      return Object.freeze(["dem", "der", "den"]);
+    }
     return Object.freeze(["der", "die", "das"]);
   }
   if (grammaticalCase === "accusative") {
     return Object.freeze(["einen", "eine", "ein"]);
+  }
+  if (grammaticalCase === "dative") {
+    return Object.freeze(["einem", "einer", "einen"]);
   }
   return Object.freeze(["ein", "eine"]);
 }

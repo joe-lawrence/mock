@@ -7,6 +7,7 @@ import {
   emptyEvidenceStore,
   recordAttemptEvidence,
 } from "./multi-grain-evidence.js";
+import { emptyWordBank, normalizeWordBank } from "./word-bank.js";
 
 export const PROFILES_SCHEMA = "schnapp.profiles.v0";
 export const PROFILES_STORAGE_KEY = "schnapp-profiles";
@@ -67,6 +68,7 @@ export function createEmptyProfile(label = "You") {
     hintHistory: [],
     dealerStats: {},
     attemptCount: 0,
+    wordBank: emptyWordBank(),
   };
 }
 
@@ -110,6 +112,7 @@ export function normalizeProfileStore(raw) {
       hintHistory: Array.isArray(p.hintHistory) ? p.hintHistory.slice(-HINT_HISTORY_CAP) : [],
       dealerStats: p.dealerStats && typeof p.dealerStats === "object" ? { ...p.dealerStats } : {},
       attemptCount: Number(p.attemptCount) || 0,
+      wordBank: normalizeWordBank(p.wordBank),
     };
   }
   if (!Object.keys(profiles).length) return defaultProfileStore();
@@ -176,7 +179,21 @@ export function listProfiles(store) {
   );
 }
 
+/** @param {ProfileStore} store @param {object} wordBank */
+export function updateActiveWordBank(store, wordBank) {
+  const s = normalizeProfileStore(store);
+  const profile = s.profiles[s.activeId];
+  if (!profile) return s;
+  profile.wordBank = normalizeWordBank(wordBank);
+  profile.updatedAt = nowIso();
+  return s;
+}
+
 /** @param {ProfileStore} store */
+export function activeWordBank(store) {
+  return normalizeWordBank(getActiveProfile(store)?.wordBank);
+}
+
 export function getActiveProfile(store) {
   const s = normalizeProfileStore(store);
   return s.profiles[s.activeId] || listProfiles(s)[0];

@@ -7,6 +7,9 @@ import {
   mountStimulusShell,
   mountVisualStimulus,
   mountDigitStimulus,
+  mountListenChooseStimulus,
+  listenChooseAsk,
+  LISTEN_CHOOSE_CUE,
 } from "./stimulus-shells.js";
 import { INTERACTION_PRESETS } from "./interaction-presets.js";
 
@@ -95,6 +98,23 @@ describe("stimulus shells (Slice 3)", () => {
     mountDigitStimulus(el, { bodyHtml: "<strong>42</strong>" });
     assert.equal(el.dataset.stimulus, STIMULUS.DIGIT);
     assert.equal(el.innerHTML, "<strong>42</strong>");
+  });
+
+  it("mounts the shared listen prompt without the heard word", () => {
+    const el = stubHost();
+    mountListenChooseStimulus(el, {
+      task: "Pick the article",
+      example: "die",
+    });
+    assert.equal(el.dataset.stimulus, STIMULUS.TTS);
+    assert.match(el.innerHTML, new RegExp(LISTEN_CHOOSE_CUE));
+    assert.match(el.innerHTML, /Pick the article/);
+    assert.match(el.innerHTML, /e\.g\..*die/);
+    assert.equal(el.innerHTML.includes("Hund"), false);
+    assert.equal(
+      listenChooseAsk("Pick the written ordinal", "10."),
+      'Pick the written ordinal (e.g. <span lang="de">10.</span>)'
+    );
   });
 
   it("escapes plain ask text", () => {

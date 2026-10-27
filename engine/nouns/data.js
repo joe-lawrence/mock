@@ -3,7 +3,7 @@
  * Lexical gender/plural are authoritative; patterns are predictive only.
  */
 
-export const DATA_VERSION = "0.5.2";
+export const DATA_VERSION = "0.5.4";
 
 export const ARTICLES = Object.freeze({
   masculine: "der",
@@ -17,6 +17,7 @@ export const PLURAL_ARTICLE = "die";
 /**
  * Definite articles by case × gender (singular).
  * Plural nominative/accusative definite is always die (handled in noun.js).
+ * Plural dative is not in this table.
  */
 export const DEFINITE_ARTICLES = Object.freeze({
   nominative: Object.freeze({
@@ -29,10 +30,16 @@ export const DEFINITE_ARTICLES = Object.freeze({
     feminine: "die",
     neuter: "das",
   }),
+  dative: Object.freeze({
+    masculine: "dem",
+    feminine: "der",
+    neuter: "dem",
+  }),
 });
 
 /**
  * Indefinite articles by case × gender (singular only).
+ * Dative singular is included. Plural indefinite is not.
  */
 export const INDEFINITE_ARTICLES = Object.freeze({
   nominative: Object.freeze({
@@ -44,6 +51,11 @@ export const INDEFINITE_ARTICLES = Object.freeze({
     masculine: "einen",
     feminine: "eine",
     neuter: "ein",
+  }),
+  dative: Object.freeze({
+    masculine: "einem",
+    feminine: "einer",
+    neuter: "einem",
   }),
 });
 
@@ -727,6 +739,39 @@ export const LEXICON = Object.freeze({
     gloss: "car",
     plural: Object.freeze({ form: "Autos", stem: "Auto", ending: "s" }),
   }),
+
+  // —— Case lesson nouns (Appendix H). Plurals only where a later unit needs the form. ——
+  Mann: Object.freeze({ gender: "masculine", gloss: "man" }),
+  Frau: Object.freeze({
+    gender: "feminine",
+    gloss: "woman",
+    plural: Object.freeze({ form: "Frauen", stem: "Frau", ending: "en" }),
+  }),
+  Hund: Object.freeze({
+    gender: "masculine",
+    gloss: "dog",
+    plural: Object.freeze({ form: "Hunde", stem: "Hund", ending: "e" }),
+  }),
+  Kind: Object.freeze({
+    gender: "neuter",
+    gloss: "child",
+    plural: Object.freeze({ form: "Kinder", stem: "Kind", ending: "er" }),
+  }),
+  Bus: Object.freeze({ gender: "masculine", gloss: "bus" }),
+  Zug: Object.freeze({ gender: "masculine", gloss: "train" }),
+  Stadt: Object.freeze({ gender: "feminine", gloss: "city" }),
+  Stift: Object.freeze({ gender: "masculine", gloss: "pen" }),
+  Ball: Object.freeze({ gender: "masculine", gloss: "ball" }),
+  Schlüssel: Object.freeze({ gender: "masculine", gloss: "key" }),
+  Geschenk: Object.freeze({ gender: "neuter", gloss: "gift" }),
+  Katze: Object.freeze({ gender: "feminine", gloss: "cat" }),
+  Tasche: Object.freeze({ gender: "feminine", gloss: "bag" }),
+  Ticket: Object.freeze({ gender: "neuter", gloss: "ticket" }),
+  Haus: Object.freeze({ gender: "neuter", gloss: "house" }),
+  Hemd: Object.freeze({ gender: "neuter", gloss: "shirt" }),
+  Jacke: Object.freeze({ gender: "feminine", gloss: "jacket" }),
+  Farbe: Object.freeze({ gender: "feminine", gloss: "color" }),
+  Kleid: Object.freeze({ gender: "neuter", gloss: "dress" }),
 });
 
 /**

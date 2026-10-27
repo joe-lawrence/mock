@@ -8,6 +8,11 @@ import {
   mountFreeformShell,
   mountBuildChipsShell,
   mountBinaryShell,
+  mountPartSlots,
+  paintPartSlot,
+  paintJudgmentButton,
+  isJudgmentChoiceLabel,
+  choiceSecondChanceOpen,
   markQuizStage,
 } from "./answer-shells.js";
 import { INTERACTION_PRESETS, STIMULUS } from "./interaction-presets.js";
@@ -34,6 +39,9 @@ function stubHost() {
     setAttribute(k, v) {
       this._attrs = this._attrs || {};
       this._attrs[k] = v;
+    },
+    getAttribute(k) {
+      return this._attrs?.[k];
     },
     removeAttribute(k) {
       if (this._attrs) delete this._attrs[k];
@@ -88,9 +96,16 @@ function stubHost() {
             xs.forEach((x) => classSet.add(x));
             node.className = [...classSet].join(" ");
           },
+          remove(...xs) {
+            xs.forEach((x) => classSet.delete(x));
+            node.className = [...classSet].join(" ");
+          },
           contains(x) {
             return classSet.has(x);
           },
+        },
+        removeAttribute(k) {
+          delete this._attrs[k];
         },
         setAttribute(k, v) {
           this._attrs[k] = v;
@@ -153,6 +168,24 @@ describe("answer shells (Slice 2)", () => {
     }
     // 148 − 12 am-dative date/ordinal cells
     assert.equal(n, 136);
+  });
+
+  it("mountPartSlots shows Part captions and a pick replaces the caption", () => {
+    const host = stubHost();
+    const { slots } = mountPartSlots(host, { count: 2 });
+    assert.equal(slots.length, 2);
+    assert.equal(slots[0].textContent, "Part 1");
+    assert.equal(slots[1].textContent, "Part 2");
+    assert.equal(host.className, "slot-row");
+    paintPartSlot(slots[0], "den");
+    assert.equal(slots[0].textContent, "den");
+    assert.equal(slots[0].classList.contains("is-filled"), true);
+    paintPartSlot(slots[0], "dreiundzwanzig", "drei\u00adundzwanzig");
+    assert.equal(slots[0].textContent, "drei\u00adundzwanzig");
+    assert.equal(slots[0].getAttribute("aria-label"), "dreiundzwanzig, tap to remove");
+    paintPartSlot(slots[0], "");
+    assert.equal(slots[0].textContent, "Part 1");
+    assert.equal(slots[0].classList.contains("is-filled"), false);
   });
 
   it("mountMultiSelectShell creates choice buttons", () => {
@@ -239,7 +272,7 @@ describe("answer shells (Slice 2)", () => {
 
   it("mountBinaryShell and markQuizStage set datasets", () => {
     const host = stubHost();
-    mountBinaryShell(host, {
+    const { buttons } = mountBinaryShell(host, {
       options: [
         { value: "ok", label: "Richtig" },
         { value: "bad", label: "Falsch" },
@@ -247,6 +280,14 @@ describe("answer shells (Slice 2)", () => {
       onPick: () => {},
     });
     assert.ok(host.classList.contains("answer-shell--binary"));
+    assert.equal(isJudgmentChoiceLabel("Richtig", "Richtig"), true);
+    assert.match(buttons[0].innerHTML, /piece-icon/);
+    assert.match(buttons[1].innerHTML, /piece-icon/);
+    assert.equal(buttons[0].getAttribute("aria-label"), "Richtig");
+    assert.equal(buttons[1].getAttribute("aria-label"), "Falsch");
+    assert.equal(buttons[0].classList.contains("piece-judgment"), true);
+    paintJudgmentButton(buttons[0], "Falsch", "Falsch");
+    assert.equal(buttons[0].getAttribute("aria-label"), "Falsch");
     const stage = stubHost();
     markQuizStage(stage, {
       presetId: "visual-freeform",
@@ -257,5 +298,28 @@ describe("answer shells (Slice 2)", () => {
     assert.equal(stage.dataset.response, "freeform");
     prepareAnswerHost(host, { response: RESPONSE.FREEFORM });
     assert.equal(host.dataset.response, RESPONSE.FREEFORM);
+  });
+
+  it("withholds a second chance when fewer than two choices stay open", () => {
+    const binary = stubHost();
+    const { buttons } = mountBinaryShell(binary, {
+      options: [
+        { value: "Richtig", label: "Richtig" },
+        { value: "Falsch", label: "Falsch" },
+      ],
+      onPick: () => {},
+    });
+    buttons[1].classList.add("is-bad");
+    assert.equal(choiceSecondChanceOpen(buttons, buttons[1]), false);
+
+    const multi = stubHost();
+    const { buttons: choices } = mountMultiSelectShell(multi, {
+      choices: ["den", "dem", "die", "das"],
+      onPick: () => {},
+    });
+    assert.equal(choiceSecondChanceOpen(choices, choices[0]), true);
+    choices[1].classList.add("is-bad");
+    choices[2].classList.add("is-bad");
+    assert.equal(choiceSecondChanceOpen(choices, choices[0]), false);
   });
 });

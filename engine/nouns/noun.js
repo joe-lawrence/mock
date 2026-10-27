@@ -35,7 +35,7 @@ export function matchSuffixPattern(lemma) {
 
 /**
  * @param {"masculine"|"feminine"|"neuter"} gender
- * @param {{ number?: "singular"|"plural", case?: "nominative"|"accusative" }} [opts]
+ * @param {{ number?: "singular"|"plural", case?: "nominative"|"accusative"|"dative" }} [opts]
  */
 export function definiteArticle(gender, opts = {}) {
   const number = opts.number || "singular";
@@ -44,8 +44,9 @@ export function definiteArticle(gender, opts = {}) {
     if (grammaticalCase === "nominative" || grammaticalCase === "accusative") {
       return PLURAL_ARTICLE;
     }
+    if (grammaticalCase === "dative") return "den";
     throw new RangeError(
-      `definiteArticle: plural only nominative/accusative supported (got ${grammaticalCase})`
+      `definiteArticle: plural only nominative/accusative/dative supported (got ${grammaticalCase})`
     );
   }
   if (number !== "singular") {
@@ -64,7 +65,7 @@ export function definiteArticle(gender, opts = {}) {
 
 /**
  * @param {"masculine"|"feminine"|"neuter"} gender
- * @param {{ case?: "nominative"|"accusative" }} [opts]
+ * @param {{ case?: "nominative"|"accusative"|"dative" }} [opts]
  */
 export function indefiniteArticle(gender, opts = {}) {
   const grammaticalCase = opts.case || "nominative";

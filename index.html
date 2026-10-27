@@ -23,7 +23,7 @@
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Sora:wght@500;600&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,500&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./css/mock.css?v=20261019-dyn1" />
+    <link rel="stylesheet" href="./css/mock.css?v=20261027-thumbs" />
 
 
     <link rel="stylesheet" href="./css/nav-carousel.css?v=20261001-audit1" />
@@ -524,7 +524,7 @@
           <div class="sound-chart" id="sounds-chart" hidden></div>
           <div class="stage stage-fill" id="sounds-stage" hidden>
             <p class="prompt" id="sounds-prompt"></p>
-            <p class="help-line" id="sounds-help"></p>
+            <p class="help-line" id="sounds-help-line"></p>
 
             <div class="sound-reps" id="sounds-reps" hidden>
               <div class="rep">
@@ -568,6 +568,118 @@
           </div>
         </section>
 
+        <!-- CASE -->
+        <section
+          id="view-case"
+          class="view view-session"
+          aria-label="Case territory"
+          hidden
+        >
+          <div class="numbers-hub" id="case-hub"></div>
+          <div class="sound-chart" id="case-chart" hidden></div>
+          <div class="stage stage-fill" id="case-stage" hidden>
+            <div id="case-extra" hidden></div>
+            <p class="family-progress" id="case-family-progress" hidden></p>
+            <p class="action-instruction" id="case-instruction" hidden></p>
+            <p class="prompt" id="case-prompt"></p>
+            <p
+              class="exercise-feedback"
+              id="case-feedback"
+              hidden
+              aria-live="polite"
+            ></p>
+            <p class="help-line" id="case-translation" hidden></p>
+            <div class="slot-row" id="case-slots" hidden></div>
+            <div class="tray" id="case-tray" aria-label="Choices"></div>
+            <p
+              class="attempt-feedback"
+              id="case-attempt-feedback"
+              hidden
+              aria-live="polite"
+            ></p>
+            <div class="answer-reveal" id="case-reveal" hidden>
+              <p class="verdict" id="case-verdict" aria-live="polite"></p>
+              <div class="answer-reveal-box">
+                <div
+                  class="answer-reveal-visual"
+                  id="case-reveal-visual"
+                  hidden
+                ></div>
+                <p class="answer-reveal-de" id="case-reveal-word" lang="de"></p>
+                <p
+                  class="answer-reveal-phonetic"
+                  id="case-reveal-phonetic"
+                  aria-live="polite"
+                ></p>
+              </div>
+              <p class="answer-reveal-en" id="case-reveal-en" hidden></p>
+            </div>
+            <div class="actions actions-nav" id="case-actions">
+              <button
+                type="button"
+                class="btn btn-icon"
+                id="case-back"
+                data-case-back
+                data-icon="chevronLeft"
+                aria-label="Back"
+                title="Back"
+              ></button>
+              <div class="actions-mid">
+                <div
+                  class="assist-stepper"
+                  id="case-assist-stepper"
+                  hidden
+                  role="group"
+                  aria-label="Assistance"
+                >
+                  <button
+                    type="button"
+                    class="assist-stepper-btn"
+                    data-assist-dir="-1"
+                    data-icon="chevronLeft"
+                    aria-label="More help"
+                  ></button>
+                  <span class="assist-stepper-label" data-assist-label
+                    >More help</span
+                  >
+                  <button
+                    type="button"
+                    class="assist-stepper-btn"
+                    data-assist-dir="1"
+                    data-icon="chevronRight"
+                    aria-label="Less help"
+                  ></button>
+                </div>
+                <button
+                  type="button"
+                  class="btn btn-icon"
+                  id="case-help"
+                  data-icon="lightbulb"
+                  aria-label="Help"
+                  title="Help"
+                ></button>
+                <button
+                  type="button"
+                  class="btn btn-icon"
+                  id="case-difficulty"
+                  data-icon="speedometer"
+                  aria-label="Assistance"
+                  title="Assistance"
+                ></button>
+              </div>
+              <button
+                type="button"
+                class="btn btn-icon"
+                id="case-next"
+                data-case-next
+                data-icon="chevronRight"
+                aria-label="Forward"
+                title="Forward — next in sequence, or skip at the end"
+              ></button>
+            </div>
+          </div>
+        </section>
+
         <!-- COMING SOON -->
         <section
           id="view-coming"
@@ -604,6 +716,6 @@
       </div>
     </div>
 
-    <script type="module" src="./js/mock.js?v=20261023-caps1"></script>
+    <script type="module" src="./js/mock.js?v=20261027-listen"></script>
   </body>
 </html>

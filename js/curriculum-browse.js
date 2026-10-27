@@ -32,8 +32,9 @@ import {
 } from "./interaction-presets.js?v=20261018-compass5";
 import { hintSamplesForUnit } from "./hint-review.js";
 import { referenceIdForPracticeContext } from "./reference-ui.js";
+import { CASE_TOPICS } from "./case-curriculum.js?v=20261026-caserewrite";
 
-/** @typedef {"numbers"|"nouns"|"sounds"} ModuleId */
+/** @typedef {"numbers"|"nouns"|"sounds"|"case"} ModuleId */
 
 /**
  * @typedef {object} BrowseRow
@@ -96,6 +97,11 @@ const MODULES = [
     id: "sounds",
     label: "Sounds",
     blurb: "Syllables and Listen (contrast) drills.",
+  },
+  {
+    id: "case",
+    label: "Case",
+    blurb: "Accusative, dative, and mixed sentences. The table is a lookup chart.",
   },
 ];
 
@@ -244,6 +250,34 @@ function soundsRows() {
   return rows;
 }
 
+function caseRows() {
+  /** @type {BrowseRow[]} */
+  const rows = [];
+  for (const topic of CASE_TOPICS) {
+    for (const step of topic.steps || []) {
+      rows.push({
+        moduleId: "case",
+        moduleLabel: "Case",
+        topicId: topic.id,
+        topicLabel: topic.label,
+        unitId: step.id,
+        unitLabel: step.label,
+        blurb: step.blurb || topic.blurb || "",
+        playable: Boolean(topic.playable && step.playable),
+        quizTypes: (step.modes || []).map((id) => {
+          const preset = getInteractionPreset(id);
+          return {
+            id,
+            label: preset?.label || id,
+            playable: preset ? preset.playable !== false : true,
+          };
+        }),
+      });
+    }
+  }
+  return rows;
+}
+
 function allRows() {
   const vocab = vocabularyRows();
   return [
@@ -252,6 +286,7 @@ function allRows() {
     ...nounsRows(),
     ...vocab.filter((r) => r.moduleId === "nouns"),
     ...soundsRows(),
+    ...caseRows(),
   ];
 }
 
@@ -379,7 +414,11 @@ function launchHref(row, quiz) {
     return `./index.html?${params.toString()}`;
   }
 
-  if (row.moduleId === "numbers" || row.moduleId === "nouns") {
+  if (
+    row.moduleId === "numbers" ||
+    row.moduleId === "nouns" ||
+    row.moduleId === "case"
+  ) {
     params.set("topic", row.topicId);
     params.set("step", row.unitId);
     params.set("preset", quiz.id);
@@ -458,6 +497,16 @@ function referenceHref(row) {
 }
 
 function learnHref(row) {
+  if (row.moduleId === "case") {
+    const params = new URLSearchParams({
+      launch: "1",
+      module: "case",
+      learn: "1",
+      topic: row.topicId,
+      step: row.unitId,
+    });
+    return `./index.html?${params.toString()}`;
+  }
   if (row.moduleId === "numbers") {
     const step = getNumbersStep(row.topicId, row.unitId);
     if (!step?.chartTab) return "";
