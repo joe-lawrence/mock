@@ -118,25 +118,30 @@ describe("case dative questions", () => {
       "case.dat.plural",
       "case.prep.passen-zu",
       "case.mixed",
+      "case.analysis",
     ]);
     assert.ok(ids.indexOf("case.dat.helfen") < ids.indexOf("case.dat.indef"));
     assert.ok(ids.indexOf("case.dat.indef") < ids.indexOf("case.dat.plural"));
     assert.ok(ids.indexOf("case.dat.plural") < ids.indexOf("case.prep.passen-zu"));
   });
 
-  it("keeps helfen definite, then einem and einer, on separate assesses ids", () => {
+  it("keeps helfen definite and indefinite on separate assesses ids", () => {
     const helfen = buildCaseUnitQuestions("case.dat.helfen");
-    assert.equal(helfen.length, 9);
-    assert.ok(helfen.every((q) => q.articleKind === "definite" && q.number === "singular"));
+    const definite = helfen.filter((q) => q.articleKind === "definite");
+    assert.ok(definite.every((q) => q.number === "singular"));
     assert.equal(
-      helfen.find((q) => q.lemma === "Mann" && q.promptKind === "guided").correct,
+      helfen.find((q) => q.lemma === "Mann" && q.articleKind === "definite" && q.promptKind === "guided").correct,
       "dem"
     );
     assert.equal(
-      helfen.find((q) => q.lemma === "Frau" && q.promptKind === "guided").cue,
+      helfen.find((q) => q.lemma === "Frau" && q.articleKind === "definite" && q.promptKind === "guided").cue,
       "helfen takes the dative."
     );
-    assert.ok(!helfen.some((q) => q.correct === "einem" || q.lemma === "Bus"));
+    assert.equal(
+      helfen.find((q) => q.lemma === "Kind" && q.articleKind === "indefinite" && q.promptKind === "guided").correct,
+      "einem"
+    );
+    assert.ok(!helfen.some((q) => q.lemma === "Bus"));
 
     const indef = buildCaseUnitQuestions("case.dat.indef");
     assert.equal(
@@ -251,11 +256,11 @@ describe("case rewritten constructions", () => {
 
     const passen = buildCaseUnitQuestions("case.prep.passen-zu");
     assert.equal(
-      passen.find((q) => q.lemma === "Hemd" && q.promptKind === "guided").correct,
+      passen.find((q) => q.sentence === "Die Jacke passt zu dem Hemd." && q.promptKind === "guided").correct,
       "dem"
     );
     assert.equal(
-      passen.find((q) => q.lemma === "Kleid" && q.promptKind === "guided").correct,
+      passen.find((q) => q.sentence === "Das passt zu einem Kleid." && q.promptKind === "guided").correct,
       "einem"
     );
     assert.ok(passen.every((q) => !/zum|zur/.test(q.sentence)));
@@ -266,7 +271,8 @@ describe("case mixed questions", () => {
   it("asks one slot at a time and withholds the case on the unguided prompt", () => {
     const order = CASE_TOPICS.flatMap((topic) => topic.steps.map((step) => step.unitId));
     assert.ok(order.indexOf("case.dat.plural") < order.indexOf("case.mixed"));
-    assert.equal(order.at(-1), "case.mixed");
+    assert.ok(order.indexOf("case.mixed") < order.indexOf("case.analysis"));
+    assert.equal(order.at(-1), "case.analysis");
 
     const mixed = buildCaseUnitQuestions("case.mixed");
     assert.equal(mixed.length, 30);
@@ -356,6 +362,7 @@ describe("case play deck", () => {
     const unchanged = buildCasePlayDeck(buildCaseUnitQuestions("case.acc.unchanged"));
     const types = new Set(unchanged.map((q) => q.quizType));
     assert.equal(unchanged.some((q) => q.quizType === "type"), false);
+    assert.ok(unchanged.some((q) => q.quizType === "sentence-type"));
     assert.ok(types.has("proofread"));
     assert.ok(types.has("sentence") || types.has("build") || types.has("listen"));
     assert.ok(types.size >= 2);
@@ -364,6 +371,42 @@ describe("case play deck", () => {
       assert.equal(play.some((q) => q.quizType === "case-name"), false, id);
       assert.ok(new Set(play.map((q) => q.quizType)).size >= 2, id);
     }
+  });
+
+  it("types the article from the heard sentence and from the written blank", () => {
+    const play = buildCasePlayDeck(buildCaseUnitQuestions("case.prep.fuer"));
+    const heard = play.filter((card) => card.quizType === "listen");
+    const heardType = play.filter((card) => card.quizType === "listen-type");
+    assert.deepEqual(
+      heardType.map((card) => card.sentence).sort(),
+      heard.map((card) => card.sentence).sort()
+    );
+    for (const card of heardType) {
+      assert.equal(card.interaction.presetId, "listen-type");
+      assert.equal(card.interaction.stimulus, "tts");
+      assert.equal(card.interaction.response, "freeform");
+      assert.equal(card.choices.length, 0);
+      assert.ok(card.assesses.startsWith("produce.heard."));
+      assert.equal(card.prompt, card.sentence);
+    }
+    const written = play.filter((card) => card.quizType === "sentence-type");
+    const articles = play.filter(
+      (card) => card.quizType === "proofread" && card.target !== "noun"
+    );
+    assert.equal(written.length, articles.length);
+    const frau = written.find((card) => card.sentence === "Das Geschenk ist für die Frau.");
+    assert.equal(frau.prompt, "Das Geschenk ist für ___ Frau.");
+    assert.equal(frau.correct, "die");
+    assert.equal(frau.interaction.presetId, "sentence-type");
+    assert.equal(frau.interaction.stimulus, "sentence");
+    assert.equal(frau.interaction.response, "freeform");
+    assert.ok(frau.assesses.startsWith("produce.sentence."));
+    assert.equal(frau.choices.length, 0);
+    const modes = CASE_TOPICS.find((topic) => topic.id === "accusative").steps.find(
+      (step) => step.id === "fuer"
+    ).modes;
+    assert.ok(modes.includes("listen-type"));
+    assert.ok(modes.includes("sentence-type"));
   });
 
   it("asks what case in mixed, with a nominative, accusative, and dative answer", () => {
@@ -394,4 +437,230 @@ describe("case play deck", () => {
     );
     assert.ok(groups.size > 0 && groups.size < pool.length);
   });
+});
+
+describe("case listen sentences", () => {
+  const MUST_HEAR = {
+    "case.acc.masc": [
+      "Ich sehe den Ball.",
+      "Ich sehe den Bus.",
+      "Ich sehe den Hund.",
+      "Ich sehe den Mann.",
+      "Ich sehe den Schlüssel.",
+      "Ich sehe den Stift.",
+      "Ich sehe den Zug.",
+      "Ich sehe einen Ball.",
+      "Ich sehe einen Bus.",
+      "Ich sehe einen Hund.",
+      "Ich sehe einen Mann.",
+      "Ich sehe einen Schlüssel.",
+      "Ich sehe einen Stift.",
+      "Ich sehe einen Zug.",
+      "Ich habe den Ball.",
+      "Ich habe den Hund.",
+      "Ich habe den Schlüssel.",
+      "Ich habe den Stift.",
+      "Ich habe einen Ball.",
+      "Ich habe einen Hund.",
+      "Ich habe einen Schlüssel.",
+      "Ich habe einen Stift.",
+    ],
+    "case.acc.unchanged": [
+      "Ich sehe das Buch.",
+      "Ich sehe die Frau.",
+      "Ich sehe die Katze.",
+      "Ich sehe das Kind.",
+      "Ich sehe ein Buch.",
+      "Ich sehe eine Frau.",
+      "Ich sehe eine Katze.",
+      "Ich sehe ein Kind.",
+      "Ich habe das Buch.",
+      "Ich habe die Katze.",
+      "Ich habe ein Buch.",
+      "Ich habe eine Katze.",
+    ],
+    "case.prep.fuer": [
+      "Das Geschenk ist für den Mann.",
+      "Das Geschenk ist für die Frau.",
+      "Das Geschenk ist für das Kind.",
+      "Das Geschenk ist für den Hund.",
+      "Das Geschenk ist für die Katze.",
+      "Das ist für einen Mann.",
+      "Das ist für eine Frau.",
+      "Das ist für ein Kind.",
+    ],
+    "case.prep.ohne": [
+      "Ich gehe ohne den Schlüssel.",
+      "Ich gehe ohne die Tasche.",
+      "Ich gehe ohne das Ticket.",
+      "Ich gehe ohne das Buch.",
+      "Ich gehe ohne die Jacke.",
+      "Ich gehe ohne das Hemd.",
+      "Ich gehe ohne den Stift.",
+      "Ich gehe ohne den Ball.",
+      "Ich gehe ohne den Hund.",
+      "Ich gehe ohne die Katze.",
+      "Ich gehe ohne das Auto.",
+      "Ich gehe ohne einen Schlüssel.",
+    ],
+    "case.acc.verbs": [
+      "Ich brauche den Schlüssel.",
+      "Ich brauche die Tasche.",
+      "Ich brauche das Ticket.",
+      "Ich brauche das Buch.",
+      "Ich brauche das Auto.",
+      "Ich suche einen Schlüssel.",
+      "Ich nehme den Bus.",
+      "Ich nehme den Zug.",
+      "Ich nehme die Tasche.",
+      "Ich nehme das Auto.",
+      "Ich finde das Hotel.",
+      "Ich finde den Schlüssel.",
+      "Ich finde die Tasche.",
+      "Ich finde das Buch.",
+      "Ich finde den Bus.",
+    ],
+    "case.prep.warten-auf": [
+      "Ich warte auf den Mann.",
+      "Ich warte auf die Frau.",
+      "Ich warte auf das Kind.",
+      "Ich warte auf den Zug.",
+      "Ich warte auf den Bus.",
+      "Ich warte auf den Arzt.",
+      "Ich warte auf den Lehrer.",
+      "Ich warte auf einen Mann.",
+      "Ich warte auf eine Frau.",
+      "Ich warte auf ein Kind.",
+      "Ich warte auf einen Zug.",
+      "Ich warte auf einen Bus.",
+      "Ich warte auf einen Arzt.",
+      "Ich warte auf einen Lehrer.",
+    ],
+    "case.dat.helfen": [
+      "Ich helfe dem Mann.",
+      "Ich helfe der Frau.",
+      "Ich helfe dem Kind.",
+      "Ich helfe dem Arzt.",
+      "Ich helfe dem Lehrer.",
+      "Ich helfe dem Hund.",
+      "Ich helfe der Katze.",
+      "Ich helfe einem Mann.",
+      "Ich helfe einer Frau.",
+      "Ich helfe einem Kind.",
+      "Ich helfe einem Arzt.",
+      "Ich helfe einem Lehrer.",
+      "Ich helfe einem Hund.",
+      "Ich helfe einer Katze.",
+    ],
+    "case.prep.mit": [
+      "Ich fahre mit dem Bus.",
+      "Ich fahre mit dem Zug.",
+      "Ich fahre mit dem Auto.",
+      "Ich spiele mit dem Kind.",
+      "Ich spiele mit dem Hund.",
+      "Ich spiele mit der Katze.",
+      "Ich spiele mit dem Ball.",
+      "Ich fahre mit einem Bus.",
+      "Ich fahre mit einem Zug.",
+      "Ich fahre mit einem Auto.",
+      "Ich spiele mit einem Kind.",
+      "Ich spiele mit einem Hund.",
+      "Ich spiele mit einer Katze.",
+      "Ich spiele mit einem Ball.",
+    ],
+    "case.verb.danken": [
+      "Ich danke dem Mann.",
+      "Ich danke der Frau.",
+      "Ich danke dem Kind.",
+      "Ich danke dem Arzt.",
+      "Ich danke dem Lehrer.",
+      "Ich danke einem Mann.",
+      "Ich danke einer Frau.",
+      "Ich danke einem Kind.",
+      "Ich danke einem Arzt.",
+      "Ich danke einem Lehrer.",
+    ],
+    "case.verb.gefallen": [
+      "Das Buch gefällt dem Mann.",
+      "Das Buch gefällt der Frau.",
+      "Das Buch gefällt dem Kind.",
+    ],
+    "case.prep.aus": [
+      "Er kommt aus der Stadt.",
+      "Er kommt aus dem Haus.",
+      "Er kommt aus dem Hotel.",
+      "Er kommt aus dem Büro.",
+      "Er kommt aus dem Museum.",
+      "Er kommt aus dem Kino.",
+      "Er kommt aus dem Theater.",
+      "Er kommt aus dem Restaurant.",
+      "Er kommt aus dem Café.",
+      "Er kommt aus dem Krankenhaus.",
+      "Er kommt aus einer Stadt.",
+      "Er kommt aus einem Haus.",
+      "Er kommt aus einem Hotel.",
+      "Er kommt aus einem Büro.",
+      "Er kommt aus einem Museum.",
+      "Er kommt aus einem Kino.",
+      "Er kommt aus einem Theater.",
+      "Er kommt aus einem Restaurant.",
+      "Er kommt aus einem Café.",
+      "Er kommt aus einem Krankenhaus.",
+    ],
+    "case.dat.indef": [
+      "Ich helfe einem Kind.",
+      "Ich helfe einer Frau.",
+      "Ich helfe einem Mann.",
+      "Ich helfe einem Arzt.",
+      "Ich fahre mit einem Bus.",
+      "Ich fahre mit einem Auto.",
+      "Er kommt aus einer Stadt.",
+      "Er kommt aus einem Haus.",
+      "Er kommt aus einem Hotel.",
+    ],
+    "case.dat.plural": [
+      "Ich helfe den Kindern.",
+      "Ich helfe den Frauen.",
+      "Ich helfe den Hunden.",
+      "Ich spiele mit den Hunden.",
+      "Ich spiele mit den Kindern.",
+      "Ich spiele mit den Frauen.",
+      "Ich fahre mit den Autos.",
+      "Ich komme aus den Büros.",
+    ],
+    "case.prep.passen-zu": [
+      "Die Jacke passt zu dem Hemd.",
+      "Die Farbe passt zu der Tasche.",
+      "Das passt zu einem Kleid.",
+      "Die Farbe passt zu dem Hemd.",
+      "Die Farbe passt zu der Jacke.",
+      "Die Farbe passt zu dem Kleid.",
+      "Das passt zu einem Hemd.",
+      "Das passt zu einer Jacke.",
+      "Das passt zu einer Tasche.",
+    ],
+    "case.mixed": [
+      "Ich gebe dem Kind den Ball.",
+      "Der Hund sieht den Mann.",
+    ],
+  };
+
+  for (const [unitId, sentences] of Object.entries(MUST_HEAR)) {
+    it(`${unitId} hears each curated sentence once`, () => {
+      const play = buildCasePlayDeck(buildCaseUnitQuestions(unitId));
+      const heard = play.filter((card) => card.quizType === "listen").map((card) => card.sentence);
+      const unique = new Set(heard);
+      assert.ok(unique.size >= 3, `${unitId} has ${unique.size} listen sentences`);
+      assert.equal(unique.size, heard.length, `${unitId} repeats a listen sentence`);
+      for (const sentence of sentences) {
+        assert.ok(unique.has(sentence), `${unitId} missing ${sentence}`);
+      }
+      assert.ok(heard.every((sentence) => !sentence.includes("Wald")));
+      assert.ok(
+        play
+          .filter((card) => card.quizType === "listen")
+          .every((card) => card.target !== "noun")
+      );
+    });
+  }
 });

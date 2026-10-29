@@ -117,6 +117,17 @@ describe("stimulus shells (Slice 3)", () => {
     );
   });
 
+  it("keeps the listen prompt to the cue and the task", () => {
+    const el = stubHost();
+    mountListenChooseStimulus(el, {
+      task: "Pick the article",
+      example: "die",
+    });
+    assert.match(el.innerHTML, new RegExp(LISTEN_CHOOSE_CUE));
+    assert.match(el.innerHTML, /Pick the article/);
+    assert.equal(el.innerHTML.includes("case-listen-sentence"), false);
+  });
+
   it("escapes plain ask text", () => {
     const html = composeStimulusBody({ ask: 'a <b> & "x"' });
     assert.match(html, /a &lt;b&gt; &amp; &quot;x&quot;/);

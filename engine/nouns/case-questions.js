@@ -26,6 +26,9 @@ import {
   CASE_FRAME_UNITS,
 } from "./practice-compose.js";
 import { articleForm, nounAnalysis } from "./noun.js";
+import { buildCaseAnalysisDeck, CASE_ANALYSIS_UNIT } from "./case-analysis.js";
+
+export { buildCaseAnalysisDeck, CASE_ANALYSIS_UNIT };
 
 export const CASE_PROMPT = Object.freeze({
   RECOGNIZE: "recognize",
@@ -180,6 +183,7 @@ export function buildCaseUnitQuestions(unitId) {
       correct: item.correct,
       choices: item.choices,
       sentence: item.sentence,
+      listen: !!item.listen,
     };
     questions.push({
       ...shared,
@@ -313,6 +317,16 @@ const PLAY_INTERACTION = Object.freeze({
     presetId: "listen",
     stimulus: "tts",
     response: "multi-select",
+  }),
+  "listen-type": Object.freeze({
+    presetId: "listen-type",
+    stimulus: "tts",
+    response: "freeform",
+  }),
+  "sentence-type": Object.freeze({
+    presetId: "sentence-type",
+    stimulus: "sentence",
+    response: "freeform",
   }),
   type: Object.freeze({
     presetId: "produce",
@@ -457,7 +471,15 @@ function playRolesForSlot(index, question, allowCaseName) {
     roles.push("case-name");
   }
   roles.push("proofread");
-  roles.push(productionRole(index, question));
+  const production = productionRole(index, question);
+  roles.push(production);
+  if (question?.listen && question.target !== "noun" && production !== "listen") {
+    roles.push("listen");
+  }
+  if (question?.target !== "noun") {
+    if (question?.listen) roles.push("listen-type");
+    roles.push("sentence-type");
+  }
   return roles;
 }
 
@@ -546,6 +568,51 @@ function typeCard(slot) {
     family: noun ? "Dative plural" : caseNameLabel(base.case),
     focusPhrase: "",
     interaction: PLAY_INTERACTION.type,
+  });
+}
+
+function listenTypeCard(slot) {
+  const base = slot.guidedQuestion || slot.unguidedQuestion;
+  const kind = base.articleKind || "noun";
+  return Object.freeze({
+    ...base,
+    id: `${base.id}.play.listen-type`,
+    playId: `play:listen-type:${base.target}:${base.contextId}:${base.lemma}`,
+    quizType: "listen-type",
+    promptKind: "listen-type",
+    assesses: `produce.heard.${base.case}.${base.gender}.${kind}`,
+    prompt: base.sentence,
+    cue: "",
+    answerCue: slot.guidedQuestion?.cue || "",
+    choices: Object.freeze([]),
+    correct: base.correct,
+    family: "",
+    focusPhrase: "",
+    interaction: PLAY_INTERACTION["listen-type"],
+  });
+}
+
+function sentenceTypeCard(slot) {
+  const base = slot.unguidedQuestion || slot.guidedQuestion;
+  const kind = base.articleKind || "noun";
+  return Object.freeze({
+    ...base,
+    id: `${base.id}.play.sentence-type`,
+    playId: `play:sentence-type:${base.target}:${base.contextId}:${base.lemma}`,
+    quizType: "sentence-type",
+    promptKind: "sentence-type",
+    assesses: `produce.sentence.${base.construction}.${base.case}.${base.gender}.${kind}`,
+    prompt: `${base.before || ""}___${base.after || ""}`,
+    cue: "",
+    cueLocked: false,
+    answerCue: slot.guidedQuestion?.cue || "",
+    choices: Object.freeze([]),
+    correct: base.correct,
+    family: "",
+    focusPhrase: "",
+    guidedQuestion: slot.guidedQuestion,
+    unguidedQuestion: slot.unguidedQuestion,
+    interaction: PLAY_INTERACTION["sentence-type"],
   });
 }
 
@@ -687,6 +754,8 @@ export function buildCasePlayDeck(questions) {
         cards.push(proofreadCard(plan.slot, showCorrect));
       } else if (role === "type") cards.push(typeCard(plan.slot));
       else if (role === "listen") cards.push(listenCard(plan.slot));
+      else if (role === "listen-type") cards.push(listenTypeCard(plan.slot));
+      else if (role === "sentence-type") cards.push(sentenceTypeCard(plan.slot));
       else if (role === "build") cards.push(buildCard(plan.slot));
       else {
         const cueLocked = !sentenceSeen.has(plan.key);
@@ -704,7 +773,11 @@ export function buildCasePlayDeck(questions) {
  */
 export function caseUnitModes(unitId) {
   const ids = [];
-  for (const card of buildCasePlayDeck(buildCaseUnitQuestions(unitId))) {
+  const cards =
+    unitId === CASE_ANALYSIS_UNIT
+      ? buildCaseAnalysisDeck()
+      : buildCasePlayDeck(buildCaseUnitQuestions(unitId));
+  for (const card of cards) {
     const id = card.interaction?.presetId;
     if (id && !ids.includes(id)) ids.push(id);
   }

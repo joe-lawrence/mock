@@ -13,7 +13,9 @@ describe("Play caps for Case", () => {
     const listenOnly = { keyboard: true, audio: "only" };
     assert.ok(units.every((unit) => unitMatchesPlayCaps(unit, writeOnly)));
     const heard = units.filter((unit) => unitMatchesPlayCaps(unit, listenOnly));
-    assert.ok(heard.length > 0);
-    assert.ok(heard.length < units.length);
+    assert.deepEqual(
+      heard.map((unit) => unit.unitId).sort(),
+      units.map((unit) => unit.unitId).filter((id) => id !== "case.analysis").sort()
+    );
   });
 });

@@ -10,9 +10,9 @@ import {
   nounPresetMatchesCaps,
   nounsCellsMatchingCaps,
   pluralNavUnits,
-} from "./nouns-curriculum.js?v=20261023-suffixplay";
+} from "./nouns-curriculum.js?v=20261027-casetype";
 import { topicHasVocabulary } from "./vocabulary-ui.js?v=20260930-vocab16";
-import { caseNavTopics } from "./case-curriculum.js?v=20261025-case5";
+import { caseNavTopics } from "./case-curriculum.js?v=20261027-casegroup";
 
 const CAPS_KEY = "schnapp-nav-caps";
 const LONG_MS = 500;

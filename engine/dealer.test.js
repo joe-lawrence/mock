@@ -106,6 +106,29 @@ describe("Dealer v1 (Slice 6)", () => {
     assert.equal(deal?.candidate?.mode, "convert");
   });
 
+  it("listen cooldown skips the unit just heard and deals another", () => {
+    const tens = cand("numbers:cardinals:tens");
+    const teens = cand("numbers:cardinals:teens");
+    const deal = dealExercise({
+      candidates: [tens, teens],
+      seen: [tens.key, teens.key],
+      stats: {
+        [tens.key]: { correct: 0, total: 1 },
+        [teens.key]: { correct: 3, total: 3 },
+      },
+      evidence: {
+        grains: {
+          [tens.key]: { correct: 0, total: 1, kind: "unit" },
+          [`${tens.key}×listen`]: { correct: 0, total: 1, kind: "unit×preset" },
+          [teens.key]: { correct: 3, total: 3, kind: "unit" },
+        },
+      },
+      presetSeeds: PRESET_SEEDS,
+      listenCooldownKey: tens.key,
+    });
+    assert.equal(deal?.candidate?.key, teens.key);
+  });
+
   it("review re-deals weak Build when Convert is already OK", () => {
     const tens = cand("numbers:cardinals:tens");
     const deal = dealExercise({

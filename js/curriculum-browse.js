@@ -29,10 +29,11 @@ import {
 import {
   getInteractionPreset,
   MATRIX_PRESET_IDS,
-} from "./interaction-presets.js?v=20261018-compass5";
+} from "./interaction-presets.js?v=20261027-casetype";
 import { hintSamplesForUnit } from "./hint-review.js";
 import { referenceIdForPracticeContext } from "./reference-ui.js";
-import { CASE_TOPICS } from "./case-curriculum.js?v=20261026-caserewrite";
+import { CASE_TOPICS } from "./case-curriculum.js?v=20261027-casegroup";
+import { caseUnitModes } from "../engine/nouns/case-questions.js?v=20261027-casetype";
 
 /** @typedef {"numbers"|"nouns"|"sounds"|"case"} ModuleId */
 
@@ -264,7 +265,7 @@ function caseRows() {
         unitLabel: step.label,
         blurb: step.blurb || topic.blurb || "",
         playable: Boolean(topic.playable && step.playable),
-        quizTypes: (step.modes || []).map((id) => {
+        quizTypes: (step.unitId ? caseUnitModes(step.unitId) : step.modes || []).map((id) => {
           const preset = getInteractionPreset(id);
           return {
             id,

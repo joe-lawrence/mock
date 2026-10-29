@@ -5,7 +5,7 @@
  * `modes` are the interactions that unit's practice deck actually deals.
  */
 
-import { caseUnitModes } from "../engine/nouns/case-questions.js";
+import { CASE_ANALYSIS_UNIT, caseUnitModes } from "../engine/nouns/case-questions.js";
 
 export const CASE_CHART_ID = "case.chart.definite";
 
@@ -204,6 +204,18 @@ export const CASE_TOPICS = [
         modes: caseModes("case.mixed"),
         blurb:
           "Name the case, judge the sentence, or pick the article. The case cue can stay off.",
+      },
+      {
+        id: "analysis",
+        unitId: CASE_ANALYSIS_UNIT,
+        label: "Sentence analysis",
+        playable: true,
+        softAfter: "sentences",
+        referenceId: "case.analysis",
+        chartId: CASE_CHART_ID,
+        modes: caseModes(CASE_ANALYSIS_UNIT),
+        blurb:
+          "Choose the role or the case of an underlined phrase. Then judge a sentence or a label.",
       },
     ],
   },

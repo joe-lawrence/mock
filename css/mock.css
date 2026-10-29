@@ -1737,6 +1737,25 @@ body.is-session #view-case.is-active > #case-chart {
   margin-top: 0.1rem;
 }
 
+.case-listen-sentence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  width: 100%;
+  font-size: clamp(1.15rem, 2.8vw, 1.4rem);
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+}
+
+.case-listen-sentence .slot {
+  flex: 0 1 auto;
+  cursor: default;
+  pointer-events: none;
+}
+
 .answer-shell--build-chips {
   display: flex;
   flex-wrap: wrap;
@@ -2227,6 +2246,7 @@ button.syl:disabled,
 .stage.is-answer > .choice-grid,
 .stage.is-answer > .sound-reps,
 .stage.is-answer > .numbers-listen-play,
+.stage.is-answer > #case-listen-sentence,
 .stage.is-answer > .numbers-listen-entry,
 .stage.is-answer > .numbers-convert-entry,
 .stage.is-answer > .attempt-feedback {
@@ -3129,6 +3149,68 @@ html[data-theme="dark"] .btn-icon[id$="-difficulty"].assist-glow-some {
 .crumb-seg.is-current {
   color: var(--ink);
   font-weight: 700;
+}
+
+button.crumb-jump {
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+button.crumb-jump:hover,
+button.crumb-jump:focus-visible {
+  color: var(--signal);
+}
+
+.guided-jump-lead {
+  margin: 0 0 0.85rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.guided-jump-territory {
+  margin: 0.85rem 0 0.15rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.guided-jump-topic {
+  margin: 0.45rem 0 0.15rem;
+  font-weight: 700;
+}
+
+.guided-jump-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.guided-jump-step {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-weight: 600;
+  padding: 0.4rem 0.55rem;
+  border: none;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.guided-jump-step:hover,
+.guided-jump-step:focus-visible {
+  background: var(--signal-soft);
 }
 
 .crumb-sep {

@@ -103,6 +103,16 @@ describe("interaction presets (Slice 0–1)", () => {
     assert.equal(both.presetId, "listen");
 
     assert.equal(presetIdForPair(STIMULUS.DIGIT, RESPONSE.FREEFORM), "convert");
+    assert.equal(presetIdForPair(STIMULUS.TTS, RESPONSE.MULTI_SELECT), "listen");
+    assert.equal(presetIdForPair(STIMULUS.TTS, RESPONSE.FREEFORM), "listen-type");
+    assert.equal(presetIdForPair(STIMULUS.SENTENCE, RESPONSE.MULTI_SELECT), "sentence");
+    assert.equal(presetIdForPair(STIMULUS.SENTENCE, RESPONSE.FREEFORM), "sentence-type");
+    const open = { keyboard: true, audio: true };
+    assert.equal(presetMatchesCaps("listen-type", open), true);
+    assert.equal(presetMatchesCaps("listen-type", { keyboard: "only", audio: true }), false);
+    assert.equal(presetMatchesCaps("listen-type", { keyboard: true, audio: "only" }), false);
+    assert.equal(presetMatchesCaps("sentence-type", { keyboard: "only", audio: true }), true);
+    assert.equal(presetMatchesCaps("sentence-type", { keyboard: true, audio: "only" }), false);
   });
 
   it("enrichModeWithPreset is idempotent on unknown ids", () => {
@@ -237,6 +247,8 @@ describe("interaction presets (Slice 0–1)", () => {
       "visual-freeform",
       "set-dial",
       "sentence",
+      "listen-type",
+      "sentence-type",
     ]) {
       for (const caps of [both, writeOnly, { keyboard: true, audio: "only" }]) {
         assert.equal(

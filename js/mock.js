@@ -50,6 +50,7 @@ import {
   evaluatePluralConstruction,
   recordNounAttempt,
   productivePluralSpec,
+  pluralMatchesProductiveRule,
   WUGS,
 } from "../engine/nouns/index.js";
 import {
@@ -69,7 +70,7 @@ import {
   clockEverydayNote,
   clockForm,
   digitalTimeForm,
-} from "../engine/numbers/index.js?v=20261023-clockalt1";
+} from "../engine/numbers/index.js?v=20261027-spare";
 import {
   NUMBERS_TOPICS,
   getNumbersTopic,
@@ -99,19 +100,21 @@ import {
   isNounsDirectionPlayable,
   nounPresetMatchesCaps,
   nounsCellsMatchingCaps,
-} from "./nouns-curriculum.js?v=20261023-suffixplay";
+} from "./nouns-curriculum.js?v=20261027-casetype";
 import {
   CASE_TOPICS,
   getCaseStep,
   getCaseTopic,
-} from "./case-curriculum.js?v=20261027-relengine";
+} from "./case-curriculum.js?v=20261027-casegroup";
 import {
   buildCaseUnitQuestions,
   buildCasePlayDeck,
+  buildCaseAnalysisDeck,
+  CASE_ANALYSIS_UNIT,
   caseAttemptEvidence,
   caseDeckForPreset,
   pickNextCaseQuestion,
-} from "../engine/nouns/case-questions.js?v=20261026-caserewrite";
+} from "../engine/nouns/case-questions.js?v=20261027-casetype";
 import {
   addUserCard,
   buildReviewQuestion,
@@ -126,8 +129,12 @@ import {
   caseLearnHtml,
   caseUserFormHtml,
   casePassageHtml,
-} from "./case-practice.js?v=20261026-caseread";
+} from "./case-practice.js?v=20261027-analysis";
 import { pluralPool } from "./plurals-pools.js?v=20261027-relengine";
+import {
+  orderPluralTrayLabels,
+  pluralizeProductiveBeats,
+} from "./wug-plural-karaoke.js?v=20261027-nowug";
 import {
   DIRECTION,
   isReverse,
@@ -139,9 +146,11 @@ import {
 import {
   compassPlaceholder,
   caseFormExample,
+  caseListenFrameHtml,
   caseTypePlaceholder,
+  caseTypedAnswerMatches,
   freeformPlaceholder,
-} from "./answer-placeholders.js?v=20261027-listen";
+} from "./answer-placeholders.js?v=20261027-typeflex";
 
 import { DECIMAL_POOLS } from "./decimals-pools.js?v=20261027-relengine";
 import {
@@ -182,12 +191,17 @@ import {
   pieDialMatchesFraction,
 } from "./quiz-extras.js?v=20261027-relengine";
 
-import { mountNavCarousel } from "./nav-carousel.js?v=20261025-case6";
+import { mountNavCarousel } from "./nav-carousel.js?v=20261027-casegroup";
+import { keysSkippedByJump } from "./guided-jump.js";
+import {
+  caseSentenceKey,
+  pickCaseExerciseIndex,
+} from "./case-exercise-pick.js";
 import {
   dealExercise,
   WEAK_ACCURACY,
   DEALER_REASONS,
-} from "../engine/dealer.js?v=20261018-s08s";
+} from "../engine/dealer.js?v=20261027-listengap";
 import {
   PIPER_VOICES,
   ensurePiperReady,
@@ -208,7 +222,7 @@ import {
   buildSoundsChart,
   buildNumbersChart,
   buildNounsChart,
-} from "./reference-charts.js?v=20261021-am1";
+} from "./reference-charts.js?v=20261027-casegroup";
 import {
   renderLearnReadingHtml,
   renderReferenceEntryHtml,
@@ -216,12 +230,12 @@ import {
   wireReferenceNav,
   referenceIdForPracticeContext,
   getReference,
-} from "./reference-ui.js?v=20261026-caseread";
+} from "./reference-ui.js?v=20261027-casegroup";
 import {
   buildHelpModel,
   renderHelpSheetHtml,
   wireHelpSheet,
-} from "./help-sheet.js?v=20261027-relengine";
+} from "./help-sheet.js?v=20261027-casegroup";
 import {
   freshSupportVector,
   climbHelpRung,
@@ -249,7 +263,7 @@ import {
   weakConcepts,
   grainAccuracy,
   EVIDENCE_GRAIN,
-} from "./multi-grain-evidence.js?v=20261027-relengine";
+} from "./multi-grain-evidence.js?v=20261027-listengap";
 import {
   loadProfileStore,
   saveProfileStore,
@@ -309,7 +323,7 @@ import {
   stepDealsForMix,
   STIMULUS,
   RESPONSE,
-} from "./interaction-presets.js?v=20261023-caps1";
+} from "./interaction-presets.js?v=20261027-casetype";
 import {
   mountMultiSelectShell,
   mountFreeformShell,
@@ -327,7 +341,7 @@ import {
   mountClozeStimulus,
   mountListenChooseStimulus,
   mountListenPlayButton,
-} from "./stimulus-shells.js?v=20261027-listen";
+} from "./stimulus-shells.js?v=20261027-listenslots";
 import {
   mountCompassDialShell,
   mountClockDialShell,
@@ -4053,24 +4067,23 @@ function sentenceAnswerParts(sentence, lemma) {
 
 function fallbackPluralParts(lemma) {
   const entry = LEXICON[lemma];
-  const spec = entry?.plural ? null : productivePluralSpec(lemma);
-  const form = entry?.plural?.form || spec?.form || lemma;
+  const predicted = productivePluralSpec(lemma);
+  const lexical = entry?.plural || null;
+  const form = lexical?.form || predicted?.form || lemma;
   const die = ARTICLE_PHON_GUIDES.die;
-  // -ion plurals: Nationen / Regionen → stem · mid · o · nen (chart Nation shape)
-  if (entry && matchSuffixPattern(lemma)?.suffix === "ion" && /en$/i.test(form)) {
-    const singularBody = synthesizeSuffixLemmaBeats(lemma);
-    if (singularBody?.length >= 3) {
-      const withoutOn = singularBody.slice(0, -1);
-      const onBeat = singularBody[singularBody.length - 1];
-      if (String(onBeat.text || "").toLowerCase() === "on") {
-        return [
-          { text: "die", guide: die.guide, source: "article" },
-          ...withoutOn,
-          { text: "o", guide: "oh", source: "suffix-chart" },
-          { text: "nen", guide: "nen", source: "suffix-chart" },
-        ];
-      }
-    }
+  const followsRule =
+    predicted &&
+    form === predicted.form &&
+    (!lexical || pluralMatchesProductiveRule(lemma, lexical));
+  const singularBody = synthesizeSuffixLemmaBeats(lemma);
+  const pluralBody = followsRule
+    ? pluralizeProductiveBeats(singularBody, predicted)
+    : null;
+  if (pluralBody?.some((p) => p.guide && !p.pronunciationUnavailable)) {
+    return [
+      { text: "die", guide: die.guide, source: "article" },
+      ...pluralBody,
+    ];
   }
   const formBeats = resolvePhonToken(form);
   return [
@@ -4171,8 +4184,9 @@ function pluralDeckItems(stepId) {
     return {
       ...item,
       translation: NOUN_PLURAL_EN[item.lemma] || item.translation || "",
-      answerParts:
-        NOUN_PLURAL_PARTS[item.lemma] || fallbackPluralParts(item.lemma),
+      answerParts: item.wug
+        ? null
+        : NOUN_PLURAL_PARTS[item.lemma] || fallbackPluralParts(item.lemma),
     };
   });
 }
@@ -4428,6 +4442,7 @@ function buildNounPluralExercise(lemma, opts = {}) {
     layerVersion: EXERCISE_LAYER_VERSION,
     target: {
       lemma: truth.lemma,
+      wug: !!opts.wug,
       grammaticalState: { case: "nominative", number: "plural" },
     },
     scaffolding,
@@ -4464,6 +4479,7 @@ function currentNounPluralExercise() {
     translation: meta.translation,
     answerParts: meta.answerParts,
     patternNote: meta.patternNote,
+    wug: !!meta.wug,
     suppressPatternHint: state.nounsStep === "plural-patterns",
   });
 }
@@ -7227,7 +7243,13 @@ function sessionCrumbParts(view) {
     if (state.sessionMode === "guided") return [step || topic].filter(Boolean);
     return [topic, step, preset].filter(Boolean);
   }
-  if (view === "sounds") return ["Sounds"];
+  if (view === "sounds") {
+    if (state.sessionMode === "guided") {
+      const step = state.soundsMode === "listen" ? "Minimal pairs" : "Syllable karaoke";
+      return [step];
+    }
+    return ["Sounds"];
+  }
   if (view === "case") {
     if (state.phase.case === "input" || state.caseMode === "input") {
       return ["Read"];
@@ -7300,12 +7322,13 @@ function updateSessionCrumb(view) {
   if (!crumbEl.hidden) {
     const parts = sessionCrumbParts(view);
     crumbEl.innerHTML = parts
-      .map(
-        (p, i) =>
-          `<span class="crumb-seg${
-            i === parts.length - 1 ? " is-current" : ""
-          }">${p}</span>`
-      )
+      .map((p, i) => {
+        const current = i === parts.length - 1;
+        if (guided && current) {
+          return `<button type="button" class="crumb-seg is-current crumb-jump" data-guided-jump aria-haspopup="dialog" title="Jump ahead">${escapeHtml(p)}</button>`;
+        }
+        return `<span class="crumb-seg${current ? " is-current" : ""}">${escapeHtml(p)}</span>`;
+      })
       .join('<span class="crumb-sep" aria-hidden="true">·</span>');
 
     // Reason chip = Coach's "why this exercise" signal (Review / Probe / Edge…).
@@ -8631,8 +8654,12 @@ function caseAssistShowsHint() {
   return supportOn("choiceHighlight") || supportOn("english");
 }
 
-function casePracticeDeck(questions, presetId) {
-  return caseDeckForPreset(buildCasePlayDeck(questions), presetId);
+function casePracticeDeck(unitId, presetId) {
+  const deck =
+    unitId === CASE_ANALYSIS_UNIT
+      ? buildCaseAnalysisDeck()
+      : buildCasePlayDeck(buildCaseUnitQuestions(unitId));
+  return caseDeckForPreset(deck, presetId);
 }
 
 function caseHintShown(question) {
@@ -8642,9 +8669,14 @@ function caseHintShown(question) {
   return caseAssistShowsHint();
 }
 
+function caseTypedQuiz(question) {
+  const type = question?.quizType;
+  return type === "type" || type === "listen-type" || type === "sentence-type";
+}
+
 /** Sentence blanks can hide the construction line. Other quiz types are already complete. */
 function casePresentedQuestion(question) {
-  if (!question || question.quizType !== "sentence") return question;
+  if (!question || (question.quizType !== "sentence" && question.quizType !== "sentence-type")) return question;
   if (!question.guidedQuestion && !question.unguidedQuestion) return question;
   const hint = caseHintShown(question);
   const src = hint
@@ -8653,7 +8685,8 @@ function casePresentedQuestion(question) {
   return {
     ...src,
     playId: question.playId,
-    quizType: "sentence",
+    quizType: question.quizType,
+    assesses: question.quizType === "sentence-type" ? question.assesses : src.assesses,
     interaction: question.interaction,
     cueLocked: !!question.cueLocked,
     guidedQuestion: question.guidedQuestion,
@@ -8665,11 +8698,15 @@ function casePresentedQuestion(question) {
 
 function caseInstructionText(question) {
   if (!question) return "";
+  if (question.quizType === "role") return "What role?";
+  if (question.quizType === "case-requirement") return "What case does this require?";
   if (question.quizType === "case-name" || question.promptKind === "case-name") {
     return "What case?";
   }
   if (question.quizType === "proofread") return "Is this correct?";
   if (question.quizType === "listen") return "Listen & choose";
+  if (question.quizType === "listen-type") return "Listen & type";
+  if (question.quizType === "sentence-type") return "Type the article";
   if (question.quizType === "build") {
     return question.target === "noun" ? "Build the form" : "Build the phrase";
   }
@@ -8747,7 +8784,12 @@ function caseFormChange(question) {
 function caseAnswerCaption(question) {
   if (!question) return "";
   if (question.kind === "gloss") return question.correct || "";
-  if (question.quizType === "case-name") {
+  if (
+    question.quizType === "case-name" ||
+    question.quizType === "role" ||
+    question.quizType === "case-requirement" ||
+    question.promptKind === "analysis"
+  ) {
     const cue = String(question.answerCue || "")
       .trim()
       .replace(/\.+$/, "");
@@ -8762,11 +8804,13 @@ function caseAnswerCaption(question) {
 }
 
 function caseCueText(question) {
-  if (question.quizType === "listen") return "";
+  if (question.quizType === "listen" || question.quizType === "listen-type") return "";
   if (question.quizType === "type" || question.quizType === "build" || question.quizType === "proofread") {
     return question.prompt || "";
   }
   if (question.quizType === "convert") return question.prompt || "";
+  if (question.quizType === "role") return question.sentence || question.prompt || "";
+  if (question.quizType === "case-requirement") return question.prompt || "";
   if (question.quizType === "case-name") return question.sentence || question.prompt || "";
   if (question.promptKind === "recognize") return question.sentence || question.prompt || "";
   if (question.sentence && question.promptKind) return question.prompt || question.sentence;
@@ -8802,7 +8846,12 @@ function caseLemmaHtml(text, question) {
 /** More help colors the noun the blank belongs to. Case-name underlines its phrase. */
 function caseCueHtml(question) {
   const text = caseCueText(question);
-  const phrase = question?.quizType === "case-name" ? question.focusPhrase : "";
+  const phrase =
+    question?.quizType === "case-name" ||
+    question?.quizType === "role" ||
+    question?.quizType === "proofread"
+      ? question.focusPhrase
+      : "";
   if (phrase && text.includes(phrase)) {
     const at = text.indexOf(phrase);
     const html =
@@ -8828,6 +8877,11 @@ function setCaseModeChrome(mode) {
     if (el) el.hidden = !quizOn;
   }
   if (!quizOn) {
+    const sentence = document.getElementById("case-listen-sentence");
+    if (sentence) {
+      sentence.hidden = true;
+      sentence.innerHTML = "";
+    }
     setActionInstruction("case", "");
     const fam = document.getElementById("case-family-progress");
     if (fam) {
@@ -8862,18 +8916,9 @@ function setCaseModeChrome(mode) {
   extra.innerHTML = "";
 }
 
-function caseFoldAnswer(value) {
-  return String(value || "")
-    .trim()
-    .replace(/\s+/g, " ")
-    .toLocaleLowerCase("de");
-}
-
 function caseAnswerMatches(question, answer) {
   if (!question) return false;
-  if (question.quizType === "type") {
-    return caseFoldAnswer(answer) === caseFoldAnswer(question.correct);
-  }
+  if (caseTypedQuiz(question)) return caseTypedAnswerMatches(question, answer);
   return String(answer) === String(question.correct);
 }
 
@@ -8884,6 +8929,18 @@ function caseStimulusId(question) {
 function caseBuildCount(question) {
   const target = question?.buildTarget || [];
   return Math.max(target.length, 1);
+}
+
+/** Sentence skeleton under the play button: visible words, Part-style blanks. */
+function paintCaseListenSentence(question) {
+  const host = document.getElementById("case-listen-sentence");
+  if (!host) return;
+  const show =
+    (question?.quizType === "listen" || question?.quizType === "listen-type") &&
+    question?.target !== "noun";
+  const html = show ? caseListenFrameHtml(question) : "";
+  host.innerHTML = html;
+  host.hidden = !html;
 }
 
 function paintCaseBuildSlots(question) {
@@ -8990,7 +9047,7 @@ function flashCaseMiss(question, wrongEl) {
 
 function caseChoiceFillsSlot(question) {
   const type = question?.quizType;
-  return type !== "build" && type !== "type" && type !== "proofread";
+  return type !== "build" && !caseTypedQuiz(question) && type !== "proofread";
 }
 
 function renderCasePractice() {
@@ -9021,10 +9078,17 @@ function renderCasePractice() {
     prompt.hidden = false;
     if (!question) {
       prompt.textContent = "No cards in this list yet.";
-    } else if (question.quizType === "listen") {
+    } else if (question.quizType === "listen" || question.quizType === "listen-type") {
       const noun = question.target === "noun";
+      const typing = question.quizType === "listen-type";
       mountListenChooseStimulus(prompt, {
-        task: noun ? "Pick the form" : "Pick the article",
+        task: noun
+          ? typing
+            ? "Type the form"
+            : "Pick the form"
+          : typing
+            ? "Type the article"
+            : "Pick the article",
         example: caseFormExample(question),
       });
     } else {
@@ -9056,7 +9120,7 @@ function renderCasePractice() {
         isDisabled: () => state.caseChecked,
         onPick: (value, btn) => submitCaseAnswer(value, { wrongEl: btn }),
       });
-    } else if (question && question.quizType === "type") {
+    } else if (question && caseTypedQuiz(question) && question.quizType !== "listen-type") {
       mountFreeformShell(tray, {
         inputId: "case-type-input",
         placeholder: caseTypePlaceholder(question),
@@ -9072,7 +9136,7 @@ function renderCasePractice() {
         isDisabled: () => state.caseChecked,
         onPick: (text, btn) => placeCaseBuildText(text, btn),
       });
-    } else if (question && question.quizType === "listen") {
+    } else if (question && (question.quizType === "listen" || question.quizType === "listen-type")) {
       mountListenPlayButton(document.getElementById("case-slots"), {
         id: "case-listen-play",
         isDisabled: () => state.caseChecked,
@@ -9081,23 +9145,36 @@ function renderCasePractice() {
           speakGerman(current?.sentence || current?.prompt || "");
         },
       });
-      const choices = question.choices || [];
-      mountMultiSelectShell(tray, {
-        choices,
-        stacked: choiceGridClass(choices).includes("is-stacked"),
-        ariaLabel: "Articles",
-        isDisabled: () => state.caseChecked,
-        onPick: (choice, btn) => submitCaseAnswer(choice, { wrongEl: btn }),
-      });
+      if (question.quizType === "listen-type") {
+        mountFreeformShell(tray, {
+          inputId: "case-type-input",
+          placeholder: caseTypePlaceholder(question),
+          ariaLabel: "Typed article",
+          isDisabled: () => state.caseChecked,
+          onSubmit: (value) => submitCaseAnswer(value, {}),
+        });
+      } else {
+        const choices = question.choices || [];
+        mountMultiSelectShell(tray, {
+          choices,
+          stacked: choiceGridClass(choices).includes("is-stacked"),
+          ariaLabel: "Articles",
+          isDisabled: () => state.caseChecked,
+          onPick: (choice, btn) => submitCaseAnswer(choice, { wrongEl: btn }),
+        });
+      }
     } else if (question) {
       mountCaseMultiSelect(question, { ariaLabel: "Choices" });
     }
   }
+  paintCaseListenSentence(question);
   const back = document.getElementById("case-back");
   if (back) back.disabled = caseBackDisabled();
   const next = document.getElementById("case-next");
   if (next) next.disabled = !(state.caseDeck || []).length;
-  if (question?.quizType === "listen") speakVisibleListenPrompt();
+  if (question?.quizType === "listen" || question?.quizType === "listen-type") {
+    speakVisibleListenPrompt();
+  }
   if (state.view === "case") {
     refreshPlaylistChrome();
     updateSessionCrumb("case");
@@ -9139,10 +9216,7 @@ function applyCaseDeckFromPlaylist() {
     const step = getCaseStep(u.topicId, u.stepId);
     if (!step?.playable) continue;
     introduceCaseUnit(step.unitId);
-    const cards = casePracticeDeck(
-      buildCaseUnitQuestions(step.unitId),
-      presetId
-    );
+    const cards = casePracticeDeck(step.unitId, presetId);
     for (const card of cards) {
       deck.push({
         ...card,
@@ -9158,12 +9232,13 @@ function applyCaseDeckFromPlaylist() {
   if (capped.length) play = capped;
   if (pl?.sequence === "random" && play.length > 1) play = shuffle(play);
   state.caseDeck = play;
-  state.caseQueueIndex = 0;
   state.caseFollowup = null;
   state.caseForceHintId = null;
   state.casePicked = null;
   state.caseStatus = null;
-  const first = play[0] || null;
+  const opener = guidedCaseExerciseIndex(play);
+  state.caseQueueIndex = opener;
+  const first = play[opener] || play[0] || null;
   state.caseQuestion = first;
   if (first?.caseTopicId) state.caseTopic = first.caseTopicId;
   if (first?.caseStepId) state.caseStep = first.caseStepId;
@@ -9282,8 +9357,7 @@ function submitCaseAnswer(answer, { wrongEl } = {}) {
   const question = casePresentedQuestion(state.caseQuestion);
   if (!question || state.caseChecked) return;
   const ok = caseAnswerMatches(question, answer);
-  const caseChoiceQuiz =
-    question.quizType !== "build" && question.quizType !== "type";
+  const caseChoiceQuiz = question.quizType !== "build" && !caseTypedQuiz(question);
   const caseChoiceRetry =
     !caseChoiceQuiz ||
     choiceSecondChanceOpen(
@@ -9297,7 +9371,7 @@ function submitCaseAnswer(answer, { wrongEl } = {}) {
     state.casePicked = answer;
     if (question.quizType === "build" || caseChoiceFillsSlot(question)) {
       flashCaseMiss(question, wrongEl);
-    } else if (question.quizType === "type") {
+    } else if (caseTypedQuiz(question)) {
       const input = document.getElementById("case-type-input");
       if (input) {
         input.classList.remove("is-bad");
@@ -9342,7 +9416,7 @@ function submitCaseAnswer(answer, { wrongEl } = {}) {
       String(question.correct || "")
     );
   }
-  if (!ok && question.quizType === "type") {
+  if (!ok && caseTypedQuiz(question)) {
     document.getElementById("case-type-input")?.classList.add("is-bad");
   }
   if (state.caseMode === "review") {
@@ -9934,7 +10008,8 @@ function handleNavCarouselStart({ mode, units, keyboard, audio, practice, guided
 
 /**
  * All playable reps across every territory as Dealer candidates, in
- * curriculum order (Numbers steps first, then Nouns families). Cap-filtered.
+ * curriculum order: Numbers, Nouns, Sounds, then Case. Cap-filtered.
+ * Noun articles are still marked coming soon, so they are not dealt.
  */
 function guidedCandidates() {
   const out = [];
@@ -9993,6 +10068,57 @@ function guidedCandidates() {
       key: `nouns:plurals:${s.id}`,
     });
   }
+  // Sounds: syllable karaoke, then minimal-pair listen.
+  const soundSteps = [
+    {
+      topicId: "syllables",
+      stepId: "karaoke",
+      label: "Syllable karaoke",
+      mode: "karaoke",
+    },
+    {
+      topicId: "contrasts",
+      stepId: "minimal-pairs",
+      label: "Minimal pairs",
+      mode: "listen",
+    },
+  ];
+  for (const step of soundSteps) {
+    const caps = navCaps();
+    if (step.mode === "karaoke") {
+      if (caps.audio === false) continue;
+    } else if (!presetMatchesCaps(step.mode, caps)) continue;
+    out.push({
+      territory: "sounds",
+      topicId: step.topicId,
+      stepId: step.stepId,
+      label: step.label,
+      mode: step.mode,
+      modeId: step.mode,
+      presets: [step.mode],
+      key: `sounds:${step.topicId}:${step.stepId}`,
+    });
+  }
+  // Case: each playable step, intro preset first, remaining presets for review.
+  for (const topic of CASE_TOPICS) {
+    if (!topic.playable) continue;
+    for (const step of topic.steps || []) {
+      if (!step.playable) continue;
+      const presets = (step.modes || []).filter(
+        (id) => getInteractionPreset(id) && presetMatchesCaps(id, navCaps())
+      );
+      if (!presets.length) continue;
+      out.push({
+        territory: "case",
+        topicId: topic.id,
+        stepId: step.id,
+        unitId: step.unitId,
+        mode: presets[0],
+        presets,
+        key: `case:${topic.id}:${step.id}`,
+      });
+    }
+  }
   return out;
 }
 
@@ -10010,6 +10136,8 @@ function dealerPresetSeeds() {
     "visual-freeform",
     "set-dial",
     "sentence",
+    "listen-type",
+    "sentence-type",
     "karaoke",
   ]) {
     const p = getInteractionPreset(id);
@@ -10018,7 +10146,7 @@ function dealerPresetSeeds() {
   return out;
 }
 
-/** Soft-arc order = Numbers curriculum order, then Nouns (candidate keys). */
+/** Soft-arc order = Numbers, Nouns, Sounds, then Case (candidate keys). */
 function guidedSoftArc(candidates) {
   return (candidates || guidedCandidates()).map((c) => c.key);
 }
@@ -10094,6 +10222,7 @@ function guidedDealAndGo() {
     presetSeeds: dealerPresetSeeds(),
     recentHintDepth: hintDepth,
     recentDealKey: state.guidedCurrentKey || null,
+    listenCooldownKey: state.listenHold?.unitKey || null,
     recentFeltDifficulty: feltDifficulty,
   });
   if (!deal) {
@@ -10168,7 +10297,15 @@ function guidedDealAndGo() {
   } catch {
     /* ignore */
   }
+  if (
+    state.listenHold &&
+    (c.key !== state.listenHold.unitKey || (c.mode || c.modeId) !== "listen")
+  ) {
+    state.listenHold = null;
+  }
   if (c.territory === "nouns") configureGuidedNouns(c);
+  else if (c.territory === "case") configureGuidedCase(c);
+  else if (c.territory === "sounds") configureGuidedSounds(c);
   else configureGuidedNumbers(c);
 }
 
@@ -10185,6 +10322,7 @@ function configureGuidedNumbers(c) {
   state.numbersIndex = 0;
   state.phase.numbers = "practice";
   state.preservePractice.numbers = false;
+  if (c.mode === "listen") placeGuidedNumbersListen();
   navigate("numbers", { keepPhase: true });
 }
 
@@ -10200,7 +10338,22 @@ function configureGuidedNouns(c) {
   resetNounsDeckForMode();
   state.phase.nouns = "practice";
   state.preservePractice.nouns = false;
+  if ((c.modeId || c.mode) === "listen") placeGuidedCompassListen();
   navigate("nouns", { keepPhase: true });
+}
+
+function configureGuidedCase(c) {
+  startCasePractice(c.topicId, c.stepId, c.mode);
+}
+
+function configureGuidedSounds(c) {
+  state.soundsMode = c.mode === "listen" ? "listen" : "karaoke";
+  state.soundsIndex = 0;
+  state.soundsChoice = null;
+  state.soundsChecked = false;
+  state.phase.sounds = "practice";
+  state.preservePractice.sounds = false;
+  navigate("sounds", { keepPhase: true });
 }
 
 /**
@@ -10209,10 +10362,151 @@ function configureGuidedNouns(c) {
  */
 function continueGuided() {
   if (state.sessionMode !== "guided") return false;
+  rememberCaseSentenceHold();
+  const listenKey = currentListenPromptKey();
+  if (listenKey) {
+    state.listenHold = {
+      unitKey: currentEvidenceUnitKey(),
+      itemKey: listenKey,
+    };
+  }
   recordGuidedResult();
   // History stays on the tip entry; Back still returns to prior questions.
   guidedDealAndGo();
   return true;
+}
+
+/** Remember the case sentence just left so the next preset can rotate or repeat it. */
+function rememberCaseSentenceHold() {
+  if (state.view !== "case") return;
+  const sentenceKey = caseSentenceKey(casePresentedQuestion(state.caseQuestion));
+  if (!sentenceKey) return;
+  state.caseSentenceHold = {
+    unitKey: currentEvidenceUnitKey(),
+    sentenceKey,
+  };
+}
+
+/**
+ * Guided case opens on an untested sentence, then a missed one.
+ * Too-easy and edge of competence may repeat the sentence in the new shape.
+ * @param {readonly object[]} deck
+ */
+function guidedCaseExerciseIndex(deck) {
+  if (state.sessionMode !== "guided" || !deck || deck.length < 2) return 0;
+  const unitKey = state.guidedCurrentKey || "";
+  const held =
+    unitKey && state.caseSentenceHold?.unitKey === unitKey
+      ? state.caseSentenceHold.sentenceKey
+      : "";
+  return pickCaseExerciseIndex(deck, {
+    dealKey: unitKey,
+    grains: state.evidenceStore?.grains,
+    reasonCode: state.currentReasonCode?.code || "",
+    heldSentenceKey: held,
+  });
+}
+
+/** Numbers value, compass bearing, Case sentence, or a sound contrast. */
+function currentListenPromptKey() {
+  if (state.view === "numbers" && state.numbersQuizMode === "listen") {
+    try {
+      return numbersItemKey(currentNumberMeta());
+    } catch {
+      return "";
+    }
+  }
+  if (
+    state.view === "nouns" &&
+    state.nounsMode === "cardinal-directions" &&
+    state.nounsQuizMode === "listen"
+  ) {
+    return currentNounCardinalDirectionItem()?.lemma || "";
+  }
+  if (state.view === "case") {
+    const question = casePresentedQuestion(state.caseQuestion);
+    if (question?.quizType === "listen" || question?.quizType === "listen-type") {
+      return question.playId || question.sentence || "";
+    }
+  }
+  if (state.view === "sounds" && normalizeSoundsMode(state.soundsMode) === "listen") {
+    const item = soundDiscriminate[state.soundsIndex % soundDiscriminate.length];
+    return item?.play || "";
+  }
+  return "";
+}
+
+/** Missed listen prompt still under the unit gate (item grain). */
+function weakestListenItemKey(unitKey) {
+  if (!unitKey) return "";
+  const prefix = `${unitKey}×listen×`;
+  let best = null;
+  for (const [key, stat] of Object.entries(state.evidenceStore?.grains || {})) {
+    if (stat?.kind !== EVIDENCE_GRAIN.ITEM || !key.startsWith(prefix)) continue;
+    const acc = grainAccuracy(stat);
+    if (acc == null || acc >= WEAK_ACCURACY) continue;
+    if (!best || acc < best.acc || (acc === best.acc && stat.total > best.total)) {
+      best = { itemKey: key.slice(prefix.length), acc, total: stat.total };
+    }
+  }
+  return best?.itemKey || "";
+}
+
+/**
+ * Same listen unit again: show the queued miss, or step past the prompt
+ * just answered when that miss is still the card on screen.
+ */
+function placeGuidedNumbersListen() {
+  ensureListenDeck();
+  const deck = state.numbersListenDeck || [];
+  if (deck.length < 2) return;
+  const unitKey = currentEvidenceUnitKey();
+  const held =
+    state.listenHold && state.listenHold.unitKey === unitKey
+      ? state.listenHold.itemKey
+      : "";
+  const weak = weakestListenItemKey(unitKey);
+  if (weak && weak !== held && seekNumbersDeckToKey(deck, "numbersListenCursor", weak)) {
+    state.listenHold = null;
+    return;
+  }
+  const idx = state.numbersListenCursor || 0;
+  const cur = numbersItemKey(deck[idx] ?? deck[0]);
+  if (!held || cur !== held) return;
+  state.numbersListenCursor = idx + 1;
+  if (state.numbersListenCursor >= deck.length) {
+    state.numbersListenDeck = shuffleAvoidingKey(deck, held);
+    state.numbersListenCursor = 0;
+  }
+  state.listenHold = null;
+}
+
+function seekCompassListen(lemma) {
+  const deck = ensureNounDeck("CardinalDirections");
+  const i = deck.findIndex((item) => item?.lemma === lemma);
+  if (i < 0) return false;
+  state.nounsCardinalDirectionsIndex = i;
+  return true;
+}
+
+function placeGuidedCompassListen() {
+  const deck = ensureNounDeck("CardinalDirections");
+  if (deck.length < 2) return;
+  const unitKey = currentEvidenceUnitKey();
+  const held =
+    state.listenHold && state.listenHold.unitKey === unitKey
+      ? state.listenHold.itemKey
+      : "";
+  const weak = weakestListenItemKey(unitKey);
+  if (weak && weak !== held && seekCompassListen(weak)) {
+    state.listenHold = null;
+    return;
+  }
+  const idx = state.nounsCardinalDirectionsIndex || 0;
+  const cur = deck[idx % deck.length]?.lemma || "";
+  if (!held || cur !== held) return;
+  state.nounsCardinalDirectionsIndex = (idx + 1) % deck.length;
+  state.listenHold = null;
 }
 
 /** Clear first-miss lock after a guided advance (scoring lives in evidenceStore). */
@@ -10226,6 +10520,12 @@ function currentEvidenceUnitKey() {
   if (state.guidedCurrentKey) return state.guidedCurrentKey;
   if (state.view === "case") {
     return `case:${state.caseTopic || "accusative"}:${state.caseStep || "?"}`;
+  }
+  if (state.view === "sounds") {
+    const listen = normalizeSoundsMode(state.soundsMode) === "listen";
+    return listen
+      ? "sounds:contrasts:minimal-pairs"
+      : "sounds:syllables:karaoke";
   }
   if (state.view === "nouns") {
     const topic = state.nounsTopic || state.nounsLearnUnit || "?";
@@ -10647,12 +10947,20 @@ function logGuidedQa({ question, answer, expected, status, note, evidenceIds } =
   const store = state.evidenceStore || (state.evidenceStore = emptyEvidenceStore());
   // Only score into grains when this row will also enter attemptLog.
   if (!state.itemFirstMiss) {
+    const caseQuestion =
+      state.view === "case" ? casePresentedQuestion(state.caseQuestion) : null;
+    const caseItemKey = caseSentenceKey(caseQuestion);
+    const listenItemKey =
+      caseItemKey ||
+      (ix.presetId === "listen" ? currentListenPromptKey() : "");
     const attemptEv = {
       dealKey: unitKey,
       presetId: ix.presetId,
       stimulus: ix.stimulus,
       response: ix.response,
       evidenceIds: ids,
+      itemKey: listenItemKey || null,
+      itemLabel: caseQuestion?.sentence || "",
       correct,
       hintDepth: snap.hintDepth,
     };
@@ -10743,12 +11051,142 @@ function guidedLabelForCandidate(c) {
     const fam = (unit?.families || []).find((f) => f.id === c.family);
     return [unit?.label, fam?.label].filter(Boolean).join(" · ") || c.key;
   }
+  if (c.territory === "case") {
+    const topic = getCaseTopic(c.topicId)?.label;
+    const step = getCaseStep(c.topicId, c.stepId)?.label;
+    return [topic, step].filter(Boolean).join(" · ") || c.key;
+  }
+  if (c.territory === "sounds") return c.label || c.key;
   return c.key;
 }
 
 function guidedLabelForKey(key) {
   const hit = guidedCandidates().find((c) => c.key === key);
   return hit ? guidedLabelForCandidate(hit) : key;
+}
+
+function guidedJumpTopic(c) {
+  if (c.territory === "numbers") {
+    return {
+      id: `numbers:${c.topicId}`,
+      label: getNumbersTopic(c.topicId)?.label || c.topicId,
+      territory: "Numbers",
+    };
+  }
+  if (c.territory === "sounds") {
+    return {
+      id: `sounds:${c.topicId}`,
+      label: c.topicId === "contrasts" ? "Contrasts" : "Syllables",
+      territory: "Sounds",
+    };
+  }
+  if (c.territory === "case") {
+    return {
+      id: `case:${c.topicId}`,
+      label: getCaseTopic(c.topicId)?.label || c.topicId,
+      territory: "Case",
+    };
+  }
+  const unit = getGenderShortcutsUnit(c.learnUnitId) || getNounsTopic(c.topicId);
+  return {
+    id: `nouns:${c.learnUnitId || c.topicId}`,
+    label: unit?.label || c.topicId,
+    territory: "Nouns",
+  };
+}
+
+function guidedJumpStepLabel(c) {
+  if (c.territory === "numbers") {
+    return getNumbersStep(c.topicId, c.stepId)?.label || c.stepId;
+  }
+  if (c.territory === "case") {
+    return getCaseStep(c.topicId, c.stepId)?.label || c.stepId;
+  }
+  if (c.territory === "sounds") return c.label || c.stepId;
+  const unit = getGenderShortcutsUnit(c.learnUnitId);
+  const fam = (unit?.families || []).find((f) => f.id === c.family);
+  return fam?.label || getNounsStep(c.topicId, c.stepId)?.label || c.stepId;
+}
+
+/** Later guided steps, grouped as territory → topic → step. */
+function guidedJumpGroups(candidates, currentKey) {
+  const here = candidates.findIndex((c) => c.key === currentKey);
+  const groups = [];
+  candidates.forEach((c, i) => {
+    if (here >= 0 && i <= here) return;
+    const topic = guidedJumpTopic(c);
+    let group = groups.find((g) => g.id === topic.id);
+    if (!group) {
+      group = { ...topic, steps: [] };
+      groups.push(group);
+    }
+    group.steps.push({ key: c.key, label: guidedJumpStepLabel(c) });
+  });
+  return groups;
+}
+
+function openGuidedJumpSheet() {
+  if (state.sessionMode !== "guided") return;
+  const candidates = guidedCandidates();
+  const groups = guidedJumpGroups(candidates, state.guidedCurrentKey);
+  const here = guidedLabelForKey(state.guidedCurrentKey);
+  const lead = groups.length
+    ? `You are on ${here}. Choose a later step. This step and the ones in between are skipped.`
+    : `You are on ${here}. There is no later step to jump to.`;
+  let lastTerritory = "";
+  const body = groups
+    .map((group) => {
+      const territory =
+        group.territory !== lastTerritory
+          ? `<p class="guided-jump-territory">${escapeHtml(group.territory)}</p>`
+          : "";
+      lastTerritory = group.territory;
+      const steps = group.steps
+        .map(
+          (step) =>
+            `<li><button type="button" class="guided-jump-step" data-guided-jump-key="${escapeHtml(step.key)}">${escapeHtml(step.label)}</button></li>`
+        )
+        .join("");
+      return `${territory}<h3 class="guided-jump-topic">${escapeHtml(group.label)}</h3><ul class="guided-jump-steps">${steps}</ul>`;
+    })
+    .join("");
+  openSheet(
+    "Jump ahead",
+    `<p class="guided-jump-lead">${escapeHtml(lead)}</p>${body}`
+  );
+}
+
+/** Leave the current step through the one before `key`, then open that step. */
+function jumpGuidedAhead(key) {
+  if (state.sessionMode !== "guided") return;
+  const candidates = guidedCandidates();
+  const target = candidates.find((c) => c.key === key);
+  if (!target) return;
+  const order = guidedSoftArc(candidates);
+  const skipped = keysSkippedByJump(order, state.guidedCurrentKey, key);
+  if (!skipped.length && order.indexOf(key) <= order.indexOf(state.guidedCurrentKey)) return;
+  const seen = state.guidedSeen || (state.guidedSeen = new Set());
+  for (const id of skipped) seen.add(id);
+  seen.add(target.key);
+  state.guidedCurrentKey = target.key;
+  state.currentReasonCode = null;
+  state.listenHold = null;
+  const dealLog = state.guidedDealLog || (state.guidedDealLog = []);
+  dealLog.push({
+    at: Date.now(),
+    n: dealLog.length + 1,
+    reason: "jump",
+    reasonLabel: "Jump",
+    reasonHint: "Skipped ahead from the current step.",
+    key: target.key,
+    label: guidedLabelForCandidate(target),
+    territory: target.territory,
+    skipped,
+  });
+  if (target.territory === "nouns") configureGuidedNouns(target);
+  else if (target.territory === "case") configureGuidedCase(target);
+  else if (target.territory === "sounds") configureGuidedSounds(target);
+  else configureGuidedNumbers(target);
 }
 
 function guidedStatLine(key) {
@@ -16588,15 +17026,6 @@ function renderNounsPlurals() {
   });
 }
 
-/** Tray labels shuffled each question (stems + endings mixed). Always include —. */
-function orderPluralTrayLabels(buildParts, distractors) {
-  const articles = new Set(["der", "die", "das"]);
-  const pool = new Set([...(buildParts || []), ...(distractors || []), "—"]);
-  const labels = [...pool].filter((t) => !articles.has(t));
-  if (!labels.includes("—")) labels.push("—");
-  return shuffle(labels);
-}
-
 function placeArticle(id) {
   if (state.nounsChecked || !isNounArticleLikeMode()) return;
   const piece = document.querySelector(`#nouns-tray [data-id="${id}"]`);
@@ -17256,11 +17685,13 @@ function checkNounsPlurals() {
     exercise.resolution.form ||
     joinNounPluralParts(exercise.materials.parts.slice(1));
   const lemma = exercise.target?.lemma || "";
-  const parts =
-    exercise.materials.answerParts ||
-    NOUN_PLURAL_PARTS[lemma] ||
-    fallbackPluralParts(lemma) ||
-    resolveAnswerPronunciation(["die", pluralForm]).parts;
+  const wugPlural = !!exercise.target?.wug;
+  const parts = wugPlural
+    ? []
+    : exercise.materials.answerParts ||
+      NOUN_PLURAL_PARTS[lemma] ||
+      fallbackPluralParts(lemma) ||
+      resolveAnswerPronunciation(["die", pluralForm]).parts;
   const construction =
     exercise.resolution.parts || exercise.materials.parts;
 
@@ -17278,6 +17709,7 @@ function checkNounsPlurals() {
       word: phrase,
       wordHtml: nounPluralAnswerWordHtml(construction),
       parts,
+      skipPronunciation: wugPlural,
       en: pluralAnswerCaption(
         exercise.resolution.translation,
         exercise.resolution.patternNote
@@ -17489,7 +17921,9 @@ function currentListenPrompt() {
     !state.caseChecked
   ) {
     const question = casePresentedQuestion(state.caseQuestion);
-    if (question?.quizType === "listen") return question.sentence || "";
+    if (question?.quizType === "listen" || question?.quizType === "listen-type") {
+      return question.sentence || "";
+    }
   }
   if (
     state.view === "sounds" &&
@@ -18518,9 +18952,16 @@ function openSoundsHelp() {
 function caseHelpHint(question) {
   const shown = casePresentedQuestion(question);
   if (!shown) return "";
+  if (shown.help) return shown.help;
+  if (shown.quizType === "role") return "Name the role of the underlined phrase.";
+  if (shown.quizType === "case-requirement") {
+    return "Pick the case this familiar construction requires for the phrase named here.";
+  }
   if (shown.quizType === "case-name") return "Name the case of the underlined phrase.";
   if (shown.quizType === "proofread") return "Decide whether the article in this sentence is the one this construction takes.";
   if (shown.quizType === "listen") return "Play the sentence and listen for the article.";
+  if (shown.quizType === "listen-type") return "Play the sentence and type the article you heard.";
+  if (shown.quizType === "sentence-type") return "Type the article that belongs in the blank.";
   if (shown.quizType === "type") return "Type the article or noun form, with no choices on screen.";
   if (shown.quizType === "build") return "Assemble the phrase from the pieces.";
   const cue = String(shown.cue || shown.answerCue || "").trim();
@@ -18534,8 +18975,8 @@ function openCaseHelp() {
   const question = state.caseQuestion;
   const step = getCaseStep(state.caseTopic, state.caseStep);
   const referenceId =
-    state.caseMode === "practice" && step?.referenceId
-      ? step.referenceId
+    state.caseMode === "practice"
+      ? question?.referenceId || step?.referenceId || "case.chart.definite"
       : "case.chart.definite";
   openSessionHelp({
     territory: "case",
@@ -18666,11 +19107,13 @@ function soundsBack() {
 }
 
 function soundsSkip() {
+  if (continueGuided()) return;
   state.soundsIndex += 1;
   renderSounds();
 }
 
 function soundsContinue() {
+  if (continueGuided()) return;
   state.soundsIndex += 1;
   renderSounds();
 }
@@ -18820,6 +19263,15 @@ function checkSoundsDiscriminate(item) {
 
   state.soundsChecked = true;
   const ok = state.soundsChoice === item.answer;
+  if (state.sessionMode === "guided") {
+    logGuidedQa({
+      question: item.prompt || item.play,
+      answer: state.soundsChoice,
+      expected: item.answer,
+      status: ok ? "correct" : "incorrect",
+      evidenceIds: ok ? ["sounds.listen"] : ["sounds.listen", "eval.incorrect"],
+    });
+  }
   const choices = document.getElementById("sounds-choices");
   const choiceEls = [];
 
@@ -19303,6 +19755,7 @@ function bind() {
         renderCasePractice();
         return;
       }
+      if (continueGuided()) return;
       advanceCaseQuestion();
     }
   });
@@ -19378,6 +19831,13 @@ function bind() {
     });
   });
 
+  document.getElementById("sheet-body")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-guided-jump-key]");
+    if (!btn || state.sessionMode !== "guided") return;
+    e.preventDefault();
+    jumpGuidedAhead(btn.getAttribute("data-guided-jump-key"));
+  });
+
   document.getElementById("sheet-close").addEventListener("click", closeSheet);
   document.getElementById("sheet-backdrop").addEventListener("click", closeSheet);
   document.addEventListener("keydown", (e) => {
@@ -19393,6 +19853,11 @@ function bind() {
       openGuidedDebugSheet();
       return;
     }
+    if (e.target.closest("[data-guided-jump]")) {
+      e.preventDefault();
+      openGuidedJumpSheet();
+      return;
+    }
     const hit =
       e.target.closest("[data-coach-open]") ||
       e.target.closest("#session-mode.is-coach");
@@ -19406,6 +19871,11 @@ function bind() {
     if (e.target.closest("[data-guided-debug]")) {
       e.preventDefault();
       openGuidedDebugSheet();
+      return;
+    }
+    if (e.target.closest("[data-guided-jump]")) {
+      e.preventDefault();
+      openGuidedJumpSheet();
       return;
     }
     const hit = e.target.closest("#session-mode.is-coach");

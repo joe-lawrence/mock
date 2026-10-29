@@ -373,6 +373,147 @@ export const reference = {
     "flags": [],
     "source": "content/reference/case/accusative-verbs.md"
   },
+  "case.analysis": {
+    "id": "case.analysis",
+    "title": "Sentence analysis",
+    "territory": "case",
+    "section": "mixed",
+    "status": "active",
+    "summary": "Name the role and the case of one underlined phrase, and the case a familiar verb or preposition construction requires.",
+    "order": 17,
+    "related": [
+      "case.mixed",
+      "case.verb.gefallen",
+      "case.dat.helfen",
+      "case.prep.warten-auf",
+      "case.prep.passen-zu"
+    ],
+    "practice": [],
+    "sections": {
+      "summary": "A noun phrase’s role in the sentence and its case are two different facts. This step asks for one of them at a time. The same phrase can be the subject and nominative, an accusative object and accusative, or a dative object and dative.",
+      "pattern": "",
+      "rule": "Use these labels only when they name the phrase’s real job:\n\n- **Subject** — the phrase the verb agrees with. Its case is nominative.\n- **Accusative object** — the person or thing the verb acts on directly, as in `sehen` or `geben`.\n- **Dative object** — the person the verb addresses with the dative, as in `helfen` or the person who receives something in `geben`.\n\n`Ich gebe dem Kind den Ball` has all three: `Ich` is the subject, `dem Kind` is the dative object, and `den Ball` is the accusative object. `Die Frau zeigt dem Mann das Buch` works the same way.\n\nA phrase after `für`, `ohne`, `mit`, `aus`, `warten auf`, or `passen zu` is governed by that construction. It is not automatically an accusative object or a dative object. The case-requirement questions name the construction and the phrase the case applies to. `In warten auf, the noun after auf is accusative` does not mean `auf` takes the accusative in every other use.",
+      "examples": "",
+      "limitations": "The three role labels are the set for this step, not a complete list of German noun phrases. Prepositional objects are practiced as case requirements here. Genitive, two-way prepositions outside these constructions, and adjective endings are outside this step.",
+      "notes": "`Das Buch gefällt dem Mann` is the sentence that checks the pattern. `Das Buch` is the grammatical subject, nominative. `dem Mann` is the dative object, the person who likes the book. English makes that person the subject of “like.” The German sentence does not.",
+      "pronunciation": ""
+    },
+    "examplesTable": [
+      {
+        "cue": "subject + accusative object",
+        "german": "Der Mann sieht den Hund.",
+        "note": "sehen"
+      },
+      {
+        "cue": "subject + dative + accusative",
+        "german": "Ich gebe dem Kind den Ball.",
+        "note": "geben"
+      },
+      {
+        "cue": "subject is the book",
+        "german": "Das Buch gefällt dem Mann.",
+        "note": "gefallen"
+      }
+    ],
+    "chart": [
+      {
+        "cue": "subject + accusative object",
+        "note": "sehen",
+        "form": "Der Mann sieht den Hund.",
+        "parts": [
+          {
+            "text": "Der",
+            "guide": "dair"
+          },
+          {
+            "text": "Mann",
+            "guide": "mahn",
+            "stress": true
+          },
+          {
+            "text": "sieht",
+            "guide": "zeet",
+            "stress": true
+          },
+          {
+            "text": "den",
+            "guide": "dane"
+          },
+          {
+            "text": "Hund",
+            "guide": "hoont",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "subject + dative + accusative",
+        "note": "geben",
+        "form": "Ich gebe dem Kind den Ball.",
+        "parts": [
+          {
+            "text": "Ich",
+            "guide": "ikh"
+          },
+          {
+            "text": "gebe",
+            "guide": "GAY-buh",
+            "stress": true
+          },
+          {
+            "text": "dem",
+            "guide": "dame"
+          },
+          {
+            "text": "Kind",
+            "guide": "kint",
+            "stress": true
+          },
+          {
+            "text": "den",
+            "guide": "dane"
+          },
+          {
+            "text": "Ball",
+            "guide": "bahl",
+            "stress": true
+          }
+        ]
+      },
+      {
+        "cue": "subject is the book",
+        "note": "gefallen",
+        "form": "Das Buch gefällt dem Mann.",
+        "parts": [
+          {
+            "text": "Das",
+            "guide": "dahs"
+          },
+          {
+            "text": "Buch",
+            "guide": "bookh",
+            "stress": true
+          },
+          {
+            "text": "gefällt",
+            "guide": "guh-FELT",
+            "stress": true
+          },
+          {
+            "text": "dem",
+            "guide": "dame"
+          },
+          {
+            "text": "Mann",
+            "guide": "mahn",
+            "stress": true
+          }
+        ]
+      }
+    ],
+    "flags": [],
+    "source": "content/reference/case/analysis.md"
+  },
   "case.dat.helfen": {
     "id": "case.dat.helfen",
     "title": "helfen",
@@ -907,7 +1048,8 @@ export const reference = {
       "case.prep.aus",
       "case.prep.warten-auf",
       "case.verb.danken",
-      "case.verb.gefallen"
+      "case.verb.gefallen",
+      "case.analysis"
     ],
     "practice": [],
     "sections": {
@@ -6779,6 +6921,11 @@ export const referenceNav = {
             "id": "case.mixed",
             "title": "Accusative and dative together",
             "summary": "A sentence can contain accusative and dative noun phrases. Determine the case from the particular verb or construction, then choose the matching article."
+          },
+          {
+            "id": "case.analysis",
+            "title": "Sentence analysis",
+            "summary": "Name the role and the case of one underlined phrase, and the case a familiar verb or preposition construction requires."
           }
         ]
       }

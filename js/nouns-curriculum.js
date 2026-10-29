@@ -419,6 +419,11 @@ export function nounPresetMatchesCaps(
     modeId === "visual-freeform" ||
     preset?.response === RESPONSE.FREEFORM;
   const isListen = modeId === "listen" || preset?.stimulus === STIMULUS.TTS;
+  if (isListen && isWrite) {
+    if (caps.keyboard === "only" || caps.audio === "only") return false;
+    if (caps.audio === false || caps.keyboard === false) return false;
+    return true;
+  }
   if (caps.keyboard === "only") return isWrite;
   if (caps.audio === "only") return isListen;
   if (isListen && caps.audio === false) return false;

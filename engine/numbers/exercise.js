@@ -26,6 +26,43 @@ function unique(list) {
   return [...new Set(list)];
 }
 
+/**
+ * Tray must include at least one chip that is not an answer part.
+ * n answer slots → at least n+1 distinct choices.
+ * @param {string[]} parts
+ * @param {string[]} pool
+ */
+function withSpareChip(parts, pool) {
+  const filtered = unique(pool.filter((x) => x && !parts.includes(x)));
+  const chosen = filtered.slice(0, 3);
+  const have = new Set([...parts, ...chosen]);
+  const need = parts.length + 1;
+  for (let i = chosen.length; i < filtered.length && have.size < need; i++) {
+    chosen.push(filtered[i]);
+    have.add(filtered[i]);
+  }
+  for (const foil of SPARE_CHIPS) {
+    if (have.size >= need) break;
+    if (!foil || have.has(foil)) continue;
+    chosen.push(foil);
+    have.add(foil);
+  }
+  return chosen;
+}
+
+/** Pieces that are legal German number crumbs but not tied to one value. */
+const SPARE_CHIPS = Object.freeze([
+  "und",
+  "zehn",
+  "zig",
+  "ßig",
+  "ein",
+  "sech",
+  "sieb",
+  "Punkt",
+  "Komma",
+]);
+
 function distractorsFor(n, parts, grain) {
   const analysis = cardinalAnalysis(n);
   const pool = [];
@@ -71,7 +108,7 @@ function distractorsFor(n, parts, grain) {
     pool.push("und");
   }
 
-  return unique(pool.filter((x) => x && !parts.includes(x))).slice(0, 3);
+  return withSpareChip(parts, pool);
 }
 
 function hintFor(n, grain) {
@@ -120,7 +157,7 @@ export function constructionExercise(n, opts = {}) {
 
 function decimalDistractors(parts) {
   const pool = ["Punkt", "und", "zehn", "zig", ATOMIC[0], ATOMIC[1], "Cent", "Euro"];
-  return unique(pool.filter((x) => x && !parts.includes(x))).slice(0, 3);
+  return withSpareChip(parts, pool);
 }
 
 /**
@@ -193,7 +230,7 @@ function fractionDistractors(parts) {
     ATOMIC[2],
     ATOMIC[3],
   ];
-  return unique(pool.filter((x) => x && !parts.includes(x))).slice(0, 3);
+  return withSpareChip(parts, pool);
 }
 
 /**
@@ -264,7 +301,7 @@ function timeDistractors(parts) {
     ATOMIC[3],
     ATOMIC[4],
   ];
-  return unique(pool.filter((x) => x && !parts.includes(x))).slice(0, 3);
+  return withSpareChip(parts, pool);
 }
 
 /**
@@ -340,7 +377,7 @@ export function durationExercise(dur, opts = {}) {
 
 function ordinalDistractors(parts) {
   const pool = ["te", "ste", "und", "am", "der", "die", "zehn", "zig", "erste", "dritte"];
-  return unique(pool.filter((x) => x && !parts.includes(x))).slice(0, 3);
+  return withSpareChip(parts, pool);
 }
 
 /**
@@ -389,7 +426,7 @@ export function ordinalAmExercise(n, opts = {}) {
 
 function dateDistractors(parts) {
   const pool = ["am", "Uhr", "Montag", "Januar", "März", "te", "ste", "und", "der"];
-  return unique(pool.filter((x) => x && !parts.includes(x))).slice(0, 3);
+  return withSpareChip(parts, pool);
 }
 
 /**
@@ -472,7 +509,7 @@ function measureDistractors(parts) {
     "und",
     "zehn",
   ];
-  return unique(pool.filter((x) => x && !parts.includes(x))).slice(0, 3);
+  return withSpareChip(parts, pool);
 }
 
 /**

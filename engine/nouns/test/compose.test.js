@@ -308,14 +308,16 @@ describe("practice composer", () => {
       concepts: CASE_FRAME_UNITS["case.dat.helfen"].concepts,
       lemmas: ["Mann", "Frau", "Kind", "Bus", "Zeitung"],
     });
+    const definite = helfen.filter((item) => item.articleKind === "definite");
     assert.deepEqual(
-      helfen.map((item) => item.lemma),
+      definite.map((item) => item.lemma),
       ["Mann", "Frau", "Kind"]
     );
-    assert.equal(helfen.find((item) => item.lemma === "Mann").correct, "dem");
-    assert.equal(helfen.find((item) => item.lemma === "Frau").correct, "der");
-    assert.equal(helfen.find((item) => item.lemma === "Kind").sentence, "Ich helfe dem Kind.");
-    assert.ok(helfen.every((item) => item.articleKind === "definite"));
+    assert.equal(definite.find((item) => item.lemma === "Mann").correct, "dem");
+    assert.equal(definite.find((item) => item.lemma === "Frau").correct, "der");
+    assert.equal(definite.find((item) => item.lemma === "Kind").sentence, "Ich helfe dem Kind.");
+    assert.ok(helfen.some((item) => item.articleKind === "indefinite" && item.lemma === "Kind"));
+    assert.ok(!helfen.some((item) => item.lemma === "Bus" || item.lemma === "Zeitung"));
 
     const indef = composeCaseFrameItems("case.dat.indef", {
       concepts: CASE_FRAME_UNITS["case.dat.indef"].concepts,
@@ -354,7 +356,16 @@ describe("practice composer", () => {
     const nouns = plural.filter((item) => item.target === "noun");
     assert.deepEqual(
       article.map((item) => item.sentence),
-      ["Ich helfe den Kindern.", "Ich helfe den Frauen.", "Ich spiele mit den Hunden."]
+      [
+        "Ich helfe den Kindern.",
+        "Ich helfe den Frauen.",
+        "Ich helfe den Hunden.",
+        "Ich spiele mit den Hunden.",
+        "Ich spiele mit den Kindern.",
+        "Ich spiele mit den Frauen.",
+        "Ich fahre mit den Autos.",
+        "Ich komme aus den Büros.",
+      ]
     );
     assert.ok(article.every((item) => item.correct === "den"));
     assert.deepEqual(

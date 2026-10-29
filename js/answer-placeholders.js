@@ -236,6 +236,83 @@ export function caseFormExample(question) {
   return pool.find((item) => item.toLowerCase() !== correct) || pool[0];
 }
 
+/**
+ * Written skeleton for a Case listen card. The graded article stays blank.
+ * The noun is shown, because it is not a choice. TTS still speaks the
+ * full sentence.
+ * @param {{ before?: string, after?: string, nounForm?: string, lemma?: string }} [question]
+ * @returns {{ before: string, noun: string, tail: string } | null}
+ */
+export function caseListenFrameParts(question) {
+  const before = String(question?.before || "");
+  const after = String(question?.after || "");
+  const noun = String(question?.nounForm || question?.lemma || "");
+  if (!noun) return null;
+  const trimmed = after.trimStart();
+  if (!trimmed.startsWith(noun)) return null;
+  return { before, noun, tail: trimmed.slice(noun.length) };
+}
+
+/**
+ * @param {Parameters<typeof caseListenFrameParts>[0]} [question]
+ */
+export function caseListenFrameText(question) {
+  const parts = caseListenFrameParts(question);
+  if (!parts) return "";
+  return `${parts.before}[ article ] ${parts.noun}${parts.tail}`;
+}
+
+/**
+ * @param {Parameters<typeof caseListenFrameParts>[0]} [question]
+ */
+export function caseListenFrameHtml(question) {
+  const parts = caseListenFrameParts(question);
+  if (!parts) return "";
+  const bits = [];
+  const before = parts.before.trim();
+  const rest = `${parts.noun}${parts.tail}`.trim();
+  if (before) bits.push(`<span class="case-listen-text">${escapePlaceholder(before)}</span>`);
+  bits.push(`<span class="slot" lang="en">article</span>`);
+  if (rest) bits.push(`<span class="case-listen-text">${escapePlaceholder(rest)}</span>`);
+  return `<div class="case-listen-sentence" lang="de">${bits.join("")}</div>`;
+}
+
+function escapePlaceholder(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function caseLooseText(value) {
+  return String(value ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/[.?!…,;:]+$/u, "")
+    .trim()
+    .toLocaleLowerCase("de");
+}
+
+/**
+ * Case freeform: the article, the article plus its noun, or the whole
+ * sentence. Trailing punctuation is optional. Indefinite articles use the
+ * same three shapes. A noun-target answer still has to be that form.
+ * @param {{ correct?: string, target?: string, nounForm?: string, lemma?: string, sentence?: string }} [question]
+ * @param {string} answer
+ */
+export function caseTypedAnswerMatches(question, answer) {
+  const given = caseLooseText(answer);
+  const correct = caseLooseText(question?.correct);
+  if (!given || !correct) return false;
+  if (given === correct) return true;
+  if (question?.target === "noun") return false;
+  const noun = caseLooseText(question?.nounForm || question?.lemma || "");
+  if (noun && given === `${correct} ${noun}`) return true;
+  const sentence = caseLooseText(question?.sentence || "");
+  return Boolean(sentence) && given === sentence;
+}
+
 /** Text-field hint for “type the article / form”, never the answer. */
 export function caseTypePlaceholder(question) {
   return `e.g. ${caseFormExample(question)}`;

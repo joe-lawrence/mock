@@ -7,7 +7,7 @@ import {
   reference,
   referenceChartIndex,
   getReference,
-} from "./generated/reference.js?v=20261025-case3";
+} from "./generated/reference.js?v=20261027-casegroup";
 
 function unitForChart(territory, chartTab) {
   const id = referenceChartIndex[`${territory}:${chartTab}`];

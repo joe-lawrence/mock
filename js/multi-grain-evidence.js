@@ -19,6 +19,7 @@ export const EVIDENCE_GRAIN = Object.freeze({
   UNIT: "unit",
   UNIT_PRESET: "unit×preset",
   CONCEPT: "concept",
+  ITEM: "item",
 });
 
 /** @returns {EvidenceStore} */
@@ -36,12 +37,12 @@ export function isConceptEvidenceId(id) {
   if (s.includes("→")) return true;
   if (/^(compound|shorten|teen|tens|lexical)\./.test(s)) return true;
   if (/^eval\.(wrong-|pattern-|wug\.|noun\.)/.test(s)) return true;
-  if (/^(apply|article|recognize|construction)\./.test(s)) return true;
+  if (/^(apply|article|recognize|construction|judge|produce)\./.test(s)) return true;
   return false;
 }
 
 /**
- * @param {{ dealKey?: string, presetId?: string|null, stimulus?: string|null, response?: string|null, evidenceIds?: string[] }} ctx
+ * @param {{ dealKey?: string, presetId?: string|null, stimulus?: string|null, response?: string|null, evidenceIds?: string[], itemKey?: string|null, itemLabel?: string|null }} ctx
  * @returns {{ key: string, kind: string, conceptId?: string, presetId?: string }[]}
  */
 export function grainKeysForAttempt(ctx = {}) {
@@ -62,6 +63,15 @@ export function grainKeysForAttempt(ctx = {}) {
       presetId: String(preset),
     });
   }
+  const itemKey = ctx.itemKey ? String(ctx.itemKey) : "";
+  if (dealKey && preset && itemKey) {
+    out.push({
+      key: `${dealKey}×${preset}×${itemKey}`,
+      kind: EVIDENCE_GRAIN.ITEM,
+      presetId: String(preset),
+      label: ctx.itemLabel ? String(ctx.itemLabel) : "",
+    });
+  }
   for (const id of ctx.evidenceIds || []) {
     if (!isConceptEvidenceId(id)) continue;
     out.push({
@@ -76,7 +86,7 @@ export function grainKeysForAttempt(ctx = {}) {
 /**
  * @param {EvidenceStore} store
  * @param {string} key
- * @param {{ correct: boolean, kind: string, conceptId?: string, presetId?: string }} bump
+ * @param {{ correct: boolean, kind: string, conceptId?: string, presetId?: string, label?: string }} bump
  */
 export function bumpGrain(store, key, bump) {
   if (!store || !key) return null;
@@ -95,6 +105,7 @@ export function bumpGrain(store, key, bump) {
   if (bump.kind) g.kind = bump.kind;
   if (bump.conceptId) g.conceptId = bump.conceptId;
   if (bump.presetId) g.presetId = bump.presetId;
+  if (bump.label) g.label = bump.label;
   return g;
 }
 
@@ -107,6 +118,8 @@ export function bumpGrain(store, key, bump) {
  *   stimulus?: string|null,
  *   response?: string|null,
  *   evidenceIds?: string[],
+ *   itemKey?: string|null,
+ *   itemLabel?: string|null,
  *   correct: boolean,
  * }} attempt
  */
@@ -119,6 +132,7 @@ export function recordAttemptEvidence(store, attempt) {
       kind: k.kind,
       conceptId: k.conceptId,
       presetId: k.presetId,
+      label: k.label,
     });
   }
   return keys;

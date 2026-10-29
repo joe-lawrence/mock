@@ -36,6 +36,16 @@ describe("multi-grain evidence (Slice 5)", () => {
     assert.ok(!keys.some((k) => k.conceptId === "eval.incorrect"));
   });
 
+  it("records a listen prompt as its own item grain", () => {
+    const keys = grainKeysForAttempt({
+      dealKey: "numbers:cardinals:tens",
+      presetId: "listen",
+      itemKey: "v:50",
+    });
+    const item = keys.find((k) => k.kind === EVIDENCE_GRAIN.ITEM);
+    assert.equal(item?.key, "numbers:cardinals:tens×listen×v:50");
+  });
+
   it("isConceptEvidenceId keeps morph rules, drops status tags", () => {
     assert.equal(isConceptEvidenceId("compound.eins→ein"), true);
     assert.equal(isConceptEvidenceId("shorten.sieben→sieb"), true);

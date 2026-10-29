@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   caseTypePlaceholder,
+  caseTypedAnswerMatches,
   compassPlaceholder,
   freeformPlaceholder,
 } from "./answer-placeholders.js";
+import { buildCasePlayDeck, buildCaseUnitQuestions } from "../../engine/nouns/case-questions.js";
 
 describe("freeform placeholders", () => {
   it("uses a format sample and skips the item on screen", () => {
@@ -119,6 +121,64 @@ describe("freeform placeholders", () => {
       }),
       "e.g. Kindern"
     );
+  });
+
+  it("accepts the article, the article and noun, or the whole sentence", () => {
+    const ball = {
+      target: "article",
+      correct: "den",
+      nounForm: "Ball",
+      lemma: "Ball",
+      sentence: "Ich habe den Ball.",
+    };
+    for (const answer of [
+      "den",
+      "Den",
+      "den.",
+      "den Ball",
+      "den Ball.",
+      "Ich habe den Ball",
+      "Ich habe den Ball.",
+      "ich habe den ball!",
+    ]) {
+      assert.equal(caseTypedAnswerMatches(ball, answer), true, answer);
+    }
+    for (const answer of ["dem", "dem Ball", "Ball", "Ich habe dem Ball.", "ein Ball"]) {
+      assert.equal(caseTypedAnswerMatches(ball, answer), false, answer);
+    }
+
+    const indef = {
+      target: "article",
+      correct: "einen",
+      nounForm: "Ball",
+      sentence: "Ich habe einen Ball.",
+    };
+    assert.equal(caseTypedAnswerMatches(indef, "einen"), true);
+    assert.equal(caseTypedAnswerMatches(indef, "einen Ball"), true);
+    assert.equal(caseTypedAnswerMatches(indef, "Ich habe einen Ball"), true);
+    assert.equal(caseTypedAnswerMatches(indef, "ein"), false);
+    assert.equal(caseTypedAnswerMatches(indef, "ein Ball"), false);
+
+    const frau = buildCasePlayDeck(buildCaseUnitQuestions("case.prep.fuer")).find(
+      (card) =>
+        card.quizType === "sentence-type" &&
+        card.sentence === "Das Geschenk ist für die Frau."
+    );
+    assert.equal(caseTypedAnswerMatches(frau, "die"), true);
+    assert.equal(caseTypedAnswerMatches(frau, "die Frau."), true);
+    assert.equal(caseTypedAnswerMatches(frau, "Das Geschenk ist für die Frau"), true);
+    assert.equal(caseTypedAnswerMatches(frau, "der Frau"), false);
+
+    const plural = {
+      target: "noun",
+      correct: "Kindern",
+      nounForm: "Kindern",
+      sentence: "Ich helfe den Kindern.",
+    };
+    assert.equal(caseTypedAnswerMatches(plural, "Kindern"), true);
+    assert.equal(caseTypedAnswerMatches(plural, "Kindern."), true);
+    assert.equal(caseTypedAnswerMatches(plural, "den"), false);
+    assert.equal(caseTypedAnswerMatches(plural, "den Kindern"), false);
   });
 
   it("gives the compass a direction that is not the cue", () => {

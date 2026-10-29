@@ -20,7 +20,7 @@ import {
 } from "./context-compatibility.js";
 
 /** Bump when pool membership / Phase B gates change (cache / deck fingerprint). */
-export const COMPOSE_VERSION = "0.5.0";
+export const COMPOSE_VERSION = "0.5.1";
 
 export {
   CONTEXT_FAILURE,
@@ -256,6 +256,49 @@ export const CASE_ACCUSATIVE_CONCEPTS = Object.freeze([
 ]);
 
 /**
+ * Ich sehe / Ich habe sentences that get a listen card.
+ * Keyed by context and lemma so "Ich sehe den Mann" can be heard
+ * while "Ich habe den Mann" stays off the listen deck.
+ * @type {ReadonlySet<string>}
+ */
+export const CASE_ACCUSATIVE_LISTEN = new Set([
+  "ich_sehe_acc_def:Ball",
+  "ich_sehe_acc_def:Bus",
+  "ich_sehe_acc_def:Hund",
+  "ich_sehe_acc_def:Mann",
+  "ich_sehe_acc_def:Schlüssel",
+  "ich_sehe_acc_def:Stift",
+  "ich_sehe_acc_def:Zug",
+  "ich_sehe_acc_indef:Ball",
+  "ich_sehe_acc_indef:Bus",
+  "ich_sehe_acc_indef:Hund",
+  "ich_sehe_acc_indef:Mann",
+  "ich_sehe_acc_indef:Schlüssel",
+  "ich_sehe_acc_indef:Stift",
+  "ich_sehe_acc_indef:Zug",
+  "ich_habe_acc_def:Ball",
+  "ich_habe_acc_def:Hund",
+  "ich_habe_acc_def:Schlüssel",
+  "ich_habe_acc_def:Stift",
+  "ich_habe_acc_indef:Ball",
+  "ich_habe_acc_indef:Hund",
+  "ich_habe_acc_indef:Schlüssel",
+  "ich_habe_acc_indef:Stift",
+  "ich_sehe_acc_def:Buch",
+  "ich_sehe_acc_def:Frau",
+  "ich_sehe_acc_def:Katze",
+  "ich_sehe_acc_def:Kind",
+  "ich_sehe_acc_indef:Buch",
+  "ich_sehe_acc_indef:Frau",
+  "ich_sehe_acc_indef:Katze",
+  "ich_sehe_acc_indef:Kind",
+  "ich_habe_acc_def:Buch",
+  "ich_habe_acc_def:Katze",
+  "ich_habe_acc_indef:Buch",
+  "ich_habe_acc_indef:Katze",
+]);
+
+/**
  * Lesson nouns allowed in Case accusative frames.
  * Not the whole lexicon — suffix-lesson lemmas stay out.
  * @type {readonly string[]}
@@ -283,8 +326,8 @@ export const CASE_ACC_MASC_GENDERS = Object.freeze(["masculine"]);
 export const CASE_ACC_UNCHANGED_GENDERS = Object.freeze(["feminine", "neuter"]);
 
 /**
- * Dative plural noun forms that are item facts, not a plural-ending rule.
- * Only these two allowlist plurals are legal in the plural-dative unit.
+ * Dative plural noun forms that differ from the lexicon plural.
+ * Regular -s plurals (Autos, Büros) stay on the lexicon form and are not listed here.
  */
 export const DATIVE_PLURAL_FORMS = Object.freeze({
   Kind: "Kindern",
@@ -297,12 +340,13 @@ export const DATIVE_PLURAL_FORMS = Object.freeze({
  * Listed Case frames after the accusative slice.
  * Each `lemmas` array is the allowlist. A frame with `closed: true` also
  * freezes the rest of the sentence (gefallen’s subject stays Das Buch).
+ * `listen: true` on a frame or lemma adds a listen card for that sentence.
  * `geben` is not a frame.
  * @type {Readonly<Record<string, { concepts: readonly string[], frames: readonly object[] }>>}
  */
 export const CASE_FRAME_UNITS = Object.freeze({
   "case.dat.helfen": {
-    concepts: ["dative", "definite_article", "verb.helfen"],
+    concepts: ["dative", "definite_article", "indefinite_article", "verb.helfen"],
     frames: [
       {
         id: "ich_helfe_dat_def",
@@ -314,7 +358,21 @@ export const CASE_FRAME_UNITS = Object.freeze({
         case: "dative",
         number: "singular",
         before: "Ich helfe ",
-        lemmas: ["Mann", "Frau", "Kind"],
+        listen: true,
+        lemmas: ["Mann", "Frau", "Kind", "Arzt", "Lehrer", "Hund", "Katze"],
+      },
+      {
+        id: "ich_helfe_dat_indef",
+        requires: ["dative", "indefinite_article", "verb.helfen"],
+        construction: "helfen",
+        cue: "helfen takes the dative.",
+        target: "article",
+        articleKind: "indefinite",
+        case: "dative",
+        number: "singular",
+        before: "Ich helfe ",
+        listen: true,
+        lemmas: ["Mann", "Frau", "Kind", "Arzt", "Lehrer", "Hund", "Katze"],
       },
     ],
   },
@@ -331,7 +389,8 @@ export const CASE_FRAME_UNITS = Object.freeze({
         case: "dative",
         number: "singular",
         before: "Ich helfe ",
-        lemmas: ["Mann", "Frau", "Kind"],
+        listen: true,
+        lemmas: ["Mann", "Frau", "Kind", "Arzt"],
       },
       {
         id: "mit_dat_indef",
@@ -343,7 +402,8 @@ export const CASE_FRAME_UNITS = Object.freeze({
         case: "dative",
         number: "singular",
         before: "Ich fahre mit ",
-        lemmas: ["Bus"],
+        listen: true,
+        lemmas: ["Bus", "Auto"],
       },
       {
         id: "aus_dat_indef",
@@ -355,12 +415,13 @@ export const CASE_FRAME_UNITS = Object.freeze({
         case: "dative",
         number: "singular",
         before: "Er kommt aus ",
-        lemmas: ["Stadt"],
+        listen: true,
+        lemmas: ["Stadt", "Haus", "Hotel"],
       },
     ],
   },
   "case.prep.mit": {
-    concepts: ["dative", "definite_article", "prep.mit"],
+    concepts: ["dative", "definite_article", "indefinite_article", "prep.mit"],
     frames: [
       {
         id: "mit_dat_def",
@@ -372,17 +433,42 @@ export const CASE_FRAME_UNITS = Object.freeze({
         case: "dative",
         number: "singular",
         before: "Ich fahre mit ",
+        listen: true,
         lemmas: [
           { lemma: "Bus", before: "Ich fahre mit " },
           { lemma: "Zug", before: "Ich fahre mit " },
+          { lemma: "Auto", before: "Ich fahre mit " },
           { lemma: "Kind", before: "Ich spiele mit " },
           { lemma: "Hund", before: "Ich spiele mit " },
+          { lemma: "Katze", before: "Ich spiele mit " },
+          { lemma: "Ball", before: "Ich spiele mit " },
+        ],
+      },
+      {
+        id: "mit_unit_dat_indef",
+        requires: ["dative", "indefinite_article", "prep.mit"],
+        construction: "mit",
+        cue: "mit takes the dative.",
+        target: "article",
+        articleKind: "indefinite",
+        case: "dative",
+        number: "singular",
+        before: "Ich fahre mit ",
+        listen: true,
+        lemmas: [
+          { lemma: "Bus", before: "Ich fahre mit " },
+          { lemma: "Zug", before: "Ich fahre mit " },
+          { lemma: "Auto", before: "Ich fahre mit " },
+          { lemma: "Kind", before: "Ich spiele mit " },
+          { lemma: "Hund", before: "Ich spiele mit " },
+          { lemma: "Katze", before: "Ich spiele mit " },
+          { lemma: "Ball", before: "Ich spiele mit " },
         ],
       },
     ],
   },
   "case.prep.warten-auf": {
-    concepts: ["accusative", "definite_article", "prep.warten-auf"],
+    concepts: ["accusative", "definite_article", "indefinite_article", "prep.warten-auf"],
     frames: [
       {
         id: "warten_auf_acc_def",
@@ -394,12 +480,26 @@ export const CASE_FRAME_UNITS = Object.freeze({
         case: "accusative",
         number: "singular",
         before: "Ich warte auf ",
-        lemmas: ["Mann", "Frau", "Kind", "Zug", "Bus"],
+        listen: true,
+        lemmas: ["Mann", "Frau", "Kind", "Zug", "Bus", "Arzt", "Lehrer"],
+      },
+      {
+        id: "warten_auf_acc_indef",
+        requires: ["accusative", "indefinite_article", "prep.warten-auf"],
+        construction: "warten-auf",
+        cue: "warten auf takes the accusative.",
+        target: "article",
+        articleKind: "indefinite",
+        case: "accusative",
+        number: "singular",
+        before: "Ich warte auf ",
+        listen: true,
+        lemmas: ["Mann", "Frau", "Kind", "Zug", "Bus", "Arzt", "Lehrer"],
       },
     ],
   },
   "case.verb.danken": {
-    concepts: ["dative", "definite_article", "verb.danken"],
+    concepts: ["dative", "definite_article", "indefinite_article", "verb.danken"],
     frames: [
       {
         id: "ich_danke_dat_def",
@@ -411,7 +511,21 @@ export const CASE_FRAME_UNITS = Object.freeze({
         case: "dative",
         number: "singular",
         before: "Ich danke ",
-        lemmas: ["Mann", "Frau", "Kind"],
+        listen: true,
+        lemmas: ["Mann", "Frau", "Kind", "Arzt", "Lehrer"],
+      },
+      {
+        id: "ich_danke_dat_indef",
+        requires: ["dative", "indefinite_article", "verb.danken"],
+        construction: "danken",
+        cue: "danken takes the dative.",
+        target: "article",
+        articleKind: "indefinite",
+        case: "dative",
+        number: "singular",
+        before: "Ich danke ",
+        listen: true,
+        lemmas: ["Mann", "Frau", "Kind", "Arzt", "Lehrer"],
       },
     ],
   },
@@ -429,12 +543,13 @@ export const CASE_FRAME_UNITS = Object.freeze({
         number: "singular",
         before: "Das Buch gefällt ",
         closed: true,
+        listen: true,
         lemmas: ["Mann", "Frau", "Kind"],
       },
     ],
   },
   "case.prep.aus": {
-    concepts: ["dative", "definite_article", "prep.aus"],
+    concepts: ["dative", "definite_article", "indefinite_article", "prep.aus"],
     frames: [
       {
         id: "aus_dat_def",
@@ -446,7 +561,43 @@ export const CASE_FRAME_UNITS = Object.freeze({
         case: "dative",
         number: "singular",
         before: "Er kommt aus ",
-        lemmas: ["Stadt", "Haus"],
+        listen: true,
+        lemmas: [
+          "Stadt",
+          "Haus",
+          "Hotel",
+          "Büro",
+          "Museum",
+          "Kino",
+          "Theater",
+          "Restaurant",
+          "Café",
+          "Krankenhaus",
+        ],
+      },
+      {
+        id: "aus_unit_dat_indef",
+        requires: ["dative", "indefinite_article", "prep.aus"],
+        construction: "aus",
+        cue: "aus takes the dative.",
+        target: "article",
+        articleKind: "indefinite",
+        case: "dative",
+        number: "singular",
+        before: "Er kommt aus ",
+        listen: true,
+        lemmas: [
+          "Stadt",
+          "Haus",
+          "Hotel",
+          "Büro",
+          "Museum",
+          "Kino",
+          "Theater",
+          "Restaurant",
+          "Café",
+          "Krankenhaus",
+        ],
       },
     ],
   },
@@ -463,7 +614,8 @@ export const CASE_FRAME_UNITS = Object.freeze({
         case: "accusative",
         number: "singular",
         before: "Das Geschenk ist für ",
-        lemmas: ["Mann", "Frau", "Kind"],
+        listen: true,
+        lemmas: ["Mann", "Frau", "Kind", "Hund", "Katze"],
       },
       {
         id: "fuer_acc_indef",
@@ -475,7 +627,8 @@ export const CASE_FRAME_UNITS = Object.freeze({
         case: "accusative",
         number: "singular",
         before: "Das ist für ",
-        lemmas: ["Mann", "Frau"],
+        listen: true,
+        lemmas: ["Mann", "Frau", "Kind"],
       },
     ],
   },
@@ -492,7 +645,20 @@ export const CASE_FRAME_UNITS = Object.freeze({
         case: "accusative",
         number: "singular",
         before: "Ich gehe ohne ",
-        lemmas: ["Schlüssel", "Tasche", "Ticket"],
+        listen: true,
+        lemmas: [
+          "Schlüssel",
+          "Tasche",
+          "Ticket",
+          "Buch",
+          "Jacke",
+          "Hemd",
+          "Stift",
+          "Ball",
+          "Hund",
+          "Katze",
+          "Auto",
+        ],
       },
       {
         id: "ohne_acc_indef",
@@ -504,6 +670,7 @@ export const CASE_FRAME_UNITS = Object.freeze({
         case: "accusative",
         number: "singular",
         before: "Ich gehe ohne ",
+        listen: true,
         lemmas: ["Schlüssel"],
       },
     ],
@@ -529,7 +696,8 @@ export const CASE_FRAME_UNITS = Object.freeze({
         case: "accusative",
         number: "singular",
         before: "Ich brauche ",
-        lemmas: ["Schlüssel"],
+        listen: true,
+        lemmas: ["Schlüssel", "Tasche", "Ticket", "Buch", "Auto"],
       },
       {
         id: "suche_acc_indef",
@@ -541,6 +709,7 @@ export const CASE_FRAME_UNITS = Object.freeze({
         case: "accusative",
         number: "singular",
         before: "Ich suche ",
+        listen: true,
         lemmas: ["Schlüssel"],
       },
       {
@@ -553,7 +722,8 @@ export const CASE_FRAME_UNITS = Object.freeze({
         case: "accusative",
         number: "singular",
         before: "Ich nehme ",
-        lemmas: ["Bus"],
+        listen: true,
+        lemmas: ["Bus", "Zug", "Tasche", "Auto"],
       },
       {
         id: "finde_acc_def",
@@ -565,12 +735,13 @@ export const CASE_FRAME_UNITS = Object.freeze({
         case: "accusative",
         number: "singular",
         before: "Ich finde ",
-        lemmas: ["Hotel"],
+        listen: true,
+        lemmas: ["Hotel", "Schlüssel", "Tasche", "Buch", "Bus"],
       },
     ],
   },
   "case.dat.plural": {
-    concepts: ["dative", "definite_article", "verb.helfen", "prep.mit", "plural"],
+    concepts: ["dative", "definite_article", "verb.helfen", "prep.mit", "prep.aus", "plural"],
     frames: [
       {
         id: "helfe_dat_pl_article",
@@ -582,9 +753,11 @@ export const CASE_FRAME_UNITS = Object.freeze({
         case: "dative",
         number: "plural",
         before: "Ich helfe ",
+        listen: true,
         lemmas: [
           { lemma: "Kind", nounForm: "Kindern" },
           { lemma: "Frau", nounForm: "Frauen" },
+          { lemma: "Hund", nounForm: "Hunden" },
         ],
       },
       {
@@ -597,7 +770,38 @@ export const CASE_FRAME_UNITS = Object.freeze({
         case: "dative",
         number: "plural",
         before: "Ich spiele mit ",
-        lemmas: [{ lemma: "Hund", nounForm: "Hunden" }],
+        listen: true,
+        lemmas: [
+          { lemma: "Hund", nounForm: "Hunden" },
+          { lemma: "Kind", nounForm: "Kindern" },
+          { lemma: "Frau", nounForm: "Frauen" },
+        ],
+      },
+      {
+        id: "fahre_dat_pl_article",
+        requires: ["dative", "definite_article", "prep.mit", "plural"],
+        construction: "mit",
+        cue: "mit takes the dative.",
+        target: "article",
+        articleKind: "definite",
+        case: "dative",
+        number: "plural",
+        before: "Ich fahre mit ",
+        listen: true,
+        lemmas: ["Auto"],
+      },
+      {
+        id: "aus_dat_pl_article",
+        requires: ["dative", "definite_article", "prep.aus", "plural"],
+        construction: "aus",
+        cue: "aus takes the dative.",
+        target: "article",
+        articleKind: "definite",
+        case: "dative",
+        number: "plural",
+        before: "Ich komme aus ",
+        listen: true,
+        lemmas: ["Büro"],
       },
       {
         id: "helfe_dat_pl_noun",
@@ -669,6 +873,7 @@ export const CASE_FRAME_UNITS = Object.freeze({
         case: "dative",
         number: "singular",
         before: "Die Jacke passt zu ",
+        listen: true,
         lemmas: ["Hemd"],
       },
       {
@@ -681,6 +886,7 @@ export const CASE_FRAME_UNITS = Object.freeze({
         case: "dative",
         number: "singular",
         before: "Die Farbe passt zu ",
+        listen: true,
         lemmas: ["Tasche"],
       },
       {
@@ -693,7 +899,86 @@ export const CASE_FRAME_UNITS = Object.freeze({
         case: "dative",
         number: "singular",
         before: "Das passt zu ",
+        listen: true,
         lemmas: ["Kleid"],
+      },
+      {
+        id: "passen_farbe_hemd",
+        requires: ["dative", "definite_article", "prep.passen-zu"],
+        construction: "passen-zu",
+        cue: "passen zu takes the dative.",
+        target: "article",
+        articleKind: "definite",
+        case: "dative",
+        number: "singular",
+        before: "Die Farbe passt zu ",
+        listen: true,
+        lemmas: ["Hemd"],
+      },
+      {
+        id: "passen_farbe_jacke",
+        requires: ["dative", "definite_article", "prep.passen-zu"],
+        construction: "passen-zu",
+        cue: "passen zu takes the dative.",
+        target: "article",
+        articleKind: "definite",
+        case: "dative",
+        number: "singular",
+        before: "Die Farbe passt zu ",
+        listen: true,
+        lemmas: ["Jacke"],
+      },
+      {
+        id: "passen_farbe_kleid",
+        requires: ["dative", "definite_article", "prep.passen-zu"],
+        construction: "passen-zu",
+        cue: "passen zu takes the dative.",
+        target: "article",
+        articleKind: "definite",
+        case: "dative",
+        number: "singular",
+        before: "Die Farbe passt zu ",
+        listen: true,
+        lemmas: ["Kleid"],
+      },
+      {
+        id: "passen_das_hemd",
+        requires: ["dative", "indefinite_article", "prep.passen-zu"],
+        construction: "passen-zu",
+        cue: "passen zu takes the dative.",
+        target: "article",
+        articleKind: "indefinite",
+        case: "dative",
+        number: "singular",
+        before: "Das passt zu ",
+        listen: true,
+        lemmas: ["Hemd"],
+      },
+      {
+        id: "passen_das_jacke",
+        requires: ["dative", "indefinite_article", "prep.passen-zu"],
+        construction: "passen-zu",
+        cue: "passen zu takes the dative.",
+        target: "article",
+        articleKind: "indefinite",
+        case: "dative",
+        number: "singular",
+        before: "Das passt zu ",
+        listen: true,
+        lemmas: ["Jacke"],
+      },
+      {
+        id: "passen_das_tasche",
+        requires: ["dative", "indefinite_article", "prep.passen-zu"],
+        construction: "passen-zu",
+        cue: "passen zu takes the dative.",
+        target: "article",
+        articleKind: "indefinite",
+        case: "dative",
+        number: "singular",
+        before: "Das passt zu ",
+        listen: true,
+        lemmas: ["Tasche"],
       },
     ],
   },
@@ -784,6 +1069,7 @@ export const CASE_FRAME_UNITS = Object.freeze({
             before: "",
             rest: " sieht den Mann",
             initial: true,
+            listen: true,
             cue: "The subject is nominative.",
           },
           {
@@ -819,6 +1105,7 @@ export const CASE_FRAME_UNITS = Object.freeze({
             case: "accusative",
             before: "Ich gebe dem Kind ",
             rest: "",
+            listen: true,
             cue: "geben takes the accusative.",
           },
         ],
@@ -903,6 +1190,7 @@ export function composeCaseAccusativeItems(opts = {}) {
           sentence: v.sentence,
           choices: articleChoices(ctx.articleKind, ctx.case),
           composeVersion: COMPOSE_VERSION,
+          listen: CASE_ACCUSATIVE_LISTEN.has(`${ctx.id}:${lemma}`),
         })
       );
     }
@@ -985,6 +1273,7 @@ function composeArticleFrameItems(frame, only) {
         choices: Object.freeze(choices),
         composeVersion: COMPOSE_VERSION,
         closed: !!frame.closed,
+        listen: !!(slot.listen || frame.listen),
       })
     );
   }

@@ -71,6 +71,15 @@ export const INTERACTION_PRESETS = Object.freeze({
     blurb:
       "Hear TTS, pick the match — numbers, forms, or sound contrasts.",
   },
+  "listen-type": {
+    id: "listen-type",
+    label: "Listen · type",
+    stimulus: STIMULUS.TTS,
+    response: RESPONSE.FREEFORM,
+    playable: true,
+    seedDifficulty: 0.62,
+    blurb: "Hear the sentence, type the article.",
+  },
 
   convert: {
     id: "convert",
@@ -161,6 +170,15 @@ export const INTERACTION_PRESETS = Object.freeze({
     seedDifficulty: 0.55,
     blurb: "Read an ordinal inside a short sentence.",
   },
+  "sentence-type": {
+    id: "sentence-type",
+    label: "Sentence · type",
+    stimulus: STIMULUS.SENTENCE,
+    response: RESPONSE.FREEFORM,
+    playable: true,
+    seedDifficulty: 0.72,
+    blurb: "Read the sentence, type the article.",
+  },
   read: {
     id: "read",
     label: "Read",
@@ -206,6 +224,12 @@ export function presetMatchesCaps(
     modeId === "visual-freeform" ||
     preset?.response === RESPONSE.FREEFORM;
   const isListen = modeId === "listen" || preset?.stimulus === STIMULUS.TTS;
+  // Spoken prompt plus a typed answer needs both channels.
+  if (isListen && isWrite) {
+    if (caps.keyboard === "only" || caps.audio === "only") return false;
+    if (caps.audio === false || caps.keyboard === false) return false;
+    return true;
+  }
   if (caps.keyboard === "only") return isWrite;
   if (caps.audio === "only") return isListen;
   if (isListen && caps.audio === false) return false;
@@ -338,6 +362,7 @@ export function allPresetIds() {
 export const MATRIX_PRESET_IDS = Object.freeze([
   "build",
   "listen",
+  "listen-type",
   "convert",
   "produce",
   "choose",
@@ -346,5 +371,6 @@ export const MATRIX_PRESET_IDS = Object.freeze([
   "visual-freeform",
   "set-dial",
   "sentence",
+  "sentence-type",
   "karaoke",
 ]);

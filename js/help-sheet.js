@@ -7,7 +7,7 @@
 import {
   getReference,
   referenceIdForPracticeContext,
-} from "./reference-ui.js?v=20261026-caseread";
+} from "./reference-ui.js?v=20261027-casegroup";
 import { renderInline } from "./md-lite.js";
 import {
   getVocabulary,

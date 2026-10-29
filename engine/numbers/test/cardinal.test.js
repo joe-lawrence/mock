@@ -368,13 +368,31 @@ describe("constructionExercise", () => {
   });
 
   it("tens morph pool shells", () => {
-    for (const n of [20, 30, 70, 90]) {
+    for (const n of [20, 30, 50, 70, 90]) {
       const ex = constructionExercise(n, { grain: "morph" });
       assert.equal(ex.kind, "tens");
       assert.equal(ex.grain, "morph");
       assert.deepEqual(ex.parts, constructionParts(n, { grain: "morph" }));
       assert.ok(ex.distractors.every((d) => !ex.parts.includes(d)));
       assert.ok(!ex.distractors.includes(ex.form));
+      const choices = new Set([...ex.parts, ...ex.distractors]);
+      assert.ok(
+        choices.size >= ex.parts.length + 1,
+        `morph ${n} needs a spare chip`
+      );
+    }
+  });
+
+  it("build trays keep one spare chip for every cardinal grain", () => {
+    for (let n = 0; n <= 100; n++) {
+      for (const grain of ["construction", "morph"]) {
+        const ex = constructionExercise(n, { grain });
+        const choices = new Set([...ex.parts, ...ex.distractors]);
+        assert.ok(
+          choices.size >= ex.parts.length + 1,
+          `${grain} ${n} choices ${choices.size} parts ${ex.parts.length}`
+        );
+      }
     }
   });
 

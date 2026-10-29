@@ -194,9 +194,10 @@ function orderBySoftArc(list, softArc) {
     .sort((a, b) => (rank.get(a.key) ?? 1e9) - (rank.get(b.key) ?? 1e9));
 }
 
-function weakestSeen(list, seenSet, stats) {
+function weakestSeen(list, seenSet, stats, skipKey = null) {
   let weakest = null;
   for (const c of list) {
+    if (skipKey && c.key === skipKey) continue;
     if (!seenSet.has(c.key)) continue;
     const acc = accuracy(stats[c.key]);
     if (acc == null || acc >= WEAK_ACCURACY) continue;
@@ -208,9 +209,10 @@ function weakestSeen(list, seenSet, stats) {
 /**
  * Freeform/hard preset weak while easier preset OK → edge on hard preset.
  */
-function findEdgePresetContrast(list, seenSet, evidence, presetSeeds) {
+function findEdgePresetContrast(list, seenSet, evidence, presetSeeds, skipKey = null) {
   let best = null;
   for (const c of list) {
+    if (skipKey && c.key === skipKey) continue;
     if (!seenSet.has(c.key)) continue;
     const easy = easiestPreset(c, presetSeeds);
     const hard = hardestPreset(c, presetSeeds);
@@ -250,9 +252,10 @@ function weakestPresetForUnit(c, evidence) {
 /**
  * Any weak unit×preset → re-deal that preset (don't jump to hardest).
  */
-function findWeakPreset(list, seenSet, evidence) {
+function findWeakPreset(list, seenSet, evidence, skipKey = null) {
   let best = null;
   for (const c of list) {
+    if (skipKey && c.key === skipKey) continue;
     if (!seenSet.has(c.key)) continue;
     const w = weakestPresetForUnit(c, evidence);
     if (!w || w.acc >= WEAK_ACCURACY) continue;
@@ -264,9 +267,10 @@ function findWeakPreset(list, seenSet, evidence) {
 /**
  * Unit OK overall; hardest preset untested or thin → probe that preset.
  */
-function findProbe(list, seenSet, stats, evidence, presetSeeds) {
+function findProbe(list, seenSet, stats, evidence, presetSeeds, skipKey = null) {
   let best = null;
   for (const c of list) {
+    if (skipKey && c.key === skipKey) continue;
     if (!seenSet.has(c.key)) continue;
     const unitAcc = accuracy(stats[c.key]);
     if (unitAcc == null || unitAcc < WEAK_ACCURACY) continue;
@@ -293,10 +297,11 @@ function findProbe(list, seenSet, stats, evidence, presetSeeds) {
 /**
  * Related confusion pair — prefer the weaker side when both seen.
  */
-function findContrast(list, seenSet, stats) {
+function findContrast(list, seenSet, stats, skipKey = null) {
   const byKey = new Map(list.map((c) => [c.key, c]));
   let best = null;
   for (const [aKey, bKey] of CONTRAST_PAIRS) {
+    if (skipKey && (aKey === skipKey || bKey === skipKey)) continue;
     if (!seenSet.has(aKey) || !seenSet.has(bKey)) continue;
     const a = byKey.get(aKey);
     const b = byKey.get(bKey);
@@ -360,6 +365,11 @@ export function dealExercise({
   presetSeeds = {},
   recentHintDepth = 0,
   recentDealKey = null,
+  /**
+   * Unit just answered in a listen deck. Review tiers skip it for this deal
+   * so one prompt is not the next card. The 67% gate applies again after.
+   */
+  listenCooldownKey = null,
   /** @type {"too-easy"|"about-right"|"too-hard"|null|undefined} */
   recentFeltDifficulty = null,
   overlays = {},
@@ -437,7 +447,13 @@ export function dealExercise({
   }
 
   // 2) Edge — hard preset weak while easy preset OK (freeform vs MC).
-  const edgeIx = findEdgePresetContrast(list, seenSet, evidence, presetSeeds);
+  const edgeIx = findEdgePresetContrast(
+    list,
+    seenSet,
+    evidence,
+    presetSeeds,
+    listenCooldownKey
+  );
   if (edgeIx) {
     return result(
       clonePick(edgeIx.c, edgeIx.preset),
@@ -455,7 +471,7 @@ export function dealExercise({
   }
 
   // 3) Review — re-deal the weakest unit×preset (e.g. Build miss, Convert OK).
-  const weakPreset = findWeakPreset(list, seenSet, evidence);
+  const weakPreset = findWeakPreset(list, seenSet, evidence, listenCooldownKey);
   if (weakPreset) {
     return result(
       clonePick(weakPreset.c, weakPreset.preset),
@@ -471,7 +487,7 @@ export function dealExercise({
   }
 
   // 4) Weak unit fallback — prefer that unit's weakest preset, else hardest.
-  const weak = weakestSeen(list, seenSet, stats);
+  const weak = weakestSeen(list, seenSet, stats, listenCooldownKey);
   if (weak) {
     const weakIx = weakestPresetForUnit(weak.c, evidence);
     const hard = hardestPreset(weak.c, presetSeeds);
@@ -495,7 +511,7 @@ export function dealExercise({
   }
 
   // 5) Contrast pairs (komma vs euro).
-  const contrast = findContrast(list, seenSet, stats);
+  const contrast = findContrast(list, seenSet, stats, listenCooldownKey);
   if (contrast) {
     return result(
       contrast.c,
@@ -518,7 +534,14 @@ export function dealExercise({
   }
 
   // 7) Probe mastery on harder / untested preset (all units already seen).
-  const probe = findProbe(list, seenSet, stats, evidence, presetSeeds);
+  const probe = findProbe(
+    list,
+    seenSet,
+    stats,
+    evidence,
+    presetSeeds,
+    listenCooldownKey
+  );
   if (probe) {
     return result(
       clonePick(probe.c, probe.preset),
@@ -536,7 +559,9 @@ export function dealExercise({
 
   // 8) Continue — maintenance on lowest accuracy.
   let pick = null;
-  for (const c of list) {
+  const continueList = list.filter((c) => !listenCooldownKey || c.key !== listenCooldownKey);
+  const continuePool = continueList.length ? continueList : list;
+  for (const c of continuePool) {
     const acc = accuracy(stats[c.key]);
     const score = acc == null ? 1 : acc;
     if (!pick || score < pick.score) pick = { c, score };

@@ -6,7 +6,7 @@ import {
   getReference,
   reference,
   referenceNav,
-} from "./generated/reference.js?v=20261025-case3";
+} from "./generated/reference.js?v=20261027-casegroup";
 import { escapeHtml as esc, renderInline, renderProse } from "./md-lite.js";
 
 function examplesTableHtml(rows) {
