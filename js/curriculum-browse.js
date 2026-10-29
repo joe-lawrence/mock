@@ -32,7 +32,7 @@ import {
 } from "./interaction-presets.js?v=20261027-casetype";
 import { hintSamplesForUnit } from "./hint-review.js";
 import { referenceIdForPracticeContext } from "./reference-ui.js";
-import { CASE_TOPICS } from "./case-curriculum.js?v=20261027-casegroup";
+import { CASE_TOPICS } from "./case-curriculum.js?v=20261029-declension";
 import { caseUnitModes } from "../engine/nouns/case-questions.js?v=20261027-casetype";
 
 /** @typedef {"numbers"|"nouns"|"sounds"|"case"} ModuleId */
@@ -251,6 +251,12 @@ function soundsRows() {
   return rows;
 }
 
+/** Deck presets when the unit has a play deck; otherwise the step's own list. */
+function caseBrowseModes(step) {
+  const fromDeck = step.unitId ? caseUnitModes(step.unitId) : [];
+  return fromDeck.length ? fromDeck : step.modes || [];
+}
+
 function caseRows() {
   /** @type {BrowseRow[]} */
   const rows = [];
@@ -265,7 +271,7 @@ function caseRows() {
         unitLabel: step.label,
         blurb: step.blurb || topic.blurb || "",
         playable: Boolean(topic.playable && step.playable),
-        quizTypes: (step.unitId ? caseUnitModes(step.unitId) : step.modes || []).map((id) => {
+        quizTypes: caseBrowseModes(step).map((id) => {
           const preset = getInteractionPreset(id);
           return {
             id,

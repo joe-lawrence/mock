@@ -105,7 +105,7 @@ import {
   CASE_TOPICS,
   getCaseStep,
   getCaseTopic,
-} from "./case-curriculum.js?v=20261027-casegroup";
+} from "./case-curriculum.js?v=20261029-declension";
 import {
   buildCaseUnitQuestions,
   buildCasePlayDeck,
@@ -115,6 +115,12 @@ import {
   caseDeckForPreset,
   pickNextCaseQuestion,
 } from "../engine/nouns/case-questions.js?v=20261027-casetype";
+import {
+  declensionDeck,
+  gradeDeclensionAnswer,
+  isDeclensionUnit,
+} from "../engine/nouns/declension-table.js";
+import { genderMarkHtml } from "./gender-marks.js";
 import {
   addUserCard,
   buildReviewQuestion,
@@ -191,7 +197,7 @@ import {
   pieDialMatchesFraction,
 } from "./quiz-extras.js?v=20261027-relengine";
 
-import { mountNavCarousel } from "./nav-carousel.js?v=20261027-casegroup";
+import { mountNavCarousel } from "./nav-carousel.js?v=20261029-declension";
 import { keysSkippedByJump } from "./guided-jump.js";
 import {
   caseSentenceKey,
@@ -335,7 +341,7 @@ import {
   isJudgmentChoiceLabel,
   choiceSecondChanceOpen,
   markQuizStage,
-} from "./answer-shells.js?v=20261027-retry";
+} from "./answer-shells.js?v=20261029-slotlabel";
 import {
   mountStimulusShell,
   mountClozeStimulus,
@@ -8655,8 +8661,9 @@ function caseAssistShowsHint() {
 }
 
 function casePracticeDeck(unitId, presetId) {
-  const deck =
-    unitId === CASE_ANALYSIS_UNIT
+  const deck = isDeclensionUnit(unitId)
+    ? declensionDeck(unitId)
+    : unitId === CASE_ANALYSIS_UNIT
       ? buildCaseAnalysisDeck()
       : buildCasePlayDeck(buildCaseUnitQuestions(unitId));
   return caseDeckForPreset(deck, presetId);
@@ -8707,6 +8714,8 @@ function caseInstructionText(question) {
   if (question.quizType === "listen") return "Listen & choose";
   if (question.quizType === "listen-type") return "Listen & type";
   if (question.quizType === "sentence-type") return "Type the article";
+  if (question.quizType === "table-build") return "Fill in each article";
+  if (question.quizType === "table-choose") return "Select every match";
   if (question.quizType === "build") {
     return question.target === "noun" ? "Build the form" : "Build the phrase";
   }
@@ -8783,6 +8792,13 @@ function caseFormChange(question) {
 /** Answer-key line: construction, then the form change. */
 function caseAnswerCaption(question) {
   if (!question) return "";
+  if (question.quizType === "table-build") return question.family || "";
+  if (question.quizType === "table-choose") {
+    const labels = (question.choices || [])
+      .filter((choice) => choice.correct)
+      .map((choice) => choice.ariaLabel || choice.label);
+    return labels.join(", ");
+  }
   if (question.kind === "gloss") return question.correct || "";
   if (
     question.quizType === "case-name" ||
@@ -8804,6 +8820,9 @@ function caseAnswerCaption(question) {
 }
 
 function caseCueText(question) {
+  if (question?.quizType === "table-build" || question?.quizType === "table-choose") {
+    return question.prompt || "";
+  }
   if (question.quizType === "listen" || question.quizType === "listen-type") return "";
   if (question.quizType === "type" || question.quizType === "build" || question.quizType === "proofread") {
     return question.prompt || "";
@@ -8845,6 +8864,12 @@ function caseLemmaHtml(text, question) {
 
 /** More help colors the noun the blank belongs to. Case-name underlines its phrase. */
 function caseCueHtml(question) {
+  if (question?.quizType === "table-build" || question?.quizType === "table-choose") {
+    const html = question.mark
+      ? genderMarkHtml(question.mark, question.prompt || "")
+      : escapeHtml(question.prompt || "");
+    return `<span class="dial-cue">${html}</span>`;
+  }
   const text = caseCueText(question);
   const phrase =
     question?.quizType === "case-name" ||
@@ -8864,6 +8889,10 @@ function caseCueHtml(question) {
 }
 
 function caseRevealWord(question) {
+  if (question?.quizType === "table-build") {
+    return (question.slots || []).map((slot) => slot.form).join(" ");
+  }
+  if (question?.quizType === "table-choose") return question.prompt || "";
   if (question.sentence) return question.sentence;
   if (question.kind === "gloss") return question.lemma || question.prompt || "";
   if (question.correct && question.lemma) return `${question.correct} ${question.lemma}`;
@@ -9047,7 +9076,13 @@ function flashCaseMiss(question, wrongEl) {
 
 function caseChoiceFillsSlot(question) {
   const type = question?.quizType;
-  return type !== "build" && !caseTypedQuiz(question) && type !== "proofread";
+  return (
+    type !== "build" &&
+    type !== "table-build" &&
+    type !== "table-choose" &&
+    !caseTypedQuiz(question) &&
+    type !== "proofread"
+  );
 }
 
 function renderCasePractice() {
@@ -9128,6 +9163,10 @@ function renderCasePractice() {
         isDisabled: () => state.caseChecked,
         onSubmit: (value) => submitCaseAnswer(value, {}),
       });
+    } else if (question && question.quizType === "table-build") {
+      mountTableBuild(question);
+    } else if (question && question.quizType === "table-choose") {
+      mountTableChoose(question);
     } else if (question && question.quizType === "build") {
       paintCaseBuildSlots(question);
       mountBuildChipsShell(tray, {
@@ -9353,9 +9392,173 @@ function gradeCaseChoice(choice, btn) {
   submitCaseAnswer(choice, { wrongEl: btn });
 }
 
+function tableSlotCaption(slot) {
+  if (slot?.mark) return genderMarkHtml(slot.mark, slot.label || "");
+  return escapeHtml(slot?.label || "");
+}
+
+function mountTableBuild(question) {
+  const slots = question.slots || [];
+  state.caseBuilt = Array(slots.length).fill(null);
+  const host = document.getElementById("case-slots");
+  mountPartSlots(host, {
+    count: slots.length,
+    className: "slot-row slot-row-genders",
+    captions: slots.map((slot) => tableSlotCaption(slot)),
+    captionLabels: slots.map((slot) => slot.label || ""),
+    onClear: (index) => {
+      if (state.caseChecked) return;
+      if (!state.caseBuilt?.[index]) return;
+      state.caseBuilt[index] = null;
+      paintPartSlot(host.querySelectorAll(".slot")[index], "");
+    },
+  });
+  mountBuildChipsShell(document.getElementById("case-tray"), {
+    chips: question.choices || [],
+    ariaLabel: "Articles",
+    isDisabled: () => state.caseChecked,
+    onPick: (text) => placeTableBuildText(text),
+  });
+}
+
+function placeTableBuildText(text) {
+  if (state.caseChecked) return;
+  const question = casePresentedQuestion(state.caseQuestion);
+  const built = state.caseBuilt || [];
+  const next = built.findIndex((part) => !part);
+  if (next < 0) return;
+  built[next] = text;
+  const slot = document.querySelectorAll("#case-slots .slot")[next];
+  paintPartSlot(slot, text);
+  if (built.some((part) => !part)) return;
+  submitTableAnswer(question, built.slice());
+}
+
+function paintTableChoice(btn, on) {
+  if (!btn) return;
+  btn.setAttribute("aria-pressed", on ? "true" : "false");
+  btn.classList.toggle("is-filled", on);
+}
+
+function mountTableChoose(question) {
+  const tray = document.getElementById("case-tray");
+  state.casePicked = [];
+  mountMultiSelectShell(tray, {
+    choices: (question.choices || []).map((choice) => ({
+      value: choice.value,
+      label: choice.label,
+      ariaLabel: choice.ariaLabel || choice.label,
+      iconHtml: choice.mark ? genderMarkHtml(choice.mark, choice.label) : "",
+    })),
+    multiple: true,
+    ariaLabel: "Case and gender",
+    isDisabled: () => state.caseChecked,
+    onPick: (value, btn) => {
+      const picked = new Set(state.casePicked || []);
+      if (picked.has(value)) picked.delete(value);
+      else picked.add(value);
+      state.casePicked = [...picked];
+      paintTableChoice(btn, picked.has(value));
+    },
+  });
+  const submit = document.createElement("button");
+  submit.type = "button";
+  submit.className = "btn btn-primary answer-shell-check";
+  submit.textContent = "Submit";
+  submit.addEventListener("click", () => {
+    if (state.caseChecked) return;
+    submitTableAnswer(
+      casePresentedQuestion(state.caseQuestion),
+      state.casePicked || []
+    );
+  });
+  const submitRow = document.createElement("div");
+  submitRow.className = "answer-shell-check-row";
+  submitRow.appendChild(submit);
+  tray.appendChild(submitRow);
+}
+
+function recordTableEvidence(question, grades, rowCorrect) {
+  const unitKey = currentEvidenceUnitKey();
+  const presetId = question.interaction?.presetId || "";
+  const store = state.evidenceStore || (state.evidenceStore = emptyEvidenceStore());
+  const cardAttempt = {
+    dealKey: unitKey,
+    presetId,
+    itemKey: caseSentenceKey(question),
+    itemLabel: question.prompt || "",
+    correct: rowCorrect,
+    evidenceIds: [],
+  };
+  recordAttemptEvidence(store, cardAttempt);
+  try {
+    saveProfileStore(recordProfileAttempt(loadProfileStore(), cardAttempt));
+  } catch {
+    /* ignore storage failures */
+  }
+  for (const cell of grades) {
+    recordAttemptEvidence(store, {
+      scope: "detail",
+      dealKey: unitKey,
+      presetId,
+      itemKey: cell.id,
+      itemLabel: `${cell.label} ${cell.form}`,
+      evidenceIds: [cell.assesses],
+      correct: cell.correct,
+    });
+  }
+}
+
+function submitTableAnswer(question, answer) {
+  if (!question || state.caseChecked) return;
+  const grades = gradeDeclensionAnswer(question, answer);
+  const ok = grades.length > 0 && grades.every((cell) => cell.correct);
+  state.caseChecked = true;
+  state.caseStatus = ok ? "correct" : "incorrect";
+  state.casePicked = answer;
+  document.querySelectorAll("#case-tray .piece, #case-tray .answer-shell-check").forEach((el) => {
+    el.disabled = true;
+  });
+  document.querySelectorAll("#case-slots .slot").forEach((slot, index) => {
+    const cell = grades[index];
+    if (!cell) return;
+    slot.classList.add(cell.correct ? "is-ok" : "is-bad");
+  });
+  document.querySelectorAll("#case-tray .choice").forEach((btn) => {
+    const cell = grades.find((grade) => grade.id === btn.dataset.value);
+    if (!cell) return;
+    btn.disabled = true;
+    if (cell.correct) {
+      btn.classList.add("is-ok");
+      return;
+    }
+    btn.classList.add("is-bad", "is-wrong-flash");
+  });
+  recordTableEvidence(question, grades, ok);
+  const expected = question.quizType === "table-build"
+    ? (question.slots || []).map((slot) => slot.form).join(" ")
+    : (question.choices || [])
+        .filter((choice) => choice.correct)
+        .map((choice) => choice.label)
+        .join(", ");
+  logGuidedQa({
+    question: question.prompt,
+    answer: Array.isArray(answer) ? answer.join(" ") : String(answer || ""),
+    expected,
+    status: state.caseStatus,
+    evidenceIds: grades.filter((cell) => !cell.correct).map((cell) => cell.assesses),
+    recordEvidence: false,
+  });
+  revealCaseAnswer(question, ok);
+}
+
 function submitCaseAnswer(answer, { wrongEl } = {}) {
   const question = casePresentedQuestion(state.caseQuestion);
   if (!question || state.caseChecked) return;
+  if (question.quizType === "table-build" || question.quizType === "table-choose") {
+    submitTableAnswer(question, answer);
+    return;
+  }
   const ok = caseAnswerMatches(question, answer);
   const caseChoiceQuiz = question.quizType !== "build" && !caseTypedQuiz(question);
   const caseChoiceRetry =
@@ -10925,7 +11128,15 @@ function currentGuidedQuestionCue() {
  * Session audit: one row per finished question — full cue+task + final answer
  * (never syllable/parts beats). Used by Schnapp menu + Guided crumb Debug.
  */
-function logGuidedQa({ question, answer, expected, status, note, evidenceIds } = {}) {
+function logGuidedQa({
+  question,
+  answer,
+  expected,
+  status,
+  note,
+  evidenceIds,
+  recordEvidence = true,
+} = {}) {
   const log = state.guidedQaLog || (state.guidedQaLog = []);
   const q = question != null ? question : currentGuidedQuestionCue();
   const a = answer != null ? answer : "";
@@ -10946,7 +11157,7 @@ function logGuidedQa({ question, answer, expected, status, note, evidenceIds } =
     statusStr === "correct" || statusStr === "accepted-alternative";
   const store = state.evidenceStore || (state.evidenceStore = emptyEvidenceStore());
   // Only score into grains when this row will also enter attemptLog.
-  if (!state.itemFirstMiss) {
+  if (!state.itemFirstMiss && recordEvidence) {
     const caseQuestion =
       state.view === "case" ? casePresentedQuestion(state.caseQuestion) : null;
     const caseItemKey = caseSentenceKey(caseQuestion);

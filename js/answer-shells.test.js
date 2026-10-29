@@ -100,9 +100,36 @@ function stubHost() {
             xs.forEach((x) => classSet.delete(x));
             node.className = [...classSet].join(" ");
           },
+          toggle(x, force) {
+            const has = classSet.has(x);
+            const next = force === undefined ? !has : !!force;
+            if (next) classSet.add(x);
+            else classSet.delete(x);
+            node.className = [...classSet].join(" ");
+            return next;
+          },
           contains(x) {
             return classSet.has(x);
           },
+        },
+        append(...nodes) {
+          nodes.forEach((n) => this.appendChild(n));
+        },
+        querySelector(sel) {
+          const cls = String(sel || "").startsWith(".") ? String(sel).slice(1) : "";
+          const walk = (el) => {
+            if (cls && el.classList?.contains?.(cls)) return el;
+            for (const child of el.children || []) {
+              const found = walk(child);
+              if (found) return found;
+            }
+            return null;
+          };
+          for (const child of this.children || []) {
+            const found = walk(child);
+            if (found) return found;
+          }
+          return null;
         },
         removeAttribute(k) {
           delete this._attrs[k];
@@ -186,6 +213,42 @@ describe("answer shells (Slice 2)", () => {
     paintPartSlot(slots[0], "");
     assert.equal(slots[0].textContent, "Part 1");
     assert.equal(slots[0].classList.contains("is-filled"), false);
+  });
+
+  it("mountPartSlots keeps a gender caption when the value is empty or cleared", () => {
+    const host = stubHost();
+    const { slots } = mountPartSlots(host, {
+      count: 1,
+      captions: ['<span class="gender-mark">Masculine</span>'],
+      captionLabels: ["Masculine"],
+    });
+    assert.equal(slots[0].classList.contains("slot-labeled"), true);
+    assert.match(slots[0].querySelector(".slot-caption").innerHTML, /Masculine/);
+    assert.equal(slots[0].querySelector(".slot-value").textContent, "");
+    assert.equal(slots[0].getAttribute("aria-label"), "Masculine");
+    paintPartSlot(slots[0], "der");
+    assert.equal(slots[0].querySelector(".slot-value").textContent, "der");
+    assert.equal(slots[0].classList.contains("is-filled"), true);
+    assert.match(slots[0].querySelector(".slot-caption").innerHTML, /Masculine/);
+    paintPartSlot(slots[0], "");
+    assert.equal(slots[0].querySelector(".slot-value").textContent, "");
+    assert.equal(slots[0].classList.contains("is-filled"), false);
+    assert.match(slots[0].querySelector(".slot-caption").innerHTML, /Masculine/);
+  });
+
+  it("mountMultiSelectShell fills and unfills a multiple choice", () => {
+    const host = stubHost();
+    const { buttons } = mountMultiSelectShell(host, {
+      choices: ["der", "die"],
+      multiple: true,
+      onPick: () => {},
+    });
+    buttons[0].click();
+    assert.equal(buttons[0].getAttribute("aria-pressed"), "true");
+    assert.equal(buttons[0].classList.contains("is-filled"), true);
+    buttons[0].click();
+    assert.equal(buttons[0].getAttribute("aria-pressed"), "false");
+    assert.equal(buttons[0].classList.contains("is-filled"), false);
   });
 
   it("mountMultiSelectShell creates choice buttons", () => {

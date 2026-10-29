@@ -103,6 +103,8 @@ describe("case dative questions", () => {
   it("follows the rewritten arc: accusative constructions, then dative, then mixed", () => {
     const ids = CASE_TOPICS.flatMap((topic) => topic.steps.map((step) => step.unitId));
     assert.deepEqual(ids, [
+      "case.table.definite",
+      "case.table.indefinite",
       "case.acc.masc",
       "case.acc.unchanged",
       "case.prep.fuer",

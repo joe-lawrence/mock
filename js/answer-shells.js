@@ -35,7 +35,7 @@ export function prepareAnswerHost(tray, opts) {
 export function normalizeMultiSelectChoice(choice) {
   if (choice != null && typeof choice === "object") {
     const value = String(choice.value ?? choice.id ?? "");
-    return {
+    const out = {
       value,
       label: String(choice.label ?? value),
       caption:
@@ -45,6 +45,9 @@ export function normalizeMultiSelectChoice(choice) {
             ? String(choice.sub)
             : "",
     };
+    if (choice.iconHtml) out.iconHtml = String(choice.iconHtml);
+    if (choice.ariaLabel) out.ariaLabel = String(choice.ariaLabel);
+    return out;
   }
   const value = String(choice);
   return { value, label: value, caption: "" };
@@ -57,6 +60,7 @@ export function normalizeMultiSelectChoice(choice) {
  *   choices: (string|number|{ value?: string|number, id?: string|number, label?: string, caption?: string, sub?: string })[],
  *   ariaLabel?: string,
  *   stacked?: boolean,
+ *   multiple?: boolean,
  *   isDisabled?: () => boolean,
  *   onPick: (choice: string, btn: HTMLButtonElement) => void,
  * }} opts
@@ -72,27 +76,40 @@ export function mountMultiSelectShell(host, opts) {
 
   const buttons = [];
   for (const raw of choices) {
-    const { value, label, caption } = normalizeMultiSelectChoice(raw);
+    const { value, label, caption, iconHtml, ariaLabel } = normalizeMultiSelectChoice(raw);
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "choice answer-shell-choice";
     btn.dataset.value = value;
-    if (caption) {
-      btn.classList.add("has-caption");
+    if (opts.multiple) btn.setAttribute("aria-pressed", "false");
+    if (caption || iconHtml) {
+      if (caption) btn.classList.add("has-caption");
       const main = document.createElement("span");
       main.className = "choice-label";
-      main.textContent = label;
-      const sub = document.createElement("span");
-      sub.className = "choice-sub";
-      sub.textContent = caption;
+      if (iconHtml) main.innerHTML = iconHtml;
+      else main.textContent = label;
       btn.appendChild(main);
-      btn.appendChild(sub);
-      btn.setAttribute("aria-label", `${label}, ${caption}`);
+      if (caption) {
+        const sub = document.createElement("span");
+        sub.className = "choice-sub";
+        sub.textContent = caption;
+        btn.appendChild(sub);
+      }
+      btn.setAttribute(
+        "aria-label",
+        ariaLabel || (caption ? `${label}, ${caption}` : label)
+      );
     } else {
       btn.textContent = label;
     }
     btn.addEventListener("click", () => {
       if (opts.isDisabled?.()) return;
+      if (opts.multiple) {
+        const pressed = btn.getAttribute("aria-pressed") === "true";
+        const next = !pressed;
+        btn.setAttribute("aria-pressed", next ? "true" : "false");
+        btn.classList.toggle("is-filled", next);
+      }
       opts.onPick(value, btn);
     });
     host.appendChild(btn);
@@ -118,6 +135,15 @@ export function paintPartSlot(slot, text, display) {
   const index = Number(slot.dataset?.index || 0);
   const word = String(text || "").trim();
   slot.classList.remove("is-ok", "is-bad", "is-correct-flash", "is-wrong-flash");
+  const valueEl = slot.querySelector?.(".slot-value");
+  if (valueEl) {
+    valueEl.textContent = word ? (display != null ? String(display) : word) : "";
+    slot.classList.toggle("is-filled", !!word);
+    if (word) slot.setAttribute("aria-label", `${word}, tap to remove`);
+    else if (slot.dataset?.slotLabel) slot.setAttribute("aria-label", slot.dataset.slotLabel);
+    else slot.removeAttribute("aria-label");
+    return;
+  }
   if (word) {
     slot.classList.add("is-filled");
     slot.textContent = display != null ? String(display) : word;
@@ -137,6 +163,8 @@ export function paintPartSlot(slot, text, display) {
  *   count?: number,
  *   values?: (string|null|undefined)[],
  *   className?: string,
+ *   captions?: string[],
+ *   captionLabels?: string[],
  *   onClear?: (index: number, slot: HTMLElement) => void,
  * }} [opts]
  */
@@ -150,12 +178,24 @@ export function mountPartSlots(host, opts = {}) {
   if (!host.getAttribute("aria-label")) {
     host.setAttribute("aria-label", "Phrase slots");
   }
+  const captions = opts.captions || [];
+  const captionLabels = opts.captionLabels || [];
   const slots = [];
   for (let i = 0; i < count; i++) {
     const slot = document.createElement("div");
     slot.className = "slot";
     slot.dataset.index = String(i);
     slot.tabIndex = 0;
+    if (captionLabels[i]) slot.dataset.slotLabel = String(captionLabels[i]);
+    if (captions[i]) {
+      slot.classList.add("slot-labeled");
+      const caption = document.createElement("span");
+      caption.className = "slot-caption";
+      caption.innerHTML = captions[i];
+      const value = document.createElement("span");
+      value.className = "slot-value";
+      slot.append(caption, value);
+    }
     paintPartSlot(slot, values[i] || "");
     const clear = () => opts.onClear?.(i, slot);
     slot.addEventListener("click", clear);

@@ -11,11 +11,24 @@ describe("Play caps for Case", () => {
     assert.equal(units.filter((unit) => unitMatchesPlayCaps(unit, caps)).length, units.length);
     const writeOnly = { keyboard: "only", audio: true };
     const listenOnly = { keyboard: true, audio: "only" };
-    assert.ok(units.every((unit) => unitMatchesPlayCaps(unit, writeOnly)));
+    const tableUnits = new Set(["case.table.definite", "case.table.indefinite"]);
+    assert.ok(
+      units
+        .filter((unit) => !tableUnits.has(unit.unitId))
+        .every((unit) => unitMatchesPlayCaps(unit, writeOnly))
+    );
+    assert.ok(
+      units
+        .filter((unit) => tableUnits.has(unit.unitId))
+        .every((unit) => !unitMatchesPlayCaps(unit, writeOnly))
+    );
     const heard = units.filter((unit) => unitMatchesPlayCaps(unit, listenOnly));
     assert.deepEqual(
       heard.map((unit) => unit.unitId).sort(),
-      units.map((unit) => unit.unitId).filter((id) => id !== "case.analysis").sort()
+      units
+        .map((unit) => unit.unitId)
+        .filter((id) => id !== "case.analysis" && !tableUnits.has(id))
+        .sort()
     );
   });
 });

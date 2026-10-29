@@ -1,7 +1,8 @@
 /**
  * Case curriculum (Appendix H).
  * Accusative constructions, then dative constructions, then mixed sentences.
- * The definite/indefinite table is a Learn chart, not a production unit.
+ * Definite and indefinite tables are practiced before the sentence units.
+ * The chart stays a lookup. Genitive is not quizzed.
  * `modes` are the interactions that unit's practice deck actually deals.
  */
 
@@ -14,6 +15,36 @@ function caseModes(unitId) {
 }
 
 export const CASE_TOPICS = [
+  {
+    id: "declension",
+    label: "Declension",
+    playable: true,
+    blurb: "Definite articles, then indefinite articles and kein, before the sentence units.",
+    steps: [
+      {
+        id: "definite",
+        unitId: "case.table.definite",
+        label: "Definite articles",
+        playable: true,
+        intro: true,
+        referenceId: CASE_CHART_ID,
+        chartId: CASE_CHART_ID,
+        modes: ["build", "choose"],
+        blurb: "der, die, das, den, and dem across case and gender.",
+      },
+      {
+        id: "indefinite",
+        unitId: "case.table.indefinite",
+        label: "Indefinite and kein",
+        playable: true,
+        softAfter: "definite",
+        referenceId: CASE_CHART_ID,
+        chartId: CASE_CHART_ID,
+        modes: ["build", "choose"],
+        blurb: "ein and keine across case and gender. No genitive.",
+      },
+    ],
+  },
   {
     id: "accusative",
     label: "Accusative",

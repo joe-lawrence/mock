@@ -12,7 +12,7 @@ import {
   pluralNavUnits,
 } from "./nouns-curriculum.js?v=20261027-casetype";
 import { topicHasVocabulary } from "./vocabulary-ui.js?v=20260930-vocab16";
-import { caseNavTopics } from "./case-curriculum.js?v=20261027-casegroup";
+import { caseNavTopics } from "./case-curriculum.js?v=20261029-declension";
 
 const CAPS_KEY = "schnapp-nav-caps";
 const LONG_MS = 500;

@@ -48,7 +48,8 @@ export function isConceptEvidenceId(id) {
 export function grainKeysForAttempt(ctx = {}) {
   const out = [];
   const dealKey = ctx.dealKey ? String(ctx.dealKey) : "";
-  if (dealKey) {
+  const detail = ctx.scope === "detail";
+  if (!detail && dealKey) {
     out.push({ key: dealKey, kind: EVIDENCE_GRAIN.UNIT });
   }
   const preset =
@@ -56,7 +57,7 @@ export function grainKeysForAttempt(ctx = {}) {
     (ctx.stimulus && ctx.response
       ? `${ctx.stimulus}×${ctx.response}`
       : null);
-  if (dealKey && preset) {
+  if (!detail && dealKey && preset) {
     out.push({
       key: `${dealKey}×${preset}`,
       kind: EVIDENCE_GRAIN.UNIT_PRESET,
