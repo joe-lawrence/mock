@@ -13,7 +13,7 @@ import {
   nounsCellsMatchingCaps,
   pluralNavUnits,
 } from "./nouns-curriculum.js?v=20261027-casetype";
-import { topicHasVocabulary } from "./vocabulary-ui.js?v=20261030-composeex";
+import { topicHasVocabulary } from "./vocabulary-ui.js?v=20261030-vocabspeedo";
 import { vocabulary } from "./generated/vocabulary.js?v=20261030-casetakes";
 import { caseNavTopics } from "./case-curriculum.js?v=20261029-declension";
 

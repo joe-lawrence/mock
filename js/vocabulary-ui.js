@@ -32,6 +32,8 @@ const BI_PATHS = {
   chevronRight:
     '<path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708"/>',
   book: '<path d="M1 2.828c.885-.37 2.154-.769 3.388-.893 1.33-.134 2.458.063 3.112.752v9.746c-.935-.53-2.12-.603-3.213-.493-1.18.12-2.37.461-3.287.811zm7.5-.141c.654-.689 1.782-.886 3.112-.752 1.234.124 2.503.523 3.388.893v9.923c-.918-.35-2.107-.692-3.287-.81-1.094-.111-2.278-.039-3.213.492zM8 1.783C7.015.936 5.587.81 4.287.94c-1.514.153-3.042.672-3.994 1.105A.5.5 0 0 0 0 2.5v11a.5.5 0 0 0 .707.455c.882-.4 2.303-.881 3.68-1.02 1.409-.142 2.59.087 3.223.877a.5.5 0 0 0 .78 0c.633-.79 1.814-1.019 3.222-.877 1.378.139 2.8.62 3.681 1.02A.5.5 0 0 0 16 13.5v-11a.5.5 0 0 0-.293-.455c-.952-.433-2.48-.952-3.994-1.105C10.413.809 8.985.936 8 1.783"/>',
+  speedometer:
+    '<path d="M8 2a.5.5 0 0 1 .5.5V4a.5.5 0 0 1-1 0V2.5A.5.5 0 0 1 8 2M3.732 3.732a.5.5 0 0 1 .707 0l.915.914a.5.5 0 1 1-.708.708l-.914-.915a.5.5 0 0 1 0-.707M2 8a.5.5 0 0 1 .5-.5h1.586a.5.5 0 0 1 0 1H2.5A.5.5 0 0 1 2 8m9.5 0a.5.5 0 0 1 .5-.5h1.5a.5.5 0 0 1 0 1H12a.5.5 0 0 1-.5-.5m.754-4.246a.39.39 0 0 0-.527-.02L7.547 7.31A.91.91 0 1 0 8.85 8.569l3.434-4.297a.39.39 0 0 0-.029-.518z"/><path fill-rule="evenodd" d="M6.664 15.889A8 8 0 1 1 9.336.11a8 8 0 0 1-2.672 15.78zm-4.665-4.283A11.95 11.95 0 0 1 8 10c2.186 0 4.236.585 6.001 1.606a7 7 0 1 0-12.002 0"/>',
 };
 
 function biIcon(name) {
@@ -70,9 +72,15 @@ function actionsNavHtml({ refDisabled = false } = {}) {
     <div class="actions actions-nav" data-vocab-actions>
       <button type="button" class="btn btn-icon" data-vocab-back data-icon="chevronLeft" aria-label="Back" title="Back"></button>
       <div class="actions-mid">
+        <div class="assist-stepper" data-vocab-assist-stepper hidden role="group" aria-label="Assistance">
+          <button type="button" class="assist-stepper-btn" data-assist-dir="-1" data-icon="chevronLeft" aria-label="More help"></button>
+          <span class="assist-stepper-label" data-assist-label>More help</span>
+          <button type="button" class="assist-stepper-btn" data-assist-dir="1" data-icon="chevronRight" aria-label="Less help"></button>
+        </div>
         <button type="button" class="btn btn-icon" data-vocab-ref data-icon="book" aria-label="Reference" title="Reference" ${
           refDisabled ? "disabled" : ""
         }></button>
+        <button type="button" class="btn btn-icon" id="vocab-difficulty" data-vocab-difficulty data-icon="speedometer" aria-label="Assistance" title="Assistance"></button>
       </div>
       <button type="button" class="btn btn-icon" data-vocab-forward data-icon="chevronRight" aria-label="Forward" title="Forward — next in sequence, or skip at the end"></button>
     </div>`;
@@ -197,6 +205,32 @@ export function mountVocabularyPanel(root, opts) {
       : null;
 
   const resolveItems = () => {
+    const decks = Array.isArray(opts.decks) ? opts.decks.filter(Boolean) : [];
+    if (decks.length) {
+      const all = [];
+      const seen = new Set();
+      for (const deck of decks) {
+        /** @type {{ areas?: string[], introducedBy?: string[] }} */
+        const scope = {};
+        if (Array.isArray(deck.vocabAreas) && deck.vocabAreas.length) {
+          scope.areas = deck.vocabAreas;
+        }
+        const introduced = Array.isArray(deck.vocabIntroducedBy)
+          ? deck.vocabIntroducedBy
+          : deck.vocabIntroducedBy
+            ? [deck.vocabIntroducedBy]
+            : [];
+        if (introduced.length) scope.introducedBy = introduced;
+        const deckTopic = deck.vocabTopic || deck.territory || topic;
+        for (const item of vocabularyForScope(deckTopic, scope)) {
+          if (!item?.id || seen.has(item.id)) continue;
+          seen.add(item.id);
+          all.push(item);
+        }
+      }
+      if (opts.mode === "learn") return vocabularyLearnOrder(all);
+      return shuffle(all);
+    }
     /** @type {{ areas?: string[], introducedBy?: string[] }} */
     const scope = {};
     if (activeAreas?.length) scope.areas = activeAreas;
@@ -219,6 +253,7 @@ export function mountVocabularyPanel(root, opts) {
     hydrateIconButtons(root);
     root.querySelector("[data-vocab-back]")?.addEventListener("click", opts.onBack);
     root.querySelector("[data-vocab-forward]")?.addEventListener("click", opts.onBack);
+    opts.wireAssist?.(root);
     return { destroy() {} };
   }
 
@@ -617,6 +652,7 @@ export function mountVocabularyPanel(root, opts) {
       const rid = item?.reference?.[0] || null;
       opts.openReference(rid, topic);
     });
+    opts.wireAssist?.(root);
   }
 
   function shuffle(arr) {

@@ -199,7 +199,7 @@ import {
   pieDialMatchesFraction,
 } from "./quiz-extras.js?v=20261027-relengine";
 
-import { guidedBoundKeysForUnits, mountNavCarousel } from "./nav-carousel.js?v=20261030-composeex";
+import { guidedBoundKeysForUnits, mountNavCarousel } from "./nav-carousel.js?v=20261030-vocabspeedo";
 import { keysSkippedByJump } from "./guided-jump.js";
 import {
   noteQuizNavEntry,
@@ -308,7 +308,7 @@ import {
   mountVocabularyPanel,
   topicHasVocabulary,
   vocabAreasFromCurriculumTopics,
-} from "./vocabulary-ui.js?v=20261030-composeex";
+} from "./vocabulary-ui.js?v=20261030-vocabspeedo";
 import {
   vocabularyAreas,
   curriculumTopicToVocabArea,
@@ -6662,6 +6662,8 @@ const state = {
   vocabMount: null,
   /** "learn" | "practice" while phase is vocab-* */
   vocabMode: "learn",
+  /** Guided vocab across territories. Null quizzes the open topic only. */
+  vocabDecks: null,
   /** Optional Numbers Vocabulary area filter (null = all). */
   vocabAreas: null,
   /** introduced_by prefixes for the open vocabulary deck. Null means every word in the areas. */
@@ -8482,6 +8484,7 @@ function destroyVocabMount() {
 function openVocabulary(territoryId, mode, opts = {}) {
   clearQuizNavTrail();
   destroyVocabMount();
+  if (!opts.keepDecks) state.vocabDecks = null;
   if (state.sessionMode !== "guided") {
     state.sessionMode = mode === "practice" ? "play" : "learn";
   }
@@ -8531,8 +8534,9 @@ function renderVocabularyPanel(territoryId) {
   state.vocabMount = mountVocabularyPanel(root, {
     topic,
     mode: state.vocabMode || "learn",
-    seriesHtml: learnSeriesChromeHtml(),
+    seriesHtml: state.sessionMode === "guided" ? "" : learnSeriesChromeHtml(),
     onSeriesChrome: (el) => wireLearnSeriesChrome(el),
+    decks: state.sessionMode === "guided" ? state.vocabDecks : null,
     areas: topic === "numbers" ? state.vocabAreas : null,
     introducedBy: state.vocabIntroducedBy,
     resume,
@@ -8558,6 +8562,12 @@ function renderVocabularyPanel(territoryId) {
     openReference: (id, territory) => {
       if (id) openReferenceBrowse({ id });
       else openReferenceBrowse({ territory });
+    },
+    wireAssist: (panel) => {
+      const stepper = panel.querySelector("[data-vocab-assist-stepper]");
+      if (stepper) wireAssistStepper(stepper);
+      panel.querySelector("[data-vocab-difficulty]")?.addEventListener("click", onDifficultyClick);
+      syncDifficultyControl();
     },
     answerPartsForItem: vocabAnswerParts,
     sentenceAnswerParts: (sentence) => sentenceAnswerParts(sentence),
@@ -10652,6 +10662,15 @@ function handleNavCarouselStart({ mode, units, keyboard, audio, practice, guided
   if (vocabUnits.length && !numbersUnits.length && !nounsUnits.length && !caseUnits.length) {
     const grouped = groupVocabForStart(vocabUnits);
     const vocabMode = mode === "learn" ? "learn" : "practice";
+    if (grouped.length > 1 && (guided || mode === "guided")) {
+      const first = grouped[0];
+      state.vocabDecks = grouped;
+      openVocabulary(first.vocabTopic || first.territory, vocabMode, {
+        ...vocabOpenOptions(first),
+        keepDecks: true,
+      });
+      return;
+    }
     if (grouped.length > 1) {
       startLearnSeries(grouped);
       return;
@@ -11389,6 +11408,13 @@ function numbersListenUsesChoices() {
 
 /** Current interaction ids for attempt snapshots. */
 function currentInteractionIds() {
+  if (isVocabPhase()) {
+    return {
+      presetId: "vocab",
+      stimulus: STIMULUS.VALUE,
+      response: RESPONSE.MULTI_SELECT,
+    };
+  }
   if (state.view === "sounds") {
     const listen = normalizeSoundsMode(state.soundsMode) === "listen";
     return listen
@@ -12381,6 +12407,7 @@ function learnSeriesNext() {
 
 function learnSeriesChromeHtml() {
   const series = state.learnSeries;
+  if (state.sessionMode === "guided") return "";
   if (!series?.units?.length || series.units.length < 2) return "";
   const n = series.units.length;
   const i = series.cursor + 1;
@@ -19107,6 +19134,10 @@ function openSheet(title, html) {
 
 /** Remount current practice item so support layers take effect. */
 function remountCurrentPractice() {
+  if (isVocabPhase()) {
+    syncDifficultyControl();
+    return;
+  }
   if (state.view === "numbers" && state.phase.numbers === "practice") {
     clearNumbersAdvance();
     stopSpeech();
@@ -19457,7 +19488,13 @@ function quizChromePrefix() {
   return null;
 }
 
+function isVocabPhase(view = state.view) {
+  const phase = state.phase?.[view];
+  return phase === "vocab-learn" || phase === "vocab-practice";
+}
+
 function isAssistQuizPhase() {
+  if (isVocabPhase()) return true;
   if (state.view === "numbers") return state.phase.numbers === "practice";
   if (state.view === "nouns") return state.phase.nouns === "practice";
   if (state.view === "sounds") return state.phase.sounds === "practice";
@@ -19468,6 +19505,14 @@ function isAssistQuizPhase() {
 }
 
 function assistStepperEls() {
+  if (isVocabPhase()) {
+    const root = document.getElementById(`${state.view}-vocab`);
+    return {
+      prefix: "vocab",
+      btn: root?.querySelector("[data-vocab-difficulty]") || null,
+      stepper: root?.querySelector("[data-vocab-assist-stepper]") || null,
+    };
+  }
   const prefix = quizChromePrefix();
   if (!prefix) return { prefix: null, btn: null, stepper: null };
   return {
@@ -19944,8 +19989,9 @@ function onDifficultyClick() {
   else showAssistStepper();
 }
 
-function wireAssistStepper(id) {
-  const el = document.getElementById(id);
+function wireAssistStepper(idOrEl) {
+  const el =
+    typeof idOrEl === "string" ? document.getElementById(idOrEl) : idOrEl;
   if (!el || el.dataset.assistBound === "1") return;
   el.dataset.assistBound = "1";
   let lastAt = 0;
