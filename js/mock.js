@@ -119,8 +119,8 @@ import {
   declensionDeck,
   gradeDeclensionAnswer,
   isDeclensionUnit,
-} from "../engine/nouns/declension-table.js";
-import { genderMarkHtml } from "./gender-marks.js";
+} from "../engine/nouns/declension-table.js?v=20261030-caseorder";
+import { genderMarkHtml } from "./gender-marks.js?v=20261030-genderstack";
 import {
   addUserCard,
   buildReviewQuestion,
@@ -6411,11 +6411,14 @@ const state = {
   caseQueueIndex: 0,
   casePreset: null,
   caseBuilt: [],
+  caseSlotFocus: 0,
   caseHistory: [],
   caseHistoryIndex: -1,
   casePassage: [],
   numbersFilled: [],
+  numbersSlotFocus: 0,
   nounsFilled: [],
+  nounsSlotFocus: 0,
   nounsArticle: null,
   numbersListenChoice: null,
   /** Listen Assisted: one retry after a wrong pick, then reveal. */
@@ -8866,7 +8869,7 @@ function caseLemmaHtml(text, question) {
 function caseCueHtml(question) {
   if (question?.quizType === "table-build" || question?.quizType === "table-choose") {
     const html = question.mark
-      ? genderMarkHtml(question.mark, question.prompt || "")
+      ? genderMarkHtml(question.mark, question.prompt || "", { stacked: true })
       : escapeHtml(question.prompt || "");
     return `<span class="dial-cue">${html}</span>`;
   }
@@ -8972,16 +8975,61 @@ function paintCaseListenSentence(question) {
   host.hidden = !html;
 }
 
+function markBuildFocus(host, index) {
+  if (!host) return;
+  host.querySelectorAll(".slot").forEach((slot) => {
+    const on = Number(slot.dataset.index) === index;
+    slot.classList.toggle("is-hot", on);
+    if (on) slot.setAttribute("aria-current", "true");
+    else slot.removeAttribute("aria-current");
+  });
+}
+
+function nextBuildIndex(values, index) {
+  const list = values || [];
+  const n = list.length;
+  if (n <= 0) return 0;
+  const start = Number(index) || 0;
+  for (let step = 1; step <= n; step++) {
+    const i = (start + step) % n;
+    if (!list[i]) return i;
+  }
+  return start;
+}
+
+function slotTintClass(mark) {
+  if (mark === "masculine") return "slot-tint-masc";
+  if (mark === "feminine") return "slot-tint-fem";
+  if (mark === "neuter") return "slot-tint-neut";
+  if (mark === "plural") return "slot-tint-plur";
+  return "";
+}
+
 function paintCaseBuildSlots(question) {
   const slots = document.getElementById("case-slots");
   mountPartSlots(slots, {
     count: caseBuildCount(question),
     values: state.caseBuilt || [],
-    onClear: (i) => {
-      if (state.caseChecked) return;
-      if (state.caseBuilt?.[i]) clearCaseBuildSlot(i);
-    },
+    onClear: (i) => selectCaseBuildSlot(i),
   });
+  markBuildFocus(slots, state.caseSlotFocus ?? 0);
+}
+
+function selectCaseBuildSlot(index) {
+  if (state.caseChecked) return;
+  const built = state.caseBuilt || [];
+  const question = casePresentedQuestion(state.caseQuestion);
+  if ((state.caseSlotFocus ?? 0) === index && built[index]) {
+    if (question?.quizType === "table-build") {
+      built[index] = null;
+      paintPartSlot(document.querySelectorAll("#case-slots .slot")[index], "");
+      return;
+    }
+    clearCaseBuildSlot(index);
+    return;
+  }
+  state.caseSlotFocus = index;
+  markBuildFocus(document.getElementById("case-slots"), index);
 }
 
 /** One Part slot plus the shared multi-select tray. A pick fills Part 1. */
@@ -9014,10 +9062,14 @@ function placeCaseBuildText(text, btn) {
   if (!Array.isArray(state.caseBuilt) || state.caseBuilt.length !== count) {
     state.caseBuilt = Array(count).fill(null);
   }
-  const next = state.caseBuilt.findIndex((part) => !part);
-  if (next < 0) return;
-  state.caseBuilt[next] = text;
+  const index = Math.min(state.caseSlotFocus ?? 0, Math.max(count - 1, 0));
+  const previous = state.caseBuilt[index];
+  if (previous && previous !== text) releaseCaseChip(previous);
+  state.caseBuilt[index] = text;
   if (btn) btn.disabled = true;
+  if (!state.caseBuilt.every(Boolean)) {
+    state.caseSlotFocus = nextBuildIndex(state.caseBuilt, index);
+  }
   paintCaseBuildSlots(question);
   if (!state.caseBuilt.every(Boolean)) return;
   const answer = question?.buildSpaced
@@ -9032,11 +9084,16 @@ function clearCaseBuildSlot(slotIndex) {
   const text = built[slotIndex];
   if (!text) return;
   built[slotIndex] = null;
+  releaseCaseChip(text);
+  paintCaseBuildSlots(casePresentedQuestion(state.caseQuestion));
+}
+
+function releaseCaseChip(text) {
+  if (!text) return;
   const chip = [...document.querySelectorAll("#case-tray .piece")].find(
     (el) => el.disabled && el.dataset.text === text
   );
   if (chip) chip.disabled = false;
-  paintCaseBuildSlots(casePresentedQuestion(state.caseQuestion));
 }
 
 const CASE_MISS_FLASH_MS = 400;
@@ -9096,6 +9153,7 @@ function renderCasePractice() {
   state.casePicked = null;
   state.caseStatus = null;
   state.caseBuilt = [];
+  state.caseSlotFocus = 0;
   clearItemFirstMiss();
   clearAnswerReveal("case");
   const question = casePresentedQuestion(state.caseQuestion);
@@ -9381,6 +9439,7 @@ function revealCaseAnswer(question, ok) {
 function resetCaseBuildTray() {
   const question = casePresentedQuestion(state.caseQuestion);
   state.caseBuilt = Array(caseBuildCount(question)).fill(null);
+  state.caseSlotFocus = 0;
   paintCaseBuildSlots(question);
   document.querySelectorAll("#case-tray .piece").forEach((el) => {
     el.disabled = false;
@@ -9393,26 +9452,27 @@ function gradeCaseChoice(choice, btn) {
 }
 
 function tableSlotCaption(slot) {
-  if (slot?.mark) return genderMarkHtml(slot.mark, slot.label || "");
+  if (slot?.mark) return genderMarkHtml(slot.mark, slot.label || "", { stacked: true });
   return escapeHtml(slot?.label || "");
 }
 
 function mountTableBuild(question) {
   const slots = question.slots || [];
   state.caseBuilt = Array(slots.length).fill(null);
+  state.caseSlotFocus = 0;
   const host = document.getElementById("case-slots");
-  mountPartSlots(host, {
+  const mounted = mountPartSlots(host, {
     count: slots.length,
     className: "slot-row slot-row-genders",
     captions: slots.map((slot) => tableSlotCaption(slot)),
     captionLabels: slots.map((slot) => slot.label || ""),
-    onClear: (index) => {
-      if (state.caseChecked) return;
-      if (!state.caseBuilt?.[index]) return;
-      state.caseBuilt[index] = null;
-      paintPartSlot(host.querySelectorAll(".slot")[index], "");
-    },
+    onClear: (index) => selectCaseBuildSlot(index),
   });
+  mounted.slots.forEach((slot, index) => {
+    const tint = slotTintClass(slots[index]?.mark);
+    if (tint) slot.classList.add(tint);
+  });
+  markBuildFocus(host, 0);
   mountBuildChipsShell(document.getElementById("case-tray"), {
     chips: question.choices || [],
     ariaLabel: "Articles",
@@ -9425,13 +9485,16 @@ function placeTableBuildText(text) {
   if (state.caseChecked) return;
   const question = casePresentedQuestion(state.caseQuestion);
   const built = state.caseBuilt || [];
-  const next = built.findIndex((part) => !part);
-  if (next < 0) return;
-  built[next] = text;
-  const slot = document.querySelectorAll("#case-slots .slot")[next];
+  const index = Math.min(state.caseSlotFocus ?? 0, Math.max(built.length - 1, 0));
+  built[index] = text;
+  const slot = document.querySelectorAll("#case-slots .slot")[index];
   paintPartSlot(slot, text);
-  if (built.some((part) => !part)) return;
-  submitTableAnswer(question, built.slice());
+  if (built.every(Boolean)) {
+    submitTableAnswer(question, built.slice());
+    return;
+  }
+  state.caseSlotFocus = nextBuildIndex(built, index);
+  markBuildFocus(document.getElementById("case-slots"), state.caseSlotFocus);
 }
 
 function paintTableChoice(btn, on) {
@@ -12692,10 +12755,7 @@ function renderNumbersVisual() {
     ariaLabel: "Number pieces",
     formatLabel: softHyphenateGerman,
     isDisabled: () => state.numbersChecked,
-    onPick: (text) => {
-      const next = state.numbersFilled.findIndex((x) => !x);
-      if (next >= 0) placeNumberText(text, next);
-    },
+    onPick: (text) => placeFocusedNumberText(text),
   });
   syncTerritoryMenu("numbers");
 }
@@ -13563,10 +13623,7 @@ function renderNumbersBuild() {
     ariaLabel: "Number pieces",
     formatLabel: softHyphenateGerman,
     isDisabled: () => state.numbersChecked,
-    onPick: (text) => {
-      const next = state.numbersFilled.findIndex((x) => !x);
-      if (next >= 0) placeNumberText(text, next);
-    },
+    onPick: (text) => placeFocusedNumberText(text),
   });
 
   syncTerritoryMenu("numbers");
@@ -14404,13 +14461,32 @@ function checkNumbersListen(answer) {
 }
 
 function mountNumbersPartSlots(count) {
-  mountPartSlots(document.getElementById("numbers-slots"), {
+  state.numbersSlotFocus = 0;
+  const host = document.getElementById("numbers-slots");
+  mountPartSlots(host, {
     count,
-    onClear: (i) => {
-      if (state.numbersChecked) return;
-      if (state.numbersFilled[i]) clearNumberSlot(i);
-    },
+    values: state.numbersFilled || [],
+    onClear: (i) => selectNumbersBuildSlot(i),
   });
+  markBuildFocus(host, 0);
+}
+
+function selectNumbersBuildSlot(index) {
+  if (state.numbersChecked) return;
+  if ((state.numbersSlotFocus ?? 0) === index && state.numbersFilled[index]) {
+    clearNumberSlot(index);
+    return;
+  }
+  state.numbersSlotFocus = index;
+  markBuildFocus(document.getElementById("numbers-slots"), index);
+}
+
+function placeFocusedNumberText(text) {
+  const index = state.numbersSlotFocus ?? 0;
+  const done = placeNumberText(text, index);
+  if (done) return;
+  state.numbersSlotFocus = nextBuildIndex(state.numbersFilled, index);
+  markBuildFocus(document.getElementById("numbers-slots"), state.numbersSlotFocus);
 }
 
 function placeNumberText(text, slotIndex) {
@@ -14428,7 +14504,9 @@ function placeNumberText(text, slotIndex) {
 
   if (state.numbersFilled.every(Boolean)) {
     checkNumbers();
+    return true;
   }
+  return false;
 }
 
 function clearNumberSlot(slotIndex) {
@@ -17161,6 +17239,7 @@ function renderNounsPlurals() {
     answerParts: exercise.materials.answerParts,
   };
   state.nounsFilled = Array(buildParts.length).fill(null);
+  state.nounsSlotFocus = 0;
   state.nounsArticle = null;
   state.nounsChecked = false;
   state.nounsPluralRetryUsed = false;
@@ -17203,7 +17282,12 @@ function renderNounsPlurals() {
     slot.textContent = i === buildParts.length - 1 ? "Ending" : "Stem";
     slot.addEventListener("click", () => {
       if (state.nounsChecked) return;
-      if (state.nounsFilled[i]) clearNounPluralSlot(i);
+      if ((state.nounsSlotFocus ?? 0) === i && state.nounsFilled[i]) {
+        clearNounPluralSlot(i);
+        return;
+      }
+      state.nounsSlotFocus = i;
+      markBuildFocus(slots, i);
     });
     slot.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
@@ -17213,6 +17297,7 @@ function renderNounsPlurals() {
     });
     slots.appendChild(slot);
   });
+  markBuildFocus(slots, state.nounsSlotFocus ?? 0);
 
   const tray = document.getElementById("nouns-tray");
   tray.innerHTML = "";
@@ -17230,8 +17315,7 @@ function renderNounsPlurals() {
     }
     piece.addEventListener("click", () => {
       if (state.nounsChecked) return;
-      const next = state.nounsFilled.findIndex((x) => !x);
-      if (next >= 0) placeNounPluralText(text, next);
+      placeNounPluralText(text, state.nounsSlotFocus ?? 0);
     });
     tray.appendChild(piece);
   });
@@ -17278,7 +17362,12 @@ function placeNounPluralText(text, slotIndex) {
     slot.setAttribute("aria-label", `${text}, tap to remove`);
   }
   clearSelection();
-  if (state.nounsFilled.every(Boolean)) checkNounsPlurals();
+  if (state.nounsFilled.every(Boolean)) {
+    checkNounsPlurals();
+    return;
+  }
+  state.nounsSlotFocus = nextBuildIndex(state.nounsFilled, slotIndex);
+  markBuildFocus(document.getElementById("nouns-slots"), state.nounsSlotFocus);
 }
 
 function clearNounPluralSlot(slotIndex) {

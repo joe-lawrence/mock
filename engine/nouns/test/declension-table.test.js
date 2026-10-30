@@ -21,37 +21,33 @@ describe("declension tables", () => {
   it("fills the definite and indefinite tables without genitive", () => {
     const definite = card("case.table.definite", "table.definite.by-case.nominative");
     assert.deepEqual(
-      definite.slots.map((slot) => slot.form),
-      ["der", "die", "das", "die"]
+      definite.slots.map((slot) => slot.form).slice().sort(),
+      ["das", "der", "die", "die"]
     );
     assert.deepEqual(
-      definite.slots.map((slot) => [slot.label, slot.mark]),
-      [
-        ["Masculine", "masculine"],
-        ["Feminine", "feminine"],
-        ["Neuter", "neuter"],
-        ["Plural", "plural"],
-      ]
+      definite.slots.map((slot) => slot.mark).slice().sort(),
+      ["feminine", "masculine", "neuter", "plural"]
     );
     assert.deepEqual(
       card("case.table.indefinite", "table.indefinite.by-case.nominative").slots.map(
-        (slot) => [slot.label, slot.mark]
-      ),
-      [
-        ["Masculine", "masculine"],
-        ["Feminine", "feminine"],
-        ["Neuter", "neuter"],
-        ["Kein", "kein"],
-      ]
+        (slot) => slot.mark
+      ).slice().sort(),
+      ["feminine", "kein", "masculine", "neuter"]
     );
+    const columnOrders = ["nominative", "accusative", "dative"].map((id) =>
+      card("case.table.definite", `table.definite.by-case.${id}`)
+        .slots.map((slot) => slot.mark)
+        .join(",")
+    );
+    assert.ok(columnOrders.some((order) => order !== "masculine,feminine,neuter,plural"));
     assert.deepEqual(
-      card("case.table.definite", "table.definite.by-case.dative").slots.map((slot) => slot.form),
-      ["dem", "der", "dem", "den"]
+      card("case.table.definite", "table.definite.by-case.dative").slots.map((slot) => slot.form).slice().sort(),
+      ["dem", "dem", "den", "der"]
     );
     const indefinite = card("case.table.indefinite", "table.indefinite.by-case.dative");
     assert.deepEqual(
-      indefinite.slots.map((slot) => slot.form),
-      ["einem", "einer", "einem", "keinen"]
+      indefinite.slots.map((slot) => slot.form).slice().sort(),
+      ["einem", "einem", "einer", "keinen"]
     );
     const forms = declensionDeck("case.table.indefinite")
       .filter((item) => item.quizType === "table-choose")
@@ -67,17 +63,23 @@ describe("declension tables", () => {
     assert.equal(feminine.prompt, "Feminine");
     assert.equal(feminine.mark, "feminine");
     assert.deepEqual(
-      feminine.slots.map((slot) => [slot.label, slot.form]),
+      feminine.slots.map((slot) => [slot.label, slot.form]).slice().sort(),
       [
-        ["Nominative", "die"],
         ["Accusative", "die"],
         ["Dative", "der"],
+        ["Nominative", "die"],
       ]
     );
+    const caseOrders = ["masculine", "feminine", "neuter", "plural"].map((id) =>
+      card("case.table.definite", `table.definite.by-column.${id}`)
+        .slots.map((slot) => slot.label)
+        .join(",")
+    );
+    assert.ok(caseOrders.some((order) => order !== "Nominative,Accusative,Dative"));
     const kein = card("case.table.indefinite", "table.indefinite.by-column.kein");
     assert.equal(kein.mark, "kein");
     assert.deepEqual(
-      kein.slots.map((slot) => slot.form),
+      kein.slots.map((slot) => slot.form).slice().sort(),
       ["keine", "keine", "keinen"]
     );
   });
@@ -104,10 +106,14 @@ describe("declension tables", () => {
 
   it("accepts die in both feminine and plural slots", () => {
     const row = card("case.table.definite", "table.definite.by-case.nominative");
-    const grades = gradeDeclensionAnswer(row, ["der", "die", "das", "die"]);
+    const grades = gradeDeclensionAnswer(row, row.slots.map((slot) => slot.form));
     assert.ok(grades.every((cell) => cell.correct));
-    const missed = gradeDeclensionAnswer(row, ["der", "die", "das", "der"]);
-    assert.equal(missed[3].correct, false);
-    assert.equal(missed[1].correct, true);
+    const pluralIndex = row.slots.findIndex((slot) => slot.mark === "plural");
+    const feminineIndex = row.slots.findIndex((slot) => slot.mark === "feminine");
+    const wrong = row.slots.map((slot) => slot.form);
+    wrong[pluralIndex] = "der";
+    const missed = gradeDeclensionAnswer(row, wrong);
+    assert.equal(missed[pluralIndex].correct, false);
+    assert.equal(missed[feminineIndex].correct, true);
   });
 });

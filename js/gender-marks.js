@@ -30,11 +30,18 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
-/** Inline mark. `label` is the visible word; the icon is decorative. */
-export function genderMarkHtml(markId, label) {
+/**
+ * Inline mark. `label` is the visible word; the icon is decorative.
+ * `stacked` puts the word above a larger icon (By gender cue).
+ */
+export function genderMarkHtml(markId, label, opts = {}) {
   const path = ICONS[markId] || "";
+  const iconClass = opts.stacked ? "gender-icon gender-icon-lg" : "gender-icon";
   const icon = path
-    ? `<svg xmlns="http://www.w3.org/2000/svg" class="gender-icon" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">${path}</svg>`
+    ? `<svg xmlns="http://www.w3.org/2000/svg" class="${iconClass}" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">${path}</svg>`
     : "";
+  if (opts.stacked) {
+    return `<span class="gender-cue"><span class="gender-cue-label">${escapeHtml(label)}</span><br>${icon}</span>`;
+  }
   return `<span class="gender-mark">${escapeHtml(label)}${icon}</span>`;
 }

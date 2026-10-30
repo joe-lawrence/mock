@@ -127,16 +127,19 @@ function cellsOf(table) {
 
 function byCaseCard(unitId, table, rowIndex) {
   const row = CASES[rowIndex];
-  const slots = table.columns.map((column, columnIndex) => {
-    const form = table.forms[rowIndex][columnIndex];
-    return {
-      id: `${row.id}:${column.id}`,
-      mark: column.id,
-      label: column.label,
-      form,
-      assesses: `article.${table.kind}.${row.id}.${column.id}`,
-    };
-  });
+  const slots = shuffle(
+    table.columns.map((column, columnIndex) => {
+      const form = table.forms[rowIndex][columnIndex];
+      return {
+        id: `${row.id}:${column.id}`,
+        mark: column.id,
+        label: column.label,
+        form,
+        assesses: `article.${table.kind}.${row.id}.${column.id}`,
+      };
+    }),
+    `${table.kind}:case-slots:${row.id}`
+  );
   return Object.freeze({
     id: `table.${table.kind}.by-case.${row.id}`,
     playId: `table.${table.kind}.by-case.${row.id}`,
@@ -154,13 +157,16 @@ function byCaseCard(unitId, table, rowIndex) {
 
 function byColumnCard(unitId, table, columnIndex) {
   const column = table.columns[columnIndex];
-  const slots = CASES.map((row, rowIndex) => ({
-    id: `${row.id}:${column.id}`,
-    mark: "",
-    label: row.label,
-    form: table.forms[rowIndex][columnIndex],
-    assesses: `article.${table.kind}.${row.id}.${column.id}`,
-  }));
+  const slots = shuffle(
+    CASES.map((row, rowIndex) => ({
+      id: `${row.id}:${column.id}`,
+      mark: "",
+      label: row.label,
+      form: table.forms[rowIndex][columnIndex],
+      assesses: `article.${table.kind}.${row.id}.${column.id}`,
+    })),
+    `${table.kind}:gender-slots:${column.id}`
+  );
   return Object.freeze({
     id: `table.${table.kind}.by-column.${column.id}`,
     playId: `table.${table.kind}.by-column.${column.id}`,

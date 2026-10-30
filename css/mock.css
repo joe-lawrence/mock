@@ -3940,6 +3940,44 @@ html[data-theme="dark"] .quiz-visual-svg {
   flex: 0 0 auto;
 }
 
+.stimulus-shell-cue:has(.gender-cue) {
+  display: block;
+  text-align: center;
+}
+
+.dial-cue:has(.gender-cue),
+.slot-caption:has(.gender-cue) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.gender-cue {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  text-align: center;
+}
+
+.gender-cue br {
+  display: none;
+}
+
+.gender-cue-label {
+  display: block;
+  line-height: 1;
+}
+
+.gender-cue .gender-icon-lg {
+  display: block;
+  width: 1.45rem;
+  height: 1.45rem;
+  margin: 0;
+}
+
 .slot.slot-labeled {
   flex-direction: column;
   gap: 0.2rem;
@@ -3947,6 +3985,12 @@ html[data-theme="dark"] .quiz-visual-svg {
   letter-spacing: 0;
   color: var(--ink);
   font-size: 1rem;
+}
+
+.slot.slot-labeled:has(.gender-cue) {
+  gap: 0.4rem;
+  padding-top: 0.8rem;
+  padding-bottom: 0.7rem;
 }
 
 .slot-caption {
@@ -3960,6 +4004,21 @@ html[data-theme="dark"] .quiz-visual-svg {
 .slot.slot-labeled.is-filled .slot-caption {
   color: var(--faint);
   font-size: 0.68rem;
+}
+
+.slot.slot-labeled .slot-caption:has(.gender-cue) {
+  line-height: 1;
+  margin: 0;
+  padding: 0;
+}
+
+.slot.slot-labeled.is-filled .slot-caption:has(.gender-cue) {
+  font-size: 0.82rem;
+}
+
+.slot.slot-labeled:has(.gender-cue) .slot-value {
+  line-height: 1;
+  margin: 0.2rem 0 0.25rem;
 }
 
 .slot.slot-labeled .gender-mark {
@@ -4008,6 +4067,8 @@ html[data-theme="dark"] .quiz-visual-svg {
   background: var(--signal-soft);
   border-color: var(--signal);
   border-style: solid;
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
 }
 
 .slot.is-filled {
@@ -4165,6 +4226,22 @@ html[data-theme="dark"] .quiz-visual-svg {
   text-decoration-style: dotted;
   text-underline-offset: 0.2em;
   border-radius: 8px;
+}
+
+.slot.slot-labeled.slot-tint-masc {
+  background: color-mix(in srgb, var(--masc) 10%, var(--surface));
+}
+
+.slot.slot-labeled.slot-tint-fem {
+  background: color-mix(in srgb, var(--fem) 10%, var(--surface));
+}
+
+.slot.slot-labeled.slot-tint-neut {
+  background: color-mix(in srgb, var(--neut) 10%, var(--surface));
+}
+
+.slot.slot-labeled.slot-tint-plur {
+  background: color-mix(in srgb, var(--de-gold) 24%, var(--surface));
 }
 
 .g-tag {
