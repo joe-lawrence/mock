@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { JSDOM } from "jsdom";
 import { getCaseStep } from "./case-curriculum.js";
-import { caseChartHtml, caseLearnHtml } from "./case-practice.js";
+import { caseChartHtml, caseHubHtml, caseLearnHtml } from "./case-practice.js";
 import { renderProse } from "./md-lite.js";
 import { buildHelpModel, renderHelpSheetHtml } from "./help-sheet.js";
 import {
@@ -30,6 +30,27 @@ describe("learner markup", () => {
     const html = renderProse("Use a <tag> & such.\n\n- `die`\n- `das`");
     assert.match(html, /a &lt;tag&gt; &amp; such/);
     assert.match(html, /<ul class="ref-prose"><li><code class="de-form" lang="de">die<\/code><\/li>/);
+  });
+});
+
+describe("Case hub", () => {
+  it("adds a vocabulary row to each case topic that has words", () => {
+    const html = caseHubHtml();
+    for (const topicId of ["accusative", "dative", "mixed"]) {
+      assert.match(
+        html,
+        new RegExp(
+          `data-vocab-introduced-by="case\\.${topicId}"[^>]*>Learn</button>`
+        )
+      );
+      assert.match(
+        html,
+        new RegExp(
+          `data-vocab-mode="practice"[^>]*data-vocab-introduced-by="case\\.${topicId}"`
+        )
+      );
+    }
+    assert.equal(html.includes("case.declension"), false);
   });
 });
 

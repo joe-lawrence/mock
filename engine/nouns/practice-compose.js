@@ -1350,6 +1350,95 @@ export function composeCaseFrameItems(unitId, opts = {}) {
 }
 
 /**
+ * Vocab surfaces whose spelling is not the frame construction id.
+ * A later word needs no entry when its surface already matches `construction`.
+ */
+const CASE_SURFACE_CONSTRUCTION = Object.freeze({
+  für: "fuer",
+  "warten auf": "warten-auf",
+  "passen zu": "passen-zu",
+});
+
+const caseExampleCache = new Map();
+
+function caseConstructionId(surface) {
+  const key = String(surface || "").trim();
+  return CASE_SURFACE_CONSTRUCTION[key] || key;
+}
+
+function itemsForCaseConstruction(construction) {
+  if (construction === "sehen" || construction === "haben") {
+    return composeCaseAccusativeItems({ concepts: CASE_ACCUSATIVE_CONCEPTS }).filter(
+      (item) =>
+        (construction === "haben" && String(item.contextId).includes("habe")) ||
+        (construction === "sehen" && String(item.contextId).includes("sehe"))
+    );
+  }
+  const items = [];
+  for (const [unitId, unit] of Object.entries(CASE_FRAME_UNITS)) {
+    if (!(unit.frames || []).some((frame) => frame.construction === construction)) continue;
+    for (const item of composeCaseFrameItems(unitId, { concepts: unit.concepts })) {
+      if (item.construction === construction) items.push(item);
+    }
+  }
+  return items;
+}
+
+function sentenceForArticleKind(item, kind) {
+  if (!item || item.number === "plural") return "";
+  if (item.articleKind === kind && item.sentence) return item.sentence;
+  let article = "";
+  try {
+    article = articleForm(item.gender, {
+      kind,
+      number: "singular",
+      case: item.case,
+    });
+  } catch {
+    return "";
+  }
+  if (!article || item.before == null || item.after == null) return "";
+  return `${item.before}${article}${item.after}`.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Green-answer phrases for one Case word, taken from the composed drill items.
+ * One noun per gender. Definite sentences first, then indefinite.
+ * The other article is the drill's own sentence when that card exists.
+ * @param {string} surface — vocabulary surface (`für`, `finden`, `geben`)
+ * @returns {string[]}
+ */
+export function caseExampleSentences(surface) {
+  const key = String(surface || "").trim();
+  if (caseExampleCache.has(key)) return caseExampleCache.get(key);
+  const grouped = new Map();
+  for (const item of itemsForCaseConstruction(caseConstructionId(key))) {
+    if (!item?.sentence || item.target === "noun") continue;
+    if (item.case === "nominative" || item.number === "plural") continue;
+    if (!item.gender) continue;
+    if (!grouped.has(item.gender)) grouped.set(item.gender, []);
+    grouped.get(item.gender).push(item);
+  }
+  const definite = [];
+  const indefinite = [];
+  const seen = new Set();
+  const push = (list, sentence) => {
+    if (!sentence || seen.has(sentence)) return;
+    seen.add(sentence);
+    list.push(sentence);
+  };
+  for (const group of grouped.values()) {
+    const def = group.find((item) => item.articleKind === "definite") || group[0];
+    const indef = group.find((item) => item.articleKind === "indefinite") || group[0];
+    push(definite, sentenceForArticleKind(def, "definite"));
+    push(indefinite, sentenceForArticleKind(indef, "indefinite"));
+  }
+  const phrases = Object.freeze([...definite, ...indefinite]);
+  caseExampleCache.set(key, phrases);
+  return phrases;
+}
+
+/**
  * Choice set for an article blank (known forms only).
  * @param {"definite"|"indefinite"} kind
  * @param {"nominative"|"accusative"|"dative"} grammaticalCase

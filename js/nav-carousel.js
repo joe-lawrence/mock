@@ -3,15 +3,18 @@
  * Standalone page or embedded hub in the main mock.
  */
 
-import { NUMBERS_TOPICS, modesForStep } from "./numbers-curriculum.js?v=20260930-dmo18";
+import { NUMBERS_TOPICS, modesForStep } from "./numbers-curriculum.js?v=20261030-lexsentences";
 import {
+  familiesForUnit,
+  GENDER_SHORTCUTS_UNITS,
   genderShortcutsNavUnits,
   modesForNounsStep,
   nounPresetMatchesCaps,
   nounsCellsMatchingCaps,
   pluralNavUnits,
 } from "./nouns-curriculum.js?v=20261027-casetype";
-import { topicHasVocabulary } from "./vocabulary-ui.js?v=20260930-vocab16";
+import { topicHasVocabulary } from "./vocabulary-ui.js?v=20261030-composeex";
+import { vocabulary } from "./generated/vocabulary.js?v=20261030-casetakes";
 import { caseNavTopics } from "./case-curriculum.js?v=20261029-declension";
 
 const CAPS_KEY = "schnapp-nav-caps";
@@ -27,26 +30,46 @@ const GAME_SVG = `<svg viewBox="0 0 16 16" width="52" height="52" fill="currentC
 
 const PLAY_SVG = `<svg viewBox="0 0 16 16" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M11.596 8.697l-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>`;
 
-/** Nouns territory: Vocabulary, Gender Shortcuts, and Plurals. */
+/*
+ * Return mark: Bootstrap Icons “arrow-90deg-up”.
+ * The MIT License (MIT)
+ * Copyright (c) 2019-2024 The Bootstrap Authors
+ * https://github.com/twbs/icons
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+const RETURN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-arrow-90deg-up" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><!-- Bootstrap Icons — MIT License — Copyright (c) 2019-2024 The Bootstrap Authors --><path fill-rule="evenodd" d="M4.854 1.146a.5.5 0 0 0-.708 0l-4 4a.5.5 0 1 0 .708.708L4 2.707V12.5A2.5 2.5 0 0 0 6.5 15h8a.5.5 0 0 0 0-1h-8A1.5 1.5 0 0 1 5 12.5V2.707l3.146 3.147a.5.5 0 1 0 .708-.708z"/></svg>`;
+
+/*
+ * Guided mark: Font Awesome Free “map-signs”.
+ * Font Awesome Free is free, open source, and GPL friendly.
+ * https://fontawesome.com/license/free
+ * Icons: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+ * Fonts: SIL OFL 1.1 — https://scripts.sil.org/OFL
+ * Code: MIT — https://opensource.org/licenses/MIT
+ */
+const GUIDED_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="56" height="56" fill="currentColor" aria-hidden="true"><!-- Font Awesome Free — https://fontawesome.com License — https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT) --><path d="M507.31 84.69L464 41.37c-6-6-14.14-9.37-22.63-9.37H288V16c0-8.84-7.16-16-16-16h-32c-8.84 0-16 7.16-16 16v16H56c-13.25 0-24 10.75-24 24v80c0 13.25 10.75 24 24 24h385.37c8.49 0 16.62-3.37 22.63-9.37l43.31-43.31c6.25-6.26 6.25-16.38 0-22.63zM224 496c0 8.84 7.16 16 16 16h32c8.84 0 16-7.16 16-16V384h-64v112zm232-272H288v-32h-64v32H70.63c-8.49 0-16.62 3.37-22.63 9.37L4.69 276.69c-6.25 6.25-6.25 16.38 0 22.63L48 342.63c6 6 14.14 9.37 22.63 9.37H456c13.25 0 24-10.75 24-24v-80c0-13.25-10.75-24-24-24z"/></svg>`;
+
+/** Nouns territory: Gender Shortcuts and Plurals. Vocabulary lives on the first hub card. */
 const NOUNS_BRANCH = {
   id: "nouns",
   title: "Nouns",
   type: "topic",
   territory: "nouns",
   children: [
-    ...(topicHasVocabulary("nouns")
-      ? [
-          {
-            id: "nouns:vocabulary",
-            title: "Vocabulary",
-            type: "unit",
-            territory: "nouns",
-            playable: true,
-            kind: "vocabulary",
-            vocabTopic: "nouns",
-          },
-        ]
-      : []),
     {
       id: "nouns:gender-shortcuts",
       title: "Gender Shortcuts",
@@ -79,25 +102,144 @@ const NOUNS_BRANCH = {
   ],
 };
 
+/** Active vocab items grouped by introduced_by (`numbers.time`, `nouns.suffixes`). */
+function vocabIntroGroups() {
+  /** @type {Map<string, { territory: string, unitId: string, area: string|null }>} */
+  const groups = new Map();
+  for (const item of Object.values(vocabulary)) {
+    if (item.status && item.status !== "active") continue;
+    for (const tag of item.introduced_by || []) {
+      const [territory, unitId] = String(tag).split(".");
+      if (!territory || !unitId || groups.has(tag)) continue;
+      groups.set(tag, { territory, unitId, area: item.area || null });
+    }
+  }
+  return groups;
+}
+
+/** First hub card: select every vocab deck, or drill in and pick units. */
+function vocabularyNavBranch() {
+  const groups = vocabIntroGroups();
+  const children = [];
+  for (const topic of NUMBERS_TOPICS) {
+    const group = groups.get(`numbers.${topic.id}`);
+    if (!group || !topic.playable) continue;
+    const mirrorUnitIds = (topic.steps || [])
+      .filter((step) => step.playable)
+      .map((step) => `${topic.id}:${step.id}`);
+    if (!mirrorUnitIds.length) continue;
+    children.push({
+      id: `vocabulary:numbers:${topic.id}`,
+      title: topic.label,
+      kicker: "Numbers",
+      type: "unit",
+      territory: "numbers",
+      playable: true,
+      kind: "vocabulary",
+      vocabTopic: "numbers",
+      vocabArea: group.area,
+      vocabIntroducedBy: `numbers.${topic.id}`,
+      mirrorUnitIds,
+    });
+  }
+  for (const unit of GENDER_SHORTCUTS_UNITS) {
+    const group = groups.get(`nouns.${unit.id}`);
+    if (!group || unit.playable === false) continue;
+    children.push({
+      id: `vocabulary:nouns:${unit.id}`,
+      title: unit.label,
+      kicker: "Nouns",
+      type: "unit",
+      territory: "nouns",
+      playable: true,
+      kind: "vocabulary",
+      vocabTopic: "nouns",
+      vocabIntroducedBy: `nouns.${unit.id}`,
+      mirrorUnitIds: [`nouns:gs:${unit.id}`],
+    });
+  }
+  for (const topic of caseNavTopics()) {
+    const mirrorUnitIds = (topic.children || [])
+      .filter((unit) => unit.playable !== false && unit.stepId)
+      .map((unit) => unit.id);
+    const group = groups.get(`case.${topic.topicId}`);
+    if (!group || !mirrorUnitIds.length) continue;
+    children.push({
+      id: `vocabulary:case:${topic.topicId}`,
+      title: topic.title,
+      kicker: "Case",
+      type: "unit",
+      territory: "case",
+      playable: true,
+      kind: "vocabulary",
+      vocabTopic: "case",
+      vocabIntroducedBy: `case.${topic.topicId}`,
+      mirrorUnitIds,
+    });
+  }
+  if (!children.length) return null;
+  return {
+    id: "vocabulary",
+    title: "Vocabulary",
+    type: "subtopic",
+    territory: "vocabulary",
+    children,
+  };
+}
+
+/**
+ * Keep a vocab card and its curriculum units in the same selection.
+ * Turning a vocab card on or off moves every mirrored unit with it.
+ * Turning units on or off selects the vocab card only when all of its units are on.
+ * @param {Iterable<string>} selected
+ * @param {string[]} toggledIds
+ * @param {boolean} turningOn
+ * @param {object[]} vocabUnits
+ * @returns {Set<string>}
+ */
+export function selectionAfterToggle(selected, toggledIds, turningOn, vocabUnits) {
+  const next = new Set(selected);
+  const touched = new Set(toggledIds || []);
+  for (const id of touched) {
+    if (turningOn) next.add(id);
+    else next.delete(id);
+  }
+  for (const vocab of vocabUnits || []) {
+    const mirrors = vocab.mirrorUnitIds || [];
+    if (!mirrors.length) continue;
+    if (touched.has(vocab.id)) {
+      for (const id of mirrors) {
+        if (turningOn) next.add(id);
+        else next.delete(id);
+      }
+      continue;
+    }
+    if (!mirrors.some((id) => touched.has(id))) continue;
+    const allOn = mirrors.every((id) => next.has(id));
+    if (allOn) next.add(vocab.id);
+    else next.delete(vocab.id);
+  }
+  return next;
+}
+
+/**
+ * A vocab card means the session is those words.
+ * Mirrored curriculum units stay checked, and they are not the quiz.
+ * @param {object[]} units
+ */
+export function practiceUnitsForSelection(units) {
+  const list = Array.isArray(units) ? units.filter(Boolean) : [];
+  const vocab = list.filter((u) => u.kind === "vocabulary" || u.vocabTopic);
+  if (vocab.length) return vocab;
+  return list;
+}
+
 /**
  * Build nav tree from Numbers curriculum + Nouns stub.
  * Unit ids are `topicId:stepId` for Numbers.
  */
 export function buildNavTree() {
   const numbersChildren = [
-    ...(topicHasVocabulary("numbers")
-      ? [
-          {
-            id: "numbers:vocabulary",
-            title: "Vocabulary",
-            type: "unit",
-            territory: "numbers",
-            playable: true,
-            kind: "vocabulary",
-            vocabTopic: "numbers",
-          },
-        ]
-      : []),
     ...NUMBERS_TOPICS.map((t) => ({
       id: `numbers:${t.id}`,
       title: t.label,
@@ -117,7 +259,22 @@ export function buildNavTree() {
     })),
   ];
 
+  const vocabulary = vocabularyNavBranch();
+  const caseVocabUnits = (vocabulary?.children || []).filter(
+    (unit) => unit.vocabTopic === "case"
+  );
+  const caseChildren = caseNavTopics();
+  if (caseVocabUnits.length) {
+    caseChildren.unshift({
+      id: "case:vocabulary",
+      title: "Vocabulary",
+      type: "subtopic",
+      territory: "case",
+      children: caseVocabUnits,
+    });
+  }
   return [
+    ...(vocabulary ? [vocabulary] : []),
     {
       id: "numbers",
       title: "Numbers",
@@ -131,7 +288,7 @@ export function buildNavTree() {
       title: "Case",
       type: "topic",
       territory: "case",
-      children: caseNavTopics(),
+      children: caseChildren,
     },
   ];
 }
@@ -167,13 +324,64 @@ export function unitMatchesPlayCaps(u, c = { keyboard: true, audio: true }) {
   return false;
 }
 
+/**
+ * Dealer keys covered by the units chosen on the hub.
+ * Vocabulary cards are outside the dealer. A Gender Shortcuts card covers its families.
+ * @param {object[]} units
+ * @returns {string[]}
+ */
+export function guidedBoundKeysForUnits(units) {
+  const keys = [];
+  const seen = new Set();
+  const add = (key) => {
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    keys.push(key);
+  };
+  for (const u of units || []) {
+    if (!u || u.playable === false) continue;
+    if (u.kind === "vocabulary" || u.vocabTopic) continue;
+    if (u.territory === "numbers" && u.topicId && u.stepId) {
+      add(`numbers:${u.topicId}:${u.stepId}`);
+    } else if (u.territory === "case" && u.topicId && u.stepId) {
+      add(`case:${u.topicId}:${u.stepId}`);
+    } else if (u.territory === "nouns" && u.learnUnitId) {
+      for (const f of familiesForUnit(u.learnUnitId)) {
+        add(`nouns:${u.learnUnitId}:${f.id}`);
+      }
+    } else if (u.territory === "nouns" && u.topicId && u.stepId) {
+      add(`nouns:${u.topicId}:${u.stepId}`);
+    }
+  }
+  return keys;
+}
+
+/** Playable vocabulary units under a nav tree, in depth-first order. */
+export function vocabularyUnitsIn(nodes) {
+  const out = [];
+  function walk(list) {
+    for (const n of list || []) {
+      if (
+        n.type === "unit" &&
+        n.playable !== false &&
+        (n.kind === "vocabulary" || n.vocabTopic)
+      ) {
+        if (!out.some((unit) => unit.id === n.id)) out.push(n);
+      }
+      if (n.children?.length) walk(n.children);
+    }
+  }
+  walk(nodes);
+  return out;
+}
+
 /** Depth-first unit order for Learn (and stable playlist order). */
 export function unitTreeOrderMap(tree = buildNavTree()) {
   const map = new Map();
   let i = 0;
   function walk(nodes) {
     for (const n of nodes || []) {
-      if (n.type === "unit") map.set(n.id, i++);
+      if (n.type === "unit" && !map.has(n.id)) map.set(n.id, i++);
       if (n.children?.length) walk(n.children);
     }
   }
@@ -196,21 +404,21 @@ function shellHtml({ embedded }) {
       <section class="nc-screen nc-screen-mode is-active" data-nc-screen="1">
         ${brand}
         <h1 class="nc-mode-title">Choose a path</h1>
-        <p class="nc-mode-lede">Learn opens unit reference. Play practices or mixes quiz modalities.</p>
+        <p class="nc-mode-lede">Learn opens unit reference. Guided and Play start from the units you pick.</p>
         <div class="nc-mode-stack">
           <button type="button" class="nc-mode-card" data-enter="learn">
             <span class="nc-mode-icon">${HAT_SVG}</span>
             <span class="nc-mode-label">Learn</span>
+          </button>
+          <button type="button" class="nc-mode-card nc-mode-guided" data-enter="guided">
+            <span class="nc-mode-icon">${GUIDED_SVG}</span>
+            <span class="nc-mode-label">Guided</span>
           </button>
           <button type="button" class="nc-mode-card nc-mode-play" data-enter="play">
             <span class="nc-mode-icon">${GAME_SVG}</span>
             <span class="nc-mode-label">Play</span>
           </button>
         </div>
-        <button type="button" class="nc-guided" data-guided>
-          <span class="nc-start-icon">${PLAY_SVG}</span>
-          <span>Start guided</span>
-        </button>
       </section>
 
       <section class="nc-screen nc-screen-nav" data-nc-screen="2" hidden>
@@ -261,7 +469,7 @@ export function mountNavCarousel(container, options = {}) {
   })(tree);
 
   const state = {
-    mode: /** @type {"learn"|"play"|null} */ (null),
+    mode: /** @type {"learn"|"play"|"guided"|null} */ (null),
     navStack: /** @type {object[]} */ ([]),
     selected: new Set(),
     keyboard: true,
@@ -334,9 +542,24 @@ export function mountNavCarousel(container, options = {}) {
   }
 
   /** Selected units that can actually run under current caps (Play). */
+  function unitBoundsGuided(u) {
+    if (!u || u.playable === false) return false;
+    if (u.kind === "vocabulary" || u.vocabTopic) return false;
+    if (u.territory === "numbers" && u.topicId && u.stepId) return true;
+    if (u.territory === "nouns" && (u.learnUnitId || (u.topicId && u.stepId))) return true;
+    if (u.territory === "case" && u.topicId && u.stepId) return true;
+    return false;
+  }
+
   function eligibleUnits() {
-    if (state.mode === "learn") return selectedUnits();
-    return selectedUnits().filter((u) => unitMatchesCaps(u));
+    const selected = practiceUnitsForSelection(selectedUnits());
+    const vocabOnly = selected.some((u) => u.kind === "vocabulary" || u.vocabTopic);
+    if (state.mode === "learn") return selected;
+    if (vocabOnly) return selected.filter((u) => unitMatchesCaps(u));
+    if (state.mode === "guided") {
+      return selected.filter((u) => unitBoundsGuided(u) && unitMatchesCaps(u));
+    }
+    return selected.filter((u) => unitMatchesCaps(u));
   }
 
   function closePlaylist() {
@@ -486,21 +709,19 @@ export function mountNavCarousel(container, options = {}) {
   function renderCrumbs() {
     if (!crumbsEl) return;
     if (state.navStack.length === 0) {
+      crumbsEl.classList.remove("is-vocab-row");
       crumbsEl.setAttribute("hidden", "");
       crumbsEl.innerHTML = "";
       return;
     }
+    crumbsEl.classList.remove("is-vocab-row");
+    crumbsEl.setAttribute("aria-label", "Parent");
     const parent = state.navStack[state.navStack.length - 1];
     const sel = getNodeSelectionState(parent);
-    let badge = "";
-    if (sel === "all") badge = CHECK_SVG;
-    else if (sel === "some") badge = `<span class="nc-mini-dot"></span>`;
-
     crumbsEl.removeAttribute("hidden");
     crumbsEl.innerHTML = `
       <div class="nc-mini is-${sel}" role="button" tabindex="0" title="Back to ${parent.title}" data-go-up>
-        <div class="nc-mini-badge">${badge}</div>
-        <p class="nc-mini-title">${parent.title}</p>
+        <p class="nc-mini-title">${RETURN_SVG}<span>${parent.title}</span></p>
       </div>
     `;
     const mini = crumbsEl.querySelector("[data-go-up]");
@@ -537,10 +758,14 @@ export function mountNavCarousel(container, options = {}) {
         ? `<div class="nc-card-hint">Soon</div>`
         : `<div class="nc-card-hint" aria-hidden="true">&nbsp;</div>`;
 
+    const title = item.kicker
+      ? `<span class="nc-card-kicker">${item.kicker}</span><span class="nc-card-title-line">${item.title}</span>`
+      : item.title;
+
     card.innerHTML = `
       <div class="nc-card-badge">${badge}</div>
       <div class="nc-card-main">
-        <h3 class="nc-card-title">${item.title}</h3>
+        <h3 class="nc-card-title">${title}</h3>
         ${footer}
       </div>
     `;
@@ -612,9 +837,13 @@ export function mountNavCarousel(container, options = {}) {
   function toggleNodeSelection(node) {
     const ids = getAllUnitIds(node);
     if (!ids.length) return;
-    const sel = getNodeSelectionState(node);
-    if (sel === "all") ids.forEach((id) => state.selected.delete(id));
-    else ids.forEach((id) => state.selected.add(id));
+    const turningOn = getNodeSelectionState(node) !== "all";
+    state.selected = selectionAfterToggle(
+      state.selected,
+      ids,
+      turningOn,
+      vocabularyUnitsIn(tree)
+    );
     renderNav();
   }
 
@@ -684,6 +913,7 @@ export function mountNavCarousel(container, options = {}) {
       keyboard: state.keyboard,
       audio: state.audio,
       practice,
+      guided: state.mode === "guided",
     };
 
     closePlaylist();
@@ -699,8 +929,10 @@ export function mountNavCarousel(container, options = {}) {
     ]
       .filter(Boolean)
       .join("+") || "pick";
+    const modeLabel =
+      state.mode === "learn" ? "Learn" : state.mode === "guided" ? "Guided" : "Play";
     showToast(
-      `${state.mode === "learn" ? "Learn" : "Play"} · ${units.length} unit${
+      `${modeLabel} · ${units.length} unit${
         units.length === 1 ? "" : "s"
       } · ${capsLabel}`
     );
@@ -760,13 +992,6 @@ export function mountNavCarousel(container, options = {}) {
 
   root.querySelectorAll("[data-enter]").forEach((btn) => {
     btn.addEventListener("click", () => enterMode(btn.dataset.enter));
-  });
-  root.querySelector("[data-guided]")?.addEventListener("click", () => {
-    if (onStart) {
-      onStart({ guided: true });
-    } else {
-      showToast("Guided start — Dealer picks your next rep.");
-    }
   });
   playlistSheet?.querySelectorAll("[data-nc-playlist-close]").forEach((el) => {
     el.addEventListener("click", () => {

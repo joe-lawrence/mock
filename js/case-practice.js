@@ -4,6 +4,7 @@
  */
 
 import { CASE_TOPICS } from "./case-curriculum.js";
+import { vocabularyForScope } from "./generated/vocabulary.js?v=20261030-casetakes";
 import { escapeHtml } from "./md-lite.js";
 import {
   renderChartLookupHtml,
@@ -12,6 +13,26 @@ import {
 
 function esc(s) {
   return escapeHtml(s);
+}
+
+function caseVocabRow(topic) {
+  const words = vocabularyForScope("case", {
+    introducedBy: [`case.${topic.id}`],
+  });
+  if (!words.length) return "";
+  const introducedBy = esc(`case.${topic.id}`);
+  return `<li class="numbers-step-row vocab-hub-row">
+      <div class="numbers-step-copy">
+        <strong>Vocabulary</strong>
+        <span class="numbers-step-blurb">Words this topic introduces.</span>
+      </div>
+      <div class="numbers-step-actions">
+        <div class="numbers-step-actions-main">
+          <button type="button" class="btn" data-vocab-open data-vocab-mode="learn" data-vocab-territory="case" data-vocab-introduced-by="${introducedBy}">Learn</button>
+          <button type="button" class="btn btn-primary" data-vocab-open data-vocab-mode="practice" data-vocab-territory="case" data-vocab-introduced-by="${introducedBy}">Practice</button>
+        </div>
+      </div>
+    </li>`;
 }
 
 export function caseHubHtml() {
@@ -23,6 +44,8 @@ export function caseHubHtml() {
           ${topic.blurb ? `<span class="numbers-step-blurb">${esc(topic.blurb)}</span>` : ""}
         </div>
       </li>`);
+    const vocab = caseVocabRow(topic);
+    if (vocab) rows.push(vocab);
     for (const step of topic.steps || []) {
       rows.push(`<li class="numbers-step-row">
         <div class="numbers-step-copy">

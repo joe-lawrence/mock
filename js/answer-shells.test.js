@@ -179,7 +179,7 @@ describe("answer shells (Slice 2)", () => {
     assert.equal(p.playable, true);
   });
 
-  it("adds visual-freeform on Time / Fractions; cloze removed (141 cells)", () => {
+  it("adds visual-freeform on Time / Fractions; cloze removed (142 cells)", () => {
     assert.ok(
       modesForStep("time", "minutes").some((m) => m.id === "visual-freeform")
     );
@@ -193,8 +193,8 @@ describe("answer shells (Slice 2)", () => {
         }
       }
     }
-    // 148 − 12 am-dative date/ordinal cells
-    assert.equal(n, 136);
+    // 136 prior cells + 6 support-word sentence units
+    assert.equal(n, 142);
   });
 
   it("mountPartSlots shows Part captions and a pick replaces the caption", () => {

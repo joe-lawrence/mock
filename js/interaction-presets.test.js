@@ -76,8 +76,8 @@ describe("interaction presets (Slice 0–1)", () => {
         }
       }
     }
-    // 148 − 12 am-dative date/ordinal cells (days, full dates, ordinals-in-dates)
-    assert.equal(n, 136);
+    // 136 prior cells + 6 support-word sentence units
+    assert.equal(n, 142);
   });
 
   it("normalizeLaunchInteraction uses preset= / stimulus×response (not mode=)", () => {

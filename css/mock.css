@@ -2771,6 +2771,7 @@ button.syl:disabled,
 
 .actions-nav.is-assist-open > .btn-icon[id$="-back"],
 .actions-nav.is-assist-open > .btn-icon[id$="-skip"],
+.actions-nav.is-assist-open > .btn-icon[id$="-next"],
 .actions-nav.is-assist-open .btn-icon[id$="-help"] {
   opacity: 0.4;
   pointer-events: none;
@@ -2779,6 +2780,24 @@ button.syl:disabled,
 .actions-nav.is-assist-open .assist-stepper,
 .actions-nav.is-assist-open .btn-icon[id$="-difficulty"] {
   pointer-events: auto;
+}
+
+/*
+ * While open, keep the pill in the nav's box. An absolute pill drawn above
+ * the bar is visible on iPhone but the scrollport + scrim never hit-tests it,
+ * so the chevrons cannot change the selection.
+ */
+.actions-nav.is-assist-open .actions-mid {
+  flex-direction: column;
+}
+
+.actions-nav.is-assist-open .assist-stepper {
+  position: static;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  transform: none;
+  margin: 0 0 0.45rem;
 }
 
 /* Assist speedometer glow: Independent / Some help / More help */
@@ -2828,8 +2847,8 @@ html[data-theme="dark"] .btn-icon[id$="-difficulty"].assist-glow-some {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: var(--touch);
+  height: var(--touch);
   margin: 0;
   padding: 0;
   border: 0;
@@ -4912,8 +4931,25 @@ html[data-theme="dark"] .quiz-visual-svg {
   margin: 0 0 0.35rem;
 }
 
+.vocab-case-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.55rem;
+}
+
+.vocab-case-line .slot {
+  flex: 0 0 auto;
+  min-width: 5.75rem;
+  cursor: default;
+}
+
 .vocab-panel .prompt {
   margin: 0 0 0.65rem;
+}
+
+.vocab-panel .prompt-lang {
+  margin-top: 0;
 }
 
 .vocab-panel .help-line {

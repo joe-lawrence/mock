@@ -82,7 +82,7 @@ import {
   suggestNumbersFocus,
   formatNumbersFocusLabel,
   directionsForNumbersCell,
-} from "./numbers-curriculum.js?v=20261021-am1";
+} from "./numbers-curriculum.js?v=20261030-lexsentences";
 import {
   GENDER_SHORTCUTS_UNITS,
   NOUNS_STUB_TOPICS,
@@ -121,6 +121,7 @@ import {
   isDeclensionUnit,
 } from "../engine/nouns/declension-table.js?v=20261030-caseorder";
 import { genderMarkHtml } from "./gender-marks.js?v=20261030-genderstack";
+import { FLAG_DE_SVG, FLAG_EN_SVG } from "./lang-flags.js?v=20261030-langflag";
 import {
   addUserCard,
   buildReviewQuestion,
@@ -135,7 +136,7 @@ import {
   caseLearnHtml,
   caseUserFormHtml,
   casePassageHtml,
-} from "./case-practice.js?v=20261027-analysis";
+} from "./case-practice.js?v=20261030-casehubvocab";
 import { pluralPool } from "./plurals-pools.js?v=20261027-relengine";
 import {
   orderPluralTrayLabels,
@@ -159,6 +160,7 @@ import {
 } from "./answer-placeholders.js?v=20261027-typeflex";
 
 import { DECIMAL_POOLS } from "./decimals-pools.js?v=20261027-relengine";
+import { SUPPORT_LEXICON_POOLS } from "./support-lexicon.js?v=20261030-haelfte";
 import {
   FRACTION_POOLS,
   FRACTION_POOL_BUILDERS,
@@ -197,8 +199,15 @@ import {
   pieDialMatchesFraction,
 } from "./quiz-extras.js?v=20261027-relengine";
 
-import { mountNavCarousel } from "./nav-carousel.js?v=20261029-declension";
+import { guidedBoundKeysForUnits, mountNavCarousel } from "./nav-carousel.js?v=20261030-composeex";
 import { keysSkippedByJump } from "./guided-jump.js";
+import {
+  noteQuizNavEntry,
+  quizNavAtTip,
+  quizNavBackDisabled as quizNavBackIsDisabled,
+  stepQuizNavBack,
+  stepQuizNavForward,
+} from "./quiz-nav.js?v=20261030-quiznav";
 import {
   caseSentenceKey,
   pickCaseExerciseIndex,
@@ -236,12 +245,12 @@ import {
   wireReferenceNav,
   referenceIdForPracticeContext,
   getReference,
-} from "./reference-ui.js?v=20261027-casegroup";
+} from "./reference-ui.js?v=20261030-lexsentences";
 import {
   buildHelpModel,
   renderHelpSheetHtml,
   wireHelpSheet,
-} from "./help-sheet.js?v=20261027-casegroup";
+} from "./help-sheet.js?v=20261030-casetakes";
 import {
   freshSupportVector,
   climbHelpRung,
@@ -299,11 +308,11 @@ import {
   mountVocabularyPanel,
   topicHasVocabulary,
   vocabAreasFromCurriculumTopics,
-} from "./vocabulary-ui.js?v=20261027-retry";
+} from "./vocabulary-ui.js?v=20261030-composeex";
 import {
   vocabularyAreas,
   curriculumTopicToVocabArea,
-} from "./generated/vocabulary.js?v=20260930-vocab17";
+} from "./generated/vocabulary.js?v=20261030-casetakes";
 import {
   emptyPlaylistState,
   buildNumbersCatalog,
@@ -1188,7 +1197,8 @@ Object.assign(
   TIME_POOLS,
   DATE_POOLS,
   MEASURE_POOLS,
-  ORDINAL_POOLS
+  ORDINAL_POOLS,
+  SUPPORT_LEXICON_POOLS
 );
 
 const WRITTENISH_KINDS = new Set([
@@ -1729,6 +1739,16 @@ const SENTENCE_FRAME_GUIDES = Object.freeze({
   Hier: { guide: "heer" },
   Ich: { guide: "ikh" },
   ist: { guide: "ist" },
+  Hast: { guide: "hahst" },
+  du: { guide: "doo" },
+  kostet: { guide: "KOS-tet", stress: true },
+  zähle: { guide: "TSEH-luh", stress: true },
+  bis: { guide: "biss" },
+  Meine: { guide: "MY-nuh", stress: true },
+  meine: { guide: "MY-nuh", stress: true },
+  Welches: { guide: "VEL-khes", stress: true },
+  Wie: { guide: "vee" },
+  um: { guide: "oom" },
   sehe: { guide: "ZAY-uh", stress: true },
   habe: { guide: "HAH-buh", stress: true },
   mag: { guide: "mahk" },
@@ -1754,6 +1774,7 @@ const SENTENCE_FRAME_GUIDES = Object.freeze({
   danke: { guide: "DAHN-kuh", stress: true },
   gefällt: { guide: "guh-FELT", stress: true },
   kommt: { guide: "kohmt" },
+  komme: { guide: "KOH-muh", stress: true },
   aus: { guide: "ows" },
   für: { guide: "fuer" },
   zeigt: { guide: "tsaykt" },
@@ -3402,6 +3423,14 @@ const NOUN_SINGULAR_PARTS = {
     { text: "das", guide: "dahs" },
     { text: "Kleid", guide: "klyte", stress: true },
   ],
+  Autos: [
+    { text: "Au", guide: "OW", stress: true },
+    { text: "tos", guide: "tohs" },
+  ],
+  Büros: [
+    { text: "Bü", guide: "BUE", stress: true },
+    { text: "ros", guide: "rohs" },
+  ],
   Kindern: [{ text: "Kindern", guide: "KIN-dern", stress: true }],
   Hunden: [{ text: "Hunden", guide: "HOON-den", stress: true }],
   Frauen: [{ text: "Frauen", guide: "FROW-en", stress: true }],
@@ -3414,6 +3443,130 @@ const NOUN_SINGULAR_PARTS = {
     { text: "die", guide: "dee" },
     { text: "Kat", guide: "KAT", stress: true },
     { text: "ze", guide: "tsuh" },
+  ],
+  // Numbers vocabulary that is not on a chart row.
+  Anzahl: [
+    { text: "die", guide: "dee" },
+    { text: "An", guide: "AHN", stress: true },
+    { text: "zahl", guide: "tsahl" },
+  ],
+  zählen: [
+    { text: "zäh", guide: "TSEH", stress: true },
+    { text: "len", guide: "len" },
+  ],
+  Menge: [
+    { text: "die", guide: "dee" },
+    { text: "Men", guide: "MENG", stress: true },
+    { text: "ge", guide: "uh" },
+  ],
+  Sekunde: [
+    { text: "die", guide: "dee" },
+    { text: "Se", guide: "ze" },
+    { text: "kun", guide: "KOON", stress: true },
+    { text: "de", guide: "duh" },
+  ],
+  Preis: [
+    { text: "der", guide: "dair" },
+    { text: "Preis", guide: "PRYSS", stress: true },
+  ],
+  kosten: [
+    { text: "kos", guide: "KOST", stress: true },
+    { text: "ten", guide: "ten" },
+  ],
+  Geld: [
+    { text: "das", guide: "dahs" },
+    { text: "Geld", guide: "GELT", stress: true },
+  ],
+  billig: [
+    { text: "bil", guide: "BIL", stress: true },
+    { text: "lig", guide: "likh" },
+  ],
+  teuer: [
+    { text: "teu", guide: "TOY", stress: true },
+    { text: "er", guide: "er" },
+  ],
+  sehen: [
+    { text: "seh", guide: "ZEE", stress: true },
+    { text: "en", guide: "en" },
+  ],
+  haben: [
+    { text: "ha", guide: "HAH", stress: true },
+    { text: "ben", guide: "ben" },
+  ],
+  für: [{ text: "für", guide: "fuer", stress: true }],
+  ohne: [
+    { text: "oh", guide: "OH", stress: true },
+    { text: "ne", guide: "nuh" },
+  ],
+  brauchen: [
+    { text: "brau", guide: "BROW", stress: true },
+    { text: "chen", guide: "khen" },
+  ],
+  suchen: [
+    { text: "su", guide: "ZOO", stress: true },
+    { text: "chen", guide: "khen" },
+  ],
+  nehmen: [
+    { text: "neh", guide: "NEE", stress: true },
+    { text: "men", guide: "men" },
+  ],
+  finden: [
+    { text: "fin", guide: "FIN", stress: true },
+    { text: "den", guide: "den" },
+  ],
+  "warten auf": [
+    { text: "war", guide: "VAR", stress: true },
+    { text: "ten", guide: "ten" },
+    { text: "auf", guide: "owf" },
+  ],
+  helfen: [
+    { text: "hel", guide: "HEL", stress: true },
+    { text: "fen", guide: "fen" },
+  ],
+  mit: [{ text: "mit", guide: "mit", stress: true }],
+  aus: [{ text: "aus", guide: "ows", stress: true }],
+  danken: [
+    { text: "dan", guide: "DAHN", stress: true },
+    { text: "ken", guide: "ken" },
+  ],
+  gefallen: [
+    { text: "ge", guide: "guh" },
+    { text: "fal", guide: "FAHL", stress: true },
+    { text: "len", guide: "len" },
+  ],
+  "passen zu": [
+    { text: "pas", guide: "PAHS", stress: true },
+    { text: "sen", guide: "en" },
+    { text: "zu", guide: "tsoo" },
+  ],
+  zeigen: [
+    { text: "zei", guide: "TSY", stress: true },
+    { text: "gen", guide: "gen" },
+  ],
+  geben: [
+    { text: "ge", guide: "GAY", stress: true },
+    { text: "ben", guide: "ben" },
+  ],
+  Hälfte: [
+    { text: "die", guide: "dee" },
+    { text: "Hälf", guide: "HELF", stress: true },
+    { text: "te", guide: "tuh" },
+  ],
+  doppelt: [
+    { text: "dop", guide: "DOP", stress: true },
+    { text: "pelt", guide: "pelt" },
+  ],
+  einmal: [
+    { text: "ein", guide: "INE", stress: true },
+    { text: "mal", guide: "mahl" },
+  ],
+  zweimal: [
+    { text: "zwei", guide: "TSVAI", stress: true },
+    { text: "mal", guide: "mahl" },
+  ],
+  Maß: [
+    { text: "das", guide: "dahs" },
+    { text: "Maß", guide: "MAHS", stress: true },
   ],
 };
 
@@ -3498,6 +3651,11 @@ const NOUN_PLURAL_PARTS = {
     { text: "die", guide: "dee" },
     { text: "Au", guide: "OW", stress: true },
     { text: "tos", guide: "tohs" },
+  ],
+  Büro: [
+    { text: "die", guide: "dee" },
+    { text: "Bü", guide: "BUE", stress: true },
+    { text: "ros", guide: "rohs" },
   ],
 };
 
@@ -6419,6 +6577,11 @@ const state = {
   caseSlotFocus: 0,
   caseHistory: [],
   caseHistoryIndex: -1,
+  /** Shared Back/Forward trail across every quiz and unit. */
+  quizNavTrail: [],
+  quizNavIndex: -1,
+  quizNavKeepTrail: false,
+  vocabResume: null,
   casePassage: [],
   numbersFilled: [],
   numbersSlotFocus: 0,
@@ -6501,6 +6664,8 @@ const state = {
   vocabMode: "learn",
   /** Optional Numbers Vocabulary area filter (null = all). */
   vocabAreas: null,
+  /** introduced_by prefixes for the open vocabulary deck. Null means every word in the areas. */
+  vocabIntroducedBy: null,
   /** Shared Learn/Practice Custom mix playlist (session crumb dropdown). */
   sessionPlaylist: emptyPlaylistState(),
   /** @type {{ destroy: Function, refresh: Function } | null} */
@@ -6539,6 +6704,8 @@ const state = {
   navCaps: null,
   /** Active session mode for the persistent header: learn | play | guided. */
   sessionMode: null,
+  /** Guided dealer keys chosen on the hub. Null means the full curriculum. */
+  guidedBoundKeys: null,
   /** @type {{ code: string, label: string, hint?: string } | null} Dealer reason. */
   currentReasonCode: null,
   /** Guided: dealer decision log for this session (debug). */
@@ -6718,7 +6885,7 @@ function defaultPlaylistSequence() {
   return state.sessionMode === "play" ? "random" : "order";
 }
 
-function seedNumbersPlaylist(quizUnits, { vocabOnly = false } = {}) {
+function seedNumbersPlaylist(quizUnits, { vocabOnly = false, vocabAreas = null } = {}) {
   const catalog = buildNumbersCatalog(
     NUMBERS_TOPICS,
     vocabularyAreas.numbers || [],
@@ -6726,7 +6893,14 @@ function seedNumbersPlaylist(quizUnits, { vocabOnly = false } = {}) {
     quizUnits || [],
     { includeVocab: true, forceAllTopics: false }
   );
-  const ids = catalogUnitIds(catalog);
+  let ids = catalogUnitIds(catalog);
+  if (Array.isArray(vocabAreas) && vocabAreas.length) {
+    const allow = new Set(vocabAreas);
+    ids = ids.filter((id) => {
+      if (!id.startsWith("vocab:numbers:")) return true;
+      return allow.has(id.slice("vocab:numbers:".length));
+    });
+  }
   state.sessionPlaylist = {
     initialUnitIds: [...ids],
     enabledUnitIds: [...ids],
@@ -7150,6 +7324,7 @@ function setNavCaps({ keyboard, audio }) {
   }
   state.numbersMixMode = mixModeForCaps(state.numbersMixMode || "either");
   clearNumbersHistory();
+  clearQuizNavTrail();
   if (state.sessionPlaylist?.kind === "case") {
     rebuildSessionFromPlaylist();
     return;
@@ -7226,6 +7401,8 @@ function refreshPlaylistChrome() {
 
 /** Short breadcrumb segments for the persistent session header. */
 function sessionCrumbParts(view) {
+  const phase = state.phase[view];
+  if (phase === "vocab-learn" || phase === "vocab-practice") return ["Vocabulary"];
   if (view === "numbers") {
     if (state.sessionPlaylist?.kind === "numbers-vocab") return ["Vocabulary"];
     const snap = numbersActiveNavSnapshot();
@@ -7696,6 +7873,10 @@ function syncTerritoryMenu(territoryId) {
         btn.dataset.nounsUnit === state.nounsLearnUnit;
       btn.classList.toggle("is-on", on);
     });
+  } else if (territoryId === "case") {
+    menu.querySelectorAll("[data-case-hub]").forEach((btn) => {
+      btn.classList.toggle("is-on", phase === "hub");
+    });
   } else {
     const modeAttr = "soundsMode";
     menu.querySelectorAll(`[data-${territoryId}-mode]`).forEach((btn) => {
@@ -7790,6 +7971,7 @@ function applyNumbersFocus({
 }
 
 function startNumbersPractice(focus) {
+  clearQuizNavTrail();
   clearCrossTerritoryMix();
   state.sessionMode = state.sessionMode || "play";
   seedNumbersPlaylist([{ topicId: focus.topicId, stepId: focus.stepId }]);
@@ -7918,18 +8100,19 @@ function consumeCurriculumLaunch() {
   }
 
   if (params.get("learn") === "1" && moduleId === "numbers") {
-    openNumbersStepLearn(params.get("topic") || "", params.get("step") || "");
-    return true;
+    return openNumbersStepLearn(params.get("topic") || "", params.get("step") || "");
   }
 
   if (params.get("vocab") === "1") {
-    if (moduleId !== "numbers" && moduleId !== "nouns") return false;
+    if (moduleId !== "numbers" && moduleId !== "nouns" && moduleId !== "case") return false;
     const mode = params.get("mode") === "practice" ? "practice" : "learn";
     const area = params.get("area") || "";
     const opts =
-      moduleId === "numbers" && area && area !== "gender-lexicon"
-        ? { areas: [area] }
-        : {};
+      moduleId === "case" && area
+        ? { introducedBy: [`case.${area}`] }
+        : moduleId === "numbers" && area && area !== "gender-lexicon"
+          ? { areas: [area] }
+          : {};
     openVocabulary(moduleId, mode, opts);
     return true;
   }
@@ -8045,14 +8228,16 @@ function startNumbersMix() {
 
 function openNumbersStepLearn(topicId, stepId) {
   const step = getNumbersStep(topicId, stepId);
-  if (!step) return;
+  if (!step) return false;
 
   if (step.chartTab && numbersChart[step.chartTab]) {
     state.numbersChartTab = step.chartTab;
     state.phase.numbers = "chart";
     state.preservePractice.numbers = false;
-    showTerritoryPhase("numbers");
-    return;
+    // showTerritoryPhase alone paints the chart inside a hidden view.
+    // Cold Learn-chart links from the curriculum browser stay on the hub.
+    navigate("numbers", { keepPhase: true });
+    return true;
   }
 
   const cue = softAfterLabel(topicId, step);
@@ -8064,6 +8249,7 @@ function openNumbersStepLearn(topicId, stepId) {
      <p>A dedicated chart for this step lands later. Use the Reference Chart for Cardinals forms that already have tabs.</p>`
   );
   wireLearnSeriesChrome(document.getElementById("sheet-body"));
+  return true;
 }
 
 /** Map carousel / hub Nouns learn unit → reference chart tab. */
@@ -8168,6 +8354,7 @@ function applyNounsCell(topicId, stepId, modeId) {
  * @param {{ topicId: string, stepId: string, modeId?: string, difficulty?: string }} focus
  */
 function startNounsPractice(focus) {
+  clearQuizNavTrail();
   const topicId = focus.topicId || topicIdForStep(focus.stepId) || "";
   const stepId = focus.stepId || "";
   const modeId =
@@ -8195,6 +8382,7 @@ function startNounsPractice(focus) {
 
 /** @deprecated use startNounsPractice — family id is the unit (step) id. */
 function startNounsFamily(familyId, { mix = false } = {}) {
+  clearQuizNavTrail();
   const topicId = topicIdForStep(familyId) || unitIdForFamily(familyId);
   if (mix) {
     clearCrossTerritoryMix();
@@ -8232,6 +8420,16 @@ function goNounsHub(opts = {}) {
     state.nounsHubPracticePick = opts.openPractice ? opts.unitId : "";
   }
   navigate("nouns", { keepPhase: true });
+}
+
+function goCaseHub() {
+  clearCrossTerritoryMix();
+  clearLearnSeries();
+  stopSpeech();
+  destroyVocabMount();
+  state.preservePractice.case = false;
+  state.phase.case = "hub";
+  navigate("case", { keepPhase: true });
 }
 
 function goNumbersHub() {
@@ -8282,9 +8480,16 @@ function destroyVocabMount() {
 }
 
 function openVocabulary(territoryId, mode, opts = {}) {
+  clearQuizNavTrail();
   destroyVocabMount();
-  state.sessionMode = mode === "practice" ? "play" : "learn";
+  if (state.sessionMode !== "guided") {
+    state.sessionMode = mode === "practice" ? "play" : "learn";
+  }
   state.vocabMode = mode === "practice" ? "practice" : "learn";
+  state.vocabIntroducedBy =
+    Array.isArray(opts.introducedBy) && opts.introducedBy.length
+      ? opts.introducedBy
+      : null;
   if (opts.areas !== undefined) {
     state.vocabAreas =
       Array.isArray(opts.areas) && opts.areas.length ? opts.areas : null;
@@ -8301,8 +8506,13 @@ function openVocabulary(territoryId, mode, opts = {}) {
     territoryId === "numbers" &&
     !(state.sessionPlaylist?.catalog?.length)
   ) {
-    seedNumbersPlaylist([], { vocabOnly: true });
-    state.vocabAreas = enabledVocabAreas(state.sessionPlaylist);
+    seedNumbersPlaylist([], {
+      vocabOnly: true,
+      vocabAreas: Array.isArray(opts.areas) ? opts.areas : null,
+    });
+    if (opts.areas === undefined) {
+      state.vocabAreas = enabledVocabAreas(state.sessionPlaylist);
+    }
   }
   state.phase[territoryId] =
     mode === "practice" ? "vocab-practice" : "vocab-learn";
@@ -8314,12 +8524,31 @@ function renderVocabularyPanel(territoryId) {
   const root = document.getElementById(`${territoryId}-vocab`);
   if (!root) return;
   destroyVocabMount();
-  const topic = territoryId === "nouns" ? "nouns" : "numbers";
+  const topic =
+    territoryId === "nouns" ? "nouns" : territoryId === "case" ? "case" : "numbers";
+  const resume = state.vocabResume;
+  state.vocabResume = null;
   state.vocabMount = mountVocabularyPanel(root, {
     topic,
     mode: state.vocabMode || "learn",
+    seriesHtml: learnSeriesChromeHtml(),
+    onSeriesChrome: (el) => wireLearnSeriesChrome(el),
     areas: topic === "numbers" ? state.vocabAreas : null,
+    introducedBy: state.vocabIntroducedBy,
+    resume,
     onItemChange: () => refreshPlaylistChrome(),
+    onShown: (snap) => {
+      if (!quizNavAtSessionTip()) return;
+      noteQuizNavTip({
+        view: "vocab",
+        territory: snap.territory || topic,
+        key: `${snap.territory || topic}:${snap.key}`,
+        vocabSnap: snap,
+      });
+    },
+    onBackNav: () => quizNavBack(),
+    onForward: () => quizNavForward(),
+    backDisabled: () => quizNavBackDisabled(),
     onBack: () => {
       stopSpeech({ keepAdvance: true });
       destroyVocabMount();
@@ -8331,6 +8560,7 @@ function renderVocabularyPanel(territoryId) {
       else openReferenceBrowse({ territory });
     },
     answerPartsForItem: vocabAnswerParts,
+    sentenceAnswerParts: (sentence) => sentenceAnswerParts(sentence),
     resolvePronunciation: resolveAnswerPronunciation,
     playFeedback: playFeedbackSound,
     playReveal: (spoken, parts, nodes, onDone) => {
@@ -9273,7 +9503,13 @@ function renderCasePractice() {
   const back = document.getElementById("case-back");
   if (back) back.disabled = caseBackDisabled();
   const next = document.getElementById("case-next");
-  if (next) next.disabled = !(state.caseDeck || []).length;
+  if (next) {
+    const reviewing = !quizNavAtSessionTip();
+    next.disabled =
+      !reviewing &&
+      !(state.caseDeck || []).length &&
+      state.sessionMode !== "guided";
+  }
   if (question?.quizType === "listen" || question?.quizType === "listen-type") {
     speakVisibleListenPrompt();
   }
@@ -9349,6 +9585,7 @@ function applyCaseDeckFromPlaylist() {
 }
 
 function beginCasePractice(units, presetId) {
+  clearQuizNavTrail();
   const list = (units || []).filter(
     (u) => getCaseStep(u.topicId, u.stepId)?.playable
   );
@@ -9377,6 +9614,7 @@ function startCasePractice(topicId, stepId, presetId) {
 }
 
 function startCaseReview(source) {
+  clearQuizNavTrail();
   if (state.sessionMode !== "guided") {
     state.sessionMode = state.sessionMode === "learn" ? "learn" : "play";
   }
@@ -9722,6 +9960,115 @@ function clearCaseHistory() {
   state.caseHistoryIndex = -1;
 }
 
+function quizNavState() {
+  return {
+    trail: state.quizNavTrail || [],
+    index: state.quizNavIndex ?? -1,
+  };
+}
+
+function writeQuizNav(nav) {
+  state.quizNavTrail = nav?.trail || [];
+  state.quizNavIndex = nav?.index ?? -1;
+}
+
+function quizNavAtSessionTip() {
+  return quizNavAtTip(quizNavState());
+}
+
+function clearQuizNavTrail() {
+  if (state.quizNavKeepTrail) return;
+  writeQuizNav({ trail: [], index: -1 });
+}
+
+function noteQuizNavTip(entry) {
+  writeQuizNav(noteQuizNavEntry(quizNavState(), entry));
+}
+
+function quizNavBackDisabled() {
+  return quizNavBackIsDisabled(quizNavState());
+}
+
+function restoreQuizNavEntry(entry) {
+  if (!entry) return false;
+  if (entry.view === "numbers" && entry.numbersSnap) {
+    applyNumbersSnapshot(entry.numbersSnap);
+    alignNumbersHistoryIndex(entry.numbersSnap);
+    state.phase.numbers = "practice";
+    navigate("numbers", { keepPhase: true });
+    return true;
+  }
+  if (entry.view === "nouns" && entry.nounsSnap) {
+    applyNounsSnapshot(entry.nounsSnap);
+    alignNounsHistoryIndex(entry.nounsSnap);
+    state.phase.nouns = "practice";
+    navigate("nouns", { keepPhase: true });
+    return true;
+  }
+  if (entry.view === "case" && entry.caseSnap) {
+    applyCaseSnapshot(entry.caseSnap);
+    alignCaseHistoryIndex(entry.caseSnap);
+    const mode = entry.caseSnap.mode === "review" ? "review" : "practice";
+    state.caseMode = mode;
+    state.phase.case = mode;
+    navigate("case", { keepPhase: true });
+    return true;
+  }
+  if (entry.view === "sounds" && entry.soundsSnap) {
+    state.soundsMode = entry.soundsSnap.mode === "listen" ? "listen" : "karaoke";
+    state.soundsIndex = entry.soundsSnap.index || 0;
+    state.soundsChoice = null;
+    state.soundsChecked = false;
+    state.phase.sounds = "practice";
+    navigate("sounds", { keepPhase: true });
+    return true;
+  }
+  if (entry.view === "vocab" && entry.vocabSnap) {
+    const territory = entry.territory === "nouns" ? "nouns" : "numbers";
+    state.vocabResume = entry.vocabSnap;
+    state.vocabMode = entry.vocabSnap.mode === "practice" ? "practice" : "learn";
+    state.vocabAreas = entry.vocabSnap.areas ?? null;
+    state.phase[territory] =
+      state.vocabMode === "practice" ? "vocab-practice" : "vocab-learn";
+    navigate(territory, { keepPhase: true });
+    return true;
+  }
+  return false;
+}
+
+function quizNavBack() {
+  const stepped = stepQuizNavBack(quizNavState());
+  if (!stepped.entry) return false;
+  writeQuizNav(stepped.nav);
+  return restoreQuizNavEntry(stepped.entry);
+}
+
+/** @returns {"history"|"tip"} */
+function quizNavForward() {
+  const stepped = stepQuizNavForward(quizNavState());
+  if (stepped.kind === "history" && stepped.entry) {
+    writeQuizNav(stepped.nav);
+    restoreQuizNavEntry(stepped.entry);
+    return "history";
+  }
+  return "tip";
+}
+
+function alignNumbersHistoryIndex(snap) {
+  const hist = state.numbersHistory || [];
+  state.numbersHistoryIndex = hist.findIndex((item) => numbersSnapsMatch(item, snap));
+}
+
+function alignNounsHistoryIndex(snap) {
+  const hist = state.nounsHistory || [];
+  state.nounsHistoryIndex = hist.findIndex((item) => nounsSnapsMatch(item, snap));
+}
+
+function alignCaseHistoryIndex(snap) {
+  const hist = state.caseHistory || [];
+  state.caseHistoryIndex = hist.findIndex((item) => caseSnapsMatch(item, snap));
+}
+
 function caseHistoryBrowsing() {
   const hist = state.caseHistory || [];
   const i = state.caseHistoryIndex ?? -1;
@@ -9729,7 +10076,7 @@ function caseHistoryBrowsing() {
 }
 
 function caseBackDisabled() {
-  return (state.caseHistoryIndex ?? -1) <= 0;
+  return quizNavBackDisabled();
 }
 
 function caseActiveNavSnapshot() {
@@ -9774,12 +10121,22 @@ function applyCaseSnapshot(snap) {
   return true;
 }
 
+function noteCaseQuizNav(snap) {
+  if (!snap?.key || !quizNavAtSessionTip()) return;
+  noteQuizNavTip({
+    view: "case",
+    key: `${snap.key}|${snap.mode}|${snap.index}`,
+    caseSnap: snap,
+  });
+}
+
 function recordCaseHistoryTip() {
   const snap = captureCaseSnapshot();
   if (!snap) return;
   const hist = state.caseHistory || (state.caseHistory = []);
   if (hist.length && caseSnapsMatch(hist[hist.length - 1], snap)) {
     state.caseHistoryIndex = hist.length - 1;
+    noteCaseQuizNav(snap);
     return;
   }
   hist.push(snap);
@@ -9788,9 +10145,18 @@ function recordCaseHistoryTip() {
     hist.shift();
     state.caseHistoryIndex = Math.max(0, state.caseHistoryIndex - 1);
   }
+  noteCaseQuizNav(snap);
 }
 
 function ensureCaseHistoryForRender() {
+  if (!quizNavAtSessionTip()) {
+    const entry = (state.quizNavTrail || [])[state.quizNavIndex];
+    if (entry?.view === "case" && entry.caseSnap) {
+      applyCaseSnapshot(entry.caseSnap);
+      alignCaseHistoryIndex(entry.caseSnap);
+    }
+    return;
+  }
   if (caseHistoryBrowsing()) {
     applyCaseSnapshot(state.caseHistory[state.caseHistoryIndex]);
     return;
@@ -9875,6 +10241,20 @@ function showTerritoryPhase(territoryId) {
     const hub = document.getElementById("case-hub");
     const chart = document.getElementById("case-chart");
     const stage = document.getElementById("case-stage");
+    const vocab = document.getElementById("case-vocab");
+    if (phase === "vocab-learn" || phase === "vocab-practice") {
+      if (hub) hub.hidden = true;
+      if (chart) chart.hidden = true;
+      if (stage) stage.hidden = true;
+      if (vocab) {
+        vocab.hidden = false;
+        state.vocabMode = phase === "vocab-practice" ? "practice" : "learn";
+        renderVocabularyPanel("case");
+      }
+      stopSpeech();
+      return;
+    }
+    if (vocab) vocab.hidden = true;
     if (hub) hub.hidden = phase !== "hub";
     if (chart) chart.hidden = phase !== "chart";
     if (stage) stage.hidden = phase !== "practice" && phase !== "review" && phase !== "input";
@@ -10164,15 +10544,93 @@ function isVocabNavUnit(u) {
   return !!(u && (u.kind === "vocabulary" || u.vocabTopic));
 }
 
+/** Collapse area cards into one Numbers deck plus an optional Nouns deck. */
+function groupVocabForStart(vocabUnits) {
+  const numbers = [];
+  const nouns = [];
+  const caseVocab = [];
+  for (const u of vocabUnits || []) {
+    const topic = u.vocabTopic || u.territory;
+    if (topic === "case") caseVocab.push(u);
+    else if (topic === "nouns") nouns.push(u);
+    else numbers.push(u);
+  }
+  const out = [];
+  if (numbers.length) {
+    out.push({
+      id: "vocabulary:numbers",
+      title: "Numbers",
+      kind: "vocabulary",
+      vocabTopic: "numbers",
+      territory: "numbers",
+      playable: true,
+      vocabAreas: [...new Set(numbers.map((u) => u.vocabArea).filter(Boolean))],
+      vocabIntroducedBy: [
+        ...new Set(numbers.map((u) => u.vocabIntroducedBy).filter(Boolean)),
+      ],
+    });
+  }
+  if (nouns.length) {
+    out.push({
+      id: "vocabulary:nouns",
+      title: "Nouns",
+      kind: "vocabulary",
+      vocabTopic: "nouns",
+      territory: "nouns",
+      playable: true,
+      vocabIntroducedBy: [
+        ...new Set(nouns.map((u) => u.vocabIntroducedBy).filter(Boolean)),
+      ],
+    });
+  }
+  if (caseVocab.length) {
+    out.push({
+      id: "vocabulary:case",
+      title: "Case",
+      kind: "vocabulary",
+      vocabTopic: "case",
+      territory: "case",
+      playable: true,
+      vocabIntroducedBy: [
+        ...new Set(caseVocab.map((u) => u.vocabIntroducedBy).filter(Boolean)),
+      ],
+    });
+  }
+  return out;
+}
+
+function vocabOpenOptions(unit) {
+  const areas = Array.isArray(unit?.vocabAreas) && unit.vocabAreas.length
+    ? unit.vocabAreas
+    : unit?.vocabArea
+      ? [unit.vocabArea]
+      : undefined;
+  const introducedBy = Array.isArray(unit?.vocabIntroducedBy)
+    ? unit.vocabIntroducedBy
+    : unit?.vocabIntroducedBy
+      ? [unit.vocabIntroducedBy]
+      : undefined;
+  return {
+    ...(areas ? { areas } : {}),
+    ...(introducedBy?.length ? { introducedBy } : {}),
+  };
+}
+
 function handleNavCarouselStart({ mode, units, keyboard, audio, practice, guided }) {
-  // Guided: bypass manual playlist — Dealer picks the next rep directly.
-  if (guided) {
+  const vocabUnits = (units || []).filter(isVocabNavUnit);
+  const vocabSession = vocabUnits.length > 0 && vocabUnits.length === (units || []).length;
+  // Guided over curriculum units. A vocab selection stays on those words.
+  if ((guided || mode === "guided") && !vocabSession) {
+    state.navCaps = {
+      keyboard: keyboard ?? true,
+      audio: audio ?? true,
+    };
     clearSessionPlaylist();
-    startGuidedSession();
+    startGuidedSession(units);
     return;
   }
+  state.guidedBoundKeys = null;
 
-  const vocabUnits = units.filter(isVocabNavUnit);
   const numbersUnits = units.filter(
     (u) => u.territory === "numbers" && u.topicId && u.stepId && !isVocabNavUnit(u)
   );
@@ -10182,34 +10640,31 @@ function handleNavCarouselStart({ mode, units, keyboard, audio, practice, guided
   const caseUnits = units.filter((u) => u.territory === "case" && u.stepId);
 
   state.navCaps = { keyboard, audio };
-  state.sessionMode = mode === "learn" ? "learn" : "play";
+  state.sessionMode =
+    guided || mode === "guided" ? "guided" : mode === "learn" ? "learn" : "play";
   state.currentReasonCode = null;
   clearCrossTerritoryMix();
   clearLearnSeries();
   destroyPlaylistMount();
   resetSessionAuditLogs();
 
-  // Vocabulary-only selection → Vocabulary Learn/Practice panel
-  if (vocabUnits.length && !numbersUnits.length && !nounsUnits.length) {
-    const topic = vocabUnits[0].vocabTopic || vocabUnits[0].territory || "nouns";
-    const territoryId = topic === "nouns" ? "nouns" : "numbers";
-    if (territoryId === "numbers") {
-      seedNumbersPlaylist([], { vocabOnly: true });
-      state.vocabAreas = enabledVocabAreas(state.sessionPlaylist);
-      openVocabulary("numbers", mode === "learn" ? "learn" : "practice", {
-        areas: state.vocabAreas,
-      });
-    } else {
-      clearSessionPlaylist();
-      openVocabulary("nouns", mode === "learn" ? "learn" : "practice", {
-        areas: null,
-      });
+  // Vocabulary-only selection quizzes those words. Mirrored units are not dealt.
+  if (vocabUnits.length && !numbersUnits.length && !nounsUnits.length && !caseUnits.length) {
+    const grouped = groupVocabForStart(vocabUnits);
+    const vocabMode = mode === "learn" ? "learn" : "practice";
+    if (grouped.length > 1) {
+      startLearnSeries(grouped);
+      return;
     }
-    return;
+    if (grouped.length === 1) {
+      const g = grouped[0];
+      clearSessionPlaylist();
+      openVocabulary(g.vocabTopic || g.territory, vocabMode, vocabOpenOptions(g));
+      return;
+    }
   }
 
   if (mode === "learn") {
-    // Seed playlist for Numbers Learn when Numbers units present
     if (numbersUnits.length) {
       seedNumbersPlaylist(numbersUnits.map((u) => ({
         topicId: u.topicId,
@@ -10390,7 +10845,9 @@ function guidedCandidates() {
       });
     }
   }
-  return out;
+  const bound = state.guidedBoundKeys;
+  if (!bound) return out;
+  return out.filter((c) => bound.has(c.key));
 }
 
 /** Seed difficulty map for Dealer v1 (from interaction presets). */
@@ -10449,7 +10906,9 @@ function recentGuidedFeltDifficulty() {
 }
 
 /** Guided start — reset progress and let the Dealer pick the first rep. */
-function startGuidedSession() {
+function startGuidedSession(units) {
+  const keys = units?.length ? guidedBoundKeysForUnits(units) : null;
+  state.guidedBoundKeys = keys?.length ? new Set(keys) : null;
   state.navCaps = state.navCaps || { keyboard: true, audio: true };
   state.sessionMode = "guided";
   clearSessionPlaylist();
@@ -10460,6 +10919,7 @@ function startGuidedSession() {
   state.lastEvaluation = null;
   state.guidedCurrentKey = null;
   clearNumbersHistory();
+  clearQuizNavTrail();
   resetSessionAuditLogs();
   guidedDealAndGo();
 }
@@ -10642,8 +11102,13 @@ function continueGuided() {
     };
   }
   recordGuidedResult();
-  // History stays on the tip entry; Back still returns to prior questions.
-  guidedDealAndGo();
+  // Keep the shared trail so Back can return to this question from the next unit.
+  state.quizNavKeepTrail = true;
+  try {
+    guidedDealAndGo();
+  } finally {
+    state.quizNavKeepTrail = false;
+  }
   return true;
 }
 
@@ -11874,7 +12339,8 @@ function openLearnSeriesUnit() {
   closeSheet();
   if (isVocabNavUnit(u)) {
     const topic = u.vocabTopic || u.territory || "nouns";
-    openVocabulary(topic === "nouns" ? "nouns" : "numbers", "learn");
+    const vocabMode = state.sessionMode === "learn" ? "learn" : "practice";
+    openVocabulary(topic, vocabMode, vocabOpenOptions(u));
     return;
   }
   if (u.territory === "numbers" && u.topicId && u.stepId) {
@@ -11972,6 +12438,7 @@ function continueCrossTerritoryMix(fromTerritory) {
  * @returns {boolean}
  */
 function prepareNumbersFromPlaylist(numbersUnits, practice) {
+  clearQuizNavTrail();
   clearNumbersHistory();
 
   const prefModes = (practice?.numbersModes || []).filter((id) =>
@@ -12076,6 +12543,7 @@ function nounsPresetForCaps(topicId, stepId) {
  * @returns {boolean}
  */
 function prepareNounsFromPlaylist(nounsUnits, practice) {
+  clearQuizNavTrail();
   const playable = nounsUnits.filter((u) => u.playable !== false);
   if (!playable.length) return false;
 
@@ -13286,10 +13754,86 @@ function clockReadingChoices(meta, correctForm) {
   return shuffle([...picks]).slice(0, Math.max(1, Math.min(4, picks.size)));
 }
 
+/** Example sentence, or a support word quizzed on its own. */
+function renderLexSentence(meta) {
+  const revealDe = meta.revealDe || meta.form || "";
+  const expect = meta.expect || revealDe;
+  const ask =
+    meta.ask ||
+    (meta.promptLang === "de"
+      ? "Choose the meaning"
+      : meta.kind === "lex-word"
+        ? "Choose the German form"
+        : "Choose the German sentence");
+  const exercise = {
+    id: `ex.numbers.lex.${meta.id || expect}`,
+    materials: {
+      hint: meta.hint || "",
+      answerParts: sentenceAnswerParts(revealDe),
+      spoken: revealDe,
+    },
+    resolution: {
+      form: expect,
+      spoken: revealDe,
+      english: meta.english || "",
+    },
+  };
+  setCurrentExercise(exercise);
+  state.numbersChecked = false;
+  const stage = document.getElementById("numbers-stage");
+  if (stage) stage.dataset.mode = "sentence";
+  ensureSessionChip();
+  const cue =
+    meta.promptLang === "de"
+      ? promptDeHtml(escapeHtml(meta.prompt || ""))
+      : promptEnHtml(escapeHtml(meta.prompt || ""));
+  mountNumbersStimulus(STIMULUS.SENTENCE, { cueHtml: cue, ask });
+  clearAnswerReveal("numbers");
+  const back = document.getElementById("numbers-back");
+  if (back) back.disabled = numbersBackDisabled();
+  const slots = document.getElementById("numbers-slots");
+  slots.hidden = true;
+  slots.innerHTML = "";
+  const tray = document.getElementById("numbers-tray");
+  const choices = shuffle([...(meta.choices || [])]);
+  const stacked = choiceGridClass(choices).includes("is-stacked");
+  mountMultiSelectShell(tray, {
+    choices,
+    stacked,
+    ariaLabel: ask,
+    isDisabled: () => state.numbersChecked,
+    onPick: (choice, btn) => {
+      const ok = choice === expect;
+      if (ok) {
+        btn.classList.add("is-ok");
+        finishNumbersOk(exercise, revealDe);
+      } else {
+        btn.classList.add("is-bad");
+        btn.disabled = true;
+        const stillOpen = choiceSecondChanceOpen(
+          tray.querySelectorAll(".choice, .answer-shell-choice"),
+          btn
+        );
+        if (!stillOpen) {
+          revealNumbersChoiceMiss(exercise, choice, expect, revealDe);
+          return;
+        }
+        noteFirstMiss({ answer: choice, expected: expect });
+        showAttemptFeedback("numbers", "Try again");
+      }
+    },
+  });
+  syncTerritoryMenu("numbers");
+}
+
 function renderNumbersSentence() {
   clearNumbersAdvance();
   stopSpeech();
   const meta = currentNumberMeta();
+  if (meta?.kind === "example-sentence" || meta?.kind === "lex-word") {
+    renderLexSentence(meta);
+    return;
+  }
   const exercise = makeSentenceOrdinalExercise(meta, {
     difficulty: state.numbersDifficulty,
   });
@@ -13533,11 +14077,6 @@ function numbersLead(meta, fallback = "") {
 function numbersInstruction(mode, _meta) {
   return NUMBERS_INSTRUCTION[mode] || "";
 }
-
-/** Compact DE / EN flags for bilingual prompts (Build / Convert). */
-const FLAG_DE_SVG = `<svg class="lang-flag" width="30" height="20" viewBox="0 0 30 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M30 0H0V20H30V0Z" fill="#D80027"/><path d="M30 0H0V6.66643H30V0Z" fill="#000"/><path d="M30 13.3329H0V19.9994H30V13.3329Z" fill="#FFDA44"/></svg>`;
-
-const FLAG_EN_SVG = `<svg class="lang-flag" width="30" height="20" viewBox="0 0 30 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M30 0.00012207H0V20H30V0.00012207Z" fill="#F0F0F0"/><path d="M16.875 0H13.125V8.1248H0V11.8747H13.125V19.9995H16.875V11.8747H30V8.1248H16.875V0Z" fill="#D80027"/><path d="M23.0742 13.4779L30.0009 17.326V13.4779H23.0742Z" fill="#0052B4"/><path d="M18.2617 13.4779L30.0009 19.9995V18.1554L21.5813 13.4779H18.2617Z" fill="#0052B4"/><path d="M26.8739 19.9995L18.2617 15.2146V19.9995H26.8739Z" fill="#0052B4"/><path d="M18.2617 13.4779L30.0009 19.9995V18.1554L21.5813 13.4779H18.2617Z" fill="#D80027"/><path d="M5.29341 13.4778L0 16.4185V13.4778H5.29341Z" fill="#0052B4"/><path d="M11.7397 14.3071V19.9995H1.49414L11.7397 14.3071Z" fill="#0052B4"/><path d="M8.41951 13.4779L0 18.1554V19.9995L11.7391 13.4779H8.41951Z" fill="#D80027"/><path d="M6.92665 6.52159L0 2.67346V6.52159H6.92665Z" fill="#0052B4"/><path d="M11.7391 6.52159L0 0V1.84414L8.41951 6.52159H11.7391Z" fill="#0052B4"/><path d="M3.12695 0L11.7392 4.78491V0H3.12695Z" fill="#0052B4"/><path d="M11.7391 6.52159L0 0V1.84414L8.41951 6.52159H11.7391Z" fill="#D80027"/><path d="M24.707 6.5217L30.0004 3.58093V6.5217H24.707Z" fill="#0052B4"/><path d="M18.2617 5.69233V0H28.5072L18.2617 5.69233Z" fill="#0052B4"/><path d="M21.5813 6.52159L30.0009 1.84414V0L18.2617 6.52159H21.5813Z" fill="#D80027"/></svg>`;
 
 /** German cue line with DE flag (Build / Convert prompts). */
 function promptDeHtml(text) {
@@ -14575,6 +15114,10 @@ function scheduleNumbersAdvance(delayMs = 1500) {
     state.numbersAdvanceTimer = null;
     deferHeavy(() => {
       if (state.view !== "numbers") return;
+      if (!quizNavAtSessionTip()) {
+        quizNavForward();
+        return;
+      }
       if (continueGuided()) return;
       advanceNumbersItem();
       if (continueCrossTerritoryMix("numbers")) return;
@@ -14584,7 +15127,7 @@ function scheduleNumbersAdvance(delayMs = 1500) {
 }
 
 function numbersBackDisabled() {
-  return (state.numbersHistoryIndex ?? -1) <= 0;
+  return quizNavBackDisabled();
 }
 
 function clearNumbersHistory() {
@@ -14712,7 +15255,24 @@ function applyNumbersSnapshot(snap) {
  * Keep history aligned with the on-screen question.
  * Browsing → re-apply that entry. Tip → record live appearance.
  */
+function noteNumbersQuizNav(snap) {
+  if (!snap?.itemKey || !quizNavAtSessionTip()) return;
+  noteQuizNavTip({
+    view: "numbers",
+    key: `${snap.itemKey}|${snap.mode}|${snap.step}|${snap.topic}|${snap.sessionKind}`,
+    numbersSnap: snap,
+  });
+}
+
 function ensureNumbersHistoryForRender() {
+  if (!quizNavAtSessionTip()) {
+    const entry = (state.quizNavTrail || [])[state.quizNavIndex];
+    if (entry?.view === "numbers" && entry.numbersSnap) {
+      applyNumbersSnapshot(entry.numbersSnap);
+      alignNumbersHistoryIndex(entry.numbersSnap);
+    }
+    return;
+  }
   const hist = state.numbersHistory || (state.numbersHistory = []);
   if (numbersHistoryBrowsing()) {
     applyNumbersSnapshot(hist[state.numbersHistoryIndex]);
@@ -14734,6 +15294,7 @@ function recordNumbersHistoryTip() {
   if (hist.length && numbersSnapsMatch(hist[hist.length - 1], snap)) {
     state.numbersHistoryIndex = hist.length - 1;
     applyNumbersSnapshot(hist[hist.length - 1]);
+    noteNumbersQuizNav(snap);
     return;
   }
   hist.push(snap);
@@ -14743,6 +15304,7 @@ function recordNumbersHistoryTip() {
     hist.shift();
     state.numbersHistoryIndex = Math.max(0, state.numbersHistoryIndex - 1);
   }
+  noteNumbersQuizNav(snap);
 }
 
 /** Jump deck cursor to an item key; return false if not found. */
@@ -17587,7 +18149,7 @@ function clearNounsHistory() {
 }
 
 function nounsBackDisabled() {
-  return (state.nounsHistoryIndex ?? -1) <= 0;
+  return quizNavBackDisabled();
 }
 
 function setNounsBackDisabled() {
@@ -17621,7 +18183,24 @@ function applyNounsSnapshot(snap) {
   return true;
 }
 
+function noteNounsQuizNav(snap) {
+  if (!snap?.id || !quizNavAtSessionTip()) return;
+  noteQuizNavTip({
+    view: "nouns",
+    key: `${snap.id}|${snap.mode}|${snap.quizMode}|${snap.direction || ""}`,
+    nounsSnap: snap,
+  });
+}
+
 function ensureNounsHistoryForRender() {
+  if (!quizNavAtSessionTip()) {
+    const entry = (state.quizNavTrail || [])[state.quizNavIndex];
+    if (entry?.view === "nouns" && entry.nounsSnap) {
+      applyNounsSnapshot(entry.nounsSnap);
+      alignNounsHistoryIndex(entry.nounsSnap);
+    }
+    return;
+  }
   const hist = state.nounsHistory || (state.nounsHistory = []);
   if (nounsHistoryBrowsing()) {
     applyNounsSnapshot(hist[state.nounsHistoryIndex]);
@@ -17642,6 +18221,7 @@ function recordNounsHistoryTip() {
   if (hist.length && nounsSnapsMatch(hist[hist.length - 1], snap)) {
     state.nounsHistoryIndex = hist.length - 1;
     applyNounsSnapshot(hist[hist.length - 1]);
+    noteNounsQuizNav(snap);
     return;
   }
   hist.push(snap);
@@ -17651,6 +18231,7 @@ function recordNounsHistoryTip() {
     hist.shift();
     state.nounsHistoryIndex = Math.max(0, state.nounsHistoryIndex - 1);
   }
+  noteNounsQuizNav(snap);
 }
 
 function retreatNounsItem() {
@@ -17727,6 +18308,10 @@ function scheduleNounsAdvance(delayMs = 1500) {
     state.nounsAdvanceTimer = null;
     deferHeavy(() => {
       if (state.view !== "nouns") return;
+      if (!quizNavAtSessionTip()) {
+        quizNavForward();
+        return;
+      }
       if (continueGuided()) return;
       advanceNounsItem();
       if (continueCrossTerritoryMix("nouns")) return;
@@ -18853,6 +19438,7 @@ function openSessionHelp(opts) {
 
 let assistStepperHideTimer = null;
 let assistStepperOutsideBound = false;
+let assistOutsideToken = 0;
 
 function currentAssistFormats() {
   const ix = currentInteractionIds();
@@ -19037,6 +19623,7 @@ function hideAssistStepper() {
     clearTimeout(assistStepperHideTimer);
     assistStepperHideTimer = null;
   }
+  assistOutsideToken += 1;
   document.querySelectorAll(".assist-stepper").forEach((el) => {
     el.hidden = true;
   });
@@ -19045,7 +19632,7 @@ function hideAssistStepper() {
     btn.setAttribute("aria-expanded", "false");
   });
   if (assistStepperOutsideBound) {
-    document.removeEventListener("pointerdown", onAssistStepperOutside, true);
+    document.removeEventListener("click", onAssistStepperOutside);
     assistStepperOutsideBound = false;
   }
 }
@@ -19082,8 +19669,14 @@ function showAssistStepper() {
   paintAssistStepper();
   bumpAssistStepperTimeout();
   if (!assistStepperOutsideBound) {
-    document.addEventListener("pointerdown", onAssistStepperOutside, true);
-    assistStepperOutsideBound = true;
+    // Wait until the opening tap finishes. Binding during that click
+    // would treat it as an outside tap and close the pill immediately.
+    const token = (assistOutsideToken += 1);
+    setTimeout(() => {
+      if (token !== assistOutsideToken || stepper.hidden) return;
+      document.addEventListener("click", onAssistStepperOutside);
+      assistStepperOutsideBound = true;
+    }, 0);
   }
 }
 
@@ -19356,6 +19949,10 @@ function wireAssistStepper(id) {
   if (!el || el.dataset.assistBound === "1") return;
   el.dataset.assistBound = "1";
   let lastAt = 0;
+  el.addEventListener("pointerdown", (e) => {
+    if (!e.target.closest?.("[data-assist-dir]")) return;
+    e.stopPropagation();
+  });
   const onDir = (e) => {
     const dirBtn = e.target.closest?.("[data-assist-dir]");
     if (!dirBtn || dirBtn.disabled || !el.contains(dirBtn)) return;
@@ -19406,21 +20003,18 @@ function soundsNavRow(backBtn, skipBtn) {
 }
 
 function soundsBack() {
-  if (state.soundsIndex <= 0) return;
-  state.soundsIndex -= 1;
-  renderSounds();
+  quizNavBack();
 }
 
 function soundsSkip() {
+  if (quizNavForward() === "history") return;
   if (continueGuided()) return;
   state.soundsIndex += 1;
   renderSounds();
 }
 
 function soundsContinue() {
-  if (continueGuided()) return;
-  state.soundsIndex += 1;
-  renderSounds();
+  soundsSkip();
 }
 
 function renderSounds() {
@@ -19456,11 +20050,20 @@ function renderSounds() {
   stage.dataset.mode = state.soundsMode;
   stage.dataset.difficulty = state.soundsDifficulty;
 
+  if (quizNavAtSessionTip()) {
+    const mode = normalizeSoundsMode(state.soundsMode);
+    noteQuizNavTip({
+      view: "sounds",
+      key: `${mode}:${state.soundsIndex}`,
+      soundsSnap: { mode, index: state.soundsIndex },
+    });
+  }
   const backBtn = actionBtn("Back", soundsBack, "btn", "sounds-back", false, "chevronLeft");
-  backBtn.disabled = state.soundsIndex <= 0;
+  backBtn.disabled = quizNavBackDisabled();
 
   if (state.soundsMode === "listen") {
-    const skipBtn = actionBtn("Skip", soundsSkip, "btn", "sounds-skip", false, "chevronRight");
+    const skipBtn = actionBtn("Forward", soundsSkip, "btn", "sounds-skip", false, "chevronRight");
+    skipBtn.title = "Forward — next in sequence, or skip at the end";
     const item =
       soundDiscriminate[state.soundsIndex % soundDiscriminate.length];
     if (!item) {
@@ -19511,7 +20114,8 @@ function renderSounds() {
 
   // karaoke (default)
   {
-    const nextBtn = actionBtn("Next", soundsSkip, "btn", "sounds-skip", false, "chevronRight");
+    const nextBtn = actionBtn("Forward", soundsSkip, "btn", "sounds-skip", false, "chevronRight");
+    nextBtn.title = "Forward — next in sequence, or skip at the end";
     const item = soundKaraoke[state.soundsIndex % soundKaraoke.length];
     prompt.setAttribute("lang", "de");
     prompt.innerHTML = `<strong>${softHyphenateGerman(item.word, item.syllables)}</strong>`;
@@ -19840,20 +20444,12 @@ function bind() {
   document.getElementById("numbers-back").addEventListener("click", () => {
     clearNumbersAdvance();
     stopSpeech();
-    if (!retreatNumbersItem()) return;
-    renderNumbers();
+    quizNavBack();
   });
   document.getElementById("numbers-skip").addEventListener("click", () => {
     clearNumbersAdvance();
     stopSpeech();
-    const hist = state.numbersHistory || [];
-    const i = state.numbersHistoryIndex ?? -1;
-    // Mid-sequence: move forward to the exact next remembered question.
-    if (i >= 0 && i < hist.length - 1) {
-      advanceNumbersItem();
-      renderNumbers();
-      return;
-    }
+    if (quizNavForward() === "history") return;
     // At end of sequence: skip / reveal then deal the next new item.
     skipNumbersShowingAnswer();
   });
@@ -19871,19 +20467,12 @@ function bind() {
   document.getElementById("nouns-back").addEventListener("click", () => {
     clearNounsAdvance();
     stopSpeech();
-    if (!retreatNounsItem()) return;
-    renderNouns();
+    quizNavBack();
   });
   document.getElementById("nouns-skip").addEventListener("click", () => {
     clearNounsAdvance();
     stopSpeech();
-    const hist = state.nounsHistory || [];
-    const i = state.nounsHistoryIndex ?? -1;
-    if (i >= 0 && i < hist.length - 1) {
-      advanceNounsItem();
-      renderNouns();
-      return;
-    }
+    if (quizNavForward() === "history") return;
     if (continueGuided()) return;
     advanceNounsItem();
     if (continueCrossTerritoryMix("nouns")) return;
@@ -20001,6 +20590,16 @@ function bind() {
   applyActiveProfilePrefs();
 
   document.getElementById("view-case")?.addEventListener("click", (e) => {
+    const vocabOpen = e.target.closest("[data-vocab-open]");
+    if (vocabOpen) {
+      const introducedBy = vocabOpen.dataset.vocabIntroducedBy;
+      openVocabulary(
+        vocabOpen.dataset.vocabTerritory || "case",
+        vocabOpen.dataset.vocabMode || "learn",
+        introducedBy ? { introducedBy: [introducedBy] } : {}
+      );
+      return;
+    }
     const learn = e.target.closest("[data-case-learn]");
     if (learn) {
       openCaseLearn(learn.dataset.topic, learn.dataset.step);
@@ -20046,20 +20645,12 @@ function bind() {
     }
     if (e.target.closest("[data-case-back]")) {
       stopSpeech();
-      if (!retreatCaseItem()) return;
-      renderCasePractice();
+      quizNavBack();
       return;
     }
     if (e.target.closest("[data-case-next]")) {
       stopSpeech();
-      const hist = state.caseHistory || [];
-      const i = state.caseHistoryIndex ?? -1;
-      if (i >= 0 && i < hist.length - 1) {
-        state.caseHistoryIndex = i + 1;
-        applyCaseSnapshot(hist[state.caseHistoryIndex]);
-        renderCasePractice();
-        return;
-      }
+      if (quizNavForward() === "history") return;
       if (continueGuided()) return;
       advanceCaseQuestion();
     }
@@ -20072,18 +20663,27 @@ function bind() {
     });
   });
 
-  document
-    .querySelector('.territory-menu[data-territory="nouns"] .menu-panel')
-    ?.addEventListener("click", (e) => {
+  document.querySelectorAll("[data-case-hub]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      closeAllMenus();
+      goCaseHub();
+    });
+  });
+
+  document.querySelectorAll(".territory-menu .menu-panel").forEach((panel) => {
+    panel.addEventListener("click", (e) => {
       const vocabOpen = e.target.closest("[data-vocab-open]");
       if (!vocabOpen) return;
       e.stopPropagation();
       closeAllMenus();
+      const introducedBy = vocabOpen.dataset.vocabIntroducedBy;
       openVocabulary(
         vocabOpen.dataset.vocabTerritory || "nouns",
-        vocabOpen.dataset.vocabMode || "learn"
+        vocabOpen.dataset.vocabMode || "learn",
+        introducedBy ? { introducedBy: [introducedBy] } : {}
       );
     });
+  });
 
   document.querySelectorAll("[data-nouns-unit]").forEach((btn) => {
     btn.addEventListener("click", () => {

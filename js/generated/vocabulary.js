@@ -9,6 +9,433 @@
  */
 export const VOCABULARY_VERSION = "20260930-vocab2";
 export const vocabulary = {
+  "vocab.case.sehen": {
+    "id": "vocab.case.sehen",
+    "heading": "sehen",
+    "surface": "sehen",
+    "type": "verb",
+    "topic": "case",
+    "gloss": "to see",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.accusative"
+    ],
+    "governs": [
+      "accusative"
+    ],
+    "reference": [
+      "case.acc.masc"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.haben": {
+    "id": "vocab.case.haben",
+    "heading": "haben",
+    "surface": "haben",
+    "type": "verb",
+    "topic": "case",
+    "gloss": "to have",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.accusative"
+    ],
+    "governs": [
+      "accusative"
+    ],
+    "reference": [
+      "case.acc.masc"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.fuer": {
+    "id": "vocab.case.fuer",
+    "heading": "für",
+    "surface": "für",
+    "type": "function_word",
+    "topic": "case",
+    "gloss": "for",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.accusative"
+    ],
+    "governs": [
+      "accusative"
+    ],
+    "reference": [
+      "case.prep.fuer"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.ohne": {
+    "id": "vocab.case.ohne",
+    "heading": "ohne",
+    "surface": "ohne",
+    "type": "function_word",
+    "topic": "case",
+    "gloss": "without",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.accusative"
+    ],
+    "governs": [
+      "accusative"
+    ],
+    "reference": [
+      "case.prep.ohne"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.brauchen": {
+    "id": "vocab.case.brauchen",
+    "heading": "brauchen",
+    "surface": "brauchen",
+    "type": "verb",
+    "topic": "case",
+    "gloss": "to need",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.accusative"
+    ],
+    "governs": [
+      "accusative"
+    ],
+    "reference": [
+      "case.acc.verbs"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.suchen": {
+    "id": "vocab.case.suchen",
+    "heading": "suchen",
+    "surface": "suchen",
+    "type": "verb",
+    "topic": "case",
+    "gloss": "to look for",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.accusative"
+    ],
+    "governs": [
+      "accusative"
+    ],
+    "reference": [
+      "case.acc.verbs"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.nehmen": {
+    "id": "vocab.case.nehmen",
+    "heading": "nehmen",
+    "surface": "nehmen",
+    "type": "verb",
+    "topic": "case",
+    "gloss": "to take",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.accusative"
+    ],
+    "governs": [
+      "accusative"
+    ],
+    "reference": [
+      "case.acc.verbs"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.finden": {
+    "id": "vocab.case.finden",
+    "heading": "finden",
+    "surface": "finden",
+    "type": "verb",
+    "topic": "case",
+    "gloss": "to find",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.accusative"
+    ],
+    "governs": [
+      "accusative"
+    ],
+    "reference": [
+      "case.acc.verbs"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.warten-auf": {
+    "id": "vocab.case.warten-auf",
+    "heading": "warten auf",
+    "surface": "warten auf",
+    "type": "verb_preposition",
+    "topic": "case",
+    "gloss": "to wait for",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.accusative"
+    ],
+    "governs": [
+      "accusative"
+    ],
+    "reference": [
+      "case.prep.warten-auf"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.helfen": {
+    "id": "vocab.case.helfen",
+    "heading": "helfen",
+    "surface": "helfen",
+    "type": "verb",
+    "topic": "case",
+    "gloss": "to help",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.dative"
+    ],
+    "governs": [
+      "dative"
+    ],
+    "reference": [
+      "case.dat.helfen"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.mit": {
+    "id": "vocab.case.mit",
+    "heading": "mit",
+    "surface": "mit",
+    "type": "function_word",
+    "topic": "case",
+    "gloss": "with",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.dative"
+    ],
+    "governs": [
+      "dative"
+    ],
+    "reference": [
+      "case.prep.mit"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.aus": {
+    "id": "vocab.case.aus",
+    "heading": "aus",
+    "surface": "aus",
+    "type": "function_word",
+    "topic": "case",
+    "gloss": "out of",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.dative"
+    ],
+    "governs": [
+      "dative"
+    ],
+    "reference": [
+      "case.prep.aus"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.danken": {
+    "id": "vocab.case.danken",
+    "heading": "danken",
+    "surface": "danken",
+    "type": "verb",
+    "topic": "case",
+    "gloss": "to thank",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.dative"
+    ],
+    "governs": [
+      "dative"
+    ],
+    "reference": [
+      "case.verb.danken"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.gefallen": {
+    "id": "vocab.case.gefallen",
+    "heading": "gefallen",
+    "surface": "gefallen",
+    "type": "verb",
+    "topic": "case",
+    "gloss": "to be pleasing",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.dative"
+    ],
+    "governs": [
+      "dative"
+    ],
+    "reference": [
+      "case.verb.gefallen"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.passen-zu": {
+    "id": "vocab.case.passen-zu",
+    "heading": "passen zu",
+    "surface": "passen zu",
+    "type": "verb_preposition",
+    "topic": "case",
+    "gloss": "to go with",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.dative"
+    ],
+    "governs": [
+      "dative"
+    ],
+    "reference": [
+      "case.prep.passen-zu"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.zeigen": {
+    "id": "vocab.case.zeigen",
+    "heading": "zeigen",
+    "surface": "zeigen",
+    "type": "verb",
+    "topic": "case",
+    "gloss": "to show",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.mixed"
+    ],
+    "governs": [
+      "accusative",
+      "dative"
+    ],
+    "reference": [
+      "case.mixed"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.geben": {
+    "id": "vocab.case.geben",
+    "heading": "geben",
+    "surface": "geben",
+    "type": "verb",
+    "topic": "case",
+    "gloss": "to give",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.mixed"
+    ],
+    "governs": [
+      "accusative",
+      "dative"
+    ],
+    "reference": [
+      "case.mixed"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
   "vocab.nouns.zeitung": {
     "id": "vocab.nouns.zeitung",
     "heading": "die Zeitung",
@@ -96,6 +523,180 @@ export const vocabulary = {
     "status": "active",
     "source": "content/vocabulary/nouns-gender.md"
   },
+  "vocab.nouns.meinung": {
+    "id": "vocab.nouns.meinung",
+    "heading": "die Meinung",
+    "surface": "Meinung",
+    "type": "noun",
+    "topic": "nouns",
+    "gloss": "opinion",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "nouns.suffixes"
+    ],
+    "reference": [
+      "nouns.suffix.feminine"
+    ],
+    "engine": {
+      "lemma": "Meinung"
+    },
+    "engineJoin": "engine-backed",
+    "derived": {
+      "gender": "feminine",
+      "article": "die",
+      "gloss": "opinion",
+      "plural": "Meinungen"
+    },
+    "status": "active",
+    "source": "content/vocabulary/nouns-gender.md"
+  },
+  "vocab.nouns.pruefung": {
+    "id": "vocab.nouns.pruefung",
+    "heading": "die Prüfung",
+    "surface": "Prüfung",
+    "type": "noun",
+    "topic": "nouns",
+    "gloss": "exam / test",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "nouns.suffixes"
+    ],
+    "reference": [
+      "nouns.suffix.feminine"
+    ],
+    "engine": {
+      "lemma": "Prüfung"
+    },
+    "engineJoin": "engine-backed",
+    "derived": {
+      "gender": "feminine",
+      "article": "die",
+      "gloss": "exam / test",
+      "plural": "Prüfungen"
+    },
+    "status": "active",
+    "source": "content/vocabulary/nouns-gender.md"
+  },
+  "vocab.nouns.gesundheit": {
+    "id": "vocab.nouns.gesundheit",
+    "heading": "die Gesundheit",
+    "surface": "Gesundheit",
+    "type": "noun",
+    "topic": "nouns",
+    "gloss": "health",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "nouns.suffixes"
+    ],
+    "reference": [
+      "nouns.suffix.feminine"
+    ],
+    "engine": {
+      "lemma": "Gesundheit"
+    },
+    "engineJoin": "engine-backed",
+    "derived": {
+      "gender": "feminine",
+      "article": "die",
+      "gloss": "health",
+      "plural": "Gesundheiten"
+    },
+    "status": "active",
+    "source": "content/vocabulary/nouns-gender.md"
+  },
+  "vocab.nouns.freundlichkeit": {
+    "id": "vocab.nouns.freundlichkeit",
+    "heading": "die Freundlichkeit",
+    "surface": "Freundlichkeit",
+    "type": "noun",
+    "topic": "nouns",
+    "gloss": "friendliness",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "nouns.suffixes"
+    ],
+    "reference": [
+      "nouns.suffix.feminine"
+    ],
+    "engine": {
+      "lemma": "Freundlichkeit"
+    },
+    "engineJoin": "engine-backed",
+    "derived": {
+      "gender": "feminine",
+      "article": "die",
+      "gloss": "friendliness",
+      "plural": "Freundlichkeiten"
+    },
+    "status": "active",
+    "source": "content/vocabulary/nouns-gender.md"
+  },
+  "vocab.nouns.mannschaft": {
+    "id": "vocab.nouns.mannschaft",
+    "heading": "die Mannschaft",
+    "surface": "Mannschaft",
+    "type": "noun",
+    "topic": "nouns",
+    "gloss": "team",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "nouns.suffixes"
+    ],
+    "reference": [
+      "nouns.suffix.feminine"
+    ],
+    "engine": {
+      "lemma": "Mannschaft"
+    },
+    "engineJoin": "engine-backed",
+    "derived": {
+      "gender": "feminine",
+      "article": "die",
+      "gloss": "team",
+      "plural": "Mannschaften"
+    },
+    "status": "active",
+    "source": "content/vocabulary/nouns-gender.md"
+  },
+  "vocab.nouns.tradition": {
+    "id": "vocab.nouns.tradition",
+    "heading": "die Tradition",
+    "surface": "Tradition",
+    "type": "noun",
+    "topic": "nouns",
+    "gloss": "tradition",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "nouns.suffixes"
+    ],
+    "reference": [
+      "nouns.suffix.feminine"
+    ],
+    "engine": {
+      "lemma": "Tradition"
+    },
+    "engineJoin": "engine-backed",
+    "derived": {
+      "gender": "feminine",
+      "article": "die",
+      "gloss": "tradition",
+      "plural": "Traditionen"
+    },
+    "status": "active",
+    "source": "content/vocabulary/nouns-gender.md"
+  },
   "vocab.nouns.lehrer": {
     "id": "vocab.nouns.lehrer",
     "heading": "der Lehrer",
@@ -125,6 +726,180 @@ export const vocabulary = {
     "status": "active",
     "source": "content/vocabulary/nouns-gender.md"
   },
+  "vocab.nouns.fahrer": {
+    "id": "vocab.nouns.fahrer",
+    "heading": "der Fahrer",
+    "surface": "Fahrer",
+    "type": "noun",
+    "topic": "nouns",
+    "gloss": "driver",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "nouns.suffixes"
+    ],
+    "reference": [
+      "nouns.suffix.masculine"
+    ],
+    "engine": {
+      "lemma": "Fahrer"
+    },
+    "engineJoin": "engine-backed",
+    "derived": {
+      "gender": "masculine",
+      "article": "der",
+      "gloss": "driver",
+      "plural": "Fahrer"
+    },
+    "status": "active",
+    "source": "content/vocabulary/nouns-gender.md"
+  },
+  "vocab.nouns.baecker": {
+    "id": "vocab.nouns.baecker",
+    "heading": "der Bäcker",
+    "surface": "Bäcker",
+    "type": "noun",
+    "topic": "nouns",
+    "gloss": "baker",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "nouns.suffixes"
+    ],
+    "reference": [
+      "nouns.suffix.masculine"
+    ],
+    "engine": {
+      "lemma": "Bäcker"
+    },
+    "engineJoin": "engine-backed",
+    "derived": {
+      "gender": "masculine",
+      "article": "der",
+      "gloss": "baker",
+      "plural": "Bäcker"
+    },
+    "status": "active",
+    "source": "content/vocabulary/nouns-gender.md"
+  },
+  "vocab.nouns.schmetterling": {
+    "id": "vocab.nouns.schmetterling",
+    "heading": "der Schmetterling",
+    "surface": "Schmetterling",
+    "type": "noun",
+    "topic": "nouns",
+    "gloss": "butterfly",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "nouns.suffixes"
+    ],
+    "reference": [
+      "nouns.suffix.masculine"
+    ],
+    "engine": {
+      "lemma": "Schmetterling"
+    },
+    "engineJoin": "engine-backed",
+    "derived": {
+      "gender": "masculine",
+      "article": "der",
+      "gloss": "butterfly",
+      "plural": "Schmetterlinge"
+    },
+    "status": "active",
+    "source": "content/vocabulary/nouns-gender.md"
+  },
+  "vocab.nouns.zwilling": {
+    "id": "vocab.nouns.zwilling",
+    "heading": "der Zwilling",
+    "surface": "Zwilling",
+    "type": "noun",
+    "topic": "nouns",
+    "gloss": "twin",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "nouns.suffixes"
+    ],
+    "reference": [
+      "nouns.suffix.masculine"
+    ],
+    "engine": {
+      "lemma": "Zwilling"
+    },
+    "engineJoin": "engine-backed",
+    "derived": {
+      "gender": "masculine",
+      "article": "der",
+      "gloss": "twin",
+      "plural": "Zwillinge"
+    },
+    "status": "active",
+    "source": "content/vocabulary/nouns-gender.md"
+  },
+  "vocab.nouns.kaetzchen": {
+    "id": "vocab.nouns.kaetzchen",
+    "heading": "das Kätzchen",
+    "surface": "Kätzchen",
+    "type": "noun",
+    "topic": "nouns",
+    "gloss": "kitten",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "nouns.suffixes"
+    ],
+    "reference": [
+      "nouns.suffix.neuter"
+    ],
+    "engine": {
+      "lemma": "Kätzchen"
+    },
+    "engineJoin": "engine-backed",
+    "derived": {
+      "gender": "neuter",
+      "article": "das",
+      "gloss": "kitten",
+      "plural": "Kätzchen"
+    },
+    "status": "active",
+    "source": "content/vocabulary/nouns-gender.md"
+  },
+  "vocab.nouns.element": {
+    "id": "vocab.nouns.element",
+    "heading": "das Element",
+    "surface": "Element",
+    "type": "noun",
+    "topic": "nouns",
+    "gloss": "element",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "nouns.suffixes"
+    ],
+    "reference": [
+      "nouns.suffix.neuter"
+    ],
+    "engine": {
+      "lemma": "Element"
+    },
+    "engineJoin": "engine-backed",
+    "derived": {
+      "gender": "neuter",
+      "article": "das",
+      "gloss": "element",
+      "plural": "Elemente"
+    },
+    "status": "active",
+    "source": "content/vocabulary/nouns-gender.md"
+  },
   "vocab.nouns.montag": {
     "id": "vocab.nouns.montag",
     "heading": "der Montag",
@@ -150,6 +925,151 @@ export const vocabulary = {
       "article": "der",
       "gloss": "Monday",
       "plural": null
+    },
+    "status": "active",
+    "source": "content/vocabulary/nouns-gender.md"
+  },
+  "vocab.nouns.sturm": {
+    "id": "vocab.nouns.sturm",
+    "heading": "der Sturm",
+    "surface": "Sturm",
+    "type": "noun",
+    "topic": "nouns",
+    "gloss": "storm",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "nouns.categories"
+    ],
+    "reference": [
+      "nouns.categories"
+    ],
+    "engine": {
+      "lemma": "Sturm"
+    },
+    "engineJoin": "engine-backed",
+    "derived": {
+      "gender": "masculine",
+      "article": "der",
+      "gloss": "storm",
+      "plural": "Stürme"
+    },
+    "status": "active",
+    "source": "content/vocabulary/nouns-gender.md"
+  },
+  "vocab.nouns.kellner": {
+    "id": "vocab.nouns.kellner",
+    "heading": "der Kellner",
+    "surface": "Kellner",
+    "type": "noun",
+    "topic": "nouns",
+    "gloss": "waiter",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "nouns.categories"
+    ],
+    "reference": [
+      "nouns.categories"
+    ],
+    "engine": {
+      "lemma": "Kellner"
+    },
+    "engineJoin": "engine-backed",
+    "derived": {
+      "gender": "masculine",
+      "article": "der",
+      "gloss": "waiter",
+      "plural": "Kellner"
+    },
+    "status": "active",
+    "source": "content/vocabulary/nouns-gender.md"
+  },
+  "vocab.nouns.sonnenblume": {
+    "id": "vocab.nouns.sonnenblume",
+    "heading": "die Sonnenblume",
+    "surface": "Sonnenblume",
+    "type": "noun",
+    "topic": "nouns",
+    "gloss": "sunflower",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "nouns.categories"
+    ],
+    "reference": [
+      "nouns.categories"
+    ],
+    "engine": {
+      "lemma": "Sonnenblume"
+    },
+    "engineJoin": "engine-backed",
+    "derived": {
+      "gender": "feminine",
+      "article": "die",
+      "gloss": "sunflower",
+      "plural": "Sonnenblumen"
+    },
+    "status": "active",
+    "source": "content/vocabulary/nouns-gender.md"
+  },
+  "vocab.nouns.theater": {
+    "id": "vocab.nouns.theater",
+    "heading": "das Theater",
+    "surface": "Theater",
+    "type": "noun",
+    "topic": "nouns",
+    "gloss": "theater",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "nouns.categories"
+    ],
+    "reference": [
+      "nouns.categories"
+    ],
+    "engine": {
+      "lemma": "Theater"
+    },
+    "engineJoin": "engine-backed",
+    "derived": {
+      "gender": "neuter",
+      "article": "das",
+      "gloss": "theater",
+      "plural": "Theater"
+    },
+    "status": "active",
+    "source": "content/vocabulary/nouns-gender.md"
+  },
+  "vocab.nouns.krankenhaus": {
+    "id": "vocab.nouns.krankenhaus",
+    "heading": "das Krankenhaus",
+    "surface": "Krankenhaus",
+    "type": "noun",
+    "topic": "nouns",
+    "gloss": "hospital",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "nouns.categories"
+    ],
+    "reference": [
+      "nouns.categories"
+    ],
+    "engine": {
+      "lemma": "Krankenhaus"
+    },
+    "engineJoin": "engine-backed",
+    "derived": {
+      "gender": "neuter",
+      "article": "das",
+      "gloss": "hospital",
+      "plural": "Krankenhäuser"
     },
     "status": "active",
     "source": "content/vocabulary/nouns-gender.md"
@@ -1132,11 +2052,47 @@ export const vocabularyByTopic = {
     "vocab.numbers.zweimal"
   ],
   "nouns": [
+    "vocab.nouns.baecker",
+    "vocab.nouns.element",
+    "vocab.nouns.fahrer",
+    "vocab.nouns.freundlichkeit",
+    "vocab.nouns.gesundheit",
+    "vocab.nouns.kaetzchen",
+    "vocab.nouns.kellner",
+    "vocab.nouns.krankenhaus",
     "vocab.nouns.lehrer",
+    "vocab.nouns.mannschaft",
+    "vocab.nouns.meinung",
     "vocab.nouns.montag",
+    "vocab.nouns.pruefung",
     "vocab.nouns.rechnung",
+    "vocab.nouns.schmetterling",
+    "vocab.nouns.sonnenblume",
+    "vocab.nouns.sturm",
+    "vocab.nouns.theater",
+    "vocab.nouns.tradition",
     "vocab.nouns.wohnung",
-    "vocab.nouns.zeitung"
+    "vocab.nouns.zeitung",
+    "vocab.nouns.zwilling"
+  ],
+  "case": [
+    "vocab.case.aus",
+    "vocab.case.brauchen",
+    "vocab.case.danken",
+    "vocab.case.finden",
+    "vocab.case.fuer",
+    "vocab.case.geben",
+    "vocab.case.gefallen",
+    "vocab.case.haben",
+    "vocab.case.helfen",
+    "vocab.case.mit",
+    "vocab.case.nehmen",
+    "vocab.case.ohne",
+    "vocab.case.passen-zu",
+    "vocab.case.sehen",
+    "vocab.case.suchen",
+    "vocab.case.warten-auf",
+    "vocab.case.zeigen"
   ]
 };
 export const vocabularyAreas = {

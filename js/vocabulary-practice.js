@@ -5,7 +5,10 @@
  * Prefer MCQ surfaces that reuse Numbers/Nouns choice chrome; gender/article first.
  */
 
-/** @typedef {"article"|"gender"|"meaning"|"form"} VocabQuestionTypeId */
+import { caseExampleSentences } from "../engine/nouns/practice-compose.js?v=20261030-composeex";
+import { resetPhraseRotation, rotatePhrase } from "./phrase-rotation.js";
+
+/** @typedef {"article"|"gender"|"meaning"|"form"|"case"} VocabQuestionTypeId */
 
 const ARTICLE_CHOICES = [
   { id: "der", label: "der", gender: "masculine" },
@@ -23,9 +26,36 @@ const GENDER_CHOICES = [
 const TYPE_WEIGHTS = {
   article: 4,
   gender: 3,
+  case: 4,
   meaning: 2,
   form: 2,
 };
+
+const CASE_CHOICES = [
+  { id: "nominative", label: "Nominative" },
+  { id: "accusative", label: "Accusative" },
+  { id: "dative", label: "Dative" },
+];
+
+/**
+ * Drill sentences for a Case vocab surface.
+ * Same list the green answer key rotates through.
+ * @param {string} surface
+ * @returns {readonly string[]}
+ */
+export function caseExamplePhrases(surface) {
+  return caseExampleSentences(surface);
+}
+
+/** Next example for this word. Wraps after the last phrase. */
+export function nextCaseExample(surface) {
+  return rotatePhrase(`case:${String(surface || "").trim()}`, caseExamplePhrases(surface));
+}
+
+/** Test hook. */
+export function resetCaseExampleCursor() {
+  resetPhraseRotation();
+}
 
 /**
  * Learner-facing facts available on an item (independent of what we quiz).
@@ -38,6 +68,7 @@ export function factsForItem(item) {
     gloss: item.gloss || "",
     sense: item.sense || senseFromGloss(item.gloss) || "",
     type: item.type,
+    governs: Array.isArray(item.governs) ? item.governs.filter(Boolean) : [],
   };
   if (item.engineJoin === "engine-backed" && item.derived) {
     facts.gender = item.derived.gender || null;
@@ -71,6 +102,7 @@ export function questionTypesForItem(item, scope = {}) {
   const allowMorph = scope.allowGenderMorphology !== false;
   if (allowMorph && facts.article) types.push("article");
   if (allowMorph && facts.gender) types.push("gender");
+  if (facts.governs?.length) types.push("case");
 
   // Meaning / form MCQs need a gloss and at least one peer distractor when possible.
   if (facts.gloss) {
@@ -187,7 +219,7 @@ export function createVocabularyQuestion(item, type, scope = {}) {
         vocabId: item.id,
         type,
         instruction: "Pick the German form",
-        prompt: sense ? `“${cue}” (${sense})` : `“${cue}”`,
+        prompt: sense ? `${cue} (${sense})` : cue,
         promptLang: "en",
         promptText: cue,
         promptSense: sense || "",
@@ -199,6 +231,30 @@ export function createVocabularyQuestion(item, type, scope = {}) {
         revealEn: revealEnglish(facts),
         revealArticle: facts.article || null,
         revealGender: facts.gender || null,
+        input: "choice",
+      };
+    }
+    case "case": {
+      const answers = facts.governs;
+      const requirement = caseRequirementText(answers);
+      return {
+        id: `${item.id}:case`,
+        vocabId: item.id,
+        type,
+        instruction: "Choose the case",
+        prompt: `${facts.surface} takes the`,
+        slotLabel: "Case",
+        promptLang: "",
+        promptText: facts.surface,
+        expect: answers[0],
+        accept: answers.slice(),
+        choices: shuffle(CASE_CHOICES.map((c) => ({ ...c }))),
+        choiceKind: "grid",
+        revealDe: nextCaseExample(facts.surface) || displayForm(item),
+        revealKaraoke: "sentence",
+        revealEn: `${facts.surface} takes the ${requirement}.`,
+        revealArticle: null,
+        revealGender: null,
         input: "choice",
       };
     }
@@ -289,6 +345,14 @@ export function revealDeHtml(question) {
     ? `<span class="answer-art ${tint}">${escapeHtml(article)}</span>`
     : escapeHtml(article);
   return `${artHtml} <span class="answer-lemma">${escapeHtml(lemma)}</span>`;
+}
+
+/** "accusative" or "accusative and the dative". */
+export function caseRequirementText(governs) {
+  const ids = (governs || []).filter(Boolean);
+  if (!ids.length) return "";
+  if (ids.length === 1) return ids[0];
+  return `${ids.slice(0, -1).join(", ")} and the ${ids[ids.length - 1]}`;
 }
 
 function meaningLabel(facts) {

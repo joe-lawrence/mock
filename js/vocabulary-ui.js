@@ -1,7 +1,7 @@
 /**
  * Vocabulary Learn + Practice UI (topic-level).
  * Practice chrome mirrors Numbers/Nouns: choice-grid / gendered piece tray,
- * answer reveal, icon actions-nav. Back / Next step the sequence.
+ * answer reveal, icon actions-nav. Back / Forward step the shared quiz trail.
  */
 
 import {
@@ -11,17 +11,19 @@ import {
   vocabAreaForCurriculumTopic,
   getVocabulary,
   VOCABULARY_VERSION,
-} from "./generated/vocabulary.js?v=20260930-vocab17";
+} from "./generated/vocabulary.js?v=20261030-casetakes";
 import {
   createVocabularyQuestion,
   displayForm,
   evaluateVocabularyAnswer,
+  caseRequirementText,
   factsForItem,
   pickQuestionType,
   questionTypesForItem,
   revealDeHtml,
-} from "./vocabulary-practice.js";
+} from "./vocabulary-practice.js?v=20261030-composeex";
 import { choiceSecondChanceOpen } from "./answer-shells.js?v=20261027-retry";
+import { flaggedCueHtml } from "./lang-flags.js?v=20261030-langflag";
 
 /** Bootstrap Icons (outline) — same set as mock.js session chrome. */
 const BI_PATHS = {
@@ -63,19 +65,63 @@ function genderPieceClass(genderOrArticle) {
   return "";
 }
 
-function actionsNavHtml({ refDisabled = false, forwardLabel = "Next" } = {}) {
+function actionsNavHtml({ refDisabled = false } = {}) {
   return `
     <div class="actions actions-nav" data-vocab-actions>
-      <button type="button" class="btn btn-icon" data-vocab-back data-icon="chevronLeft" aria-label="Previous" title="Previous"></button>
+      <button type="button" class="btn btn-icon" data-vocab-back data-icon="chevronLeft" aria-label="Back" title="Back"></button>
       <div class="actions-mid">
         <button type="button" class="btn btn-icon" data-vocab-ref data-icon="book" aria-label="Reference" title="Reference" ${
           refDisabled ? "disabled" : ""
         }></button>
       </div>
-      <button type="button" class="btn btn-icon" data-vocab-forward data-icon="chevronRight" aria-label="${esc(
-        forwardLabel
-      )}" title="${esc(forwardLabel)}"></button>
+      <button type="button" class="btn btn-icon" data-vocab-forward data-icon="chevronRight" aria-label="Forward" title="Forward — next in sequence, or skip at the end"></button>
     </div>`;
+}
+
+function vocabPromptHtml(q) {
+  if (q?.type === "case") {
+    const word = flaggedCueHtml("de", esc(q.promptText || ""));
+    const label = esc(q.slotLabel || "Case");
+    return `<span class="vocab-case-line">${word}<span class="vocab-case-takes">takes the</span><span class="slot" data-vocab-case-slot aria-label="${label}">${label}</span></span>`;
+  }
+  const text = esc(q?.prompt || "");
+  if (q?.type === "meaning") return flaggedCueHtml("de", text);
+  if (q?.type === "form") return flaggedCueHtml("en", text);
+  const lang = q?.promptLang === "de" ? ' lang="de"' : "";
+  return `<span${lang}>${text}</span>`;
+}
+
+function caseChoiceLabel(q, id) {
+  const choice = (q?.choices || []).find((item) => String(item.id) === String(id));
+  return choice?.label || "";
+}
+
+function paintVocabCaseSlot(root, label, kind) {
+  const slot = root.querySelector("[data-vocab-case-slot]");
+  if (!slot) return;
+  slot.classList.remove(
+    "is-filled",
+    "is-hot",
+    "is-ok",
+    "is-bad",
+    "is-correct-flash",
+    "is-wrong-flash"
+  );
+  if (!label) {
+    slot.textContent = "Case";
+    slot.setAttribute("aria-label", "Case");
+    return;
+  }
+  slot.textContent = label;
+  slot.classList.add("is-filled");
+  if (kind === "ok") slot.classList.add("is-ok", "is-correct-flash");
+  if (kind === "bad") slot.classList.add("is-bad", "is-wrong-flash");
+  slot.setAttribute("aria-label", label);
+}
+
+function choiceIsAccepted(q, id) {
+  const accept = q?.accept?.length ? q.accept : [q?.expect];
+  return accept.some((value) => String(value) === String(id));
 }
 
 function choicesHtml(q) {
@@ -145,34 +191,48 @@ export function mountVocabularyPanel(root, opts) {
   /** @type {string[]|null} null = all areas — scope comes from session Custom mix */
   const activeAreas =
     Array.isArray(opts.areas) && opts.areas.length ? [...opts.areas] : null;
+  const introducedBy =
+    Array.isArray(opts.introducedBy) && opts.introducedBy.length
+      ? opts.introducedBy
+      : null;
 
   const resolveItems = () => {
-    const scope = activeAreas?.length ? { areas: activeAreas } : {};
+    /** @type {{ areas?: string[], introducedBy?: string[] }} */
+    const scope = {};
+    if (activeAreas?.length) scope.areas = activeAreas;
+    if (introducedBy?.length) scope.introducedBy = introducedBy;
     const list = vocabularyForScope(topic, scope);
     if (opts.mode === "learn") return vocabularyLearnOrder(list);
     return shuffle([...list]);
   };
 
+  const paint = (html) => {
+    root.innerHTML = `${opts.seriesHtml || ""}${html}`;
+    if (opts.seriesHtml) opts.onSeriesChrome?.(root);
+  };
+
   let items = resolveItems();
   if (!items.length) {
     root.className = "vocab-panel stage stage-fill";
-    root.innerHTML = `<p class="vocab-empty">No vocabulary for this scope yet.</p>
-      ${actionsNavHtml({ refDisabled: true, forwardLabel: "Next" })}`;
+    paint(`<p class="vocab-empty">No vocabulary for this scope yet.</p>
+      ${actionsNavHtml({ refDisabled: true })}`);
     hydrateIconButtons(root);
     root.querySelector("[data-vocab-back]")?.addEventListener("click", opts.onBack);
     root.querySelector("[data-vocab-forward]")?.addEventListener("click", opts.onBack);
     return { destroy() {} };
   }
 
+  const resume = opts.resume;
   const session = {
-    mode: opts.mode || "learn",
-    index: 0,
-    deck: items,
+    mode: resume?.mode || opts.mode || "learn",
+    index: resume?.index || 0,
+    deck: resume?.deck?.length ? resume.deck.slice() : items,
     /** @type {{ question: object, revealed: boolean, result: object|null }[]} */
-    history: [],
-    cursor: 0,
-    deckPos: 0,
+    history: (resume?.history || []).map((entry) => ({ ...entry })),
+    cursor: resume?.cursor || 0,
+    deckPos: resume?.deckPos || 0,
   };
+  if (resume?.deck?.length) items = session.deck;
 
   const resetDeck = () => {
     items = resolveItems();
@@ -201,26 +261,25 @@ export function mountVocabularyPanel(root, opts) {
 
   const goPrev = () => {
     opts.stopSpeech?.();
+    if (opts.onBackNav) {
+      opts.onBackNav();
+      return;
+    }
     if (session.mode === "learn") {
-      if (session.index <= 0) {
-        opts.onBack();
-        return;
-      }
+      if (session.index <= 0) return;
       session.index -= 1;
       render();
       return;
     }
     ensurePracticeHistory();
-    if (session.cursor <= 0) {
-      opts.onBack();
-      return;
-    }
+    if (session.cursor <= 0) return;
     session.cursor -= 1;
     render();
   };
 
   const goNext = () => {
     opts.stopSpeech?.();
+    if (opts.onForward?.() === "history") return;
     if (session.mode === "learn") {
       if (!session.deck.length) return;
       session.index += 1;
@@ -245,8 +304,8 @@ export function mountVocabularyPanel(root, opts) {
     root.classList.remove("is-answer");
     if (!session.deck.length) {
       root.className = "vocab-panel stage stage-fill";
-      root.innerHTML = `<p class="vocab-empty">No vocabulary for this scope yet.</p>
-          ${actionsNavHtml({ refDisabled: true, forwardLabel: "Next" })}`;
+      paint(`<p class="vocab-empty">No vocabulary for this scope yet.</p>
+          ${actionsNavHtml({ refDisabled: true })}`);
       hydrateIconButtons(root);
         root.querySelector("[data-vocab-back]")?.addEventListener("click", opts.onBack);
       root.querySelector("[data-vocab-forward]")?.addEventListener("click", opts.onBack);
@@ -262,7 +321,7 @@ export function mountVocabularyPanel(root, opts) {
     const types = questionTypesForItem(item, { topic, peers: items });
     const areaLabel = item.area || "";
     root.className = "vocab-panel stage stage-fill";
-    root.innerHTML = `
+    paint(`
       <p class="action-instruction">Learn · Vocabulary${
         areaLabel ? ` · ${esc(areaLabel)}` : ""
       } · ${(session.index % session.deck.length) + 1} / ${session.deck.length}</p>
@@ -275,17 +334,22 @@ export function mountVocabularyPanel(root, opts) {
         ${facts.gender ? `<li><strong>Gender</strong> ${esc(facts.gender)}</li>` : ""}
         ${facts.plural ? `<li><strong>Plural</strong> ${esc(facts.plural)}</li>` : ""}
         ${facts.type ? `<li><strong>Type</strong> ${esc(facts.type)}</li>` : ""}
+        ${
+          facts.governs?.length
+            ? `<li><strong>Takes</strong> the ${esc(caseRequirementText(facts.governs))}</li>`
+            : ""
+        }
         <li><strong>Practice types</strong> ${esc(types.join(", ") || "—")}</li>
       </ul>
       <p class="vocab-meta">${esc(item.id)} · ${esc(VOCABULARY_VERSION)}</p>
       ${actionsNavHtml({
         refDisabled: !item.reference?.[0],
-        forwardLabel: "Next",
       })}
-    `;
+    `);
     hydrateIconButtons(root);
     wireChrome(item);
     opts.onItemChange?.(item);
+    publishNav();
   };
 
   const renderPractice = () => {
@@ -296,13 +360,11 @@ export function mountVocabularyPanel(root, opts) {
     const item = getVocabulary(q.vocabId);
 
     root.className = "vocab-panel stage stage-fill";
-    root.innerHTML = `
+    paint(`
       <p class="action-instruction">${esc(
         q.instruction || "Practice · Vocabulary"
       )}</p>
-      <p class="prompt" ${q.promptLang === "de" ? 'lang="de"' : ""}>${esc(
-        q.prompt
-      )}</p>
+      <p class="prompt">${vocabPromptHtml(q)}</p>
       ${choicesHtml(q)}
       <p class="attempt-feedback" data-vocab-attempt hidden aria-live="polite"></p>
       <div class="answer-reveal" data-vocab-reveal hidden>
@@ -315,12 +377,12 @@ export function mountVocabularyPanel(root, opts) {
       </div>
       ${actionsNavHtml({
         refDisabled: !item?.reference?.[0],
-        forwardLabel: "Next",
       })}
-    `;
+    `);
     hydrateIconButtons(root);
     wireChrome(item);
     opts.onItemChange?.(item);
+    publishNav();
 
     const attempt = root.querySelector("[data-vocab-attempt]");
     const reveal = root.querySelector("[data-vocab-reveal]");
@@ -342,15 +404,27 @@ export function mountVocabularyPanel(root, opts) {
       verdict.classList.add(ok ? "is-ok" : "is-bad");
       verdict.textContent =
         result?.verdictLabel || (ok ? "Correct" : "Answer");
+      if (q.type === "case") {
+        const shown =
+          ok && result?.given
+            ? caseChoiceLabel(q, result.given)
+            : caseChoiceLabel(q, q.expect);
+        paintVocabCaseSlot(root, shown, "ok");
+      }
       revealDe.innerHTML = revealDeHtml(q);
 
+      const spoken = q.revealDe || "";
+      const sentenceParts =
+        q.revealKaraoke === "sentence" && spoken
+          ? opts.sentenceAnswerParts?.(spoken)
+          : null;
       const rawParts =
+        (sentenceParts && sentenceParts.length ? sentenceParts : null) ||
         (item && opts.answerPartsForItem?.(item)) ||
-        (q.revealDe ? [q.revealDe] : []);
+        (spoken ? [spoken] : []);
       const resolved = opts.resolvePronunciation
         ? opts.resolvePronunciation(rawParts)
         : { displayParts: [], pronunciationUnavailable: true };
-      const spoken = q.revealDe || "";
       const phonNodes = [];
       if (revealPhon) {
         revealPhon.hidden = false;
@@ -387,7 +461,7 @@ export function mountVocabularyPanel(root, opts) {
       root.querySelectorAll("[data-vocab-choice]").forEach((btn) => {
         btn.disabled = true;
         const id = btn.getAttribute("data-vocab-choice");
-        if (id === q.expect) btn.classList.add("is-ok");
+        if (choiceIsAccepted(q, id)) btn.classList.add("is-ok");
         else if (!ok && id === result?.given) btn.classList.add("is-bad");
       });
       opts.stopSpeech?.();
@@ -416,10 +490,17 @@ export function mountVocabularyPanel(root, opts) {
         attempt.textContent = "";
       }
       const ok = result?.status === "correct";
+      if (q.type === "case") {
+        const shown =
+          ok && result?.given
+            ? caseChoiceLabel(q, result.given)
+            : caseChoiceLabel(q, q.expect);
+        paintVocabCaseSlot(root, shown, ok ? "ok" : "bad");
+      }
       root.querySelectorAll("[data-vocab-choice]").forEach((btn) => {
         btn.disabled = true;
         const id = btn.getAttribute("data-vocab-choice");
-        if (id === q.expect) btn.classList.add("is-ok", "is-correct-flash");
+        if (choiceIsAccepted(q, id)) btn.classList.add("is-ok", "is-correct-flash");
         else if (!ok && id === result?.given) btn.classList.add("is-bad", "is-wrong-flash");
       });
       if (ok) opts.playFeedback?.("ok");
@@ -436,6 +517,13 @@ export function mountVocabularyPanel(root, opts) {
         if (entry.revealed || btn.disabled) return;
         const id = btn.getAttribute("data-vocab-choice");
         const result = evaluateVocabularyAnswer(q, id);
+        if (q.type === "case") {
+          paintVocabCaseSlot(
+            root,
+            caseChoiceLabel(q, id),
+            result.status === "correct" ? "" : "bad"
+          );
+        }
         if (result.status === "correct") {
           finish(result);
           return;
@@ -461,6 +549,66 @@ export function mountVocabularyPanel(root, opts) {
       });
     });
   };
+
+  function vocabNavSnapshot() {
+    const learnItem =
+      session.mode === "learn" && session.deck.length
+        ? session.deck[session.index % session.deck.length]
+        : null;
+    const question =
+      session.mode === "practice"
+        ? session.history[session.cursor]?.question
+        : null;
+    const territory = topic === "nouns" ? "nouns" : "numbers";
+    return {
+      key:
+        session.mode === "learn"
+          ? `learn:${session.index}:${learnItem?.id || ""}`
+          : `practice:${question?.id || session.cursor}`,
+      mode: session.mode,
+      index: session.index,
+      cursor: session.cursor,
+      deckPos: session.deckPos,
+      deck: session.deck.slice(),
+      history: session.history.map((entry) => ({ ...entry })),
+      areas: opts.areas || null,
+      territory,
+    };
+  }
+
+  function publishNav() {
+    opts.onShown?.(vocabNavSnapshot());
+    const back = root.querySelector("[data-vocab-back]");
+    if (back) back.disabled = opts.backDisabled?.() ?? false;
+  }
+
+  if (root.dataset.swipeBound !== "1") {
+    root.dataset.swipeBound = "1";
+    let x0 = 0;
+    let y0 = 0;
+    let active = false;
+    root.addEventListener("pointerdown", (e) => {
+      if (e.pointerType !== "touch") return;
+      if (e.target.closest("button, input, textarea, select, a, .piece, .choice")) return;
+      active = true;
+      x0 = e.clientX;
+      y0 = e.clientY;
+    });
+    const end = (e) => {
+      if (!active) return;
+      active = false;
+      if (e.pointerType && e.pointerType !== "touch") return;
+      const dx = e.clientX - x0;
+      const dy = e.clientY - y0;
+      if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.15) return;
+      if (dx < 0) root.querySelector("[data-vocab-forward]")?.click();
+      else root.querySelector("[data-vocab-back]")?.click();
+    };
+    root.addEventListener("pointerup", end);
+    root.addEventListener("pointercancel", () => {
+      active = false;
+    });
+  }
 
   function wireChrome(item) {
     root.querySelector("[data-vocab-back]")?.addEventListener("click", goPrev);

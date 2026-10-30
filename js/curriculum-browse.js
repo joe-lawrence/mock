@@ -10,7 +10,7 @@ import {
   plannedModeChips,
   directionsForNumbersCell,
   getNumbersStep,
-} from "./numbers-curriculum.js?v=20261021-am1";
+} from "./numbers-curriculum.js?v=20261030-lexsentences";
 import {
   NOUNS_TOPICS,
   modesForNounsStep,
@@ -20,8 +20,9 @@ import {
 } from "./nouns-curriculum.js?v=20261023-suffixplay";
 import {
   vocabularyAreas,
+  vocabularyForScope,
   vocabularyForTopic,
-} from "./generated/vocabulary.js?v=20260930-vocab17";
+} from "./generated/vocabulary.js?v=20261030-casetakes";
 import {
   openFeedbackComposer,
   bindFeedbackTrigger,
@@ -220,6 +221,26 @@ function vocabularyRows() {
       unitId: "gender-lexicon",
       unitLabel: "Gender lexicon",
       blurb: "Supporting lexicon for Gender Shortcuts — Learn / Practice.",
+      playable: true,
+      quizTypes: [
+        { id: "vocab-learn", label: "Learn", playable: true },
+        { id: "vocab-practice", label: "Practice", playable: true },
+      ],
+    });
+  }
+  for (const topic of CASE_TOPICS) {
+    const words = vocabularyForScope("case", {
+      introducedBy: [`case.${topic.id}`],
+    });
+    if (!words.length) continue;
+    rows.push({
+      moduleId: "case",
+      moduleLabel: "Case",
+      topicId: "vocabulary",
+      topicLabel: "Vocabulary",
+      unitId: topic.id,
+      unitLabel: topic.label,
+      blurb: "Case words — Learn introduces; Practice retrieves.",
       playable: true,
       quizTypes: [
         { id: "vocab-learn", label: "Learn", playable: true },
