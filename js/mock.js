@@ -1714,6 +1714,11 @@ const ARTICLE_PHON_GUIDES = Object.freeze({
   einen: { guide: "INE-en", stress: true },
   einem: { guide: "INE-em", stress: true },
   einer: { guide: "INE-er", stress: true },
+  kein: { guide: "kine" },
+  keine: { guide: "KINE-uh", stress: true },
+  keinen: { guide: "KINE-en", stress: true },
+  keinem: { guide: "KINE-em", stress: true },
+  keiner: { guide: "KINE-er", stress: true },
 });
 
 /** High-frequency sentence frame words for category validation karaoke. */
@@ -1921,7 +1926,7 @@ function resolvePhonToken(token) {
   const curated = NOUN_SINGULAR_PARTS[text];
   if (curated?.length) {
     const body = curated.filter(
-      (p) => !/^(der|die|das|ein|eine|einen|einem|einer)$/i.test(p.text)
+      (p) => !/^(der|die|das|ein|eine|einen|einem|einer|kein|keine|keinen|keinem|keiner)$/i.test(p.text)
     );
     if (body.length) {
       return body.map((p) => ({
@@ -3996,7 +4001,7 @@ function lemmaBodyAnswerParts(lemma) {
   if (!full.length) return resolvePhonToken(lemma);
   return full.filter(
     (p) =>
-      !/^(der|die|das|ein|eine|einen|einem|einer)$/i.test(
+      !/^(der|die|das|ein|eine|einen|einem|einer|kein|keine|keinen|keinem|keiner)$/i.test(
         String(p.text || "")
       )
   );
