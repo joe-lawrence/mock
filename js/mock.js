@@ -296,10 +296,13 @@ import {
   importProfileDocument,
   recordProfileAttempt,
   recordProfileDealerReason,
+  startProfileSession,
+  endProfileSession,
+  resetProfileTracking,
   updateActivePrefs,
   activeWordBank,
   updateActiveWordBank,
-} from "./profiles.js?v=20261025-case4";
+} from "./profiles.js?v=20261031-sessions";
 import {
   reportCardJson,
   fullAuditJson,
@@ -307,7 +310,9 @@ import {
   fullAuditToPlaintext,
   buildReportCard,
   buildFullAudit,
-} from "./mastery-export.js?v=20261027-relengine";
+  buildProgressReport,
+  progressReportHtml,
+} from "./mastery-export.js?v=20261031-reportcard";
 import {
   mountVocabularyPanel,
   topicHasVocabulary,
@@ -7600,6 +7605,11 @@ function navigate(view, opts = {}) {
 
   if (view === "hub") {
     navCarouselApi?.resetToMode?.();
+    try {
+      saveProfileStore(endProfileSession(loadProfileStore()));
+    } catch {
+      /* profile storage is optional */
+    }
   }
 
   if (view === "numbers" || view === "nouns" || view === "sounds" || view === "case") {
@@ -10646,7 +10656,38 @@ function vocabOpenOptions(unit) {
   };
 }
 
+function quizSessionLabel(mode, units) {
+  const head =
+    mode === "guided" ? "Guided" : mode === "learn" ? "Learn" : "Play";
+  const titles = (units || [])
+    .map((u) => u.title || u.label)
+    .filter(Boolean);
+  if (titles.length === 1) return `${head} · ${titles[0]}`;
+  if (titles.length > 1 && titles.length <= 3) {
+    return `${head} · ${titles.join(", ")}`;
+  }
+  if (titles.length > 3) return `${head} · ${titles.length} units`;
+  return head;
+}
+
+/** Open a per-profile quiz session so this Start reports separately from older runs. */
+function beginQuizSession(mode, units) {
+  try {
+    saveProfileStore(
+      startProfileSession(loadProfileStore(), {
+        mode,
+        label: quizSessionLabel(mode, units),
+      })
+    );
+  } catch {
+    /* profile storage is optional */
+  }
+}
+
 function handleNavCarouselStart({ mode, units, keyboard, audio, practice, guided }) {
+  const sessionMode =
+    guided || mode === "guided" ? "guided" : mode === "learn" ? "learn" : "play";
+  if (units?.length && sessionMode !== "learn") beginQuizSession(sessionMode, units);
   const vocabUnits = (units || []).filter(isVocabNavUnit);
   const vocabSession = vocabUnits.length > 0 && vocabUnits.length === (units || []).length;
   // Guided vocabulary is scored on the curriculum units those words belong to,
@@ -19311,6 +19352,18 @@ async function copyTextToClipboard(text) {
   }
 }
 
+/** In-app report card: overall, then each quiz session. */
+function openReportCardSheet() {
+  const profile = getActiveProfile(loadProfileStore());
+  openSheet(
+    "Report card",
+    progressReportHtml(buildProgressReport(profile))
+  );
+  document
+    .querySelector("#sheet-body [data-report-back]")
+    ?.addEventListener("click", () => openProfilesSheet());
+}
+
 /** Local profiles sheet — switch / add / export mastery (§17). */
 function openProfilesSheet() {
   const paint = (toast = "") => {
@@ -19324,7 +19377,9 @@ function openProfilesSheet() {
           <div><strong>${escapeHtml(p.label)}</strong>
             <span class="dbg-soft">${
               isActive ? " · active" : ""
-            } · ${p.attemptCount || 0} attempts</span>
+            } · ${p.attemptCount || 0} answers · ${
+              (p.sessions || []).length
+            } sessions</span>
           </div>
           <div class="dbg-soft"><code>${escapeHtml(p.id)}</code></div>
           <p class="coach-soft" style="margin:0.35rem 0 0;display:flex;flex-wrap:wrap;gap:0.35rem">
@@ -19338,6 +19393,9 @@ function openProfilesSheet() {
             <button type="button" class="btn" data-profile-rename="${escapeHtml(
               p.id
             )}">Rename</button>
+            <button type="button" class="btn" data-profile-reset="${escapeHtml(
+              p.id
+            )}">Reset tracking</button>
             ${
               profiles.length > 1
                 ? `<button type="button" class="btn" data-profile-delete="${escapeHtml(
@@ -19366,9 +19424,10 @@ function openProfilesSheet() {
           </p>
         </section>
         <section class="coach-block">
-          <h4 class="coach-h">Mastery export</h4>
-          <p class="coach-soft">Report card (learner) and full audit (debug) — JSON + plaintext.</p>
+          <h4 class="coach-h">Mastery</h4>
+          <p class="coach-soft">Each Start on the home screen is its own quiz session. Overall totals add every session together. Reset tracking clears scores and sessions and keeps the profile name and word bank.</p>
           <p class="coach-soft" style="display:flex;flex-wrap:wrap;gap:0.35rem">
+            <button type="button" class="btn btn-primary" data-report-view>Report card</button>
             <button type="button" class="btn" data-mastery-copy="report-json">Report card JSON</button>
             <button type="button" class="btn" data-mastery-copy="report-text">Report card text</button>
             <button type="button" class="btn" data-mastery-copy="audit-json">Full audit JSON</button>
@@ -19399,7 +19458,8 @@ function openProfilesSheet() {
       const switchBtn = t.closest("[data-profile-switch]");
       if (switchBtn) {
         const id = switchBtn.getAttribute("data-profile-switch");
-        let s = switchActiveProfile(loadProfileStore(), id);
+        let s = endProfileSession(loadProfileStore());
+        s = switchActiveProfile(s, id);
         s = saveProfileStore(s);
         applyActiveProfilePrefs();
         // Fresh session audit when switching learners.
@@ -19415,7 +19475,9 @@ function openProfilesSheet() {
       if (t.closest("[data-profile-add]")) {
         const label = window.prompt("Profile name", "Learner");
         if (label == null) return;
-        const s = saveProfileStore(addProfile(loadProfileStore(), label));
+        const s = saveProfileStore(
+          addProfile(endProfileSession(loadProfileStore()), label)
+        );
         applyActiveProfilePrefs();
         resetSessionAuditLogs();
         state.guidedSeen = new Set();
@@ -19431,6 +19493,29 @@ function openProfilesSheet() {
         if (label == null) return;
         saveProfileStore(renameProfile(loadProfileStore(), id, label));
         flash("Renamed");
+        return;
+      }
+
+      const resetBtn = t.closest("[data-profile-reset]");
+      if (resetBtn) {
+        const id = resetBtn.getAttribute("data-profile-reset");
+        const cur = loadProfileStore().profiles[id];
+        const name = cur?.label || "this profile";
+        if (
+          !window.confirm(
+            `Reset tracking for “${name}”? Scores and quiz sessions go back to zero. The profile name and word bank stay.`
+          )
+        ) {
+          return;
+        }
+        const s = saveProfileStore(resetProfileTracking(loadProfileStore(), id));
+        if (id === s.activeId) {
+          resetSessionAuditLogs();
+          state.guidedSeen = new Set();
+          state.guidedCurrentKey = null;
+          state.guidedVocabPending = null;
+        }
+        flash(`Tracking reset for ${name}`);
         return;
       }
 
@@ -19457,7 +19542,9 @@ function openProfilesSheet() {
         if (raw == null || !raw.trim()) return;
         try {
           const s = saveProfileStore(
-            importProfileDocument(loadProfileStore(), raw, { activate: true })
+            importProfileDocument(endProfileSession(loadProfileStore()), raw, {
+              activate: true,
+            })
           );
           applyActiveProfilePrefs();
           resetSessionAuditLogs();
@@ -19465,6 +19552,11 @@ function openProfilesSheet() {
         } catch (err) {
           flash(err?.message || "Import failed");
         }
+        return;
+      }
+
+      if (t.closest("[data-report-view]")) {
+        openReportCardSheet();
         return;
       }
 
@@ -20956,4 +21048,11 @@ if (!consumeCurriculumLaunch()) {
   if (location.hash === "#numbers") navigate("numbers");
   else if (location.hash === "#nouns") navigate("nouns");
   else if (location.hash === "#sounds") navigate("sounds");
+  else {
+    try {
+      saveProfileStore(endProfileSession(loadProfileStore()));
+    } catch {
+      /* profile storage is optional */
+    }
+  }
 }

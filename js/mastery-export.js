@@ -74,7 +74,7 @@ export function buildReportCard(profile, opts = {}) {
     return {
       topicId: parsed.topicId,
       unitId: parsed.unitId,
-      label: `${parsed.territory} · ${parsed.topicId} · ${parsed.unitId}`,
+      label: `${topicHeading(parsed.territory, parsed.topicId)} · ${displayName(parsed.unitId)}`,
       territory: parsed.territory,
       readiness,
       correct: stat.correct,
@@ -273,6 +273,271 @@ export function fullAuditToPlaintext(audit) {
   }
   lines.push("");
   return lines.join("\n");
+}
+
+const TERRITORY_NAMES = {
+  numbers: "Numbers",
+  nouns: "Nouns",
+  case: "Case",
+  sounds: "Sounds",
+};
+
+/** Title-case a curriculum id for the report card view. */
+export function displayName(id) {
+  const raw = String(id || "")
+    .replace(/[-_]/g, " ")
+    .trim();
+  if (!raw) return "";
+  return raw.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** @param {string} territory @param {string} topicId */
+export function topicHeading(territory, topicId) {
+  const terr = TERRITORY_NAMES[territory] || displayName(territory) || "Topic";
+  return `${terr} · ${displayName(topicId)}`;
+}
+
+/**
+ * Strong / needs-work / next for one evidence store (overall or a single session).
+ * @param {Record<string, object>} grains
+ * @param {number} [attemptCount]
+ */
+export function progressSlice(grains, attemptCount = 0) {
+  const store = { grains: grains || {} };
+  const card = buildReportCard({ evidence: store });
+  const units = card.units;
+  const topics = [];
+  const byTopic = new Map();
+  for (const unit of units) {
+    const id = `${unit.territory}:${unit.topicId}`;
+    if (!byTopic.has(id)) {
+      const topic = {
+        id,
+        label: topicHeading(unit.territory, unit.topicId),
+        units: [],
+      };
+      byTopic.set(id, topic);
+      topics.push(topic);
+    }
+    byTopic.get(id).units.push(unit);
+  }
+  for (const topic of topics) {
+    topic.strong = topic.units.filter((u) => u.readiness === "ready").length;
+    topic.needsWork = topic.units.filter((u) => u.readiness === "weak").length;
+  }
+
+  const activities = grainsOfKind(store, EVIDENCE_GRAIN.UNIT_PRESET).map(
+    ({ key, stat }) => {
+      const parsed = parseUnitKey(key);
+      return {
+        label: `${displayName(parsed.unitId)} · ${displayName(parsed.presetId || "mix")}`,
+        topicId: parsed.topicId,
+        readiness: readinessFromStat(stat),
+        correct: stat.correct,
+        total: stat.total,
+        accuracy: grainAccuracy(stat),
+      };
+    }
+  );
+
+  const concepts = weakConcepts(store, {
+    threshold: WEAK_ACCURACY,
+    minTotal: 1,
+  }).map((w) => w.stat.conceptId || String(w.key).replace(/^concept:/, ""));
+
+  let correct = 0;
+  let total = 0;
+  for (const unit of units) {
+    correct += unit.correct || 0;
+    total += unit.total || 0;
+  }
+
+  return {
+    attemptCount,
+    correct,
+    total,
+    units,
+    topics,
+    activities,
+    concepts,
+    strong: units.filter((u) => u.readiness === "ready"),
+    needsWork: units.filter((u) => u.readiness === "weak"),
+    building: units.filter((u) => u.readiness === "building"),
+    next: card.suggestedNext,
+  };
+}
+
+/**
+ * Learner-facing breakdown: overall, then each quiz session.
+ * @param {import("./profiles.js").LearnerProfile} profile
+ */
+export function buildProgressReport(profile) {
+  const sessions = (profile?.sessions || []).map((session) => ({
+    id: session.id,
+    label: session.label || "Quiz",
+    mode: session.mode || "practice",
+    startedAt: session.startedAt || null,
+    endedAt: session.endedAt || null,
+    open: !session.endedAt,
+    ...progressSlice(session.evidence?.grains || {}, session.attemptCount || 0),
+  }));
+  const sessionAttempts = sessions.reduce(
+    (n, session) => n + (session.attemptCount || 0),
+    0
+  );
+  const overallAttempts = profile?.attemptCount || 0;
+  return {
+    profileId: profile?.id || null,
+    profileLabel: profile?.label || null,
+    earlierAttempts: Math.max(0, overallAttempts - sessionAttempts),
+    overall: progressSlice(profile?.evidence?.grains || {}, overallAttempts),
+    sessions,
+  };
+}
+
+function escapeReportHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function formatQuizWhen(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function readinessMark(readiness) {
+  if (readiness === "ready") return { text: "strong", cls: "is-ready" };
+  if (readiness === "weak") return { text: "needs work", cls: "is-weak" };
+  if (readiness === "building") return { text: "in progress", cls: "is-building" };
+  return { text: "not yet", cls: "is-building" };
+}
+
+function reportUnitItems(units) {
+  if (!units?.length) return `<li class="coach-soft">None yet</li>`;
+  return units
+    .map((unit) => {
+      const mark = readinessMark(unit.readiness);
+      const pct =
+        unit.accuracy != null ? `${Math.round(unit.accuracy * 100)}%` : "—";
+      return `<li class="report-row">
+        <span>${escapeReportHtml(displayName(unit.unitId))}</span>
+        <span class="report-pill ${mark.cls}">${mark.text}</span>
+        <span class="coach-stat">${unit.correct}/${unit.total} · ${pct}</span>
+      </li>`;
+    })
+    .join("");
+}
+
+function reportSliceHtml(slice) {
+  if (!slice?.attemptCount && !slice?.units?.length) {
+    return `<p class="coach-soft">No scored answers in this group yet.</p>`;
+  }
+  const topics = (slice.topics || [])
+    .map((topic) => {
+      const bits = [];
+      if (topic.strong) bits.push(`${topic.strong} strong`);
+      if (topic.needsWork) bits.push(`${topic.needsWork} need work`);
+      const note = bits.length ? ` · ${bits.join(", ")}` : "";
+      return `<section class="report-topic">
+        <h5 class="coach-h">${escapeReportHtml(topic.label)}${
+          note
+            ? `<span class="coach-stat">${escapeReportHtml(note)}</span>`
+            : ""
+        }</h5>
+        <ul class="coach-list report-units">${reportUnitItems(topic.units)}</ul>
+      </section>`;
+    })
+    .join("");
+  const activities = (slice.activities || [])
+    .map((row) => {
+      const mark = readinessMark(row.readiness);
+      return `<li class="report-row">
+        <span>${escapeReportHtml(row.label)}</span>
+        <span class="report-pill ${mark.cls}">${mark.text}</span>
+        <span class="coach-stat">${row.correct}/${row.total}</span>
+      </li>`;
+    })
+    .join("");
+  const concepts = (slice.concepts || [])
+    .map((id) => `<li>${escapeReportHtml(displayName(id))}</li>`)
+    .join("");
+  return `<p class="coach-soft"><strong>What's next.</strong> ${escapeReportHtml(
+    slice.next || "Keep practicing."
+  )}</p>
+    <h5 class="coach-h">Strong</h5>
+    <ul class="coach-list report-units">${reportUnitItems(slice.strong)}</ul>
+    <h5 class="coach-h">Needs work</h5>
+    <ul class="coach-list report-units">${reportUnitItems(slice.needsWork)}</ul>
+    <h5 class="coach-h">In progress</h5>
+    <ul class="coach-list report-units">${reportUnitItems(slice.building)}</ul>
+    <h5 class="coach-h">By topic</h5>
+    ${topics || `<p class="coach-soft">No topics yet.</p>`}
+    ${
+      activities
+        ? `<details class="coach-hood"><summary>By activity</summary><ul class="coach-list report-units">${activities}</ul></details>`
+        : ""
+    }
+    ${
+      concepts
+        ? `<h5 class="coach-h">Concepts that need work</h5><ul class="coach-list">${concepts}</ul>`
+        : ""
+    }`;
+}
+
+/** Sheet body for the in-app report card. */
+export function progressReportHtml(report) {
+  const overall = report?.overall || progressSlice({}, 0);
+  const pct =
+    overall.total > 0
+      ? `${Math.round((overall.correct / overall.total) * 100)}%`
+      : "—";
+  const earlier = report?.earlierAttempts
+    ? `<p class="coach-soft">${report.earlierAttempts} earlier answers are in the overall totals only. New answers are grouped into sessions.</p>`
+    : "";
+  const sessions = (report?.sessions || [])
+    .map((session, index) => {
+      const when = formatQuizWhen(session.startedAt);
+      const stateLabel = session.open ? "in progress" : "finished";
+      const answers = `${session.attemptCount || 0} answers`;
+      return `<details class="coach-hood" ${index === 0 ? "open" : ""}>
+        <summary>${escapeReportHtml(session.label)} · ${escapeReportHtml(answers)}${
+          when ? ` · ${escapeReportHtml(when)}` : ""
+        } · ${stateLabel}</summary>
+        ${reportSliceHtml(session)}
+      </details>`;
+    })
+    .join("");
+
+  return `<div class="coach-sheet report-card">
+      <p class="coach-soft">${escapeReportHtml(report?.profileLabel || "Learner")} · ${
+        overall.attemptCount || 0
+      } answers · ${overall.correct}/${overall.total || 0} correct (${pct})</p>
+      <p class="coach-soft" style="margin-top:0">
+        <button type="button" class="btn" data-report-back>Back to profiles</button>
+      </p>
+      <section class="coach-block">
+        <h4 class="coach-h">Overall</h4>
+        ${reportSliceHtml(overall)}
+        ${earlier}
+      </section>
+      <section class="coach-block">
+        <h4 class="coach-h">Sessions</h4>
+        ${
+          sessions ||
+          `<p class="coach-soft">No quiz sessions yet. Start Guided or Play and this list will split each run.</p>`
+        }
+      </section>
+    </div>`;
 }
 
 export function reportCardJson(profile, opts) {

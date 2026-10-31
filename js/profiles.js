@@ -15,6 +15,8 @@ export const PROFILES_STORAGE_KEY = "schnapp-profiles";
 export const ASSIST_DEFAULT_MIGRATE_KEY = "schnapp-assist-default-independent-v1";
 
 const HINT_HISTORY_CAP = 100;
+const SESSION_CAP = 40;
+const SESSION_MODES = new Set(["guided", "play", "learn", "practice"]);
 
 /**
  * @typedef {object} ProfilePrefs
@@ -33,6 +35,20 @@ const HINT_HISTORY_CAP = 100;
  * @property {{ at: number, depth: number, unitKey?: string, presetId?: string }[]} hintHistory
  * @property {Record<string, number>} dealerStats
  * @property {number} attemptCount
+ * @property {QuizSession[]} sessions
+ */
+
+/**
+ * One bounded run of quizzing (a Start on the home screen, or a later practice burst).
+ * Evidence here is that run only. The profile evidence store is the overall total.
+ * @typedef {object} QuizSession
+ * @property {string} id
+ * @property {string} label
+ * @property {"guided"|"play"|"learn"|"practice"} mode
+ * @property {string} startedAt
+ * @property {string|null} endedAt
+ * @property {number} attemptCount
+ * @property {{ grains: Record<string, object> }} evidence
  */
 
 /**
@@ -68,8 +84,54 @@ export function createEmptyProfile(label = "You") {
     hintHistory: [],
     dealerStats: {},
     attemptCount: 0,
+    sessions: [],
     wordBank: emptyWordBank(),
   };
+}
+
+/** @param {unknown} raw @returns {QuizSession|null} */
+function normalizeSession(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const src = /** @type {Record<string, unknown>} */ (raw);
+  const mode = SESSION_MODES.has(String(src.mode)) ? String(src.mode) : "practice";
+  return {
+    id: typeof src.id === "string" && src.id ? src.id : uid("s"),
+    label: String(src.label || "Quiz").trim() || "Quiz",
+    mode,
+    startedAt: typeof src.startedAt === "string" ? src.startedAt : nowIso(),
+    endedAt: typeof src.endedAt === "string" && src.endedAt ? src.endedAt : null,
+    attemptCount: Number(src.attemptCount) || 0,
+    evidence:
+      src.evidence &&
+      typeof src.evidence === "object" &&
+      /** @type {{ grains?: object }} */ (src.evidence).grains
+        ? {
+            grains: {
+              .../** @type {{ grains: Record<string, object> }} */ (src.evidence).grains,
+            },
+          }
+        : emptyEvidenceStore(),
+  };
+}
+
+/** @param {unknown} raw @returns {QuizSession[]} */
+function normalizeSessions(raw) {
+  if (!Array.isArray(raw)) return [];
+  const sessions = raw.map(normalizeSession).filter(Boolean).slice(0, SESSION_CAP);
+  const open = sessions.filter((s) => !s.endedAt);
+  if (open.length > 1) {
+    open.sort((a, b) => String(b.startedAt).localeCompare(String(a.startedAt)));
+    const keep = open[0].id;
+    for (const s of sessions) {
+      if (!s.endedAt && s.id !== keep) s.endedAt = s.startedAt;
+    }
+  }
+  return sessions;
+}
+
+/** @param {LearnerProfile} profile @returns {QuizSession|null} */
+function openSession(profile) {
+  return (profile?.sessions || []).find((s) => s && !s.endedAt) || null;
 }
 
 /** @returns {ProfileStore} */
@@ -112,6 +174,7 @@ export function normalizeProfileStore(raw) {
       hintHistory: Array.isArray(p.hintHistory) ? p.hintHistory.slice(-HINT_HISTORY_CAP) : [],
       dealerStats: p.dealerStats && typeof p.dealerStats === "object" ? { ...p.dealerStats } : {},
       attemptCount: Number(p.attemptCount) || 0,
+      sessions: normalizeSessions(p.sessions),
       wordBank: normalizeWordBank(p.wordBank),
     };
   }
@@ -293,7 +356,67 @@ export function importProfileDocument(store, doc, opts = {}) {
 }
 
 /**
- * Record a scored attempt into the active profile’s long-term evidence.
+ * Close the active profile's open quiz session, if any.
+ * @param {ProfileStore} store
+ */
+export function endProfileSession(store) {
+  const s = normalizeProfileStore(store);
+  const p = getActiveProfile(s);
+  const open = openSession(p);
+  if (!open) return s;
+  open.endedAt = nowIso();
+  p.updatedAt = open.endedAt;
+  s.profiles[p.id] = p;
+  return s;
+}
+
+/**
+ * Start a quiz session on the active profile. Closes the previous open session.
+ * @param {ProfileStore} store
+ * @param {{ mode?: string, label?: string }} [meta]
+ */
+export function startProfileSession(store, meta = {}) {
+  const s = endProfileSession(store);
+  const p = getActiveProfile(s);
+  const mode = SESSION_MODES.has(String(meta.mode)) ? String(meta.mode) : "practice";
+  const session = {
+    id: uid("s"),
+    label: String(meta.label || "Quiz").trim() || "Quiz",
+    mode,
+    startedAt: nowIso(),
+    endedAt: null,
+    attemptCount: 0,
+    evidence: emptyEvidenceStore(),
+  };
+  p.sessions = [session, ...(p.sessions || [])].slice(0, SESSION_CAP);
+  p.updatedAt = session.startedAt;
+  s.profiles[p.id] = p;
+  return s;
+}
+
+/**
+ * Zero mastery tracking on a profile. Keeps the profile, its name, prefs, and word bank.
+ * @param {ProfileStore} store
+ * @param {string} [id] defaults to the active profile
+ */
+export function resetProfileTracking(store, id) {
+  const s = normalizeProfileStore(store);
+  const pid = id || s.activeId;
+  const p = s.profiles[pid];
+  if (!p) return s;
+  p.evidence = emptyEvidenceStore();
+  p.sessions = [];
+  p.attemptCount = 0;
+  p.hintHistory = [];
+  p.dealerStats = {};
+  p.updatedAt = nowIso();
+  s.profiles[p.id] = p;
+  return s;
+}
+
+/**
+ * Record a scored attempt into the active profile’s long-term evidence
+ * and into the open quiz session (opening a Practice session if none is open).
  * @param {ProfileStore} store
  * @param {{
  *   dealKey?: string,
@@ -311,6 +434,22 @@ export function recordProfileAttempt(store, attempt) {
   if (!p.evidence) p.evidence = emptyEvidenceStore();
   recordAttemptEvidence(p.evidence, attempt);
   p.attemptCount = (p.attemptCount || 0) + 1;
+  let session = openSession(p);
+  if (!session) {
+    session = {
+      id: uid("s"),
+      label: "Practice",
+      mode: "practice",
+      startedAt: nowIso(),
+      endedAt: null,
+      attemptCount: 0,
+      evidence: emptyEvidenceStore(),
+    };
+    p.sessions = [session, ...(p.sessions || [])].slice(0, SESSION_CAP);
+  }
+  if (!session.evidence) session.evidence = emptyEvidenceStore();
+  recordAttemptEvidence(session.evidence, attempt);
+  session.attemptCount = (session.attemptCount || 0) + 1;
   if (attempt.hintDepth != null && Number.isFinite(Number(attempt.hintDepth))) {
     p.hintHistory = p.hintHistory || [];
     p.hintHistory.push({
