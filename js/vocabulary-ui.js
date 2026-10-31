@@ -314,7 +314,8 @@ export function mountVocabularyPanel(root, opts) {
 
   const goNext = () => {
     opts.stopSpeech?.();
-    if (opts.onForward?.() === "history") return;
+    const fwd = opts.onForward?.();
+    if (fwd === "history" || fwd === "leave") return;
     if (session.mode === "learn") {
       if (!session.deck.length) return;
       session.index += 1;
@@ -520,6 +521,7 @@ export function mountVocabularyPanel(root, opts) {
       if (entry.revealed) return;
       entry.revealed = true;
       entry.result = result;
+      opts.onAttempt?.(q, result);
       if (attempt) {
         attempt.hidden = true;
         attempt.textContent = "";

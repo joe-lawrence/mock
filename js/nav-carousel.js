@@ -356,6 +356,35 @@ export function guidedBoundKeysForUnits(units) {
   return keys;
 }
 
+/**
+ * Curriculum units a vocab card stands in for.
+ * Guided scores those words against these units, then continues into them.
+ * @param {object[]} vocabUnits
+ * @param {object[]} [tree]
+ */
+export function curriculumUnitsMirroredBy(vocabUnits, tree = buildNavTree()) {
+  const index = new Map();
+  function walk(nodes) {
+    for (const n of nodes || []) {
+      if (n.type === "unit" && n.id) index.set(n.id, n);
+      if (n.children?.length) walk(n.children);
+    }
+  }
+  walk(tree);
+  const out = [];
+  const seen = new Set();
+  for (const vocab of vocabUnits || []) {
+    for (const id of vocab?.mirrorUnitIds || []) {
+      if (!id || seen.has(id)) continue;
+      const unit = index.get(id);
+      if (!unit || unit.kind === "vocabulary" || unit.vocabTopic) continue;
+      seen.add(id);
+      out.push(unit);
+    }
+  }
+  return out;
+}
+
 /** Playable vocabulary units under a nav tree, in depth-first order. */
 export function vocabularyUnitsIn(nodes) {
   const out = [];

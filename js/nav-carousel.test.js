@@ -4,6 +4,7 @@ import { caseNavUnits } from "./case-curriculum.js";
 import { familiesForUnit } from "./nouns-curriculum.js";
 import {
   buildNavTree,
+  curriculumUnitsMirroredBy,
   guidedBoundKeysForUnits,
   practiceUnitsForSelection,
   selectionAfterToggle,
@@ -116,6 +117,19 @@ describe("Guided bounds", () => {
     );
     assert.ok(keys.includes(`case:${step.topicId}:${step.stepId}`));
     assert.equal(keys.some((key) => key.includes("vocabulary")), false);
+  });
+
+  it("bounds guided vocab to the curriculum units the words belong to", () => {
+    const time = vocabularyUnitsIn(buildNavTree()).find(
+      (unit) => unit.id === "vocabulary:numbers:time"
+    );
+    const mirrors = curriculumUnitsMirroredBy([time]);
+    assert.ok(mirrors.length > 0);
+    assert.ok(mirrors.every((unit) => unit.topicId === "time" && unit.stepId));
+    const keys = guidedBoundKeysForUnits(mirrors);
+    assert.ok(keys.includes("numbers:time:whole-hours"));
+    assert.ok(keys.includes("numbers:time:time-words"));
+    assert.equal(keys.some((key) => key.startsWith("vocabulary")), false);
   });
 });
 

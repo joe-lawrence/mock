@@ -199,7 +199,11 @@ import {
   pieDialMatchesFraction,
 } from "./quiz-extras.js?v=20261027-relengine";
 
-import { guidedBoundKeysForUnits, mountNavCarousel } from "./nav-carousel.js?v=20261030-vocabspeedo";
+import {
+  curriculumUnitsMirroredBy,
+  guidedBoundKeysForUnits,
+  mountNavCarousel,
+} from "./nav-carousel.js?v=20261031-vocabprogress";
 import { keysSkippedByJump } from "./guided-jump.js";
 import {
   noteQuizNavEntry,
@@ -312,7 +316,12 @@ import {
 import {
   vocabularyAreas,
   curriculumTopicToVocabArea,
+  getVocabulary,
 } from "./generated/vocabulary.js?v=20261030-casetakes";
+import {
+  associateDealKey,
+  vocabItemIdsForDecks,
+} from "./vocab-progress.js?v=20261031-vocabprogress";
 import {
   emptyPlaylistState,
   buildNumbersCatalog,
@@ -6708,6 +6717,13 @@ const state = {
   sessionMode: null,
   /** Guided dealer keys chosen on the hub. Null means the full curriculum. */
   guidedBoundKeys: null,
+  /**
+   * Vocab ids still owed in this guided session.
+   * Null when the session is not waiting on vocabulary.
+   * @type {Set<string>|null}
+   */
+  guidedVocabPending: null,
+  guidedVocabExitTimer: null,
   /** @type {{ code: string, label: string, hint?: string } | null} Dealer reason. */
   currentReasonCode: null,
   /** Guided: dealer decision log for this session (debug). */
@@ -8551,7 +8567,11 @@ function renderVocabularyPanel(territoryId) {
       });
     },
     onBackNav: () => quizNavBack(),
-    onForward: () => quizNavForward(),
+    onForward: () => {
+      if (finishGuidedVocabIfReady()) return "leave";
+      return quizNavForward();
+    },
+    onAttempt: (question, result) => recordVocabOnAssociateUnit(question, result),
     backDisabled: () => quizNavBackDisabled(),
     onBack: () => {
       stopSpeech({ keepAdvance: true });
@@ -10629,7 +10649,30 @@ function vocabOpenOptions(unit) {
 function handleNavCarouselStart({ mode, units, keyboard, audio, practice, guided }) {
   const vocabUnits = (units || []).filter(isVocabNavUnit);
   const vocabSession = vocabUnits.length > 0 && vocabUnits.length === (units || []).length;
-  // Guided over curriculum units. A vocab selection stays on those words.
+  // Guided vocabulary is scored on the curriculum units those words belong to,
+  // then the dealer continues into those units.
+  if ((guided || mode === "guided") && vocabSession) {
+    state.navCaps = {
+      keyboard: keyboard ?? true,
+      audio: audio ?? true,
+    };
+    const grouped = groupVocabForStart(vocabUnits);
+    const mirrors = curriculumUnitsMirroredBy(vocabUnits);
+    beginGuidedSession(mirrors);
+    const pending = vocabItemIdsForDecks(grouped);
+    if (!pending.length) {
+      guidedDealAndGo();
+      return;
+    }
+    state.guidedVocabPending = new Set(pending);
+    const first = grouped[0];
+    state.vocabDecks = grouped;
+    openVocabulary(first.vocabTopic || first.territory, "practice", {
+      ...vocabOpenOptions(first),
+      keepDecks: true,
+    });
+    return;
+  }
   if ((guided || mode === "guided") && !vocabSession) {
     state.navCaps = {
       keyboard: keyboard ?? true,
@@ -10924,8 +10967,18 @@ function recentGuidedFeltDifficulty() {
   return null;
 }
 
-/** Guided start — reset progress and let the Dealer pick the first rep. */
-function startGuidedSession(units) {
+function clearGuidedVocabExit() {
+  if (state.guidedVocabExitTimer) {
+    clearTimeout(state.guidedVocabExitTimer);
+    state.guidedVocabExitTimer = null;
+  }
+}
+
+/**
+ * Reset guided progress and bound the dealer to these units.
+ * Does not deal. Callers open vocabulary first, or call guidedDealAndGo.
+ */
+function beginGuidedSession(units) {
   const keys = units?.length ? guidedBoundKeysForUnits(units) : null;
   state.guidedBoundKeys = keys?.length ? new Set(keys) : null;
   state.navCaps = state.navCaps || { keyboard: true, audio: true };
@@ -10937,10 +10990,59 @@ function startGuidedSession(units) {
   state.evidenceStore = emptyEvidenceStore();
   state.lastEvaluation = null;
   state.guidedCurrentKey = null;
+  state.guidedVocabPending = null;
+  clearGuidedVocabExit();
   clearNumbersHistory();
   clearQuizNavTrail();
   resetSessionAuditLogs();
+}
+
+/** Guided start — reset progress and let the Dealer pick the first rep. */
+function startGuidedSession(units) {
+  beginGuidedSession(units);
   guidedDealAndGo();
+}
+
+/**
+ * A vocabulary answer updates the curriculum unit that introduces the word.
+ * Guided waits until each selected word has been answered, then deals that unit.
+ * @param {object} question
+ * @param {{ status?: string, given?: string }} result
+ */
+function recordVocabOnAssociateUnit(question, result) {
+  if (state.sessionMode === "learn") return;
+  const item = getVocabulary(question?.vocabId);
+  const dealKey = associateDealKey(item);
+  if (!dealKey) return;
+  const correct = result?.status === "correct";
+  logGuidedQa({
+    question: [question?.instruction, question?.prompt].filter(Boolean).join(" — "),
+    answer: result?.given != null ? String(result.given) : "",
+    expected: question?.expect != null ? String(question.expect) : "",
+    status: correct ? "correct" : "incorrect",
+    dealKey,
+    itemKey: question.vocabId || "",
+    evidenceIds: [],
+  });
+  if (!state.guidedVocabPending || !question?.vocabId) return;
+  state.guidedVocabPending.delete(question.vocabId);
+  if (state.guidedVocabPending.size > 0) return;
+  clearGuidedVocabExit();
+  state.guidedVocabExitTimer = setTimeout(() => {
+    state.guidedVocabExitTimer = null;
+    finishGuidedVocabIfReady();
+  }, 1200);
+}
+
+/** Leave vocabulary once every selected word has been scored, and deal the units. */
+function finishGuidedVocabIfReady() {
+  if (state.sessionMode !== "guided") return false;
+  if (!state.guidedVocabPending || state.guidedVocabPending.size > 0) return false;
+  if (!isVocabPhase()) return false;
+  state.guidedVocabPending = null;
+  clearGuidedVocabExit();
+  continueGuided();
+  return true;
 }
 
 /** Clear Session Q&A + Dealer logs (Schnapp menu audit). */
@@ -11695,6 +11797,8 @@ function logGuidedQa({
   note,
   evidenceIds,
   recordEvidence = true,
+  dealKey,
+  itemKey,
 } = {}) {
   const log = state.guidedQaLog || (state.guidedQaLog = []);
   const q = question != null ? question : currentGuidedQuestionCue();
@@ -11703,7 +11807,7 @@ function logGuidedQa({
   if (!state.itemSupportVector) beginItemSupport();
   const ix = currentInteractionIds();
   const snap = supportSnapshot(state.itemSupportVector, ix);
-  const unitKey = currentEvidenceUnitKey();
+  const unitKey = dealKey || currentEvidenceUnitKey();
   const statusStr = status || "?";
   const ids =
     evidenceIds ||
@@ -11721,6 +11825,7 @@ function logGuidedQa({
       state.view === "case" ? casePresentedQuestion(state.caseQuestion) : null;
     const caseItemKey = caseSentenceKey(caseQuestion);
     const listenItemKey =
+      itemKey ||
       caseItemKey ||
       (ix.presetId === "listen" ? currentListenPromptKey() : "");
     const attemptEv = {
