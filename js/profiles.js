@@ -8,6 +8,10 @@ import {
   recordAttemptEvidence,
 } from "./multi-grain-evidence.js";
 import { emptyWordBank, normalizeWordBank } from "./word-bank.js";
+import {
+  emptyGuidedProgress,
+  normalizeGuidedProgress,
+} from "./guided-path.js";
 
 export const PROFILES_SCHEMA = "schnapp.profiles.v0";
 export const PROFILES_STORAGE_KEY = "schnapp-profiles";
@@ -36,6 +40,7 @@ const SESSION_MODES = new Set(["guided", "play", "learn", "practice"]);
  * @property {Record<string, number>} dealerStats
  * @property {number} attemptCount
  * @property {QuizSession[]} sessions
+ * @property {{ graduated: string[], skipped: string[], openKey: string|null, stage: number, streak: number, deals: number }} [guidedProgress]
  */
 
 /**
@@ -86,6 +91,7 @@ export function createEmptyProfile(label = "You") {
     attemptCount: 0,
     sessions: [],
     wordBank: emptyWordBank(),
+    guidedProgress: emptyGuidedProgress(),
   };
 }
 
@@ -176,6 +182,7 @@ export function normalizeProfileStore(raw) {
       attemptCount: Number(p.attemptCount) || 0,
       sessions: normalizeSessions(p.sessions),
       wordBank: normalizeWordBank(p.wordBank),
+      guidedProgress: normalizeGuidedProgress(p.guidedProgress),
     };
   }
   if (!Object.keys(profiles).length) return defaultProfileStore();
@@ -409,6 +416,7 @@ export function resetProfileTracking(store, id) {
   p.attemptCount = 0;
   p.hintHistory = [];
   p.dealerStats = {};
+  p.guidedProgress = emptyGuidedProgress();
   p.updatedAt = nowIso();
   s.profiles[p.id] = p;
   return s;
@@ -462,6 +470,17 @@ export function recordProfileAttempt(store, attempt) {
       p.hintHistory = p.hintHistory.slice(-HINT_HISTORY_CAP);
     }
   }
+  p.updatedAt = nowIso();
+  s.profiles[p.id] = p;
+  return s;
+}
+
+/** @param {ProfileStore} store @param {unknown} progress */
+export function recordGuidedProgress(store, progress) {
+  const s = normalizeProfileStore(store);
+  const p = getActiveProfile(s);
+  if (!p) return s;
+  p.guidedProgress = normalizeGuidedProgress(progress);
   p.updatedAt = nowIso();
   s.profiles[p.id] = p;
   return s;

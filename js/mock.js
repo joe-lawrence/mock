@@ -216,11 +216,7 @@ import {
   caseSentenceKey,
   pickCaseExerciseIndex,
 } from "./case-exercise-pick.js";
-import {
-  dealExercise,
-  WEAK_ACCURACY,
-  DEALER_REASONS,
-} from "../engine/dealer.js?v=20261027-listengap";
+import { WEAK_ACCURACY } from "../engine/dealer.js?v=20261027-listengap";
 import {
   PIPER_VOICES,
   ensurePiperReady,
@@ -307,7 +303,20 @@ import {
   updateActivePrefs,
   activeWordBank,
   updateActiveWordBank,
-} from "./profiles.js?v=20261031-sessions";
+  recordGuidedProgress,
+} from "./profiles.js?v=20261101-guided-graduate";
+import {
+  STAGE_BLOCK,
+  SPRINKLE_EVERY,
+  emptyGuidedProgress,
+  normalizeGuidedProgress,
+  hydrateGuidedProgress,
+  applyGuidedResult,
+  skipGuidedUnits,
+  planGuidedStep,
+  presetLadder,
+  orderGuidedKeys,
+} from "./guided-path.js?v=20261101-guided-graduate";
 import {
   reportCardJson,
   fullAuditJson,
@@ -1475,6 +1484,10 @@ function currentNumbersAvoidKey() {
   }
 }
 
+function guidedCardinalOrder() {
+  return state.sessionMode === "guided" && state.numbersTopic === "cardinals";
+}
+
 function reshuffleListenDeck() {
   const avoid = currentNumbersAvoidKey();
   const mixNonCardinal =
@@ -1489,6 +1502,8 @@ function reshuffleListenDeck() {
       pool.length ? pool : currentNumberPool(),
       avoid
     );
+  } else if (guidedCardinalOrder()) {
+    state.numbersListenDeck = [...listenValuePool()].sort((a, b) => a - b);
   } else {
     state.numbersListenDeck = shuffleAvoidingKey(listenValuePool(), avoid);
   }
@@ -1551,7 +1566,12 @@ function reshuffleStepDeck() {
       )
     );
   }
-  state.numbersStepDeck = shuffleAvoidingKey(expanded, currentNumbersAvoidKey());
+  if (guidedCardinalOrder()) {
+    expanded.sort((a, b) => (Number(a?.value) || 0) - (Number(b?.value) || 0));
+    state.numbersStepDeck = expanded;
+  } else {
+    state.numbersStepDeck = shuffleAvoidingKey(expanded, currentNumbersAvoidKey());
+  }
   state.numbersIndex = 0;
   state.numbersStepDeckKey = stepDeckKey();
 }
@@ -6749,6 +6769,10 @@ const state = {
    * evidenceStore so a return visit continues from earlier sessions.
    */
   guidedHistory: emptyEvidenceStore(),
+  /** Graduation along the selected guided path. Persisted on the profile. */
+  guidedProgress: emptyGuidedProgress(),
+  /** The card on screen is a review from a finished unit, not the open unit. */
+  guidedReviewDeal: false,
   /** Last engine evaluation for evidence id plumbing. */
   lastEvaluation: null,
   numbersMixDeck: null,
@@ -10958,6 +10982,9 @@ function guidedCandidates() {
       });
     }
   }
+  const pathOrder = orderGuidedKeys(out.map((c) => c.key));
+  const pathRank = new Map(pathOrder.map((key, index) => [key, index]));
+  out.sort((a, b) => pathRank.get(a.key) - pathRank.get(b.key));
   const bound = state.guidedBoundKeys;
   if (!bound) return out;
   return out.filter((c) => bound.has(c.key));
@@ -11060,8 +11087,69 @@ function carryGuidedHistory() {
     history = emptyEvidenceStore();
   }
   state.guidedHistory = history;
+  state.guidedReviewDeal = false;
+  loadGuidedProgress();
+}
+
+function guidedLadderFor(key) {
+  const candidate = guidedCandidates().find((c) => c.key === key);
+  return presetLadder(candidate?.presets, dealerPresetSeeds());
+}
+
+function persistGuidedProgress() {
+  try {
+    saveProfileStore(
+      recordGuidedProgress(loadProfileStore(), state.guidedProgress)
+    );
+  } catch {
+    /* profile storage is optional */
+  }
+}
+
+/** Resume graduation for the units selected this visit. */
+function loadGuidedProgress() {
+  let saved = emptyGuidedProgress();
+  try {
+    saved = normalizeGuidedProgress(
+      getActiveProfile(loadProfileStore())?.guidedProgress
+    );
+  } catch {
+    saved = emptyGuidedProgress();
+  }
+  const candidates = guidedCandidates();
+  const pathKeys = candidates.map((c) => c.key);
+  const ladders = {};
+  const seeds = dealerPresetSeeds();
+  for (const c of candidates) ladders[c.key] = presetLadder(c.presets, seeds);
+  state.guidedProgress = hydrateGuidedProgress(
+    saved,
+    pathKeys,
+    ladders,
+    state.guidedHistory
+  );
+  const seen = new Set(state.guidedProgress.graduated);
+  for (const key of state.guidedProgress.skipped) seen.add(key);
+  if (state.guidedProgress.openKey) seen.add(state.guidedProgress.openKey);
+  state.guidedSeen = seen;
+}
+
+function noteGuidedAnswer({ unitKey, correct, review }) {
+  const pathKeys = guidedCandidates().map((c) => c.key);
+  const open = state.guidedProgress?.openKey || unitKey;
+  const ladder = guidedLadderFor(open);
+  state.guidedProgress = applyGuidedResult(
+    state.guidedProgress || emptyGuidedProgress(),
+    {
+      pathKeys,
+      correct: !!correct,
+      review: !!review,
+      unitKey,
+      ladderLength: Math.max(1, ladder.length),
+    }
+  );
   const seen = state.guidedSeen || (state.guidedSeen = new Set());
-  for (const key of unitKeysFromEvidence(history)) seen.add(key);
+  for (const key of state.guidedProgress.graduated) seen.add(key);
+  persistGuidedProgress();
 }
 
 /**
@@ -11135,104 +11223,98 @@ function resetSessionAuditLogs() {
 }
 
 /**
- * Deal the next guided rep across all territories (order + competency) and
- * open it. Seen units and grains include earlier sessions plus this run.
+ * Deal the next guided card. One unit stays open until its ladder is
+ * graduated. Every fourth card after a unit is finished is a review.
  */
 function guidedDealAndGo() {
   const candidates = guidedCandidates();
-  const scheduling = currentGuidedScheduling();
-  const seenList = [...scheduling.seen];
-  const store = scheduling.evidence;
-  const stats = dealerStatsFromEvidence(store, candidates);
-  const hintDepth = recentGuidedHintDepth();
-  const feltDifficulty = recentGuidedFeltDifficulty();
-  const deal = dealExercise({
-    candidates,
-    seen: seenList,
-    stats,
-    evidence: store,
-    softArc: guidedSoftArc(candidates),
-    presetSeeds: dealerPresetSeeds(),
-    recentHintDepth: hintDepth,
-    recentDealKey: state.guidedCurrentKey || null,
-    listenCooldownKey: state.listenHold?.unitKey || null,
-    recentFeltDifficulty: feltDifficulty,
+  const pathKeys = candidates.map((c) => c.key);
+  const seeds = dealerPresetSeeds();
+  const ladderOf = (key) =>
+    presetLadder(candidates.find((c) => c.key === key)?.presets, seeds);
+  const plan = planGuidedStep({
+    pathKeys,
+    progress: state.guidedProgress || emptyGuidedProgress(),
+    ladderOf,
   });
-  if (!deal) {
+  if (!plan) {
     state.currentReasonCode = null;
     navigate("numbers");
     return;
   }
-  const c = deal.candidate;
-  state.currentReasonCode = deal.reasonCode;
+  const source = candidates.find((c) => c.key === plan.key);
+  if (!source) {
+    state.currentReasonCode = null;
+    navigate("numbers");
+    return;
+  }
+  const preset = plan.presetId || source.mode || source.modeId;
+  const c = { ...source, mode: preset, modeId: preset, review: plan.review };
+  state.guidedProgress = normalizeGuidedProgress({
+    ...(state.guidedProgress || emptyGuidedProgress()),
+    deals: plan.deals,
+    openKey: plan.review
+      ? state.guidedProgress?.openKey || null
+      : plan.key,
+  });
+  state.guidedReviewDeal = plan.review;
+  state.currentReasonCode = plan.reason;
   state.guidedCurrentKey = c.key;
-
-  // Snapshot dealer thinking for the Guided debug panel.
-  const weak = candidates
-    .filter((x) => seenList.includes(x.key))
-    .map((x) => {
-      const s = stats[x.key];
-      if (!s?.total) return null;
-      const acc = s.correct / s.total;
-      if (acc >= WEAK_ACCURACY) return null;
-      return {
-        key: x.key,
-        label: guidedLabelForCandidate(x),
-        correct: s.correct,
-        total: s.total,
-        acc,
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.acc - b.acc);
-  const nextNew = candidates.find((x) => !seenList.includes(x.key));
+  (state.guidedSeen || (state.guidedSeen = new Set())).add(c.key);
+  const store = currentGuidedScheduling().evidence;
+  const stats = dealerStatsFromEvidence(store, candidates);
   const chosenStat = stats[c.key];
-  const weakConceptRows = weakConcepts(store, {
-    threshold: WEAK_ACCURACY,
-    minTotal: 1,
-  }).slice(0, 6);
+  const progress = state.guidedProgress;
+  const nextKey = (progress.graduated || []).includes(plan.key)
+    ? progress.openKey
+    : pathKeys.find(
+        (key) =>
+          key !== plan.key &&
+          !(progress.graduated || []).includes(key) &&
+          !(progress.skipped || []).includes(key)
+      );
   const dealLog = state.guidedDealLog || (state.guidedDealLog = []);
   dealLog.push({
     at: Date.now(),
     n: dealLog.length + 1,
-    reason: deal.reasonCode?.code || "",
-    reasonLabel: deal.reasonCode?.label || "",
-    reasonHint: deal.reasonCode?.hint || "",
-    tier: deal.audit?.tier || "",
-    auditFeatures: deal.audit?.features || {},
+    reason: plan.reason?.code || "",
+    reasonLabel: plan.reason?.label || "",
+    reasonHint: plan.reason?.hint || "",
+    tier: plan.review ? "review" : "focus",
+    auditFeatures: {
+      stage: plan.stage,
+      streak: progress.streak,
+      block: STAGE_BLOCK,
+    },
     key: c.key,
     label: guidedLabelForCandidate(c),
     territory: c.territory,
-    mode: c.mode || c.modeId || c.family || "",
-    seenCount: candidates.filter((x) => scheduling.seen.has(x.key)).length,
+    mode: preset || "",
+    seenCount: (progress.graduated || []).length,
     candidateCount: candidates.length,
-    recentHintDepth: hintDepth,
-    recentFeltDifficulty: feltDifficulty,
+    recentHintDepth: recentGuidedHintDepth(),
+    recentFeltDifficulty: recentGuidedFeltDifficulty(),
     chosenStat: chosenStat
       ? { correct: chosenStat.correct, total: chosenStat.total }
       : null,
-    weak: weak.slice(0, 8),
-    weakConcepts: weakConceptRows.map((w) => ({
-      id: w.stat.conceptId || w.key,
-      correct: w.stat.correct,
-      total: w.stat.total,
-      acc: grainAccuracy(w.stat),
-    })),
-    nextNewKey: nextNew?.key || null,
-    nextNewLabel: nextNew ? guidedLabelForCandidate(nextNew) : null,
+    weak: [],
+    weakConcepts: [],
+    nextNewKey: nextKey || null,
+    nextNewLabel: nextKey
+      ? guidedLabelForCandidate(candidates.find((item) => item.key === nextKey))
+      : null,
   });
-
-  (state.guidedSeen || (state.guidedSeen = new Set())).add(c.key);
+  persistGuidedProgress();
   try {
     saveProfileStore(
-      recordProfileDealerReason(loadProfileStore(), deal.reasonCode?.code || "")
+      recordProfileDealerReason(loadProfileStore(), plan.reason?.code || "")
     );
   } catch {
     /* ignore */
   }
   if (
     state.listenHold &&
-    (c.key !== state.listenHold.unitKey || (c.mode || c.modeId) !== "listen")
+    (c.key !== state.listenHold.unitKey || preset !== "listen")
   ) {
     state.listenHold = null;
   }
@@ -11243,6 +11325,12 @@ function guidedDealAndGo() {
 }
 
 function configureGuidedNumbers(c) {
+  const same =
+    state.view === "numbers" &&
+    state.phase.numbers === "practice" &&
+    state.numbersTopic === c.topicId &&
+    state.numbersStep === c.stepId &&
+    state.numbersQuizMode === c.mode;
   state.numbersSessionKind = "step";
   state.numbersMixSteps = [];
   state.numbersMixEntries = [];
@@ -11250,12 +11338,22 @@ function configureGuidedNumbers(c) {
   state.numbersStep = c.stepId;
   state.numbersQuizMode = c.mode;
   state.numbersFocusLocked = true;
-  state.numbersStepDeck = null;
-  state.numbersStepDeckKey = "";
-  state.numbersIndex = 0;
+  state.numbersPinnedMeta = null;
   state.phase.numbers = "practice";
   state.preservePractice.numbers = false;
-  if (c.mode === "listen") placeGuidedNumbersListen();
+  if (!same) {
+    state.numbersStepDeck = null;
+    state.numbersStepDeckKey = "";
+    state.numbersIndex = 0;
+    state.numbersListenDeck = null;
+    state.numbersListenPoolKey = "";
+    state.numbersListenCursor = 0;
+  } else if (c.mode === "listen") {
+    state.numbersListenCursor = (state.numbersListenCursor || 0) + 1;
+  } else {
+    state.numbersIndex = (state.numbersIndex || 0) + 1;
+  }
+  if (c.mode === "listen" && !same && c.review) placeGuidedNumbersListen();
   navigate("numbers", { keepPhase: true });
 }
 
@@ -11263,7 +11361,18 @@ function configureGuidedNouns(c) {
   const stepId = c.family || c.stepId;
   const topicId = c.learnUnitId || c.topicId || unitIdForFamily(stepId);
   const modeId =
-    c.modeId || introModeForNounsStep(topicId, stepId)?.id || "choose";
+    c.modeId || c.mode || introModeForNounsStep(topicId, stepId)?.id || "choose";
+  const same =
+    state.view === "nouns" &&
+    state.phase.nouns === "practice" &&
+    state.nounsTopic === topicId &&
+    (state.nounsStep || state.nounsMode) === stepId &&
+    state.nounsQuizMode === modeId;
+  if (same) {
+    advanceNounsIndex();
+    navigate("nouns", { keepPhase: true });
+    return;
+  }
   applyNounsCell(topicId, stepId, modeId);
   state.nounsHubPracticePick = "";
   state.nounsSessionKind = "focus";
@@ -11271,21 +11380,37 @@ function configureGuidedNouns(c) {
   resetNounsDeckForMode();
   state.phase.nouns = "practice";
   state.preservePractice.nouns = false;
-  if ((c.modeId || c.mode) === "listen") placeGuidedCompassListen();
+  if (modeId === "listen") placeGuidedCompassListen();
   navigate("nouns", { keepPhase: true });
 }
 
 function configureGuidedCase(c) {
+  const same =
+    state.view === "case" &&
+    state.caseMode === "practice" &&
+    state.caseTopic === c.topicId &&
+    state.caseStep === c.stepId &&
+    state.casePreset === c.mode &&
+    (state.caseDeck || []).length > 1;
+  if (same) {
+    advanceCaseQuestion();
+    return;
+  }
   startCasePractice(c.topicId, c.stepId, c.mode);
 }
 
 function configureGuidedSounds(c) {
-  state.soundsMode = c.mode === "listen" ? "listen" : "karaoke";
-  state.soundsIndex = 0;
+  const mode = c.mode === "listen" ? "listen" : "karaoke";
+  const same =
+    state.view === "sounds" &&
+    state.phase.sounds === "practice" &&
+    state.soundsMode === mode;
+  state.soundsMode = mode;
   state.soundsChoice = null;
   state.soundsChecked = false;
   state.phase.sounds = "practice";
   state.preservePractice.sounds = false;
+  state.soundsIndex = same ? (state.soundsIndex || 0) + 1 : 0;
   navigate("sounds", { keepPhase: true });
 }
 
@@ -11923,6 +12048,13 @@ function logGuidedQa({
       hintDepth: snap.hintDepth,
     };
     recordAttemptEvidence(store, attemptEv);
+    if (state.sessionMode === "guided" && !state.guidedVocabPending) {
+      noteGuidedAnswer({
+        unitKey,
+        correct,
+        review: !!state.guidedReviewDeal,
+      });
+    }
     // Long-term mastery on the active local profile (isolated per user).
     try {
       saveProfileStore(recordProfileAttempt(loadProfileStore(), attemptEv));
@@ -12126,8 +12258,18 @@ function jumpGuidedAhead(key) {
   const seen = state.guidedSeen || (state.guidedSeen = new Set());
   for (const id of skipped) seen.add(id);
   seen.add(target.key);
+  state.guidedProgress = skipGuidedUnits(
+    state.guidedProgress || emptyGuidedProgress(),
+    order,
+    skipped
+  );
   state.guidedCurrentKey = target.key;
-  state.currentReasonCode = null;
+  persistGuidedProgress();
+  state.currentReasonCode = {
+    code: "focus_unit",
+    label: "This unit",
+    hint: "Jumped ahead. Three correct in a row moves you on.",
+  };
   state.listenHold = null;
   const dealLog = state.guidedDealLog || (state.guidedDealLog = []);
   dealLog.push({
@@ -12141,10 +12283,13 @@ function jumpGuidedAhead(key) {
     territory: target.territory,
     skipped,
   });
-  if (target.territory === "nouns") configureGuidedNouns(target);
-  else if (target.territory === "case") configureGuidedCase(target);
-  else if (target.territory === "sounds") configureGuidedSounds(target);
-  else configureGuidedNumbers(target);
+  const ladder = guidedLadderFor(target.key);
+  const preset = ladder[state.guidedProgress?.stage || 0] || ladder[0] || target.mode;
+  const card = { ...target, mode: preset, modeId: preset };
+  if (card.territory === "nouns") configureGuidedNouns(card);
+  else if (card.territory === "case") configureGuidedCase(card);
+  else if (card.territory === "sounds") configureGuidedSounds(card);
+  else configureGuidedNumbers(card);
 }
 
 function guidedStatLine(key, store) {
@@ -12164,7 +12309,11 @@ function openGuidedCoachSheet() {
   const key = state.guidedCurrentKey;
   const candidates = guidedCandidates();
   const scheduling = currentGuidedScheduling();
-  const seen = scheduling.seen;
+  const progress = state.guidedProgress || emptyGuidedProgress();
+  const graduated = new Set(progress.graduated || []);
+  const skippedSet = new Set(progress.skipped || []);
+  const seen = new Set([...graduated, ...skippedSet]);
+  if (progress.openKey) seen.add(progress.openKey);
   const store = scheduling.evidence;
   const stats = dealerStatsFromEvidence(store, candidates);
   const current = candidates.find((c) => c.key === key);
@@ -12174,7 +12323,6 @@ function openGuidedCoachSheet() {
       ? guidedLabelForKey(key)
       : "—";
   const currentStat = key ? guidedStatLine(key, store) : null;
-  const thresholdPct = Math.round(WEAK_ACCURACY * 100);
 
   // Weak = seen keys under mastery threshold, lowest accuracy first.
   const weak = candidates
@@ -12189,8 +12337,10 @@ function openGuidedCoachSheet() {
     .filter(Boolean)
     .sort((a, b) => a.acc - b.acc);
 
-  const nextNew = candidates.find((c) => !seen.has(c.key));
-  const touched = candidates.filter((c) => seen.has(c.key)).length;
+  const nextNew = candidates.find(
+    (c) => !graduated.has(c.key) && !skippedSet.has(c.key) && c.key !== progress.openKey
+  );
+  const finished = candidates.filter((c) => graduated.has(c.key)).length;
   const total = candidates.length;
   const earlier = candidates.filter((c) =>
     unitKeysFromEvidence(state.guidedHistory).includes(c.key)
@@ -12198,27 +12348,35 @@ function openGuidedCoachSheet() {
 
   // —— Layer 1: why this exercise ——
   let whyHtml;
+  const ladder = guidedLadderFor(key);
+  const stepCount = Math.max(1, ladder.length);
+  const step = Math.min(progress.stage || 0, stepCount - 1) + 1;
   if (!reason) {
-    whyHtml = `<p>Your path coach is picking the next drill across Numbers and Nouns.</p>`;
+    whyHtml = `<p>Your path coach is working through one unit at a time.</p>`;
+  } else if (reason.code === "focus_unit") {
+    whyHtml = `<p>You’re staying on <strong>${escapeHtml(currentLabel)}</strong>. Step ${step} of ${stepCount}. ${progress.streak || 0} of ${STAGE_BLOCK} correct in a row.</p>
+    <p class="coach-soft">${escapeHtml(reason.hint || "")}</p>`;
   } else if (reason.code === "review") {
-    whyHtml = `<p>You’re on <strong>Review</strong> because this unit is still under the lock-in bar (${thresholdPct}%)${
-      currentStat ? ` — currently <strong>${escapeHtml(currentStat)}</strong>` : ""
+    whyHtml = `<p>This card is from a unit you already finished${
+      currentLabel && currentLabel !== "—"
+        ? `: <strong>${escapeHtml(currentLabel)}</strong>`
+        : ""
     }.</p>
     <p class="coach-soft">${escapeHtml(reason.hint || "")}</p>`;
   } else if (reason.code === "new") {
-    whyHtml = `<p>You’re on <strong>New</strong> — first unseen unit in curriculum order${
+    whyHtml = `<p>You’re on <strong>New</strong> — first unfinished unit in this selection${
       currentLabel && currentLabel !== "—"
         ? `: <strong>${escapeHtml(currentLabel)}</strong>`
         : ""
     }.</p>
     <p class="coach-soft">${escapeHtml(reason.hint || "")}</p>`;
   } else {
-    whyHtml = `<p>You’re on <strong>Continue</strong> — every unit in this path has been touched; the coach keeps drilling the weakest.</p>
+    whyHtml = `<p>You’re on <strong>Continue</strong> — every selected unit is finished, so this card keeps an earlier one warm.</p>
     <p class="coach-soft">${escapeHtml(reason.hint || "")}</p>`;
   }
 
   // —— Layer 2: progress ——
-  let progressBits = `<p><strong>${touched}</strong> of <strong>${total}</strong> units touched`;
+  let progressBits = `<p><strong>${finished}</strong> of <strong>${total}</strong> units finished`;
   if (weak.length) progressBits += ` · <strong>${weak.length}</strong> need review`;
   progressBits += `.</p>`;
   if (earlier) {
@@ -12250,12 +12408,10 @@ function openGuidedCoachSheet() {
   const hood = `<details class="coach-hood">
     <summary>Under the hood</summary>
     <ol class="coach-policy">
-      <li><strong>${escapeHtml(DEALER_REASONS.scaffold_adjust.label)}</strong> — recent deep hints → easier preset.</li>
-      <li><strong>${escapeHtml(DEALER_REASONS.edge_of_competence.label)}</strong> — hard preset weak while easy preset OK (e.g. freeform weak, MC OK).</li>
-      <li><strong>${escapeHtml(DEALER_REASONS.review.label)}</strong> — re-deal the weakest unit×preset (don’t jump to hardest).</li>
-      <li><strong>${escapeHtml(DEALER_REASONS.probe_mastery.label)}</strong> — strong unit → untested harder preset.</li>
-      <li><strong>${escapeHtml(DEALER_REASONS.new.label)}</strong> — first untouched unit along the soft arc.</li>
-      <li><strong>${escapeHtml(DEALER_REASONS.continue.label)}</strong> — maintenance on the lowest-accuracy unit.</li>
+      <li><strong>One unit</strong> — the selection is the path, and only the first unfinished unit is open.</li>
+      <li><strong>Harder step</strong> — ${STAGE_BLOCK} correct in a row moves to a harder preset in that unit. A miss repeats the step.</li>
+      <li><strong>Next unit</strong> — finishing the last step graduates the unit.</li>
+      <li><strong>Review</strong> — every ${SPRINKLE_EVERY}th card can be one from a unit you already finished.</li>
     </ol>
     <p class="coach-soft">This deal: <code>${escapeHtml(
       reason?.code || "—"
@@ -19514,6 +19670,8 @@ function openProfilesSheet() {
         applyActiveProfilePrefs();
         // Fresh session audit when switching learners.
         resetSessionAuditLogs();
+        state.guidedProgress = emptyGuidedProgress();
+        state.guidedReviewDeal = false;
         state.guidedSeen = new Set();
         state.guidedCurrentKey = null;
         state.sessionMode = null;
@@ -19530,7 +19688,10 @@ function openProfilesSheet() {
         );
         applyActiveProfilePrefs();
         resetSessionAuditLogs();
+        state.guidedProgress = emptyGuidedProgress();
+        state.guidedReviewDeal = false;
         state.guidedSeen = new Set();
+        if (state.sessionMode === "guided") loadGuidedProgress();
         flash(`Added ${getActiveProfile(s).label}`);
         return;
       }
@@ -19561,6 +19722,8 @@ function openProfilesSheet() {
         const s = saveProfileStore(resetProfileTracking(loadProfileStore(), id));
         if (id === s.activeId) {
           resetSessionAuditLogs();
+          state.guidedProgress = emptyGuidedProgress();
+          state.guidedReviewDeal = false;
           state.guidedSeen = new Set();
           state.guidedCurrentKey = null;
           state.guidedVocabPending = null;
