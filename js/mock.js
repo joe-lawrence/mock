@@ -284,6 +284,11 @@ import {
   EVIDENCE_GRAIN,
 } from "./multi-grain-evidence.js?v=20261027-listengap";
 import {
+  cloneEvidenceStore,
+  guidedSchedulingView,
+  unitKeysFromEvidence,
+} from "./guided-history.js?v=20261101-guided-history";
+import {
   loadProfileStore,
   saveProfileStore,
   getActiveProfile,
@@ -6737,8 +6742,13 @@ const state = {
   guidedQaLog: [],
   /** Guided: index into attemptLog when the session started (legacy slice fallback). */
   guidedAttemptStartIndex: 0,
-  /** Multi-grain evidence store (unit / unit×preset / concept) — Slice 5. */
+  /** Multi-grain evidence for this run only (session audit). */
   evidenceStore: emptyEvidenceStore(),
+  /**
+   * Profile evidence frozen at Guided Start. The dealer merges this with
+   * evidenceStore so a return visit continues from earlier sessions.
+   */
+  guidedHistory: emptyEvidenceStore(),
   /** Last engine evaluation for evidence id plumbing. */
   lastEvaluation: null,
   numbersMixDeck: null,
@@ -11016,7 +11026,9 @@ function clearGuidedVocabExit() {
 }
 
 /**
- * Reset guided progress and bound the dealer to these units.
+ * Start a guided run bound to these units.
+ * Clears this run's audit log, then loads previous-session evidence so the
+ * dealer continues from units the profile already practiced.
  * Does not deal. Callers open vocabulary first, or call guidedDealAndGo.
  */
 function beginGuidedSession(units) {
@@ -11036,9 +11048,35 @@ function beginGuidedSession(units) {
   clearNumbersHistory();
   clearQuizNavTrail();
   resetSessionAuditLogs();
+  carryGuidedHistory();
 }
 
-/** Guided start — reset progress and let the Dealer pick the first rep. */
+/** Copy the active profile's evidence into this guided run's scheduling snapshot. */
+function carryGuidedHistory() {
+  let history = emptyEvidenceStore();
+  try {
+    history = cloneEvidenceStore(getActiveProfile(loadProfileStore())?.evidence);
+  } catch {
+    history = emptyEvidenceStore();
+  }
+  state.guidedHistory = history;
+  const seen = state.guidedSeen || (state.guidedSeen = new Set());
+  for (const key of unitKeysFromEvidence(history)) seen.add(key);
+}
+
+/**
+ * Seen units and grains the dealer should use: earlier sessions plus this run.
+ * Jumps live in guidedSeen even when they have no score yet.
+ */
+function currentGuidedScheduling() {
+  return guidedSchedulingView({
+    history: state.guidedHistory,
+    sessionEvidence: state.evidenceStore,
+    sessionSeen: state.guidedSeen,
+  });
+}
+
+/** Guided start — carry previous progress and let the Dealer pick the next rep. */
 function startGuidedSession(units) {
   beginGuidedSession(units);
   guidedDealAndGo();
@@ -11091,18 +11129,20 @@ function resetSessionAuditLogs() {
   state.guidedDealLog = [];
   state.guidedQaLog = [];
   state.evidenceStore = emptyEvidenceStore();
+  state.guidedHistory = emptyEvidenceStore();
   state.lastEvaluation = null;
   state.guidedAttemptStartIndex = (state.attemptLog || []).length;
 }
 
 /**
  * Deal the next guided rep across all territories (order + competency) and
- * open it. Progress lives in state.guidedSeen / evidenceStore (unit grain).
+ * open it. Seen units and grains include earlier sessions plus this run.
  */
 function guidedDealAndGo() {
   const candidates = guidedCandidates();
-  const seenList = [...(state.guidedSeen || [])];
-  const store = state.evidenceStore || emptyEvidenceStore();
+  const scheduling = currentGuidedScheduling();
+  const seenList = [...scheduling.seen];
+  const store = scheduling.evidence;
   const stats = dealerStatsFromEvidence(store, candidates);
   const hintDepth = recentGuidedHintDepth();
   const feltDifficulty = recentGuidedFeltDifficulty();
@@ -11164,7 +11204,7 @@ function guidedDealAndGo() {
     label: guidedLabelForCandidate(c),
     territory: c.territory,
     mode: c.mode || c.modeId || c.family || "",
-    seenCount: seenList.length,
+    seenCount: candidates.filter((x) => scheduling.seen.has(x.key)).length,
     candidateCount: candidates.length,
     recentHintDepth: hintDepth,
     recentFeltDifficulty: feltDifficulty,
@@ -11299,7 +11339,7 @@ function guidedCaseExerciseIndex(deck) {
       : "";
   return pickCaseExerciseIndex(deck, {
     dealKey: unitKey,
-    grains: state.evidenceStore?.grains,
+    grains: currentGuidedScheduling().evidence.grains,
     reasonCode: state.currentReasonCode?.code || "",
     heldSentenceKey: held,
   });
@@ -11339,7 +11379,9 @@ function weakestListenItemKey(unitKey) {
   if (!unitKey) return "";
   const prefix = `${unitKey}×listen×`;
   let best = null;
-  for (const [key, stat] of Object.entries(state.evidenceStore?.grains || {})) {
+  for (const [key, stat] of Object.entries(
+    currentGuidedScheduling().evidence.grains || {}
+  )) {
     if (stat?.kind !== EVIDENCE_GRAIN.ITEM || !key.startsWith(prefix)) continue;
     const acc = grainAccuracy(stat);
     if (acc == null || acc >= WEAK_ACCURACY) continue;
@@ -12105,8 +12147,9 @@ function jumpGuidedAhead(key) {
   else configureGuidedNumbers(target);
 }
 
-function guidedStatLine(key) {
-  const g = (state.evidenceStore || emptyEvidenceStore()).grains?.[key];
+function guidedStatLine(key, store) {
+  const grains = (store || currentGuidedScheduling().evidence).grains;
+  const g = grains?.[key];
   if (!g?.total) return null;
   return `${g.correct} of ${g.total} correct`;
 }
@@ -12120,8 +12163,9 @@ function openGuidedCoachSheet() {
   const reason = state.currentReasonCode;
   const key = state.guidedCurrentKey;
   const candidates = guidedCandidates();
-  const seen = state.guidedSeen || new Set();
-  const store = state.evidenceStore || emptyEvidenceStore();
+  const scheduling = currentGuidedScheduling();
+  const seen = scheduling.seen;
+  const store = scheduling.evidence;
   const stats = dealerStatsFromEvidence(store, candidates);
   const current = candidates.find((c) => c.key === key);
   const currentLabel = current
@@ -12129,7 +12173,7 @@ function openGuidedCoachSheet() {
     : key
       ? guidedLabelForKey(key)
       : "—";
-  const currentStat = key ? guidedStatLine(key) : null;
+  const currentStat = key ? guidedStatLine(key, store) : null;
   const thresholdPct = Math.round(WEAK_ACCURACY * 100);
 
   // Weak = seen keys under mastery threshold, lowest accuracy first.
@@ -12146,8 +12190,11 @@ function openGuidedCoachSheet() {
     .sort((a, b) => a.acc - b.acc);
 
   const nextNew = candidates.find((c) => !seen.has(c.key));
-  const touched = seen.size;
+  const touched = candidates.filter((c) => seen.has(c.key)).length;
   const total = candidates.length;
+  const earlier = candidates.filter((c) =>
+    unitKeysFromEvidence(state.guidedHistory).includes(c.key)
+  ).length;
 
   // —— Layer 1: why this exercise ——
   let whyHtml;
@@ -12174,6 +12221,9 @@ function openGuidedCoachSheet() {
   let progressBits = `<p><strong>${touched}</strong> of <strong>${total}</strong> units touched`;
   if (weak.length) progressBits += ` · <strong>${weak.length}</strong> need review`;
   progressBits += `.</p>`;
+  if (earlier) {
+    progressBits += `<p class="coach-soft">Picking up from earlier sessions (${earlier} already practiced).</p>`;
+  }
   progressBits += `<p class="coach-current">Now: <strong>${escapeHtml(
     currentLabel
   )}</strong>`;
@@ -19548,6 +19598,9 @@ function openProfilesSheet() {
           );
           applyActiveProfilePrefs();
           resetSessionAuditLogs();
+          state.guidedSeen = new Set();
+          state.guidedCurrentKey = null;
+          if (state.sessionMode === "guided") carryGuidedHistory();
           flash(`Imported — active ${getActiveProfile(s).label}`);
         } catch (err) {
           flash(err?.message || "Import failed");
