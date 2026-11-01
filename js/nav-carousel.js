@@ -223,6 +223,26 @@ export function selectionAfterToggle(selected, toggledIds, turningOn, vocabUnits
 }
 
 /**
+ * Guided walks curriculum units. A vocabulary card stays checked with the
+ * units it mirrors, and those units are the route. Vocabulary is the quiz
+ * only when no curriculum unit is selected.
+ * @param {object[]} units
+ */
+export function guidedEligibleUnits(units) {
+  const list = Array.isArray(units) ? units.filter(Boolean) : [];
+  const curriculum = list.filter((u) => {
+    if (!u || u.playable === false) return false;
+    if (u.kind === "vocabulary" || u.vocabTopic) return false;
+    if (u.territory === "numbers" && u.topicId && u.stepId) return true;
+    if (u.territory === "nouns" && (u.learnUnitId || (u.topicId && u.stepId))) return true;
+    if (u.territory === "case" && u.topicId && u.stepId) return true;
+    return false;
+  });
+  if (curriculum.length) return curriculum;
+  return list.filter((u) => u.kind === "vocabulary" || u.vocabTopic);
+}
+
+/**
  * A vocab card means the session is those words.
  * Mirrored curriculum units stay checked, and they are not the quiz.
  * @param {object[]} units
@@ -581,14 +601,15 @@ export function mountNavCarousel(container, options = {}) {
   }
 
   function eligibleUnits() {
-    const selected = practiceUnitsForSelection(selectedUnits());
-    const vocabOnly = selected.some((u) => u.kind === "vocabulary" || u.vocabTopic);
-    if (state.mode === "learn") return selected;
-    if (vocabOnly) return selected.filter((u) => unitMatchesCaps(u));
+    const raw = selectedUnits();
+    if (state.mode === "learn") return practiceUnitsForSelection(raw);
     if (state.mode === "guided") {
-      return selected.filter((u) => unitBoundsGuided(u) && unitMatchesCaps(u));
+      const curriculum = guidedEligibleUnits(raw).filter(
+        (u) => unitBoundsGuided(u) && unitMatchesCaps(u)
+      );
+      if (curriculum.length) return curriculum;
     }
-    return selected.filter((u) => unitMatchesCaps(u));
+    return practiceUnitsForSelection(raw).filter((u) => unitMatchesCaps(u));
   }
 
   function closePlaylist() {

@@ -153,6 +153,19 @@ export function cardinalAnalysis(n) {
  * @param {string} raw
  * @returns {number | null}
  */
+let cardinalFormIndex = null;
+
+function cardinalFormsBySurface() {
+  if (cardinalFormIndex) return cardinalFormIndex;
+  const map = new Map();
+  for (let n = 0; n <= 1000; n++) {
+    const form = cardinalForm(n).toLowerCase().replace(/ß/g, "ss");
+    if (!map.has(form)) map.set(form, n);
+  }
+  cardinalFormIndex = map;
+  return map;
+}
+
 export function parseCardinalForm(raw) {
   if (raw == null) return null;
   const s = String(raw)
@@ -161,12 +174,8 @@ export function parseCardinalForm(raw) {
     .replace(/\s+/g, "")
     .replace(/ß/g, "ss");
   if (!s) return null;
-
-  for (let n = 0; n <= 1000; n++) {
-    const form = cardinalForm(n).toLowerCase().replace(/ß/g, "ss");
-    if (form === s) return n;
-  }
-  return null;
+  const n = cardinalFormsBySurface().get(s);
+  return n == null ? null : n;
 }
 
 /**

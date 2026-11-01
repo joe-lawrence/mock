@@ -81,7 +81,7 @@ export function mountMultiSelectShell(host, opts) {
     btn.type = "button";
     btn.className = "choice answer-shell-choice";
     btn.dataset.value = value;
-    if (opts.multiple) btn.setAttribute("aria-pressed", "false");
+    btn.setAttribute("aria-pressed", "false");
     if (caption || iconHtml) {
       if (caption) btn.classList.add("has-caption");
       const main = document.createElement("span");

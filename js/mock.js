@@ -2030,46 +2030,47 @@ function resolvePhonToken(token) {
 /**
  * Resolve bare ordinal surface tokens (siebzehnte / siebzehnten) to beats.
  */
+let ordinalSurfaceIndex = null;
+
+function ordinalSurfaceMap() {
+  if (ordinalSurfaceIndex) return ordinalSurfaceIndex;
+  const map = new Map();
+  const put = (form, beats) => {
+    const key = String(form || "")
+      .toLowerCase()
+      .replace(/ß/g, "ss");
+    if (key && beats?.length && !map.has(key)) map.set(key, beats);
+  };
+  for (let n = 1; n <= 99; n++) {
+    const beats = synthesizeOrdinalBeats(n);
+    if (!beats?.length) continue;
+    put(beats.map((p) => p.text).join(""), beats);
+    const dative = beats.map((p, i, arr) => {
+      if (i !== arr.length - 1) return p;
+      if (p.text === "te") return { ...p, text: "ten", guide: "ten" };
+      if (p.text === "ste") return { ...p, text: "sten", guide: "sten" };
+      if (/e$/i.test(p.text)) {
+        return {
+          ...p,
+          text: `${p.text}n`,
+          guide: String(p.guide || p.text).replace(/uh$/i, "en"),
+        };
+      }
+      return p;
+    });
+    put(dative.map((p) => p.text).join(""), dative);
+  }
+  ordinalSurfaceIndex = map;
+  return map;
+}
+
 function ordinalFormTokenBeats(token) {
   const raw = String(token || "")
     .trim()
     .toLowerCase()
     .replace(/ß/g, "ss");
   if (!raw) return null;
-  // Dative -en after am
-  const dative = raw.match(/^(.+?)(ten|sten)$/);
-  if (dative) {
-    // Try citation by swapping ten→te / sten→ste
-    const cite =
-      dative[2] === "sten" ? `${dative[1]}ste` : `${dative[1]}te`;
-    for (let n = 1; n <= 31; n++) {
-      const beats = synthesizeOrdinalBeats(n);
-      if (!beats?.length) continue;
-      const form = beats.map((p) => p.text).join("").toLowerCase();
-      if (form === cite || form === raw) {
-        return ordinalKaraokeParts(n, { am: false }).map((p, i, arr) => {
-          if (i !== arr.length - 1) return p;
-          if (p.text === "te") return { ...p, text: "ten", guide: "ten" };
-          if (p.text === "ste") return { ...p, text: "sten", guide: "sten" };
-          if (/e$/i.test(p.text)) {
-            return {
-              ...p,
-              text: `${p.text}n`,
-              guide: String(p.guide || p.text).replace(/uh$/i, "en"),
-            };
-          }
-          return p;
-        });
-      }
-    }
-  }
-  for (let n = 1; n <= 99; n++) {
-    const beats = synthesizeOrdinalBeats(n);
-    if (!beats?.length) continue;
-    const form = beats.map((p) => p.text).join("").toLowerCase();
-    if (form === raw) return beats;
-  }
-  return null;
+  return ordinalSurfaceMap().get(raw) || null;
 }
 
 /**
@@ -9287,7 +9288,7 @@ function paintCaseListenSentence(question) {
 function markBuildFocus(host, index) {
   if (!host) return;
   host.querySelectorAll(".slot").forEach((slot) => {
-    const on = Number(slot.dataset.index) === index;
+    const on = index >= 0 && Number(slot.dataset.index) === index;
     slot.classList.toggle("is-hot", on);
     if (on) slot.setAttribute("aria-current", "true");
     else slot.removeAttribute("aria-current");
@@ -9321,7 +9322,7 @@ function paintCaseBuildSlots(question) {
     values: state.caseBuilt || [],
     onClear: (i) => selectCaseBuildSlot(i),
   });
-  markBuildFocus(slots, state.caseSlotFocus ?? 0);
+  markBuildFocus(slots, state.caseSlotFocus ?? -1);
 }
 
 function selectCaseBuildSlot(index) {
@@ -9371,7 +9372,11 @@ function placeCaseBuildText(text, btn) {
   if (!Array.isArray(state.caseBuilt) || state.caseBuilt.length !== count) {
     state.caseBuilt = Array(count).fill(null);
   }
-  const index = Math.min(state.caseSlotFocus ?? 0, Math.max(count - 1, 0));
+  const focus = state.caseSlotFocus;
+  const index = Math.min(
+    focus == null || focus < 0 ? 0 : focus,
+    Math.max(count - 1, 0)
+  );
   const previous = state.caseBuilt[index];
   if (previous && previous !== text) releaseCaseChip(previous);
   state.caseBuilt[index] = text;
@@ -9452,6 +9457,7 @@ function caseChoiceFillsSlot(question) {
 }
 
 function renderCasePractice() {
+  clearStaleAnswerFocus();
   clearCaseMissFlash();
   ensureCaseHistoryForRender();
   const stage = document.getElementById("case-stage");
@@ -9462,7 +9468,7 @@ function renderCasePractice() {
   state.casePicked = null;
   state.caseStatus = null;
   state.caseBuilt = [];
-  state.caseSlotFocus = 0;
+  state.caseSlotFocus = -1;
   clearItemFirstMiss();
   clearAnswerReveal("case");
   const question = casePresentedQuestion(state.caseQuestion);
@@ -9727,7 +9733,6 @@ function revealCaseAnswer(question, ok) {
   const word = caseRevealWord(question);
   const lemma =
     question.target === "noun" ? question.correct : question.lemma || "";
-  const parts = sentenceAnswerParts(word, lemma);
   const gloss = caseAnswerCaption(question);
   const choiceEls = [];
   document.querySelectorAll("#case-tray .choice").forEach((el) => {
@@ -9737,26 +9742,29 @@ function revealCaseAnswer(question, ok) {
       choiceEls.push(el);
     }
   });
-  presentCorrectAnswer({
-    prefix: "case",
-    choiceEls,
-    reveal: {
-      word,
-      parts,
-      en: gloss,
-      ok,
-      verdictLabel: ok ? "Correct" : "Answer",
-    },
-    then: (nodes) => {
-      playAnswerKey(word, parts, nodes);
-    },
+  deferHeavy(() => {
+    const parts = sentenceAnswerParts(word, lemma);
+    presentCorrectAnswer({
+      prefix: "case",
+      choiceEls,
+      reveal: {
+        word,
+        parts,
+        en: gloss,
+        ok,
+        verdictLabel: ok ? "Correct" : "Answer",
+      },
+      then: (nodes) => {
+        playAnswerKey(word, parts, nodes);
+      },
+    });
   });
 }
 
 function resetCaseBuildTray() {
   const question = casePresentedQuestion(state.caseQuestion);
   state.caseBuilt = Array(caseBuildCount(question)).fill(null);
-  state.caseSlotFocus = 0;
+  state.caseSlotFocus = -1;
   paintCaseBuildSlots(question);
   document.querySelectorAll("#case-tray .piece").forEach((el) => {
     el.disabled = false;
@@ -9776,7 +9784,7 @@ function tableSlotCaption(slot) {
 function mountTableBuild(question) {
   const slots = question.slots || [];
   state.caseBuilt = Array(slots.length).fill(null);
-  state.caseSlotFocus = 0;
+  state.caseSlotFocus = -1;
   const host = document.getElementById("case-slots");
   const mounted = mountPartSlots(host, {
     count: slots.length,
@@ -9789,7 +9797,7 @@ function mountTableBuild(question) {
     const tint = slotTintClass(slots[index]?.mark);
     if (tint) slot.classList.add(tint);
   });
-  markBuildFocus(host, 0);
+  markBuildFocus(host, -1);
   mountBuildChipsShell(document.getElementById("case-tray"), {
     chips: question.choices || [],
     ariaLabel: "Articles",
@@ -9802,7 +9810,11 @@ function placeTableBuildText(text) {
   if (state.caseChecked) return;
   const question = casePresentedQuestion(state.caseQuestion);
   const built = state.caseBuilt || [];
-  const index = Math.min(state.caseSlotFocus ?? 0, Math.max(built.length - 1, 0));
+  const focus = state.caseSlotFocus;
+  const index = Math.min(
+    focus == null || focus < 0 ? 0 : focus,
+    Math.max(built.length - 1, 0)
+  );
   built[index] = text;
   const slot = document.querySelectorAll("#case-slots .slot")[index];
   paintPartSlot(slot, text);
@@ -11349,9 +11361,19 @@ function configureGuidedNumbers(c) {
     state.numbersListenPoolKey = "";
     state.numbersListenCursor = 0;
   } else if (c.mode === "listen") {
-    state.numbersListenCursor = (state.numbersListenCursor || 0) + 1;
+    const before = state.numbersListenCursor || 0;
+    ensureListenDeck();
+    const n = state.numbersListenDeck?.length || 1;
+    if ((state.numbersListenCursor || 0) === before) {
+      state.numbersListenCursor = (before + 1) % n;
+    }
   } else {
-    state.numbersIndex = (state.numbersIndex || 0) + 1;
+    const before = state.numbersIndex || 0;
+    ensureStepDeck();
+    const n = state.numbersStepDeck?.length || 1;
+    if ((state.numbersIndex || 0) === before) {
+      state.numbersIndex = (before + 1) % n;
+    }
   }
   if (c.mode === "listen" && !same && c.review) placeGuidedNumbersListen();
   navigate("numbers", { keepPhase: true });
@@ -12048,19 +12070,25 @@ function logGuidedQa({
       hintDepth: snap.hintDepth,
     };
     recordAttemptEvidence(store, attemptEv);
-    if (state.sessionMode === "guided" && !state.guidedVocabPending) {
-      noteGuidedAnswer({
-        unitKey,
-        correct,
-        review: !!state.guidedReviewDeal,
-      });
-    }
     // Long-term mastery on the active local profile (isolated per user).
     try {
       saveProfileStore(recordProfileAttempt(loadProfileStore(), attemptEv));
     } catch {
       /* ignore storage failures */
     }
+  }
+  // Table cards record grains themselves, then log with recordEvidence false.
+  // Graduation still has to see that answer or the unit never ends.
+  if (
+    !state.itemFirstMiss &&
+    state.sessionMode === "guided" &&
+    !state.guidedVocabPending
+  ) {
+    noteGuidedAnswer({
+      unitKey,
+      correct,
+      review: !!state.guidedReviewDeal,
+    });
   }
   const felt =
     state.itemFeltDifficulty || FELT_DIFFICULTY.ABOUT_RIGHT;
@@ -13020,7 +13048,16 @@ function shuffle(arr) {
 
 /* —— Numbers —— */
 
+function clearStaleAnswerFocus() {
+  const el = document.activeElement;
+  if (!(el instanceof HTMLElement)) return;
+  if (el.closest(".tray, .choice-grid, .slot-row, .answer-shell, .piece")) {
+    el.blur();
+  }
+}
+
 function renderNumbers() {
+  clearStaleAnswerFocus();
   ensureNumbersHistoryForRender();
   setActionInstruction(
     "numbers",
@@ -15174,14 +15211,6 @@ function checkNumbersConvert(raw, opts = {}) {
     note: ok ? audit.note : "",
   });
 
-  const parts = resolveAnswerPronunciation(
-    exercise.materials.answerParts ||
-      (exercise.resolution.value != null
-        ? numberAnswerParts(exercise.resolution.value, "listen")
-        : null) ||
-      exercise.resolution.form
-  ).parts;
-
   const revealWord =
     exercise.materials.spoken || exercise.resolution.spoken || exercise.resolution.form;
   const revealEn =
@@ -15190,21 +15219,31 @@ function checkNumbersConvert(raw, opts = {}) {
       : meta.written
         ? `${meta.english || ""} (${meta.written})`
         : `${meta.english || englishCardinal(exercise.resolution.value)} (${exercise.resolution.value})`;
+  const presetParts = exercise.materials.answerParts;
+  const answerValue = exercise.resolution.value;
+  const answerForm = exercise.resolution.form;
+  const spoken = exercise.materials.spoken || exercise.resolution.form;
 
-  presentCorrectAnswer({
-    prefix: "numbers",
-    answerEls: input ? [input] : [],
-    wrongEls: [],
-    reveal: {
-      word: revealWord,
-      parts,
-      en: revealEn,
-      ok,
-    },
-    then: (nodes) => {
-      const tts = exercise.materials.spoken || exercise.resolution.form;
-      playAnswerKeyThenAdvance(tts, parts, nodes, scheduleNumbersAdvance);
-    },
+  deferHeavy(() => {
+    const answerParts =
+      presetParts ||
+      (answerValue != null ? numberAnswerParts(answerValue, "listen") : null) ||
+      answerForm;
+    const parts = resolveAnswerPronunciation(answerParts).parts;
+    presentCorrectAnswer({
+      prefix: "numbers",
+      answerEls: input ? [input] : [],
+      wrongEls: [],
+      reveal: {
+        word: revealWord,
+        parts,
+        en: revealEn,
+        ok,
+      },
+      then: (nodes) => {
+        playAnswerKeyThenAdvance(spoken, parts, nodes, scheduleNumbersAdvance);
+      },
+    });
   });
 }
 
@@ -15384,14 +15423,14 @@ function checkNumbersListen(answer) {
 }
 
 function mountNumbersPartSlots(count) {
-  state.numbersSlotFocus = 0;
+  state.numbersSlotFocus = -1;
   const host = document.getElementById("numbers-slots");
   mountPartSlots(host, {
     count,
     values: state.numbersFilled || [],
     onClear: (i) => selectNumbersBuildSlot(i),
   });
-  markBuildFocus(host, 0);
+  markBuildFocus(host, -1);
 }
 
 function selectNumbersBuildSlot(index) {
@@ -15405,7 +15444,8 @@ function selectNumbersBuildSlot(index) {
 }
 
 function placeFocusedNumberText(text) {
-  const index = state.numbersSlotFocus ?? 0;
+  const focus = state.numbersSlotFocus;
+  const index = focus == null || focus < 0 ? 0 : focus;
   const done = placeNumberText(text, index);
   if (done) return;
   state.numbersSlotFocus = nextBuildIndex(state.numbersFilled, index);
@@ -15594,10 +15634,9 @@ function applyNumbersSnapshot(snap) {
   if (snap.sessionKind === "mix") {
     ensureMixDeck();
     if (!seekNumbersDeckToKey(state.numbersMixDeck, "numbersMixCursor", snap.itemKey)) {
-      state.numbersMixCursor = Math.min(
-        snap.mixCursor ?? 0,
-        Math.max(0, (state.numbersMixDeck?.length || 1) - 1)
-      );
+      const len = Math.max(1, state.numbersMixDeck?.length || 1);
+      const raw = Number(snap.mixCursor) || 0;
+      state.numbersMixCursor = ((raw % len) + len) % len;
     }
     // ensureMixDeck syncs focus from cursor — re-assert snap identity
     // so playlist/topic stay on the restored question even if seek missed.
@@ -15613,18 +15652,16 @@ function applyNumbersSnapshot(snap) {
         snap.itemKey
       )
     ) {
-      state.numbersListenCursor = Math.min(
-        snap.listenCursor ?? 0,
-        Math.max(0, (state.numbersListenDeck?.length || 1) - 1)
-      );
+      const len = Math.max(1, state.numbersListenDeck?.length || 1);
+      const raw = Number(snap.listenCursor) || 0;
+      state.numbersListenCursor = ((raw % len) + len) % len;
     }
   } else {
     ensureStepDeck();
     if (!seekNumbersDeckToKey(state.numbersStepDeck, "numbersIndex", snap.itemKey)) {
-      state.numbersIndex = Math.min(
-        snap.index ?? 0,
-        Math.max(0, (state.numbersStepDeck?.length || 1) - 1)
-      );
+      const len = Math.max(1, state.numbersStepDeck?.length || 1);
+      const raw = Number(snap.index) || 0;
+      state.numbersIndex = ((raw % len) + len) % len;
     }
   }
   return true;
@@ -15671,10 +15708,16 @@ function recordNumbersHistoryTip() {
   if (!snap) return;
   const hist = state.numbersHistory || (state.numbersHistory = []);
   if (hist.length && numbersSnapsMatch(hist[hist.length - 1], snap)) {
-    state.numbersHistoryIndex = hist.length - 1;
-    applyNumbersSnapshot(hist[hist.length - 1]);
-    noteNumbersQuizNav(snap);
-    return;
+    const prev = hist[hist.length - 1];
+    const moved =
+      prev.index !== snap.index ||
+      prev.listenCursor !== snap.listenCursor ||
+      prev.mixCursor !== snap.mixCursor;
+    if (!moved) {
+      state.numbersHistoryIndex = hist.length - 1;
+      noteNumbersQuizNav(snap);
+      return;
+    }
   }
   hist.push(snap);
   state.numbersHistoryIndex = hist.length - 1;
@@ -15935,6 +15978,7 @@ function paintNounArticleLemma(exercise) {
 }
 
 function renderNouns() {
+  clearStaleAnswerFocus();
   clearNounsAdvance();
   stopSpeech();
   clearAnswerReveal("nouns");
@@ -18185,7 +18229,7 @@ function renderNounsPlurals() {
     answerParts: exercise.materials.answerParts,
   };
   state.nounsFilled = Array(buildParts.length).fill(null);
-  state.nounsSlotFocus = 0;
+  state.nounsSlotFocus = -1;
   state.nounsArticle = null;
   state.nounsChecked = false;
   state.nounsPluralRetryUsed = false;
@@ -18243,7 +18287,8 @@ function renderNounsPlurals() {
     });
     slots.appendChild(slot);
   });
-  markBuildFocus(slots, state.nounsSlotFocus ?? 0);
+  state.nounsSlotFocus = -1;
+  markBuildFocus(slots, -1);
 
   const tray = document.getElementById("nouns-tray");
   tray.innerHTML = "";
@@ -18261,7 +18306,8 @@ function renderNounsPlurals() {
     }
     piece.addEventListener("click", () => {
       if (state.nounsChecked) return;
-      placeNounPluralText(text, state.nounsSlotFocus ?? 0);
+      const focus = state.nounsSlotFocus;
+      placeNounPluralText(text, focus == null || focus < 0 ? 0 : focus);
     });
     tray.appendChild(piece);
   });
@@ -20477,6 +20523,7 @@ function soundsContinue() {
 }
 
 function renderSounds() {
+  clearStaleAnswerFocus();
   stopSpeech();
   state.soundsChoice = null;
   state.soundsChecked = false;

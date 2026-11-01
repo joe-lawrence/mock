@@ -6,6 +6,7 @@ import {
   buildNavTree,
   curriculumUnitsMirroredBy,
   guidedBoundKeysForUnits,
+  guidedEligibleUnits,
   practiceUnitsForSelection,
   selectionAfterToggle,
   unitMatchesPlayCaps,
@@ -96,6 +97,38 @@ describe("Vocabulary shortcut", () => {
     assert.equal(
       caseNode.children.some((node) => node.topicId === "declension"),
       true
+    );
+  });
+});
+
+describe("Guided start", () => {
+  it("keeps the curriculum route when a vocabulary card is selected with it", () => {
+    const tree = buildNavTree();
+    const units = indexUnits(tree);
+    const vocabs = vocabularyUnitsIn(tree);
+    const time = vocabs.find((unit) => unit.id === "vocabulary:numbers:time");
+    const accusative = vocabs.find((unit) => unit.id === "vocabulary:case:accusative");
+    const selectedIds = selectionAfterToggle(
+      new Set(),
+      [time.id, accusative.id],
+      true,
+      vocabs
+    );
+    const selected = [...selectedIds].map((id) => units.get(id)).filter(Boolean);
+    assert.deepEqual(
+      practiceUnitsForSelection(selected).map((unit) => unit.id).sort(),
+      [accusative.id, time.id].sort()
+    );
+    const guided = guidedEligibleUnits(selected);
+    assert.equal(
+      guided.some((unit) => unit.kind === "vocabulary" || unit.vocabTopic),
+      false
+    );
+    assert.ok(guided.some((unit) => unit.topicId === "time" && unit.stepId === "time-words"));
+    assert.ok(guided.some((unit) => unit.topicId === "accusative" && unit.stepId === "masc"));
+    assert.equal(
+      guided.some((unit) => unit.topicId === "mixed"),
+      false
     );
   });
 });
