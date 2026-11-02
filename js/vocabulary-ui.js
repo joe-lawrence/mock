@@ -11,7 +11,7 @@ import {
   vocabAreaForCurriculumTopic,
   getVocabulary,
   VOCABULARY_VERSION,
-} from "./generated/vocabulary.js?v=20261030-casetakes";
+} from "./generated/vocabulary.js?v=20261102-nomeng";
 import {
   createVocabularyQuestion,
   displayForm,
@@ -427,7 +427,7 @@ export function mountVocabularyPanel(root, opts) {
     const revealPhon = root.querySelector("[data-vocab-reveal-phonetic]");
     const revealEn = root.querySelector("[data-vocab-reveal-en]");
 
-    const showReveal = (result, { autoAdvance = false } = {}) => {
+    const showReveal = (result, { autoAdvance = false, countStreak = true } = {}) => {
       const ok = result?.status === "correct";
       const revealCursor = session.cursor;
       root.classList.add("is-answer");
@@ -501,6 +501,17 @@ export function mountVocabularyPanel(root, opts) {
         else if (!ok && id === result?.given) btn.classList.add("is-bad");
       });
       opts.stopSpeech?.();
+      // Play + Guided practice: same streak celebration as territory answer keys.
+      if (session.mode === "practice" && countStreak) {
+        opts.clearStreakCelebrate?.();
+        const pack = opts.noteStreakAnswer?.(ok) || null;
+        if (pack) {
+          opts.armStreakCelebrate?.(pack, {
+            revealEl: reveal,
+            awaitPlay: phonNodes.length > 0 && !resolved.pronunciationUnavailable,
+          });
+        }
+      }
       opts.playReveal?.(
         spoken,
         resolved.displayParts || [],
@@ -543,11 +554,13 @@ export function mountVocabularyPanel(root, opts) {
       if (ok) opts.playFeedback?.("ok");
       else opts.playFeedback?.("bad");
       window.setTimeout(() => {
-        showReveal(result, { autoAdvance: false });
+        showReveal(result, { autoAdvance: false, countStreak: true });
       }, VOCAB_CORRECT_FLASH_MS);
     };
 
-    if (entry.revealed && entry.result) showReveal(entry.result);
+    if (entry.revealed && entry.result) {
+      showReveal(entry.result, { countStreak: false });
+    }
 
     root.querySelectorAll("[data-vocab-choice]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -576,6 +589,7 @@ export function mountVocabularyPanel(root, opts) {
           return;
         }
         opts.playFeedback?.("retry");
+        opts.noteStreakAnswer?.(false);
         if (attempt) {
           attempt.hidden = false;
           attempt.textContent = "Try again";

@@ -1,10 +1,52 @@
 /**
  * Support-word questions for Numbers units.
- * Zahl, Nummer, Anzahl, Menge, and zählen are patterns. A whole number in
- * the pattern's range is drawn when the card is dealt. Other sentences are
- * fixed, with one natural match. Fraction words (Hälfte, doppelt, einmal,
- * zweimal) are the answer themselves.
+ *
+ * Zahl / Nummer / Anzahl are sense cards: English phrase or usage cue ↔ the
+ * German word (and the reverse). A whole number is drawn into phrase slots
+ * when the card is dealt. zählen keeps a simple number frame. Other
+ * sentences are fixed, with one natural match. Fraction words (Hälfte,
+ * doppelt, einmal, zweimal) are the answer themselves.
  */
+
+export const NUMBER_SENSE = Object.freeze({
+  Zahl: Object.freeze({
+    article: "die",
+    usage: "Abstract values, math, pure numbers",
+    caption: "Zahl is used for abstract digits/values",
+    phrases: Object.freeze([
+      "The number is {n}.",
+      "Choose a number.",
+      "The number is negative.",
+      "The result is a number.",
+    ]),
+  }),
+  Nummer: Object.freeze({
+    article: "die",
+    usage: "IDs, labels, sequences",
+    caption: "Nummer is used for IDs/labels/sequences",
+    phrases: Object.freeze([
+      "What is your number?",
+      "I am in room number {n}.",
+      "You are number one.",
+      "Check the ticket number.",
+    ]),
+  }),
+  Anzahl: Object.freeze({
+    article: "die",
+    usage: "Total counts, quantities of things",
+    caption: "Anzahl is the exact count of things",
+    phrases: Object.freeze([
+      "The total number is {n}.",
+      "The number of guests is small.",
+      "What is the exact number?",
+      "The number changes daily.",
+    ]),
+  }),
+});
+
+export const NUMBER_SENSE_WORDS = Object.freeze(Object.keys(NUMBER_SENSE));
+
+const SENSE_DISTRACTORS = Object.freeze(["Preis", "Zeit", "Geld", "Uhr", "Maß"]);
 
 function prompt(item) {
   return {
@@ -14,6 +56,22 @@ function prompt(item) {
     max: 9,
     sampleTake: 1,
     ...item,
+  };
+}
+
+function sense(item) {
+  const word = item.word;
+  const task = item.task || "phrase";
+  return {
+    kind: "number-sense",
+    promptLang: "en",
+    min: 1,
+    max: 20,
+    sampleTake: 1,
+    ...item,
+    task,
+    word,
+    pattern: item.pattern || `${task}:${word}`,
   };
 }
 
@@ -31,7 +89,158 @@ function otherNumbers(n, min, max, count) {
   return out;
 }
 
-/** Build one card for a pattern and a number. The other choices are other numbers in range. */
+function fillPhrase(template, n) {
+  return String(template || "").replace(/\{n\}/g, String(n));
+}
+
+function pickOne(list, random = Math.random) {
+  if (!list?.length) return null;
+  const roll = Number(random());
+  const index = Math.min(
+    list.length - 1,
+    Math.floor((Number.isFinite(roll) ? roll : 0) * list.length)
+  );
+  return list[Math.max(0, index)];
+}
+
+function phraseChoices(word, filled, n, random = Math.random) {
+  const choices = [filled];
+  for (const other of NUMBER_SENSE_WORDS) {
+    if (other === word) continue;
+    const bank = NUMBER_SENSE[other].phrases;
+    const raw = pickOne(bank, random);
+    if (raw) {
+      const next = fillPhrase(raw, n);
+      if (!choices.includes(next)) choices.push(next);
+    }
+  }
+  const pool = NUMBER_SENSE_WORDS.flatMap((key) =>
+    NUMBER_SENSE[key].phrases.map((raw) => fillPhrase(raw, n))
+  );
+  for (const next of pool) {
+    if (choices.length >= 4) break;
+    if (!choices.includes(next)) choices.push(next);
+  }
+  return choices;
+}
+
+function wordChoices(word, random = Math.random) {
+  const distractor = pickOne(
+    SENSE_DISTRACTORS.filter((item) => item !== word),
+    random
+  );
+  return [...NUMBER_SENSE_WORDS, distractor].filter(Boolean);
+}
+
+function usageChoices(word) {
+  return NUMBER_SENSE_WORDS.map((key) => NUMBER_SENSE[key].usage);
+}
+
+/**
+ * Build one Zahl/Nummer/Anzahl sense card.
+ * Forward: phrase or usage → German word.
+ * Reverse: German word → phrase or usage.
+ */
+export function realizeNumberSense(template, opts = {}) {
+  const word = template?.word || "Zahl";
+  const entry = NUMBER_SENSE[word];
+  if (!entry) return null;
+  const task = template?.task === "usage" ? "usage" : "phrase";
+  const direction = opts.direction === "reverse" ? "reverse" : "forward";
+  const min = Number.isInteger(template?.min) ? template.min : 1;
+  const max = Number.isInteger(template?.max) ? template.max : 20;
+  const n = Number.isInteger(opts.n) ? opts.n : min;
+  const random = opts.random || Math.random;
+  const labeled = `${entry.article} ${word}`;
+
+  const caption = entry.caption || `${labeled} — ${entry.usage}.`;
+
+  if (task === "usage") {
+    if (direction === "reverse") {
+      return {
+        kind: "example-sentence",
+        promptLang: "de",
+        id: `usage:${word}:${direction}`,
+        pattern: template.pattern || `usage:${word}`,
+        task,
+        word,
+        token: word,
+        direction,
+        ask: "Which use matches this word?",
+        hint: caption,
+        english: caption,
+        form: labeled,
+        prompt: labeled,
+        expect: entry.usage,
+        choices: usageChoices(word),
+        revealDe: labeled,
+      };
+    }
+    return {
+      kind: "example-sentence",
+      promptLang: "en",
+      id: `usage:${word}:${direction}`,
+      pattern: template.pattern || `usage:${word}`,
+      task,
+      word,
+      token: word,
+      direction,
+      ask: "Which German word matches this use?",
+      hint: caption,
+      english: caption,
+      form: word,
+      prompt: entry.usage,
+      expect: word,
+      choices: wordChoices(word, random),
+      revealDe: labeled,
+    };
+  }
+
+  const raw = pickOne(entry.phrases, random);
+  const phrase = fillPhrase(raw, n);
+  if (direction === "reverse") {
+    return {
+      kind: "example-sentence",
+      promptLang: "de",
+      id: `phrase:${word}:${n}:${direction}`,
+      pattern: template.pattern || `phrase:${word}`,
+      task,
+      word,
+      token: word,
+      value: n,
+      direction,
+      ask: "Which English phrase uses this word?",
+      hint: caption,
+      english: caption,
+      form: labeled,
+      prompt: labeled,
+      expect: phrase,
+      choices: phraseChoices(word, phrase, n, random),
+      revealDe: labeled,
+    };
+  }
+  return {
+    kind: "example-sentence",
+    promptLang: "en",
+    id: `phrase:${word}:${n}:${direction}`,
+    pattern: template.pattern || `phrase:${word}`,
+    task,
+    word,
+    token: word,
+    value: n,
+    direction,
+    ask: "Which German word fits this phrase?",
+    hint: caption,
+    english: caption,
+    form: word,
+    prompt: phrase,
+    expect: word,
+    choices: wordChoices(word, random),
+    revealDe: labeled,
+  };
+}
+
+/** Build one card for a zählen frame (and any leftover digit patterns). */
 export function realizeNumberPrompt(template, n) {
   const value = Number(n);
   const min = Number.isInteger(template?.min) ? template.min : 0;
@@ -41,31 +250,7 @@ export function realizeNumberPrompt(template, n) {
   let english = "";
   let form = "";
   let choices = [];
-  if (pattern === "zahl-phrase") {
-    english = `the number ${value}`;
-    form = `die Zahl ${value}`;
-    choices = [form, ...others.map((digit) => `die Zahl ${digit}`)];
-  } else if (pattern === "zahl-sentence") {
-    english = `The number is ${value}.`;
-    form = `Die Zahl ist ${value}.`;
-    choices = [form, ...others.map((digit) => `Die Zahl ist ${digit}.`)];
-  } else if (pattern === "nummer-phrase") {
-    english = `ticket number ${value}`;
-    form = `die Nummer ${value}`;
-    choices = [form, ...others.map((digit) => `die Nummer ${digit}`)];
-  } else if (pattern === "zahl-nummer") {
-    english = `the number ${value}`;
-    form = `die Zahl ${value}`;
-    choices = [form, `die Nummer ${value}`];
-  } else if (pattern === "anzahl-sentence") {
-    english = `The count is ${value}.`;
-    form = `Die Anzahl ist ${value}.`;
-    choices = [form, ...others.map((digit) => `Die Anzahl ist ${digit}.`)];
-  } else if (pattern === "menge-sentence") {
-    english = `The amount is ${value}.`;
-    form = `Die Menge ist ${value}.`;
-    choices = [form, ...others.map((digit) => `Die Menge ist ${digit}.`)];
-  } else if (pattern === "zaehlen-sentence") {
+  if (pattern === "zaehlen-sentence") {
     english = `I count to ${value}.`;
     form = `Ich zähle bis ${value}.`;
     choices = [form, ...others.map((digit) => `Ich zähle bis ${digit}.`)];
@@ -110,62 +295,48 @@ function word(item) {
 
 /** @type {Record<string, object[]>} */
 export const SUPPORT_LEXICON_POOLS = {
-  // Patterns only. Guided fills in a digit that has not just been used.
+  // Zahl alone first: phrase ↔ word and usage ↔ word.
   "number-words": [
-    prompt({
+    sense({
       id: "zahl-phrase",
-      pattern: "zahl-phrase",
+      task: "phrase",
       word: "Zahl",
-      token: "Zahl",
-      ask: "Choose the German phrase",
       sampleTake: 2,
-      hint: "die Zahl is a number. Match the digit.",
     }),
-    prompt({
-      id: "zahl-sentence",
-      pattern: "zahl-sentence",
+    sense({
+      id: "zahl-usage",
+      task: "usage",
       word: "Zahl",
-      token: "Zahl",
-      hint: "Die Zahl ist … means the number is that digit.",
     }),
   ],
+  // Then Nummer and Anzahl, still phrase/usage ↔ word.
   "number-senses": [
-    prompt({
+    sense({
       id: "nummer-phrase",
-      max: 99,
-      pattern: "nummer-phrase",
+      task: "phrase",
       word: "Nummer",
-      token: "Nummer",
-      ask: "Choose the German phrase",
-      hint: "Nummer identifies something, such as a ticket. Match the digit.",
-    }),
-    prompt({
-      id: "zahl-nummer",
       max: 99,
-      pattern: "zahl-nummer",
-      word: "Zahl",
-      token: "Zahl",
-      ask: "Choose the German phrase",
-      hint: "Zahl is a number you count or calculate with. Nummer identifies a ticket or phone.",
+      sampleTake: 2,
     }),
-    prompt({
-      id: "anzahl-sentence",
-      max: 99,
-      pattern: "anzahl-sentence",
+    sense({
+      id: "nummer-usage",
+      task: "usage",
+      word: "Nummer",
+    }),
+    sense({
+      id: "anzahl-phrase",
+      task: "phrase",
       word: "Anzahl",
-      token: "Anzahl",
-      hint: "Anzahl is how many things there are.",
+      max: 99,
+      sampleTake: 2,
+    }),
+    sense({
+      id: "anzahl-usage",
+      task: "usage",
+      word: "Anzahl",
     }),
   ],
   "amount-words": [
-    prompt({
-      id: "menge-sentence",
-      max: 99,
-      pattern: "menge-sentence",
-      word: "Menge",
-      token: "Menge",
-      hint: "Menge is an amount of something.",
-    }),
     prompt({
       id: "zaehlen-sentence",
       max: 99,
@@ -355,28 +526,31 @@ export const SUPPORT_LEXICON_POOLS = {
       word: "Hälfte",
       prompt: "die Hälfte",
       promptLang: "de",
-      english: "half",
+      ask: "Choose the English meaning",
+      english: "a half (noun)",
       form: "die Hälfte",
-      expect: "half",
-      choices: ["half", "quarter", "double", "once"],
-      hint: "die Hälfte is the noun for a half.",
+      expect: "a half (noun)",
+      choices: ["a half (noun)", "half (clock)", "a quarter", "double"],
+      hint: "die Hälfte is the noun half.",
     }),
     word({
       id: "doppelt-de",
       word: "doppelt",
       prompt: "double",
       promptLang: "en",
+      ask: "Choose the German form",
       english: "double",
       form: "doppelt",
       expect: "doppelt",
-      choices: ["doppelt", "zweimal", "die Hälfte", "einmal"],
-      hint: "doppelt means double.",
+      choices: ["doppelt", "zweimal", "halb", "einmal"],
+      hint: "doppelt means double. zweimal means twice.",
     }),
     word({
       id: "doppelt-en",
       word: "doppelt",
       prompt: "doppelt",
       promptLang: "de",
+      ask: "Choose the English meaning",
       english: "double",
       form: "doppelt",
       expect: "double",
@@ -388,21 +562,23 @@ export const SUPPORT_LEXICON_POOLS = {
       word: "einmal",
       prompt: "once",
       promptLang: "en",
+      ask: "Choose the German form",
       english: "once",
       form: "einmal",
       expect: "einmal",
-      choices: ["einmal", "zweimal", "ein", "doppelt"],
-      hint: "einmal means once, one time.",
+      choices: ["einmal", "zweimal", "doppelt", "halb"],
+      hint: "einmal means once. zweimal means twice.",
     }),
     word({
       id: "einmal-en",
       word: "einmal",
       prompt: "einmal",
       promptLang: "de",
+      ask: "Choose the English meaning",
       english: "once",
       form: "einmal",
       expect: "once",
-      choices: ["once", "twice", "double", "one"],
+      choices: ["once", "twice", "double", "half"],
       hint: "einmal means once.",
     }),
     word({
@@ -410,10 +586,11 @@ export const SUPPORT_LEXICON_POOLS = {
       word: "zweimal",
       prompt: "twice",
       promptLang: "en",
+      ask: "Choose the German form",
       english: "twice",
       form: "zweimal",
       expect: "zweimal",
-      choices: ["zweimal", "einmal", "zwei", "doppelt"],
+      choices: ["zweimal", "einmal", "doppelt", "halb"],
       hint: "zweimal means twice.",
     }),
     word({
@@ -421,10 +598,11 @@ export const SUPPORT_LEXICON_POOLS = {
       word: "zweimal",
       prompt: "zweimal",
       promptLang: "de",
+      ask: "Choose the English meaning",
       english: "twice",
       form: "zweimal",
       expect: "twice",
-      choices: ["twice", "once", "two", "double"],
+      choices: ["twice", "once", "double", "half"],
       hint: "zweimal means twice.",
     }),
   ],

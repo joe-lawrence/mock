@@ -79,7 +79,6 @@ describe("Case Learn article", () => {
         <div class="app"><main>
           <section id="view-case" class="view view-session is-active">
             <div class="sound-chart" id="case-chart">
-              <div class="learn-series-bar">Previous</div>
               ${learn}
             </div>
           </section>
@@ -91,7 +90,6 @@ describe("Case Learn article", () => {
     const scroll = chart.querySelector(".chart-scroll");
     assert.equal(getComputedStyle(chart).overflowY, "auto");
     assert.equal(getComputedStyle(scroll).overflow, "auto");
-    assert.equal(getComputedStyle(chart.querySelector(".learn-series-bar")).flexShrink, "0");
     assert.ok(scroll.querySelector(".de-form"));
     assert.equal(scroll.textContent.includes("`"), false);
   });

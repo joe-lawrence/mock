@@ -1162,28 +1162,6 @@ export const vocabulary = {
     "status": "active",
     "source": "content/vocabulary/numbers.md"
   },
-  "vocab.numbers.menge": {
-    "id": "vocab.numbers.menge",
-    "heading": "die Menge",
-    "surface": "Menge",
-    "type": "noun",
-    "topic": "numbers",
-    "gloss": "quantity / amount",
-    "sense": "",
-    "level": 1,
-    "area": "core",
-    "introduced_by": [
-      "numbers.cardinals"
-    ],
-    "reference": [
-      "numbers.overview"
-    ],
-    "engine": null,
-    "engineJoin": "content-only",
-    "derived": null,
-    "status": "active",
-    "source": "content/vocabulary/numbers.md"
-  },
   "vocab.numbers.uhr": {
     "id": "vocab.numbers.uhr",
     "heading": "die Uhr",
@@ -2028,7 +2006,6 @@ export const vocabularyByTopic = {
     "vocab.numbers.kosten",
     "vocab.numbers.liter",
     "vocab.numbers.mass",
-    "vocab.numbers.menge",
     "vocab.numbers.meter",
     "vocab.numbers.milliliter",
     "vocab.numbers.minute",

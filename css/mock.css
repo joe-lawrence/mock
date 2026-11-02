@@ -835,23 +835,6 @@ body.is-session #view-case.is-active > #case-chart {
   flex-shrink: 0;
 }
 
-.learn-series-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--line);
-  flex-shrink: 0;
-}
-
-.learn-series-status {
-  flex: 1;
-  text-align: center;
-  font-size: 0.85rem;
-  color: var(--muted, #667);
-}
-
 .chart-tabs .chip {
   flex-shrink: 0;
   min-height: 34px;
@@ -2178,8 +2161,78 @@ button.syl:disabled,
 }
 
 .answer-reveal {
+  position: relative;
+  isolation: isolate;
   margin: 0.35rem 0 0.25rem;
   text-align: center;
+}
+
+/* Behind all reveal content (needs isolation on .answer-reveal). */
+.answer-reveal-vfx {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.answer-reveal > .verdict,
+.answer-reveal > .answer-reveal-box,
+.answer-reveal > .answer-reveal-en,
+.answer-reveal > .streak-orig,
+.answer-reveal > .streak-congrats {
+  position: relative;
+  z-index: 1;
+}
+
+/* Opaque verdict chips so additive fireballs cannot glow through the title. */
+.streak-orig > .verdict.is-ok,
+.streak-congrats > .verdict.is-ok {
+  background: color-mix(in srgb, var(--ok) 18%, var(--surface));
+}
+
+/* Shared verdict → box → caption rhythm for original and congrats. */
+.streak-orig > .verdict,
+.streak-congrats > .verdict {
+  margin: 0 auto 0.45rem;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  padding: 0.35rem 0.75rem;
+  letter-spacing: 0.01em;
+}
+
+.streak-orig > .answer-reveal-box,
+.streak-congrats > .answer-reveal-box {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0.7rem 1rem;
+}
+
+.streak-orig > .answer-reveal-en,
+.streak-congrats > .answer-reveal-en {
+  margin: 0.4rem 0 0;
+}
+
+.streak-orig {
+  width: 100%;
+  text-align: center;
+}
+
+.streak-congrats {
+  margin: 0;
+  width: 100%;
+  text-align: center;
+}
+
+.streak-congrats[hidden] {
+  display: none !important;
+}
+
+.streak-congrats.is-slot {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .verdict {
@@ -2278,6 +2331,35 @@ button.syl:disabled,
   max-width: 100%;
   width: 100%;
   box-sizing: border-box;
+  position: relative;
+  z-index: 2;
+}
+
+/*
+ * a / [original] / b / [congrats] / c  with a == b == c.
+ * Must beat `.stage.is-answer > .answer-reveal { display: flex }` or the
+ * equal spacers never apply (boxes also shrink-wrapped without width:100%).
+ */
+.stage.is-answer > .answer-reveal.is-streak-pending,
+.stage.is-answer > .answer-reveal.is-streak-celebrate {
+  display: grid;
+  grid-template-rows: 1fr auto 1fr auto 1fr;
+  align-items: center;
+  justify-items: stretch;
+  justify-content: stretch;
+  align-self: stretch;
+  gap: 0;
+  min-height: 0;
+}
+
+.stage.is-answer > .answer-reveal.is-streak-pending > .streak-orig,
+.stage.is-answer > .answer-reveal.is-streak-celebrate > .streak-orig {
+  grid-row: 2;
+}
+
+.stage.is-answer > .answer-reveal.is-streak-pending > .streak-congrats,
+.stage.is-answer > .answer-reveal.is-streak-celebrate > .streak-congrats {
+  grid-row: 4;
 }
 
 .answer-reveal-box {
@@ -2311,14 +2393,15 @@ button.syl:disabled,
 
 .answer-reveal.is-ok .answer-reveal-box {
   border-color: color-mix(in srgb, var(--ok) 55%, var(--line));
-  background: color-mix(in srgb, var(--ok-soft) 85%, var(--surface));
+  /* Mix opaque --ok (not rgba --ok-soft) so fireballs cannot show through the box. */
+  background: color-mix(in srgb, var(--ok) 14%, var(--surface));
   box-shadow: inset 4px 0 0 var(--ok);
   animation: verdict-ok 420ms var(--ease);
 }
 
 .answer-reveal.is-bad .answer-reveal-box {
   border-color: color-mix(in srgb, var(--bad) 55%, var(--line));
-  background: color-mix(in srgb, var(--bad-soft) 85%, var(--surface));
+  background: color-mix(in srgb, var(--bad) 14%, var(--surface));
   box-shadow: inset 4px 0 0 var(--bad);
   animation: verdict-bad 420ms var(--ease);
 }
@@ -2502,6 +2585,10 @@ button.syl:disabled,
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .answer-reveal-vfx {
+    display: none !important;
+  }
+
   .answer-reveal.is-ok .answer-reveal-box,
   .answer-reveal.is-bad .answer-reveal-box,
   .attempt-feedback,
@@ -3088,12 +3175,56 @@ html[data-theme="dark"] .btn-icon[id$="-difficulty"].assist-glow-some {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   flex-shrink: 0;
   padding: 0.4rem 1rem;
   border-bottom: 1px solid var(--line);
   background: color-mix(in srgb, var(--surface) 60%, transparent);
   font-family: var(--font-display);
+}
+
+.session-unit-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex: 1 1 100%;
+  min-width: 0;
+  margin-top: 0.1rem;
+}
+
+.session-unit-progress[hidden] {
+  display: none !important;
+}
+
+.session-unit-progress-track {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 70%, transparent);
+  overflow: hidden;
+}
+
+.session-unit-progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--signal) 55%, var(--ok));
+  transition: width 180ms ease;
+}
+
+.session-unit-progress.is-review .session-unit-progress-fill {
+  background: color-mix(in srgb, var(--muted) 55%, var(--signal));
+}
+
+.session-unit-progress-label {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 .session-crumb[hidden] {

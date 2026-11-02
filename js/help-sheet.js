@@ -12,7 +12,7 @@ import { renderInline } from "./md-lite.js";
 import {
   getVocabulary,
   vocabulary,
-} from "./generated/vocabulary.js?v=20261030-casetakes";
+} from "./generated/vocabulary.js?v=20261102-nomeng";
 import {
   parseCardinalForm,
 } from "../engine/numbers/index.js?v=20260930-ref1";

@@ -4,7 +4,7 @@
  */
 
 import { CASE_TOPICS } from "./case-curriculum.js";
-import { vocabularyForScope } from "./generated/vocabulary.js?v=20261030-casetakes";
+import { vocabularyForScope } from "./generated/vocabulary.js?v=20261102-nomeng";
 import { escapeHtml } from "./md-lite.js";
 import {
   renderChartLookupHtml,

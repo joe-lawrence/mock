@@ -82,7 +82,7 @@ import {
   suggestNumbersFocus,
   formatNumbersFocusLabel,
   directionsForNumbersCell,
-} from "./numbers-curriculum.js?v=20261102-zahl-first";
+} from "./numbers-curriculum.js?v=20261102-sense";
 import {
   GENDER_SHORTCUTS_UNITS,
   NOUNS_STUB_TOPICS,
@@ -160,7 +160,11 @@ import {
 } from "./answer-placeholders.js?v=20261027-typeflex";
 
 import { DECIMAL_POOLS } from "./decimals-pools.js?v=20261027-relengine";
-import { SUPPORT_LEXICON_POOLS, realizeNumberPrompt } from "./support-lexicon.js?v=20261102-rand";
+import {
+  SUPPORT_LEXICON_POOLS,
+  realizeNumberPrompt,
+  realizeNumberSense,
+} from "./support-lexicon.js?v=20261102-playfix";
 import {
   FRACTION_POOLS,
   FRACTION_POOL_BUILDERS,
@@ -343,16 +347,23 @@ import {
   mountVocabularyPanel,
   topicHasVocabulary,
   vocabAreasFromCurriculumTopics,
-} from "./vocabulary-ui.js?v=20261030-vocabspeedo";
+} from "./vocabulary-ui.js?v=20261102-streak8";
 import {
   vocabularyAreas,
   curriculumTopicToVocabArea,
   getVocabulary,
-} from "./generated/vocabulary.js?v=20261030-casetakes";
+} from "./generated/vocabulary.js?v=20261102-nomeng";
 import {
   associateDealKey,
   vocabItemIdsForDecks,
 } from "./vocab-progress.js?v=20261031-vocabprogress";
+import {
+  bumpCorrectStreak,
+  isCorrectStreakMilestone,
+  streakCelebrationFor,
+  STREAK_CELEBRATE_PAUSE_MS,
+} from "./streak-celebrate.js?v=20261102-streak10";
+import { playFireballs, stopFireballs } from "./fireballs-vfx.js?v=20261102-streak10";
 import {
   emptyPlaylistState,
   buildNumbersCatalog,
@@ -1589,8 +1600,13 @@ function isLessonCard(meta) {
   return (
     meta?.kind === "example-sentence" ||
     meta?.kind === "lex-word" ||
-    meta?.kind === "number-prompt"
+    meta?.kind === "number-prompt" ||
+    meta?.kind === "number-sense"
   );
+}
+
+function isGeneratedNumberCard(meta) {
+  return meta?.kind === "number-prompt" || meta?.kind === "number-sense";
 }
 
 /** Shuffled Build/Convert deck for the current focus step (full pool, one pass then reshuffle). */
@@ -2226,12 +2242,29 @@ function recentPromptNumbers() {
   return digits.slice(-4);
 }
 
-/** A number-prompt has no number until this draws one. */
+/** A number-prompt / number-sense card is filled when it is dealt. */
 function fillNumberPrompt(meta) {
-  if (meta?.kind !== "number-prompt") return meta;
+  if (!isGeneratedNumberCard(meta)) return meta;
   const pinned = state.numbersPinnedMeta;
-  if (pinned?.pattern === meta.pattern && Number.isInteger(Number(pinned.value))) return pinned;
+  if (
+    pinned?.pattern === meta.pattern &&
+    (!meta.direction || !pinned.direction || pinned.direction === meta.direction)
+  ) {
+    return pinned;
+  }
   const digit = drawPromptNumber(meta.min ?? 0, meta.max ?? 9, recentPromptNumbers());
+  if (meta.kind === "number-sense") {
+    const dirs = directionsForNumbersCell(
+      state.numbersTopic,
+      state.numbersStep,
+      state.numbersQuizMode
+    );
+    const direction =
+      meta.direction && dirs.includes(meta.direction)
+        ? meta.direction
+        : dirs[Math.floor(Math.random() * Math.max(1, dirs.length))] || DIRECTION.FORWARD;
+    return realizeNumberSense(meta, { n: digit, direction });
+  }
   return realizeNumberPrompt(meta, digit);
 }
 
@@ -3555,11 +3588,6 @@ const NOUN_SINGULAR_PARTS = {
   zählen: [
     { text: "zäh", guide: "TSEH", stress: true },
     { text: "len", guide: "len" },
-  ],
-  Menge: [
-    { text: "die", guide: "dee" },
-    { text: "Men", guide: "MENG", stress: true },
-    { text: "ge", guide: "uh" },
   ],
   Sekunde: [
     { text: "die", guide: "dee" },
@@ -6021,7 +6049,36 @@ function setVerdict(prefix, ok, label) {
   }
 }
 
+/** Streak celebrations run in Play and Guided quiz answers (not Learn). */
+function streakModesActive() {
+  return state.sessionMode === "play" || state.sessionMode === "guided";
+}
+
+/** @returns {boolean} */
+function streakCountingAllowed() {
+  return streakModesActive() && quizNavAtSessionTip();
+}
+
+/**
+ * Bump / reset consecutive corrects. Returns a celebration pack on milestones.
+ * @param {boolean} ok
+ * @returns {ReturnType<typeof streakCelebrationFor>|null}
+ */
+function noteStreakAnswer(ok) {
+  if (!streakCountingAllowed()) return null;
+  if (ok) {
+    state.correctStreak = bumpCorrectStreak(state.correctStreak);
+    if (isCorrectStreakMilestone(state.correctStreak)) {
+      return streakCelebrationFor(state.correctStreak);
+    }
+    return null;
+  }
+  state.correctStreak = 0;
+  return null;
+}
+
 function showAttemptFeedback(prefix, message = "Try again", opts = {}) {
+  if (streakCountingAllowed()) state.correctStreak = 0;
   const el = document.getElementById(`${prefix}-attempt-feedback`);
   if (!el) return;
   el.hidden = false;
@@ -6116,10 +6173,14 @@ const NO_TTS_REVEAL_ADVANCE_MS = 1400;
  * @param {() => void} [onDone]
  */
 function playAnswerKey(spoken, parts, nodes, onDone) {
+  const finish = () => {
+    onDone?.();
+    scheduleStreakCelebratePause();
+  };
   const canSpeak = !!spoken;
   wireAnswerKaraokeReplay(spoken, parts, nodes);
   if (!canSpeak) {
-    onDone?.();
+    finish();
     return;
   }
   const resolved = resolveAnswerPronunciation(parts);
@@ -6131,12 +6192,12 @@ function playAnswerKey(spoken, parts, nodes, onDone) {
   ) {
     playKaraokeFlow(spoken, resolved.displayParts, nodes, {
       keepAdvance: true,
-      onEnd: () => onDone?.(),
-      onError: () => onDone?.(),
+      onEnd: finish,
+      onError: finish,
     });
     return;
   }
-  speakGerman(spoken, 1, () => onDone?.());
+  speakGerman(spoken, 1, finish);
 }
 
 /** Tap the karaoke row to replay pronunciation (answer key). */
@@ -6284,6 +6345,10 @@ function fillAnswerReveal(prefix, {
   visualHtml,
   lang,
 }) {
+  clearStreakCelebrate();
+  const celebrate =
+    ok === true ? noteStreakAnswer(true) : ok === false ? (noteStreakAnswer(false), null) : null;
+
   let caption = en || "";
   if (prefix === "numbers") {
     const meta = currentNumberMeta();
@@ -6305,7 +6370,12 @@ function fillAnswerReveal(prefix, {
   clearAttemptFeedback(prefix);
   setStageAnswerMode(prefix, true);
   root.hidden = false;
-  root.classList.remove("is-ok", "is-bad");
+  root.classList.remove(
+    "is-ok",
+    "is-bad",
+    "is-streak-celebrate",
+    "is-streak-pending"
+  );
   // Retrigger wash/motion when reusing the same reveal node
   void root.offsetWidth;
   root.classList.toggle("is-ok", ok === true);
@@ -6338,6 +6408,14 @@ function fillAnswerReveal(prefix, {
   if (wordHtml) wordEl.innerHTML = wordHtml;
   else wordEl.textContent = softHyphenateGerman(word, parts);
 
+  const armCelebrate = (awaitPlay) => {
+    armStreakCelebrate(celebrate, {
+      prefix,
+      revealEl: root,
+      awaitPlay,
+    });
+  };
+
   // Suffix drills / category labels: no karaoke row (not "unavailable").
   if (skipPronunciation) {
     phonEl.hidden = true;
@@ -6353,6 +6431,7 @@ function fillAnswerReveal(prefix, {
         enEl.textContent = "";
       }
     }
+    armCelebrate(false);
     return [];
   }
 
@@ -6374,6 +6453,7 @@ function fillAnswerReveal(prefix, {
         enEl.textContent = "";
       }
     }
+    armCelebrate(false);
     return [];
   }
 
@@ -6404,7 +6484,202 @@ function fillAnswerReveal(prefix, {
     }
   }
 
+  // Wait for playAnswerKey to finish, then pause 2s, then congrats + fireballs.
+  armCelebrate(nodes.length > 0);
   return nodes;
+}
+
+/** Cancel pending streak pause / panel. */
+function clearStreakCelebrate() {
+  const pending = state.streakCelebrate;
+  if (pending?.timer) clearTimeout(pending.timer);
+  state.streakCelebrate = null;
+  stopFireballs();
+  document.querySelectorAll(".streak-congrats").forEach((el) => {
+    el.hidden = true;
+    el.classList.remove("is-slot");
+    el.innerHTML = "";
+  });
+  document
+    .querySelectorAll(".answer-reveal.is-streak-celebrate, .answer-reveal.is-streak-pending")
+    .forEach((el) => {
+      unwrapStreakOrig(el);
+      el.classList.remove("is-streak-celebrate", "is-streak-pending");
+    });
+  document.querySelectorAll(".answer-reveal-vfx").forEach((el) => {
+    el.hidden = true;
+  });
+}
+
+/** Group original verdict/box/caption so equal a/b/c spacers can surround both keys. */
+function ensureStreakOrigWrap(root) {
+  if (!root) return null;
+  let wrap = root.querySelector(":scope > .streak-orig");
+  if (wrap) return wrap;
+  wrap = document.createElement("div");
+  wrap.className = "streak-orig";
+  const move = [...root.children].filter(
+    (el) =>
+      !el.classList.contains("answer-reveal-vfx") &&
+      !el.classList.contains("streak-congrats") &&
+      !el.classList.contains("streak-orig")
+  );
+  for (const el of move) wrap.appendChild(el);
+  const congrats = root.querySelector(":scope > .streak-congrats");
+  if (congrats) root.insertBefore(wrap, congrats);
+  else root.appendChild(wrap);
+  return wrap;
+}
+
+/** Restore original answer-key nodes after a streak layout. */
+function unwrapStreakOrig(root) {
+  const wrap = root?.querySelector(":scope > .streak-orig");
+  if (!wrap) return;
+  while (wrap.firstChild) root.insertBefore(wrap.firstChild, wrap);
+  wrap.remove();
+}
+
+/**
+ * Arm the post-answer streak sequence (original plays → pause → congrats + fireballs).
+ * @param {ReturnType<typeof streakCelebrationFor>|null} pack
+ * @param {{ prefix?: string, revealEl?: HTMLElement|null, awaitPlay?: boolean }} opts
+ */
+function armStreakCelebrate(pack, opts = {}) {
+  if (!pack) return;
+  const revealEl =
+    opts.revealEl ||
+    (opts.prefix ? document.getElementById(`${opts.prefix}-reveal`) : null);
+  if (!revealEl) return;
+  state.streakCelebrate = {
+    prefix: opts.prefix || "",
+    revealEl,
+    pack,
+    armed: true,
+    timer: null,
+  };
+  // Wrap original + reserve congrats slot so a/b/c spacing is stable from first paint.
+  revealEl.classList.add("is-streak-pending");
+  ensureStreakOrigWrap(revealEl);
+  const host = ensureStreakCongratsHost(revealEl);
+  if (host) {
+    host.hidden = false;
+    host.classList.add("is-slot");
+    host.setAttribute("aria-hidden", "true");
+    host.innerHTML = `
+      <p class="verdict is-ok streak-congrats-verdict">&nbsp;</p>
+      <div class="answer-reveal-box streak-congrats-box">
+        <p class="answer-reveal-de">&nbsp;</p>
+        <p class="answer-reveal-phonetic">&nbsp;</p>
+      </div>
+      <p class="answer-reveal-en">&nbsp;</p>
+    `;
+  }
+  if (!opts.awaitPlay) {
+    scheduleStreakCelebratePause();
+  } else {
+    state.streakCelebrate.timer = window.setTimeout(() => {
+      scheduleStreakCelebratePause();
+    }, 8000);
+  }
+}
+
+/** After original answer-key audio ends, wait then show congrats + fireballs. */
+function scheduleStreakCelebratePause() {
+  const pending = state.streakCelebrate;
+  if (!pending?.armed) return;
+  pending.armed = false;
+  if (pending.timer) clearTimeout(pending.timer);
+  pending.timer = window.setTimeout(() => {
+    pending.timer = null;
+    showStreakCelebratePanel(pending);
+  }, STREAK_CELEBRATE_PAUSE_MS);
+}
+
+/** Build (hidden) congrats host under the original answer key. */
+function ensureStreakCongratsHost(root) {
+  if (!root) return null;
+  let host = root.querySelector(".streak-congrats");
+  if (!host) {
+    host = document.createElement("div");
+    host.className = "streak-congrats";
+    host.hidden = true;
+    root.appendChild(host);
+  }
+  return host;
+}
+
+/** Reveal congrats under the original answer key and play fireballs + karaoke. */
+function showStreakCelebratePanel(pending) {
+  if (!pending?.pack) return;
+  const root =
+    pending.revealEl ||
+    (pending.prefix ? document.getElementById(`${pending.prefix}-reveal`) : null);
+  if (!root || root.hidden) return;
+  const pack = pending.pack;
+  root.classList.remove("is-streak-pending");
+  root.classList.add("is-streak-celebrate");
+  const host = ensureStreakCongratsHost(root);
+  if (!host) return;
+
+  const resolved = resolveAnswerPronunciation(pack.parts);
+  const phonHtml = resolved.pronunciationUnavailable
+    ? '<span class="phon-unavailable">Pronunciation guide unavailable</span>'
+    : resolved.displayParts
+        .map(
+          (p, i) =>
+            `${i > 0 ? " · " : ""}<span class="phon-beat${p.stress ? " has-stress" : ""}">${escapeHtml(p.guide)}</span>`
+        )
+        .join("");
+
+  host.hidden = false;
+  host.classList.remove("is-slot");
+  host.removeAttribute("aria-hidden");
+  host.innerHTML = `
+    <p class="verdict is-ok streak-congrats-verdict" aria-live="polite">${escapeHtml(pack.verdict)}</p>
+    <div class="answer-reveal-box streak-congrats-box">
+      <p class="answer-reveal-de" lang="de">${escapeHtml(pack.de)}</p>
+      <p class="answer-reveal-phonetic streak-congrats-phonetic" lang="de" aria-live="polite">${phonHtml}</p>
+    </div>
+    <p class="answer-reveal-en">${escapeHtml(pack.en)}</p>
+  `;
+
+  const phonEl = host.querySelector(".streak-congrats-phonetic");
+  const nodes = phonEl ? [...phonEl.querySelectorAll(".phon-beat")] : [];
+  // Announce "X in a row!" first (speech only); fireballs + phrase karaoke after.
+  speakStreakVerdict(pack.verdict, () => {
+    startStreakFireballs(pending.prefix, root);
+    playAnswerKey(pack.spoken, pack.parts, nodes);
+  });
+}
+
+/** Speak the streak title with the selected German voice (no karaoke), then continue. */
+function speakStreakVerdict(text, onDone) {
+  const line = String(text || "").trim();
+  if (!line) {
+    onDone?.();
+    return;
+  }
+  speakGerman(line, 1, () => onDone?.());
+}
+
+/**
+ * Fireballs behind answer-key text/boxes.
+ * Canvas is z-index:-1 inside an isolated reveal stacking context.
+ */
+function startStreakFireballs(_prefix, root) {
+  const host = root;
+  if (!host) return;
+  // Remove any older stage-level canvas from earlier builds.
+  const stage = root.closest?.(".stage");
+  stage?.querySelectorAll(":scope > .answer-reveal-vfx").forEach((el) => el.remove());
+  let canvas = host.querySelector(":scope > .answer-reveal-vfx");
+  if (!canvas) {
+    canvas = document.createElement("canvas");
+    canvas.className = "answer-reveal-vfx";
+    canvas.setAttribute("aria-hidden", "true");
+    host.insertBefore(canvas, host.firstChild);
+  }
+  playFireballs(canvas, { seed: (state.correctStreak * 0x9e3779b9) >>> 0 });
 }
 
 /** Color-only tint for answer-key articles (no gender formatting). */
@@ -6599,12 +6874,18 @@ function nounPluralAnswerWordHtml(parts) {
 
 function clearAnswerReveal(prefix) {
   clearCorrectFlashTimer();
+  clearStreakCelebrate();
   setStageAnswerMode(prefix, false);
   clearAttemptFeedback(prefix);
   const root = document.getElementById(`${prefix}-reveal`);
   if (!root) return;
   root.hidden = true;
-  root.classList.remove("is-ok", "is-bad");
+  root.classList.remove(
+    "is-ok",
+    "is-bad",
+    "is-streak-celebrate",
+    "is-streak-pending"
+  );
   setVerdict(prefix, null);
   const wordEl = document.getElementById(`${prefix}-reveal-word`);
   const phonEl = document.getElementById(`${prefix}-reveal-phonetic`);
@@ -6828,6 +7109,10 @@ const state = {
   guidedQaLog: [],
   /** Guided: index into attemptLog when the session started (legacy slice fallback). */
   guidedAttemptStartIndex: 0,
+  /** Consecutive correct answers this session (milestones every N). */
+  correctStreak: 0,
+  /** Pending streak congrats: original plays first, then pause, then panel + fireballs. */
+  streakCelebrate: null,
   /** Multi-grain evidence for this run only (session audit). */
   evidenceStore: emptyEvidenceStore(),
   /**
@@ -6839,6 +7124,8 @@ const state = {
   guidedProgress: emptyGuidedProgress(),
   /** The card on screen is a review from a finished unit, not the open unit. */
   guidedReviewDeal: false,
+  /** Coverage keys for the open unit's progress bar under the Guided crumb. */
+  guidedUnitHud: null,
   /** Last engine evaluation for evidence id plumbing. */
   lastEvaluation: null,
   numbersMixDeck: null,
@@ -7681,6 +7968,140 @@ function updateSessionCrumb(view) {
   bar.hidden = false;
   syncPlaylistDropdown();
   syncDirectionChrome();
+  syncUnitProgressBar();
+}
+
+function setGuidedUnitHud(unitKey, stepKeys, unitKeys) {
+  const ladder = guidedLadderFor(unitKey);
+  state.guidedUnitHud = {
+    unitKey: String(unitKey || ""),
+    stepKeys: [...(stepKeys || [])].filter(Boolean),
+    unitKeys: [...(unitKeys || stepKeys || [])].filter(Boolean),
+    stage: Math.max(0, Number(state.guidedProgress?.stage) || 0),
+    stageCount: Math.max(1, ladder.length || 1),
+  };
+  syncUnitProgressBar();
+}
+
+function refreshGuidedUnitHud() {
+  const hud = state.guidedUnitHud;
+  if (!hud?.unitKey) return;
+  hud.stage = Math.max(0, Number(state.guidedProgress?.stage) || 0);
+  hud.stageCount = Math.max(1, guidedLadderFor(hud.unitKey).length || 1);
+  syncUnitProgressBar();
+}
+
+/** Play-mode position in the active unit deck. */
+function playUnitDeckProgress() {
+  const view = state.view;
+  let index = 0;
+  let total = 0;
+  if (view === "numbers") {
+    if (state.numbersSessionKind === "mix") {
+      ensureMixDeck();
+      total = state.numbersMixDeck?.length || 0;
+      index = total ? state.numbersMixCursor % total : 0;
+    } else if (state.numbersQuizMode === "listen") {
+      ensureListenDeck();
+      total = state.numbersListenDeck?.length || 0;
+      index = total ? state.numbersListenCursor % total : 0;
+    } else {
+      ensureStepDeck();
+      total = state.numbersStepDeck?.length || 0;
+      index = total ? state.numbersIndex % total : 0;
+    }
+  } else if (view === "nouns") {
+    try {
+      const kind = nounsDeckKindForMode();
+      const deck = ensureNounDeck(kind);
+      const indexKey = nounsIndexKeyForMode();
+      total = deck?.length || 0;
+      index = total ? (Number(state[indexKey]) || 0) % total : 0;
+    } catch {
+      total = 0;
+    }
+  } else if (view === "case") {
+    total = state.caseDeck?.length || 0;
+    index = total ? (Number(state.caseQueueIndex) || 0) % total : 0;
+  } else if (view === "sounds") {
+    const karaoke = state.soundsMode === "karaoke";
+    const deck = karaoke ? soundKaraoke : soundDiscriminate;
+    total = Array.isArray(deck) ? deck.length : 0;
+    index = total ? (Number(state.soundsIndex) || 0) % total : 0;
+  }
+  if (!total) return null;
+  return { index, total, at: index + 1 };
+}
+
+/** Unit progress under the session crumb (Guided coverage or Play deck position). */
+function syncUnitProgressBar() {
+  const host = document.getElementById("session-unit-progress");
+  const track = document.getElementById("session-unit-progress-track");
+  const fill = document.getElementById("session-unit-progress-fill");
+  const label = document.getElementById("session-unit-progress-label");
+  if (!host || !track || !fill || !label) return;
+
+  const bar = document.getElementById("session-crumb");
+  const mode = state.sessionMode;
+  if (bar?.hidden || (mode !== "guided" && mode !== "play")) {
+    host.hidden = true;
+    return;
+  }
+
+  if (mode === "play") {
+    const play = playUnitDeckProgress();
+    if (!play) {
+      host.hidden = true;
+      return;
+    }
+    const pct = Math.max(0, Math.min(100, Math.round((play.at / play.total) * 100)));
+    host.hidden = false;
+    host.classList.remove("is-review");
+    fill.style.width = `${pct}%`;
+    track.setAttribute("aria-valuenow", String(pct));
+    track.setAttribute("aria-label", `Deck progress ${play.at} of ${play.total}`);
+    label.hidden = true;
+    label.textContent = "";
+    return;
+  }
+
+  const hud = state.guidedUnitHud;
+  const unitKey = hud?.unitKey || state.guidedProgress?.openKey || state.guidedCurrentKey || "";
+  const stepKeys = hud?.stepKeys?.length
+    ? hud.stepKeys
+    : state.guidedActiveSlice || [];
+  const unitKeys = hud?.unitKeys?.length ? hud.unitKeys : stepKeys;
+  const row = state.guidedProgress?.coverage?.[unitKey] || { correct: [] };
+  const step = coverageSummary(row.correct, stepKeys);
+  const unit = coverageSummary(row.correct, unitKeys);
+  const stageCount = Math.max(1, Number(hud?.stageCount) || guidedLadderFor(unitKey).length || 1);
+  const stage = Math.min(
+    stageCount - 1,
+    Math.max(0, Number(hud?.stage) || Number(state.guidedProgress?.stage) || 0)
+  );
+  const stepFrac = step.required ? step.covered / step.required : 0;
+  const overall =
+    unit.required > 0
+      ? unit.covered / unit.required
+      : (stage + stepFrac) / stageCount;
+  const pct = Math.max(0, Math.min(100, Math.round(overall * 100)));
+  const review = !!state.guidedReviewDeal;
+
+  host.hidden = false;
+  host.classList.toggle("is-review", review);
+  fill.style.width = `${pct}%`;
+  track.setAttribute("aria-valuenow", String(pct));
+  const unitText =
+    unit.required > 0 ? `${unit.covered} of ${unit.required}` : `${pct}%`;
+  const stepText = stageCount > 1 ? ` · step ${stage + 1}/${stageCount}` : "";
+  label.hidden = false;
+  label.textContent = review ? `Review · ${unitText}` : `Unit · ${unitText}${stepText}`;
+  track.setAttribute(
+    "aria-label",
+    review
+      ? `Review card. Open unit ${unitText}`
+      : `Unit progress ${unitText}${stepText}`
+  );
 }
 
 function navigate(view, opts = {}) {
@@ -8371,12 +8792,10 @@ function openNumbersStepLearn(topicId, stepId) {
   const cue = softAfterLabel(topicId, step);
   openSheet(
     step.label,
-    `${learnSeriesChromeHtml()}
-     <p>${step.blurb || "Reference for this step."}</p>
+    `<p>${step.blurb || "Reference for this step."}</p>
      ${cue ? `<p class="sheet-cue">${cue}</p>` : ""}
      <p>A dedicated chart for this step lands later. Use the Reference Chart for Cardinals forms that already have tabs.</p>`
   );
-  wireLearnSeriesChrome(document.getElementById("sheet-body"));
   return true;
 }
 
@@ -8660,8 +9079,6 @@ function renderVocabularyPanel(territoryId) {
   state.vocabMount = mountVocabularyPanel(root, {
     topic,
     mode: state.vocabMode || "learn",
-    seriesHtml: state.sessionMode === "guided" ? "" : learnSeriesChromeHtml(),
-    onSeriesChrome: (el) => wireLearnSeriesChrome(el),
     decks: state.sessionMode === "guided" ? state.vocabDecks : null,
     areas: topic === "numbers" ? state.vocabAreas : null,
     introducedBy: state.vocabIntroducedBy,
@@ -8707,6 +9124,9 @@ function renderVocabularyPanel(territoryId) {
       // Play TTS/karaoke only — navigation is tap / swipe (no auto-forward).
       playAnswerKey(spoken, parts, nodes, onDone);
     },
+    noteStreakAnswer,
+    armStreakCelebrate,
+    clearStreakCelebrate,
     stopSpeech: () => stopSpeech({ keepAdvance: true }),
   });
 }
@@ -9030,8 +9450,7 @@ function renderCaseChart() {
   const root = document.getElementById("case-chart");
   if (!root) return;
   const step = getCaseStep(state.caseTopic, state.caseStep);
-  root.innerHTML = `${learnSeriesChromeHtml()}${caseLearnHtml(step)}`;
-  wireLearnSeriesChrome(root);
+  root.innerHTML = caseLearnHtml(step);
 }
 
 function caseAssistShowsHint() {
@@ -10551,7 +10970,6 @@ function renderNumbersChart() {
     : "";
 
   root.innerHTML = `
-    ${learnSeriesChromeHtml()}
     <div class="chart-tabs" role="tablist">${tabs}</div>
     <div class="chart-scroll">
       <p class="chart-note">Tap a cue or example to hear the German form with syllable highlight.</p>
@@ -10559,7 +10977,6 @@ function renderNumbersChart() {
       <div class="chart-list" id="numbers-chart-list"></div>
     </div>
   `;
-  wireLearnSeriesChrome(root);
   const list = root.querySelector("#numbers-chart-list");
   rows.forEach((r) => {
     const row = document.createElement("div");
@@ -10631,7 +11048,6 @@ function renderNounsChart() {
     : "";
 
   root.innerHTML = `
-    ${learnSeriesChromeHtml()}
     <div class="chart-tabs" role="tablist">${tabs}</div>
     <div class="chart-scroll">
       <p class="chart-note">Tap a cue or example to hear article + noun.</p>
@@ -10639,7 +11055,6 @@ function renderNounsChart() {
       <div class="chart-list" id="nouns-chart-list"></div>
     </div>
   `;
-  wireLearnSeriesChrome(root);
   const list = root.querySelector("#nouns-chart-list");
   rows.forEach((r) => {
     const row = document.createElement("div");
@@ -11246,6 +11661,7 @@ function noteGuidedAnswer({ unitKey, correct, review, contentKey, slice }) {
   const seen = state.guidedSeen || (state.guidedSeen = new Set());
   for (const key of state.guidedProgress.graduated) seen.add(key);
   persistGuidedProgress();
+  refreshGuidedUnitHud();
 }
 
 /**
@@ -11316,6 +11732,8 @@ function resetSessionAuditLogs() {
   state.guidedHistory = emptyEvidenceStore();
   state.lastEvaluation = null;
   state.guidedAttemptStartIndex = (state.attemptLog || []).length;
+  state.correctStreak = 0;
+  clearStreakCelebrate();
 }
 
 /**
@@ -11462,7 +11880,7 @@ function ensureGuidedPickSalt() {
 }
 
 function placeGuidedNumberPrompts(deck, unitKey, skill, writeIndex) {
-  const templates = deck.filter((item) => item?.kind === "number-prompt" && item.pattern);
+  const templates = deck.filter((item) => isGeneratedNumberCard(item) && item.pattern);
   if (!templates.length) return;
   const slots = promptSlots(templates);
   const progress = normalizeGuidedProgress(state.guidedProgress || emptyGuidedProgress());
@@ -11474,20 +11892,38 @@ function placeGuidedNumberPrompts(deck, unitKey, skill, writeIndex) {
     recent: row.recent,
   });
   const pattern = String(pick.contentKey || "").replace(/#\d+$/, "");
-  const template = templates.find((item) => item.pattern === pattern) || templates[0];
+  const matches = templates.filter((item) => item.pattern === pattern);
+  const template = matches[0] || templates[0];
+  const dirs = directionsForNumbersCell(
+    state.numbersTopic,
+    state.numbersStep,
+    state.numbersQuizMode
+  );
+  const direction =
+    (template.direction && dirs.includes(template.direction) && template.direction) ||
+    dirs[Math.floor(Math.random() * Math.max(1, dirs.length))] ||
+    DIRECTION.FORWARD;
   const digit = drawPromptNumber(template.min ?? 0, template.max ?? 9, recentPromptNumbers());
-  state.numbersPinnedMeta = realizeNumberPrompt(template, digit);
-  const idx = deck.indexOf(template);
-  if (idx >= 0) writeIndex(idx);
+  state.numbersPinnedMeta =
+    template.kind === "number-sense"
+      ? realizeNumberSense(template, { n: digit, direction })
+      : realizeNumberPrompt(template, digit);
+  const idx = deck.findIndex(
+    (item) =>
+      item.pattern === pattern && (!item.direction || item.direction === direction)
+  );
+  writeIndex(idx >= 0 ? idx : deck.indexOf(template));
   state.guidedActiveSlice = slots;
   state.guidedActiveUnit = unitKey;
-  state.guidedActivePick = { ...pick, pattern, digit };
+  state.guidedActivePick = { ...pick, pattern, digit, direction };
   const step = coverageSummary(row.correct, slots);
   const unit = coverageSummary(row.correct, slots);
+  if (!state.guidedReviewDeal) setGuidedUnitHud(unitKey, slots, slots);
+  else syncUnitProgressBar();
   annotateGuidedDeal({
     pick: pick.reason?.code || "",
     pickLabel: pick.reason?.label || "",
-    contentKey: `${pattern}:${digit}`,
+    contentKey: `${pattern}:${digit}:${direction}`,
     stepCovered: step.covered,
     stepRequired: step.required,
     unitCovered: unit.covered,
@@ -11498,7 +11934,7 @@ function placeGuidedNumberPrompts(deck, unitKey, skill, writeIndex) {
 
 function placeGuidedCoverage(deck, unitKey, skill, writeIndex) {
   if (state.sessionMode !== "guided" || !Array.isArray(deck) || !deck.length) return;
-  if (deck.some((item) => item?.kind === "number-prompt")) {
+  if (deck.some((item) => isGeneratedNumberCard(item))) {
     placeGuidedNumberPrompts(deck, unitKey, skill, writeIndex);
     return;
   }
@@ -11540,6 +11976,8 @@ function placeGuidedCoverage(deck, unitKey, skill, writeIndex) {
   if (idx != null) writeIndex(idx);
   const step = coverageSummary(row.correct, slice);
   const unit = coverageSummary(row.correct, required);
+  if (!state.guidedReviewDeal) setGuidedUnitHud(unitKey, slice, required);
+  else syncUnitProgressBar();
   annotateGuidedDeal({
     pick: pick.reason?.code || "",
     pickLabel: pick.reason?.label || "",
@@ -13001,53 +13439,6 @@ function openLearnSeriesUnit() {
   if (u.territory === "case" && u.topicId && u.stepId) {
     openCaseLearn(u.topicId, u.stepId);
   }
-}
-
-function learnSeriesCanPrev() {
-  return (state.learnSeries?.cursor ?? 0) > 0;
-}
-
-function learnSeriesCanNext() {
-  const series = state.learnSeries;
-  if (!series?.units?.length) return false;
-  return series.cursor < series.units.length - 1;
-}
-
-function learnSeriesPrev() {
-  if (!learnSeriesCanPrev()) return;
-  state.learnSeries.cursor -= 1;
-  openLearnSeriesUnit();
-}
-
-function learnSeriesNext() {
-  if (!learnSeriesCanNext()) return;
-  state.learnSeries.cursor += 1;
-  openLearnSeriesUnit();
-}
-
-function learnSeriesChromeHtml() {
-  const series = state.learnSeries;
-  if (state.sessionMode === "guided") return "";
-  if (!series?.units?.length || series.units.length < 2) return "";
-  const n = series.units.length;
-  const i = series.cursor + 1;
-  const u = series.units[series.cursor];
-  const label = u?.title || u?.label || "Unit";
-  return `<div class="learn-series-bar" role="navigation" aria-label="Learn series">
-    <button type="button" class="chip" data-learn-prev ${learnSeriesCanPrev() ? "" : "disabled"}>Previous</button>
-    <span class="learn-series-status">${i} / ${n} · ${label}</span>
-    <button type="button" class="chip" data-learn-next ${learnSeriesCanNext() ? "" : "disabled"}>Next</button>
-  </div>`;
-}
-
-function wireLearnSeriesChrome(root) {
-  if (!root) return;
-  root.querySelector("[data-learn-prev]")?.addEventListener("click", () => {
-    learnSeriesPrev();
-  });
-  root.querySelector("[data-learn-next]")?.addEventListener("click", () => {
-    learnSeriesNext();
-  });
 }
 
 /**

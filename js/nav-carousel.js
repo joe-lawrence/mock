@@ -3,7 +3,7 @@
  * Standalone page or embedded hub in the main mock.
  */
 
-import { NUMBERS_TOPICS, modesForStep } from "./numbers-curriculum.js?v=20261030-lexsentences";
+import { NUMBERS_TOPICS, modesForStep } from "./numbers-curriculum.js?v=20261102-sense";
 import {
   familiesForUnit,
   GENDER_SHORTCUTS_UNITS,
@@ -14,7 +14,7 @@ import {
   pluralNavUnits,
 } from "./nouns-curriculum.js?v=20261027-casetype";
 import { topicHasVocabulary } from "./vocabulary-ui.js?v=20261030-vocabspeedo";
-import { vocabulary } from "./generated/vocabulary.js?v=20261030-casetakes";
+import { vocabulary } from "./generated/vocabulary.js?v=20261102-nomeng";
 import { caseNavTopics } from "./case-curriculum.js?v=20261029-declension";
 
 const CAPS_KEY = "schnapp-nav-caps";

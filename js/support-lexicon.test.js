@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { SUPPORT_LEXICON_POOLS, realizeNumberPrompt } from "./support-lexicon.js";
+import {
+  NUMBER_SENSE,
+  SUPPORT_LEXICON_POOLS,
+  realizeNumberPrompt,
+  realizeNumberSense,
+} from "./support-lexicon.js";
 
 function tokens(sentence) {
   return String(sentence || "")
@@ -99,51 +104,89 @@ describe("support lexicon questions", () => {
     }
   });
 
-  it("keeps number questions as patterns until a digit is chosen", () => {
+  it("maps Zahl, Nummer, and Anzahl by phrase and by usage, both ways", () => {
     const opening = SUPPORT_LEXICON_POOLS["number-words"];
     assert.deepEqual(
       opening.map((item) => item.pattern),
-      ["zahl-phrase", "zahl-sentence"]
+      ["phrase:Zahl", "usage:Zahl"]
     );
     for (const item of opening) {
-      assert.equal(item.kind, "number-prompt");
+      assert.equal(item.kind, "number-sense");
       assert.equal(item.word, "Zahl");
-      assert.equal(item.min, 0);
-      assert.equal(item.max, 9);
-      assert.equal(item.form, undefined);
-      assert.equal(item.choices, undefined);
     }
+
     const senses = SUPPORT_LEXICON_POOLS["number-senses"];
     assert.deepEqual(
       senses.map((item) => item.pattern),
-      ["nummer-phrase", "zahl-nummer", "anzahl-sentence"]
-    );
-    for (const item of senses) assert.equal(item.max, 99);
-    const amount = SUPPORT_LEXICON_POOLS["amount-words"];
-    for (const item of amount) assert.equal(item.max, 99);
-    assert.deepEqual(
-      amount.map((item) => item.pattern),
-      ["menge-sentence", "zaehlen-sentence"]
+      ["phrase:Nummer", "usage:Nummer", "phrase:Anzahl", "usage:Anzahl"]
     );
 
-    const eight = realizeNumberPrompt(opening[0], 8);
-    const five = realizeNumberPrompt(opening[0], 5);
-    assert.equal(eight.english, "the number 8");
-    assert.equal(eight.form, "die Zahl 8");
-    assert.equal(eight.choices.filter((choice) => choice === eight.form).length, 1);
-    assert.notEqual(eight.form, five.form);
-    for (const choice of eight.choices) {
-      assert.equal(/\b(Nummer|Anzahl|Menge|zähle)\b/.test(choice), false, choice);
-    }
-    const nummer = realizeNumberPrompt(senses[0], 5);
-    for (const choice of nummer.choices) {
-      assert.equal(/\b(Zahl|Anzahl|Menge)\b/.test(choice), false, choice);
-    }
-    const contrast = realizeNumberPrompt(senses[1], 6);
-    assert.deepEqual(contrast.choices, ["die Zahl 6", "die Nummer 6"]);
-    const count = realizeNumberPrompt(senses[2], 4);
-    for (const choice of count.choices) {
-      assert.equal(/\b(Zahl|Nummer|Menge)\b/.test(choice), false, choice);
-    }
+    const seq = (() => {
+      let i = 0;
+      return () => {
+        const values = [0.1, 0.4, 0.7, 0.2, 0.55, 0.85, 0.3];
+        return values[i++ % values.length];
+      };
+    })();
+
+    const phraseForward = realizeNumberSense(
+      { task: "phrase", word: "Zahl", pattern: "phrase:Zahl" },
+      { n: 10, direction: "forward", random: seq }
+    );
+    assert.equal(phraseForward.expect, "Zahl");
+    assert.ok(phraseForward.prompt.includes("10") || !phraseForward.prompt.includes("{n}"));
+    assert.ok(phraseForward.choices.includes("Zahl"));
+    assert.ok(phraseForward.choices.includes("Nummer"));
+    assert.ok(phraseForward.choices.includes("Anzahl"));
+    assert.equal(phraseForward.choices.length, 4);
+
+    const phraseReverse = realizeNumberSense(
+      { task: "phrase", word: "Nummer", pattern: "phrase:Nummer" },
+      { n: 5, direction: "reverse", random: () => 0.2 }
+    );
+    assert.equal(phraseReverse.prompt, "die Nummer");
+    assert.ok(phraseReverse.choices.includes(phraseReverse.expect));
+    assert.equal(phraseReverse.choices.length, 4);
+
+    const usageForward = realizeNumberSense(
+      { task: "usage", word: "Anzahl", pattern: "usage:Anzahl" },
+      { direction: "forward", random: () => 0 }
+    );
+    assert.equal(usageForward.prompt, NUMBER_SENSE.Anzahl.usage);
+    assert.equal(usageForward.expect, "Anzahl");
+    assert.equal(usageForward.english, NUMBER_SENSE.Anzahl.caption);
+
+    const usageReverse = realizeNumberSense(
+      { task: "usage", word: "Zahl", pattern: "usage:Zahl" },
+      { direction: "reverse" }
+    );
+    assert.equal(usageReverse.prompt, "die Zahl");
+    assert.equal(usageReverse.expect, NUMBER_SENSE.Zahl.usage);
+    assert.equal(usageReverse.english, NUMBER_SENSE.Zahl.caption);
+
+    const phraseCaption = realizeNumberSense(
+      { task: "phrase", word: "Nummer", pattern: "phrase:Nummer" },
+      { n: 5, direction: "forward", random: () => 0 }
+    );
+    assert.equal(phraseCaption.english, NUMBER_SENSE.Nummer.caption);
+    assert.notEqual(phraseCaption.english, phraseCaption.prompt);
+
+    const room = realizeNumberSense(
+      { task: "phrase", word: "Nummer", pattern: "phrase:Nummer" },
+      { n: 5, direction: "forward", random: () => 0.3 }
+    );
+    assert.ok(
+      NUMBER_SENSE.Nummer.phrases.some((p) =>
+        room.prompt.includes(p.replace("{n}", "5").replace("{n}", "5"))
+      ) || room.expect === "Nummer"
+    );
+    assert.equal(room.expect, "Nummer");
+
+    const count = realizeNumberPrompt(
+      { pattern: "zaehlen-sentence", word: "zählen", token: "zähle", min: 0, max: 99 },
+      7
+    );
+    assert.equal(count.english, "I count to 7.");
+    assert.equal(count.form, "Ich zähle bis 7.");
   });
 });

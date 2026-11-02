@@ -10,7 +10,7 @@ import {
   plannedModeChips,
   directionsForNumbersCell,
   getNumbersStep,
-} from "./numbers-curriculum.js?v=20261030-lexsentences";
+} from "./numbers-curriculum.js?v=20261102-sense";
 import {
   NOUNS_TOPICS,
   modesForNounsStep,
@@ -22,7 +22,7 @@ import {
   vocabularyAreas,
   vocabularyForScope,
   vocabularyForTopic,
-} from "./generated/vocabulary.js?v=20261030-casetakes";
+} from "./generated/vocabulary.js?v=20261102-nomeng";
 import {
   openFeedbackComposer,
   bindFeedbackTrigger,
