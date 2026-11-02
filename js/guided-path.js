@@ -2,13 +2,15 @@
  * Guided route and graduation.
  *
  * One selected unit is open. Its presets climb by seed difficulty, at most
- * three steps. Three correct answers in a row clear a step. The last step
- * graduates the unit and opens the next one on the path. Every fourth deal
- * after that is one card from a finished unit.
+ * three steps. A step clears when its slice of the unit is answered correctly,
+ * not when the same few items are right three times. The last step graduates
+ * the unit. Every fourth deal after that is one card from a finished unit.
  *
  * Numbers order is the guided path. Nouns, Sounds, and Case keep the order
  * they are built in, after Numbers.
  */
+
+import { markCoverage, normalizeCoverage, sliceCovered } from "./guided-coverage.js?v=20261102-rand";
 
 export const STAGE_BLOCK = 3;
 export const SPRINKLE_EVERY = 4;
@@ -18,6 +20,8 @@ export const LADDER_STEPS = 3;
 export const NUMBERS_GUIDED_ORDER = Object.freeze([
   "numbers:cardinals:number-words",
   "numbers:cardinals:base",
+  "numbers:cardinals:number-senses",
+  "numbers:cardinals:amount-words",
   "numbers:cardinals:teens",
   "numbers:cardinals:tens",
   "numbers:cardinals:compounds",
@@ -59,7 +63,7 @@ export const GUIDED_REASONS = Object.freeze({
   focus: {
     code: "focus_unit",
     label: "This unit",
-    hint: "Three correct in a row moves you to a harder step, then the next unit.",
+    hint: "New examples from this unit come first. A harder preset starts after this step's items are answered.",
   },
   review: {
     code: "review",
@@ -82,6 +86,8 @@ export function emptyGuidedProgress() {
     stage: 0,
     streak: 0,
     deals: 0,
+    coverage: {},
+    pickSalt: 0,
   };
 }
 
@@ -112,6 +118,8 @@ export function normalizeGuidedProgress(raw) {
     stage: Math.max(0, Number(src.stage) || 0),
     streak: Math.max(0, Number(src.streak) || 0),
     deals: Math.max(0, Number(src.deals) || 0),
+    coverage: normalizeCoverage(src.coverage),
+    pickSalt: Math.max(0, Math.floor(Number(src.pickSalt) || 0)),
   };
 }
 
@@ -123,7 +131,8 @@ export function progressIsBlank(progress) {
     !p.openKey &&
     !p.stage &&
     !p.streak &&
-    !p.deals
+    !p.deals &&
+    !Object.keys(p.coverage || {}).length
   );
 }
 
@@ -187,41 +196,25 @@ export function alignGuidedProgress(progress, pathKeys) {
     next.stage = 0;
     next.streak = 0;
   }
+  // Older sessions advanced a step after a short streak and stored no coverage.
+  // Those steps are not done until the required items are recorded.
+  const row = open ? next.coverage?.[open] : null;
+  const known = (row?.correct?.length || 0) + (row?.wrong?.length || 0);
+  if (open && next.stage > 0 && !known) {
+    next.stage = 0;
+    next.streak = 0;
+  }
   return next;
 }
 
 /**
- * Units with three correct answers on each ladder step count as graduated
- * when the profile has no guided progress yet.
+ * Saved coverage is the resume record. A pile of correct answers on one
+ * preset does not, by itself, mark the unit finished.
  * @param {ReturnType<typeof emptyGuidedProgress>} progress
  * @param {readonly string[]} pathKeys
- * @param {Record<string, readonly string[]>} ladders
- * @param {{ grains?: Record<string, { correct?: number }> }|null} evidence
  */
-export function hydrateGuidedProgress(progress, pathKeys, ladders, evidence) {
-  const saved = normalizeGuidedProgress(progress);
-  if (!progressIsBlank(saved)) return alignGuidedProgress(saved, pathKeys);
-  const grains = evidence?.grains || {};
-  const graduated = [];
-  let stage = 0;
-  for (const key of pathKeys || []) {
-    const ladder = ladders?.[key]?.length ? ladders[key] : [];
-    let cleared = 0;
-    for (const preset of ladder) {
-      const stat = grains[`${key}×${preset}`];
-      if ((stat?.correct || 0) >= STAGE_BLOCK) cleared += 1;
-      else break;
-    }
-    if (ladder.length && cleared >= ladder.length) {
-      graduated.push(key);
-      continue;
-    }
-    return alignGuidedProgress(
-      { ...saved, graduated, openKey: key, stage: cleared, streak: 0 },
-      pathKeys
-    );
-  }
-  return alignGuidedProgress({ ...saved, graduated, openKey: null, stage: 0, streak: 0 }, pathKeys);
+export function hydrateGuidedProgress(progress, pathKeys) {
+  return alignGuidedProgress(normalizeGuidedProgress(progress), pathKeys);
 }
 
 /**
@@ -232,20 +225,34 @@ export function hydrateGuidedProgress(progress, pathKeys, ladders, evidence) {
  *   review?: boolean,
  *   unitKey?: string,
  *   ladderLength?: number,
+ *   contentKey?: string,
+ *   slice?: readonly string[],
  * }} result
  */
 export function applyGuidedResult(progress, result) {
   const next = normalizeGuidedProgress(progress);
   const open = openUnitKey(result.pathKeys, next);
   next.openKey = open;
-  if (!open || result.review) return next;
-  if (result.unitKey && result.unitKey !== open) return next;
+  const unitKey = result.unitKey || "";
+  const contentKey = result.contentKey || "";
+  if (result.review) {
+    if (unitKey && contentKey) {
+      next.coverage = markCoverage(next.coverage, unitKey, contentKey, !!result.correct);
+    }
+    return next;
+  }
+  if (!open) return next;
+  if (unitKey && unitKey !== open) return next;
+  if (contentKey) {
+    next.coverage = markCoverage(next.coverage, open, contentKey, !!result.correct);
+  }
   if (!result.correct) {
     next.streak = 0;
     return next;
   }
   next.streak += 1;
-  if (next.streak < STAGE_BLOCK) return next;
+  const slice = result.slice || [];
+  if (!sliceCovered(slice, next.coverage?.[open]?.correct)) return next;
   next.streak = 0;
   const length = Math.max(1, Number(result.ladderLength) || 1);
   if (next.stage + 1 < length) {

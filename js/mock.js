@@ -82,7 +82,7 @@ import {
   suggestNumbersFocus,
   formatNumbersFocusLabel,
   directionsForNumbersCell,
-} from "./numbers-curriculum.js?v=20261030-lexsentences";
+} from "./numbers-curriculum.js?v=20261102-zahl-first";
 import {
   GENDER_SHORTCUTS_UNITS,
   NOUNS_STUB_TOPICS,
@@ -160,7 +160,7 @@ import {
 } from "./answer-placeholders.js?v=20261027-typeflex";
 
 import { DECIMAL_POOLS } from "./decimals-pools.js?v=20261027-relengine";
-import { SUPPORT_LEXICON_POOLS } from "./support-lexicon.js?v=20261030-haelfte";
+import { SUPPORT_LEXICON_POOLS, realizeNumberPrompt } from "./support-lexicon.js?v=20261102-rand";
 import {
   FRACTION_POOLS,
   FRACTION_POOL_BUILDERS,
@@ -245,7 +245,7 @@ import {
   wireReferenceNav,
   referenceIdForPracticeContext,
   getReference,
-} from "./reference-ui.js?v=20261030-lexsentences";
+} from "./reference-ui.js?v=20261102-zahl-first";
 import {
   buildHelpModel,
   renderHelpSheetHtml,
@@ -316,7 +316,19 @@ import {
   planGuidedStep,
   presetLadder,
   orderGuidedKeys,
-} from "./guided-path.js?v=20261101-guided-graduate";
+} from "./guided-path.js?v=20261102-rand";
+import {
+  contentKeyOf,
+  coverageSummary,
+  coverageTake,
+  normalizeQuestionText,
+  orderedContentKeys,
+  drawPromptNumber,
+  pickGuidedContent,
+  promptSlots,
+  slicesForLadder,
+  spanSample,
+} from "./guided-coverage.js?v=20261102-rand";
 import {
   reportCardJson,
   fullAuditJson,
@@ -793,10 +805,29 @@ const nounsChart = buildNounsChart();
 const numbersChart = buildNumbersChart();
 
 /** Look up an exact Numbers chart row (guides + stress). */
+let numbersChartByKey = null;
 function numbersChartParts(n) {
-  for (const key of ["hundreds", "teens", "tens", "compounds", "base", "komma", "money", "fractions", "time", "dates", "measure", "ordinals"]) {
-    const row = (numbersChart[key] || []).find((r) => Number(r.n) === n || String(r.n) === String(n));
-    if (row?.parts?.length) return row.parts;
+  if (!numbersChartByKey) {
+    numbersChartByKey = new Map();
+    const order = ["hundreds", "teens", "tens", "compounds", "base", "komma", "money", "fractions", "time", "dates", "measure", "ordinals"];
+    for (const key of order) {
+      for (const row of numbersChart[key] || []) {
+        if (!row?.parts?.length || row.n == null) continue;
+        const asString = String(row.n);
+        if (!numbersChartByKey.has(asString)) numbersChartByKey.set(asString, row.parts);
+        const asNum = Number(row.n);
+        if (Number.isFinite(asNum) && String(asNum) === asString && !numbersChartByKey.has(asNum)) {
+          numbersChartByKey.set(asNum, row.parts);
+        }
+      }
+    }
+  }
+  if (numbersChartByKey.has(n)) return numbersChartByKey.get(n);
+  const asString = String(n);
+  if (numbersChartByKey.has(asString)) return numbersChartByKey.get(asString);
+  const asNum = Number(n);
+  if (Number.isFinite(asNum) && String(asNum) === asString && numbersChartByKey.has(asNum)) {
+    return numbersChartByKey.get(asNum);
   }
   return null;
 }
@@ -1243,6 +1274,7 @@ const WRITTENISH_KINDS = new Set([
   "month",
   "calendar-date",
   "measure",
+  "example-sentence",
 ]);
 
 function isWrittenishMeta(meta) {
@@ -1552,6 +1584,15 @@ function stepDeckExpectedLength() {
   return dirs.includes(DIRECTION.REVERSE) ? poolLen * 2 : poolLen;
 }
 
+/** Support-word cards teach one step at a time, so the pool order is the lesson. */
+function isLessonCard(meta) {
+  return (
+    meta?.kind === "example-sentence" ||
+    meta?.kind === "lex-word" ||
+    meta?.kind === "number-prompt"
+  );
+}
+
 /** Shuffled Build/Convert deck for the current focus step (full pool, one pass then reshuffle). */
 function reshuffleStepDeck() {
   const pool = currentNumberPool();
@@ -1566,7 +1607,10 @@ function reshuffleStepDeck() {
       )
     );
   }
-  if (guidedCardinalOrder()) {
+  if (expanded.length && expanded.every(isLessonCard)) {
+    // Support-word units are a lesson. Guided and Play both walk the authored order.
+    state.numbersStepDeck = expanded;
+  } else if (guidedCardinalOrder()) {
     expanded.sort((a, b) => (Number(a?.value) || 0) - (Number(b?.value) || 0));
     state.numbersStepDeck = expanded;
   } else {
@@ -2173,6 +2217,24 @@ function currentNumberMeta() {
   return enrichNumberMeta(liveNumberMetaRaw());
 }
 
+function recentPromptNumbers() {
+  const digits = [];
+  for (const snap of state.numbersHistory || []) {
+    const meta = snap?.meta;
+    if (meta?.pattern && Number.isInteger(Number(meta.value))) digits.push(Number(meta.value));
+  }
+  return digits.slice(-4);
+}
+
+/** A number-prompt has no number until this draws one. */
+function fillNumberPrompt(meta) {
+  if (meta?.kind !== "number-prompt") return meta;
+  const pinned = state.numbersPinnedMeta;
+  if (pinned?.pattern === meta.pattern && Number.isInteger(Number(pinned.value))) return pinned;
+  const digit = drawPromptNumber(meta.min ?? 0, meta.max ?? 9, recentPromptNumbers());
+  return realizeNumberPrompt(meta, digit);
+}
+
 /** Live deck item (ignores history pin) — used when capturing / seeking. */
 function liveNumberMetaRaw() {
   if (state.numbersQuizMode === "listen") {
@@ -2202,7 +2264,7 @@ function liveNumberMetaRaw() {
   }
   ensureStepDeck();
   const deck = state.numbersStepDeck;
-  return deck[state.numbersIndex % Math.max(1, deck.length)] ?? null;
+  return fillNumberPrompt(deck[state.numbersIndex % Math.max(1, deck.length)] ?? null);
 }
 
 function cloneNumberHistoryMeta(meta) {
@@ -6180,10 +6242,13 @@ function presentCorrectAnswer({
   wrongEls = [],
   choiceEls = [],
   then,
+  sound = true,
+  revealDelay = CORRECT_FLASH_MS,
 }) {
   // Play chime on the same turn as the selection so AudioContext resume
   // stays tied to the user gesture (fillAnswerReveal runs after the flash).
-  if (reveal) {
+  // Typed checks play it in the click handler and pass sound:false.
+  if (sound && reveal) {
     if (reveal.ok === true) playFeedbackSound("ok");
     else if (reveal.ok === false) playFeedbackSound("bad");
   }
@@ -6204,7 +6269,7 @@ function presentCorrectAnswer({
     let nodes = [];
     if (reveal) nodes = fillAnswerReveal(prefix, { ...reveal, silent: true });
     then?.(nodes);
-  });
+  }, revealDelay);
 }
 
 function fillAnswerReveal(prefix, {
@@ -9727,7 +9792,7 @@ function startCaseInput() {
   navigate("case", { keepPhase: true });
 }
 
-function revealCaseAnswer(question, ok) {
+function revealCaseAnswer(question, ok, { sound = true, answerEls = [] } = {}) {
   const extra = document.getElementById("case-extra");
   if (extra) extra.hidden = true;
   const word = caseRevealWord(question);
@@ -9742,11 +9807,15 @@ function revealCaseAnswer(question, ok) {
       choiceEls.push(el);
     }
   });
+  const typed = answerEls.length > 0;
   deferHeavy(() => {
     const parts = sentenceAnswerParts(word, lemma);
     presentCorrectAnswer({
       prefix: "case",
       choiceEls,
+      answerEls,
+      sound,
+      revealDelay: typed ? 0 : CORRECT_FLASH_MS,
       reveal: {
         word,
         parts,
@@ -10004,6 +10073,15 @@ function submitCaseAnswer(answer, { wrongEl } = {}) {
   state.caseChecked = true;
   state.casePicked = answer;
   state.caseStatus = ok ? "correct" : "incorrect";
+  const typedInput = caseTypedQuiz(question)
+    ? document.getElementById("case-type-input")
+    : null;
+  if (typedInput) {
+    typedInput.disabled = true;
+    typedInput.classList.remove("is-ok", "is-bad", "is-prefix-ok");
+    typedInput.classList.add(ok ? "is-ok" : "is-bad");
+    playFeedbackSound(ok ? "ok" : "bad");
+  }
   if (!ok && wrongEl) wrongEl.classList.add("is-bad");
   if (!ok && caseChoiceFillsSlot(question)) {
     paintPartSlot(
@@ -10011,30 +10089,34 @@ function submitCaseAnswer(answer, { wrongEl } = {}) {
       String(question.correct || "")
     );
   }
-  if (!ok && caseTypedQuiz(question)) {
-    document.getElementById("case-type-input")?.classList.add("is-bad");
-  }
-  if (state.caseMode === "review") {
-    if (!state.caseRetryUsed) {
-      const result = recordReviewResult(
-        activeWordBank(loadProfileStore()),
-        question.cardId,
-        ok
-      );
-      saveProfileStore(updateActiveWordBank(loadProfileStore(), result.bank));
+  const settleCase = () => {
+    if (state.caseMode === "review") {
+      if (!state.caseRetryUsed) {
+        const result = recordReviewResult(
+          activeWordBank(loadProfileStore()),
+          question.cardId,
+          ok
+        );
+        saveProfileStore(updateActiveWordBank(loadProfileStore(), result.bank));
+      }
+    } else if (!state.itemFirstMiss) {
+      const ev = caseAttemptEvidence(question, ok);
+      state.caseFollowup = ev.componentFollowup;
+      logGuidedQa({
+        question: question.prompt,
+        answer,
+        expected: question.correct,
+        status: state.caseStatus,
+        evidenceIds: ev.evidenceIds,
+      });
     }
-  } else if (!state.itemFirstMiss) {
-    const ev = caseAttemptEvidence(question, ok);
-    state.caseFollowup = ev.componentFollowup;
-    logGuidedQa({
-      question: question.prompt,
-      answer,
-      expected: question.correct,
-      status: state.caseStatus,
-      evidenceIds: ev.evidenceIds,
+    revealCaseAnswer(question, ok, {
+      sound: !typedInput,
+      answerEls: typedInput && ok ? [typedInput] : [],
     });
-  }
-  revealCaseAnswer(question, ok);
+  };
+  if (typedInput) deferHeavy(settleCase);
+  else settleCase();
 }
 
 function caseQuestionKey(question) {
@@ -11145,10 +11227,10 @@ function loadGuidedProgress() {
   state.guidedSeen = seen;
 }
 
-function noteGuidedAnswer({ unitKey, correct, review }) {
+function noteGuidedAnswer({ unitKey, correct, review, contentKey, slice }) {
   const pathKeys = guidedCandidates().map((c) => c.key);
   const open = state.guidedProgress?.openKey || unitKey;
-  const ladder = guidedLadderFor(open);
+  const ladder = guidedLadderFor(review ? unitKey : open);
   state.guidedProgress = applyGuidedResult(
     state.guidedProgress || emptyGuidedProgress(),
     {
@@ -11156,6 +11238,8 @@ function noteGuidedAnswer({ unitKey, correct, review }) {
       correct: !!correct,
       review: !!review,
       unitKey,
+      contentKey: contentKey || state.guidedActivePick?.contentKey || "",
+      slice: slice || (review ? [] : state.guidedActiveSlice || []),
       ladderLength: Math.max(1, ladder.length),
     }
   );
@@ -11336,6 +11420,138 @@ function guidedDealAndGo() {
   else configureGuidedNumbers(c);
 }
 
+function guidedAnswerContentKey() {
+  try {
+    if (state.view === "sounds") return contentKeyOf(currentSoundsItem());
+    if (state.view === "case") return contentKeyOf(state.caseQuestion);
+    if (state.view === "nouns") {
+      return contentKeyOf(state.currentExercise?.target || state.currentExercise);
+    }
+    if (state.view === "numbers") {
+      const slot = state.guidedActivePick?.contentKey || "";
+      if (slot.includes("#")) return slot;
+      return contentKeyOf(currentNumberMeta());
+    }
+  } catch {
+    /* the card is not on screen yet */
+  }
+  return state.guidedActivePick?.contentKey || "";
+}
+
+function annotateGuidedDeal(extra) {
+  const dealLog = state.guidedDealLog || [];
+  const last = dealLog[dealLog.length - 1];
+  if (!last) return;
+  last.auditFeatures = { ...(last.auditFeatures || {}), ...extra };
+}
+
+/**
+ * Point the open deck at the next required item. Repeating the previous
+ * card is the last resort, used when the slice has nothing else.
+ */
+function ensureGuidedPickSalt() {
+  const progress = normalizeGuidedProgress(state.guidedProgress || emptyGuidedProgress());
+  if (progress.pickSalt) {
+    state.guidedProgress = progress;
+    return progress.pickSalt;
+  }
+  const pickSalt = 1 + Math.floor(Math.random() * 1000000000);
+  state.guidedProgress = { ...progress, pickSalt };
+  persistGuidedProgress();
+  return pickSalt;
+}
+
+function placeGuidedNumberPrompts(deck, unitKey, skill, writeIndex) {
+  const templates = deck.filter((item) => item?.kind === "number-prompt" && item.pattern);
+  if (!templates.length) return;
+  const slots = promptSlots(templates);
+  const progress = normalizeGuidedProgress(state.guidedProgress || emptyGuidedProgress());
+  const row = progress.coverage?.[unitKey] || { correct: [], wrong: [], recent: [] };
+  const pick = pickGuidedContent({
+    slice: slots,
+    correct: row.correct,
+    wrong: row.wrong,
+    recent: row.recent,
+  });
+  const pattern = String(pick.contentKey || "").replace(/#\d+$/, "");
+  const template = templates.find((item) => item.pattern === pattern) || templates[0];
+  const digit = drawPromptNumber(template.min ?? 0, template.max ?? 9, recentPromptNumbers());
+  state.numbersPinnedMeta = realizeNumberPrompt(template, digit);
+  const idx = deck.indexOf(template);
+  if (idx >= 0) writeIndex(idx);
+  state.guidedActiveSlice = slots;
+  state.guidedActiveUnit = unitKey;
+  state.guidedActivePick = { ...pick, pattern, digit };
+  const step = coverageSummary(row.correct, slots);
+  const unit = coverageSummary(row.correct, slots);
+  annotateGuidedDeal({
+    pick: pick.reason?.code || "",
+    pickLabel: pick.reason?.label || "",
+    contentKey: `${pattern}:${digit}`,
+    stepCovered: step.covered,
+    stepRequired: step.required,
+    unitCovered: unit.covered,
+    unitRequired: unit.required,
+    remaining: step.remaining.slice(0, 8).join(", "),
+  });
+}
+
+function placeGuidedCoverage(deck, unitKey, skill, writeIndex) {
+  if (state.sessionMode !== "guided" || !Array.isArray(deck) || !deck.length) return;
+  if (deck.some((item) => item?.kind === "number-prompt")) {
+    placeGuidedNumberPrompts(deck, unitKey, skill, writeIndex);
+    return;
+  }
+  const indexOf = new Map();
+  const keys = [];
+  deck.forEach((item, index) => {
+    const key = contentKeyOf(item);
+    if (!key || indexOf.has(key)) return;
+    indexOf.set(key, index);
+    keys.push(key);
+  });
+  if (!keys.length) return;
+  const lesson = deck.every(
+    (item) => item?.kind === "example-sentence" || item?.kind === "lex-word"
+  );
+  const required = spanSample(
+    orderedContentKeys(keys, lesson),
+    coverageTake(unitKey, keys.length)
+  );
+  const ladder = guidedLadderFor(unitKey);
+  const slices = slicesForLadder(required, ladder.length ? ladder : [skill || "practice"]);
+  const slice = slices[skill] || slices[ladder[0]] || required;
+  const row = state.guidedProgress?.coverage?.[unitKey] || {
+    correct: [],
+    wrong: [],
+    recent: [],
+  };
+  const pick = pickGuidedContent({
+    slice,
+    correct: row.correct,
+    wrong: row.wrong,
+    recent: row.recent,
+    salt: state.guidedProgress?.pickSalt || ensureGuidedPickSalt(),
+  });
+  state.guidedActiveSlice = slice;
+  state.guidedActiveUnit = unitKey;
+  state.guidedActivePick = pick;
+  const idx = indexOf.get(pick.contentKey);
+  if (idx != null) writeIndex(idx);
+  const step = coverageSummary(row.correct, slice);
+  const unit = coverageSummary(row.correct, required);
+  annotateGuidedDeal({
+    pick: pick.reason?.code || "",
+    pickLabel: pick.reason?.label || "",
+    contentKey: pick.contentKey,
+    stepCovered: step.covered,
+    stepRequired: step.required,
+    unitCovered: unit.covered,
+    unitRequired: unit.required,
+    remaining: step.remaining.slice(0, 8).join(", "),
+  });
+}
+
 function configureGuidedNumbers(c) {
   const same =
     state.view === "numbers" &&
@@ -11360,22 +11576,18 @@ function configureGuidedNumbers(c) {
     state.numbersListenDeck = null;
     state.numbersListenPoolKey = "";
     state.numbersListenCursor = 0;
-  } else if (c.mode === "listen") {
-    const before = state.numbersListenCursor || 0;
-    ensureListenDeck();
-    const n = state.numbersListenDeck?.length || 1;
-    if ((state.numbersListenCursor || 0) === before) {
-      state.numbersListenCursor = (before + 1) % n;
-    }
-  } else {
-    const before = state.numbersIndex || 0;
-    ensureStepDeck();
-    const n = state.numbersStepDeck?.length || 1;
-    if ((state.numbersIndex || 0) === before) {
-      state.numbersIndex = (before + 1) % n;
-    }
   }
-  if (c.mode === "listen" && !same && c.review) placeGuidedNumbersListen();
+  if (c.mode === "listen") {
+    ensureListenDeck();
+    placeGuidedCoverage(state.numbersListenDeck || [], c.key, c.mode, (index) => {
+      state.numbersListenCursor = index;
+    });
+  } else {
+    ensureStepDeck();
+    placeGuidedCoverage(state.numbersStepDeck || [], c.key, c.mode, (index) => {
+      state.numbersIndex = index;
+    });
+  }
   navigate("numbers", { keepPhase: true });
 }
 
@@ -11390,19 +11602,21 @@ function configureGuidedNouns(c) {
     state.nounsTopic === topicId &&
     (state.nounsStep || state.nounsMode) === stepId &&
     state.nounsQuizMode === modeId;
-  if (same) {
-    advanceNounsIndex();
-    navigate("nouns", { keepPhase: true });
-    return;
+  if (!same) {
+    applyNounsCell(topicId, stepId, modeId);
+    state.nounsHubPracticePick = "";
+    state.nounsSessionKind = "focus";
+    state.nounsFamilyMix = [];
+    resetNounsDeckForMode();
+    state.phase.nouns = "practice";
+    state.preservePractice.nouns = false;
   }
-  applyNounsCell(topicId, stepId, modeId);
-  state.nounsHubPracticePick = "";
-  state.nounsSessionKind = "focus";
-  state.nounsFamilyMix = [];
-  resetNounsDeckForMode();
-  state.phase.nouns = "practice";
-  state.preservePractice.nouns = false;
-  if (modeId === "listen") placeGuidedCompassListen();
+  const kind = nounsDeckKindForMode();
+  const deck = ensureNounDeck(kind);
+  const indexKey = nounsIndexKeyForMode();
+  placeGuidedCoverage(deck, c.key, modeId, (index) => {
+    state[indexKey] = index;
+  });
   navigate("nouns", { keepPhase: true });
 }
 
@@ -11414,25 +11628,26 @@ function configureGuidedCase(c) {
     state.caseStep === c.stepId &&
     state.casePreset === c.mode &&
     (state.caseDeck || []).length > 1;
-  if (same) {
-    advanceCaseQuestion();
-    return;
-  }
-  startCasePractice(c.topicId, c.stepId, c.mode);
+  if (!same) startCasePractice(c.topicId, c.stepId, c.mode);
+  const deck = state.caseDeck || [];
+  placeGuidedCoverage(deck, c.key, c.mode, (index) => {
+    state.caseQueueIndex = index;
+    if (deck[index]) noteCaseQuestion(deck[index]);
+  });
+  if (deck.length) renderCasePractice();
 }
 
 function configureGuidedSounds(c) {
   const mode = c.mode === "listen" ? "listen" : "karaoke";
-  const same =
-    state.view === "sounds" &&
-    state.phase.sounds === "practice" &&
-    state.soundsMode === mode;
   state.soundsMode = mode;
   state.soundsChoice = null;
   state.soundsChecked = false;
   state.phase.sounds = "practice";
   state.preservePractice.sounds = false;
-  state.soundsIndex = same ? (state.soundsIndex || 0) + 1 : 0;
+  const soundDeck = mode === "listen" ? soundDiscriminate : soundKaraoke;
+  placeGuidedCoverage(soundDeck, c.key, mode, (index) => {
+    state.soundsIndex = index;
+  });
   navigate("sounds", { keepPhase: true });
 }
 
@@ -12088,15 +12303,24 @@ function logGuidedQa({
       unitKey,
       correct,
       review: !!state.guidedReviewDeal,
+      contentKey: guidedAnswerContentKey(),
+      slice: state.guidedReviewDeal ? [] : state.guidedActiveSlice || [],
     });
   }
   const felt =
     state.itemFeltDifficulty || FELT_DIFFICULTY.ABOUT_RIGHT;
+  const questionNorm = normalizeQuestionText(q);
+  const contentKey = guidedAnswerContentKey();
+  const repeat = log.some((row) => row.questionNorm && row.questionNorm === questionNorm);
   const entry = {
     n: log.length + 1,
     at: Date.now(),
     dealKey: unitKey,
     question: String(q || "—"),
+    questionNorm,
+    contentKey,
+    repeat,
+    pickReason: state.guidedActivePick?.reason?.code || "",
     answer: String(a || "—"),
     expected: String(exp || ""),
     status: statusStr,
@@ -12382,7 +12606,10 @@ function openGuidedCoachSheet() {
   if (!reason) {
     whyHtml = `<p>Your path coach is working through one unit at a time.</p>`;
   } else if (reason.code === "focus_unit") {
-    whyHtml = `<p>You’re staying on <strong>${escapeHtml(currentLabel)}</strong>. Step ${step} of ${stepCount}. ${progress.streak || 0} of ${STAGE_BLOCK} correct in a row.</p>
+    const coverage = state.guidedActiveSlice?.length
+      ? ` ${coverageSummary(progress.coverage?.[state.guidedCurrentKey]?.correct, state.guidedActiveSlice).covered} of ${state.guidedActiveSlice.length} required items on this step.`
+      : "";
+    whyHtml = `<p>You’re staying on <strong>${escapeHtml(currentLabel)}</strong>. Step ${step} of ${stepCount}.${escapeHtml(coverage)}</p>
     <p class="coach-soft">${escapeHtml(reason.hint || "")}</p>`;
   } else if (reason.code === "review") {
     whyHtml = `<p>This card is from a unit you already finished${
@@ -12437,8 +12664,9 @@ function openGuidedCoachSheet() {
     <summary>Under the hood</summary>
     <ol class="coach-policy">
       <li><strong>One unit</strong> — the selection is the path, and only the first unfinished unit is open.</li>
-      <li><strong>Harder step</strong> — ${STAGE_BLOCK} correct in a row moves to a harder preset in that unit. A miss repeats the step.</li>
-      <li><strong>Next unit</strong> — finishing the last step graduates the unit.</li>
+      <li><strong>Coverage</strong> — each step practices a spread of that unit. The same example is not repeated while others are still unanswered.</li>
+      <li><strong>Harder step</strong> — the next preset starts after this step's required items have been answered correctly. A miss brings that item back.</li>
+      <li><strong>Next unit</strong> — the unit finishes when every step's required items are done, not after a short streak.</li>
       <li><strong>Review</strong> — every ${SPRINKLE_EVERY}th card can be one from a unit you already finished.</li>
     </ol>
     <p class="coach-soft">This deal: <code>${escapeHtml(
@@ -12505,13 +12733,16 @@ function formatGuidedQaRow(row) {
     row.conceptIds?.length
       ? ` · ${row.conceptIds.slice(0, 3).join(", ")}`
       : "";
+  const repeatNote = row.repeat ? " · repeat" : "";
+  const pickNote = row.pickReason ? ` · ${row.pickReason}` : "";
+  const contentNote = row.contentKey ? ` · ${row.contentKey}` : "";
   return `<li class="dbg-qa ${cls}">
     <div class="dbg-qa-head">
       <span class="dbg-n">#${row.n}</span>
       <span class="dbg-status">${escapeHtml(statusLabel)}</span>
       <span class="dbg-soft"><code>${escapeHtml(row.dealKey || "")}</code>${escapeHtml(
         depthLabel
-      )}${escapeHtml(rungNote)}${escapeHtml(conceptNote)}</span>
+      )}${escapeHtml(rungNote)}${escapeHtml(conceptNote)}${escapeHtml(contentNote)}${escapeHtml(pickNote)}${escapeHtml(repeatNote)}</span>
     </div>
     <div><span class="dbg-k">Q</span> ${escapeHtml(row.question)}</div>
     <div><span class="dbg-k">A</span> ${escapeHtml(row.answer)}${
@@ -12550,6 +12781,15 @@ function formatGuidedDealRow(d) {
       ? `felt ${d.recentFeltDifficulty}`
       : "",
     feats.otherKey ? `vs ${feats.otherKey}` : "",
+    feats.pick ? `pick ${feats.pick}` : "",
+    feats.contentKey ? `item ${feats.contentKey}` : "",
+    feats.stepRequired
+      ? `step ${feats.stepCovered || 0}/${feats.stepRequired}`
+      : "",
+    feats.unitRequired
+      ? `unit ${feats.unitCovered || 0}/${feats.unitRequired}`
+      : "",
+    feats.remaining ? `left ${feats.remaining}` : "",
   ]
     .filter(Boolean)
     .join(" · ");
@@ -15200,16 +15440,10 @@ function checkNumbersConvert(raw, opts = {}) {
   if (input) {
     input.disabled = true;
     input.classList.remove("is-bad", "is-prefix-ok");
+    if (ok) input.classList.add("is-ok");
     input.value = form;
   }
-
-  logGuidedQaFinal({
-    question: currentGuidedQuestionCue(),
-    answer: audit.answer || "—",
-    expected: audit.expected || form,
-    status: ok ? audit.status : "incorrect",
-    note: ok ? audit.note : "",
-  });
+  playFeedbackSound(ok ? "ok" : "bad");
 
   const revealWord =
     exercise.materials.spoken || exercise.resolution.spoken || exercise.resolution.form;
@@ -15223,8 +15457,16 @@ function checkNumbersConvert(raw, opts = {}) {
   const answerValue = exercise.resolution.value;
   const answerForm = exercise.resolution.form;
   const spoken = exercise.materials.spoken || exercise.resolution.form;
+  const qa = {
+    question: currentGuidedQuestionCue(),
+    answer: audit.answer || "—",
+    expected: audit.expected || form,
+    status: ok ? audit.status : "incorrect",
+    note: ok ? audit.note : "",
+  };
 
   deferHeavy(() => {
+    logGuidedQaFinal(qa);
     const answerParts =
       presetParts ||
       (answerValue != null ? numberAnswerParts(answerValue, "listen") : null) ||
@@ -15234,6 +15476,8 @@ function checkNumbersConvert(raw, opts = {}) {
       prefix: "numbers",
       answerEls: input ? [input] : [],
       wrongEls: [],
+      sound: false,
+      revealDelay: 0,
       reveal: {
         word: revealWord,
         parts,
@@ -15353,22 +15597,14 @@ function checkNumbersListen(answer) {
 
   state.numbersChecked = true;
 
-  logGuidedQaFinal({
-    question: currentGuidedQuestionCue(),
-    answer: String(answer),
-    expected: writtenMode || readTimeMode
-      ? String(target)
-      : exercise.resolution.form || String(target),
-    status: ok ? "correct" : "incorrect",
-  });
-
   const playBtn = document.getElementById("numbers-listen-play");
   if (playBtn) playBtn.disabled = true;
 
   const answerEls = [];
   const choiceEls = [];
   const stringChoice = writtenMode || readTimeMode;
-  if (numbersListenUsesChoices()) {
+  const typedListen = !numbersListenUsesChoices();
+  if (!typedListen) {
     document.querySelectorAll("#numbers-tray .choice").forEach((el) => {
       el.disabled = true;
       const sameAns = stringChoice
@@ -15394,32 +15630,48 @@ function checkNumbersListen(answer) {
       if (ok) input.classList.add("is-ok");
       answerEls.push(input);
     }
+    playFeedbackSound(ok ? "ok" : "bad");
   }
 
   const form = exercise.resolution.form;
-  const rawParts =
-    exercise.materials.answerParts ||
-    (writtenMode ? null : numberAnswerParts(target, "listen")) ||
-    form;
-  const parts = resolveAnswerPronunciation(rawParts).parts;
+  const presetParts = exercise.materials.answerParts;
   const english = meta.english || (writtenMode ? "" : englishCardinal(target));
-
-  presentCorrectAnswer({
-    prefix: "numbers",
-    answerEls,
-    choiceEls,
-    reveal: {
-      word: form,
-      parts,
-      en: writtenMode
-        ? `${english || meta.english || ""} (${target})`
-        : `${english} (${target})`,
-      ok,
-    },
-    then: (nodes) => {
-      playAnswerKeyThenAdvance(form, parts, nodes, scheduleNumbersAdvance);
-    },
-  });
+  const qa = {
+    question: currentGuidedQuestionCue(),
+    answer: String(answer),
+    expected: writtenMode || readTimeMode
+      ? String(target)
+      : exercise.resolution.form || String(target),
+    status: ok ? "correct" : "incorrect",
+  };
+  const showListenResult = () => {
+    logGuidedQaFinal(qa);
+    const rawParts =
+      presetParts ||
+      (writtenMode ? null : numberAnswerParts(target, "listen")) ||
+      form;
+    const parts = resolveAnswerPronunciation(rawParts).parts;
+    presentCorrectAnswer({
+      prefix: "numbers",
+      answerEls,
+      choiceEls,
+      sound: !typedListen,
+      revealDelay: typedListen ? 0 : CORRECT_FLASH_MS,
+      reveal: {
+        word: form,
+        parts,
+        en: writtenMode
+          ? `${english || meta.english || ""} (${target})`
+          : `${english} (${target})`,
+        ok,
+      },
+      then: (nodes) => {
+        playAnswerKeyThenAdvance(form, parts, nodes, scheduleNumbersAdvance);
+      },
+    });
+  };
+  if (typedListen) deferHeavy(showListenResult);
+  else showListenResult();
 }
 
 function mountNumbersPartSlots(count) {
@@ -17380,33 +17632,37 @@ function revealNounCardinalDirection(exercise, ok) {
   const lemma = res.lemma || "";
   const article = res.article || "der";
   const phrase = `${article} ${lemma}`;
-  logGuidedQaFinal({
-    question: currentGuidedQuestionCue(),
-    answer: ok ? state.nounsArticle || phrase : state.nounsArticle || "—",
-    expected: lemma,
-    status: ok ? "correct" : "incorrect",
+  const answer = ok ? state.nounsArticle || phrase : state.nounsArticle || "—";
+  deferHeavy(() => {
+    logGuidedQaFinal({
+      question: currentGuidedQuestionCue(),
+      answer,
+      expected: lemma,
+      status: ok ? "correct" : "incorrect",
+    });
+    const parts =
+      res.answerParts ||
+      exercise.materials?.answerParts ||
+      (lemma
+        ? NOUN_SINGULAR_PARTS[lemma] || fallbackSingularParts(lemma)
+        : []);
+    const wordHtml = nounAnswerWordHtml(article, lemma, res.gender, {
+      stem: "",
+      ending: "",
+      markSuffix: false,
+    });
+    const gloss = supportOn("english") ? res.translation || "" : "";
+    const nodes = fillAnswerReveal("nouns", {
+      word: phrase,
+      wordHtml,
+      parts,
+      en: gloss,
+      ok,
+      silent: true,
+      verdictLabel: ok ? "Correct" : "Answer",
+    });
+    playAnswerKeyThenAdvance(phrase, parts, nodes, scheduleNounsAdvance);
   });
-  const parts =
-    res.answerParts ||
-    exercise.materials?.answerParts ||
-    (lemma
-      ? NOUN_SINGULAR_PARTS[lemma] || fallbackSingularParts(lemma)
-      : []);
-  const wordHtml = nounAnswerWordHtml(article, lemma, res.gender, {
-    stem: "",
-    ending: "",
-    markSuffix: false,
-  });
-  const gloss = supportOn("english") ? res.translation || "" : "";
-  const nodes = fillAnswerReveal("nouns", {
-    word: phrase,
-    wordHtml,
-    parts,
-    en: gloss,
-    ok,
-    verdictLabel: ok ? "Correct" : "Answer",
-  });
-  playAnswerKeyThenAdvance(phrase, parts, nodes, scheduleNounsAdvance);
 }
 
 function checkNounsDiscriminate() {

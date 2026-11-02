@@ -1,8 +1,93 @@
 /**
  * Support-word questions for Numbers units.
- * Example sentences use the word inside a line the learner chooses.
- * Fraction words (Hälfte, doppelt, einmal, zweimal) are the answer themselves.
+ * Zahl, Nummer, Anzahl, Menge, and zählen are patterns. A whole number in
+ * the pattern's range is drawn when the card is dealt. Other sentences are
+ * fixed, with one natural match. Fraction words (Hälfte, doppelt, einmal,
+ * zweimal) are the answer themselves.
  */
+
+function prompt(item) {
+  return {
+    kind: "number-prompt",
+    promptLang: "en",
+    min: 0,
+    max: 9,
+    sampleTake: 1,
+    ...item,
+  };
+}
+
+function otherNumbers(n, min, max, count) {
+  const lo = Math.min(min, max);
+  const hi = Math.max(min, max);
+  const width = hi - lo;
+  if (width < 1) return [];
+  const step = Math.max(1, Math.round(width / (count + 1)));
+  const out = [];
+  for (let i = 1; out.length < count && i <= width + count; i++) {
+    const value = lo + ((n - lo + i * step) % (width + 1));
+    if (value !== n && !out.includes(value)) out.push(value);
+  }
+  return out;
+}
+
+/** Build one card for a pattern and a number. The other choices are other numbers in range. */
+export function realizeNumberPrompt(template, n) {
+  const value = Number(n);
+  const min = Number.isInteger(template?.min) ? template.min : 0;
+  const max = Number.isInteger(template?.max) ? template.max : 9;
+  const others = otherNumbers(value, min, max, 3);
+  const pattern = template?.pattern;
+  let english = "";
+  let form = "";
+  let choices = [];
+  if (pattern === "zahl-phrase") {
+    english = `the number ${value}`;
+    form = `die Zahl ${value}`;
+    choices = [form, ...others.map((digit) => `die Zahl ${digit}`)];
+  } else if (pattern === "zahl-sentence") {
+    english = `The number is ${value}.`;
+    form = `Die Zahl ist ${value}.`;
+    choices = [form, ...others.map((digit) => `Die Zahl ist ${digit}.`)];
+  } else if (pattern === "nummer-phrase") {
+    english = `ticket number ${value}`;
+    form = `die Nummer ${value}`;
+    choices = [form, ...others.map((digit) => `die Nummer ${digit}`)];
+  } else if (pattern === "zahl-nummer") {
+    english = `the number ${value}`;
+    form = `die Zahl ${value}`;
+    choices = [form, `die Nummer ${value}`];
+  } else if (pattern === "anzahl-sentence") {
+    english = `The count is ${value}.`;
+    form = `Die Anzahl ist ${value}.`;
+    choices = [form, ...others.map((digit) => `Die Anzahl ist ${digit}.`)];
+  } else if (pattern === "menge-sentence") {
+    english = `The amount is ${value}.`;
+    form = `Die Menge ist ${value}.`;
+    choices = [form, ...others.map((digit) => `Die Menge ist ${digit}.`)];
+  } else if (pattern === "zaehlen-sentence") {
+    english = `I count to ${value}.`;
+    form = `Ich zähle bis ${value}.`;
+    choices = [form, ...others.map((digit) => `Ich zähle bis ${digit}.`)];
+  }
+  return {
+    kind: "example-sentence",
+    promptLang: "en",
+    id: `${pattern}:${value}`,
+    pattern,
+    value,
+    word: template?.word,
+    token: template?.token,
+    ask: template?.ask,
+    hint: template?.hint || "",
+    english,
+    form,
+    choices,
+    prompt: english,
+    expect: form,
+    revealDe: form,
+  };
+}
 
 function sentence(item) {
   return {
@@ -25,76 +110,69 @@ function word(item) {
 
 /** @type {Record<string, object[]>} */
 export const SUPPORT_LEXICON_POOLS = {
+  // Patterns only. Guided fills in a digit that has not just been used.
   "number-words": [
-    sentence({
-      id: "zahl",
+    prompt({
+      id: "zahl-phrase",
+      pattern: "zahl-phrase",
       word: "Zahl",
       token: "Zahl",
-      form: "Die Zahl ist drei.",
-      english: "The number is three.",
-      choices: [
-        "Die Zahl ist drei.",
-        "Die Nummer ist drei.",
-        "Die Anzahl ist drei.",
-        "Die Menge ist drei.",
-      ],
-      hint: "Zahl is a number you count. Nummer identifies something.",
+      ask: "Choose the German phrase",
+      sampleTake: 2,
+      hint: "die Zahl is a number. Match the digit.",
     }),
-    sentence({
-      id: "nummer",
+    prompt({
+      id: "zahl-sentence",
+      pattern: "zahl-sentence",
+      word: "Zahl",
+      token: "Zahl",
+      hint: "Die Zahl ist … means the number is that digit.",
+    }),
+  ],
+  "number-senses": [
+    prompt({
+      id: "nummer-phrase",
+      max: 99,
+      pattern: "nummer-phrase",
       word: "Nummer",
       token: "Nummer",
-      form: "Meine Nummer ist fünf.",
-      english: "My number is five.",
-      choices: [
-        "Meine Nummer ist fünf.",
-        "Meine Zahl ist fünf.",
-        "Meine Anzahl ist fünf.",
-        "Meine Menge ist fünf.",
-      ],
-      hint: "Nummer is an identifying number, such as a phone number.",
+      ask: "Choose the German phrase",
+      hint: "Nummer identifies something, such as a ticket. Match the digit.",
     }),
-    sentence({
-      id: "anzahl",
+    prompt({
+      id: "zahl-nummer",
+      max: 99,
+      pattern: "zahl-nummer",
+      word: "Zahl",
+      token: "Zahl",
+      ask: "Choose the German phrase",
+      hint: "Zahl is a number you count or calculate with. Nummer identifies a ticket or phone.",
+    }),
+    prompt({
+      id: "anzahl-sentence",
+      max: 99,
+      pattern: "anzahl-sentence",
       word: "Anzahl",
       token: "Anzahl",
-      form: "Die Anzahl ist vier.",
-      english: "The quantity is four.",
-      choices: [
-        "Die Anzahl ist vier.",
-        "Die Zahl ist vier.",
-        "Die Menge ist vier.",
-        "Die Nummer ist vier.",
-      ],
-      hint: "Anzahl is how many of something there are.",
+      hint: "Anzahl is how many things there are.",
     }),
-    sentence({
-      id: "zaehlen",
-      word: "zählen",
-      token: "zähle",
-      form: "Ich zähle bis zehn.",
-      english: "I count to ten.",
-      choices: [
-        "Ich zähle bis zehn.",
-        "Die Zahl ist zehn.",
-        "Die Anzahl ist zehn.",
-        "Die Menge ist zehn.",
-      ],
-      hint: "zählen means to count.",
-    }),
-    sentence({
-      id: "menge",
+  ],
+  "amount-words": [
+    prompt({
+      id: "menge-sentence",
+      max: 99,
+      pattern: "menge-sentence",
       word: "Menge",
       token: "Menge",
-      form: "Die Menge ist zwei.",
-      english: "The amount is two.",
-      choices: [
-        "Die Menge ist zwei.",
-        "Die Zahl ist zwei.",
-        "Die Anzahl ist zwei.",
-        "Die Nummer ist zwei.",
-      ],
-      hint: "Menge is an amount or quantity.",
+      hint: "Menge is an amount of something.",
+    }),
+    prompt({
+      id: "zaehlen-sentence",
+      max: 99,
+      pattern: "zaehlen-sentence",
+      word: "zählen",
+      token: "zähle",
+      hint: "zählen means to count. The form here is zähle.",
     }),
   ],
   "time-words": [
@@ -106,11 +184,11 @@ export const SUPPORT_LEXICON_POOLS = {
       english: "I have time.",
       choices: [
         "Ich habe Zeit.",
-        "Ich habe Uhr.",
         "Ich habe eine Stunde.",
-        "Die Zeit ist Uhr.",
+        "Es ist drei Uhr.",
+        "Wie spät ist es?",
       ],
-      hint: "Zeit is time in general. Uhr is the clock reading.",
+      hint: "Zeit is time you have available. Eine Stunde is one hour long. Uhr is the clock reading.",
     }),
     sentence({
       id: "zeit-hast",
@@ -120,11 +198,11 @@ export const SUPPORT_LEXICON_POOLS = {
       english: "Do you have time?",
       choices: [
         "Hast du Zeit?",
-        "Hast du Uhr?",
         "Hast du eine Stunde?",
-        "Ist die Zeit?",
+        "Wie spät ist es?",
+        "Es ist drei Uhr.",
       ],
-      hint: "Zeit is time in general. Uhr is the clock reading.",
+      hint: "Zeit is time you have available. Eine Stunde is one hour long.",
     }),
   ],
   "money-context": [
@@ -136,11 +214,11 @@ export const SUPPORT_LEXICON_POOLS = {
       english: "The price is three euros.",
       choices: [
         "Der Preis ist drei Euro.",
-        "Das Geld ist drei Euro.",
-        "Das kostet drei Euro.",
-        "Das ist drei Euro.",
+        "Ich habe drei Euro.",
+        "Hier sind drei Euro.",
+        "Ich zahle drei Euro.",
       ],
-      hint: "Preis is the price. kosten is the verb to cost.",
+      hint: "Preis is the price of something. Having or paying three euros is a different fact.",
     }),
     sentence({
       id: "kosten",
@@ -150,11 +228,11 @@ export const SUPPORT_LEXICON_POOLS = {
       english: "That costs five euros.",
       choices: [
         "Das kostet fünf Euro.",
-        "Der Preis ist fünf Euro.",
-        "Das Geld ist fünf Euro.",
-        "Das ist fünf Euro.",
+        "Ich habe fünf Euro.",
+        "Hier sind fünf Euro.",
+        "Ich zahle fünf Euro.",
       ],
-      hint: "kosten means to cost. The form here is kostet.",
+      hint: "kosten means to cost. The form here is kostet. Paying or having the money is a different fact.",
     }),
     sentence({
       id: "geld",
@@ -164,11 +242,11 @@ export const SUPPORT_LEXICON_POOLS = {
       english: "I have money.",
       choices: [
         "Ich habe Geld.",
-        "Ich habe Preis.",
-        "Ich koste Geld.",
-        "Das ist Geld Euro.",
+        "Das kostet Geld.",
+        "Wo ist das Geld?",
+        "Der Preis ist drei Euro.",
       ],
-      hint: "Geld is money. Preis is the price of something.",
+      hint: "Geld is money. The other lines use Geld or a price, with a different meaning.",
     }),
     sentence({
       id: "billig",
@@ -179,10 +257,10 @@ export const SUPPORT_LEXICON_POOLS = {
       choices: [
         "Das ist billig.",
         "Das ist teuer.",
-        "Der Preis ist billig.",
-        "Das kostet billig.",
+        "Das kostet fünf Euro.",
+        "Ich habe Geld.",
       ],
-      hint: "billig means cheap. teuer means expensive.",
+      hint: "billig means cheap. teuer means expensive. A price in euros does not say which.",
     }),
     sentence({
       id: "teuer",
@@ -193,10 +271,10 @@ export const SUPPORT_LEXICON_POOLS = {
       choices: [
         "Das ist teuer.",
         "Das ist billig.",
-        "Der Preis ist teuer.",
-        "Das kostet teuer.",
+        "Das kostet fünf Euro.",
+        "Der Preis ist drei Euro.",
       ],
-      hint: "teuer means expensive. billig means cheap.",
+      hint: "teuer means expensive. billig means cheap. A price in euros does not say which.",
     }),
   ],
   "date-context": [
@@ -208,11 +286,11 @@ export const SUPPORT_LEXICON_POOLS = {
       english: "What is the date?",
       choices: [
         "Wie ist das Datum?",
-        "Wie ist die Zeit?",
-        "Wie ist der Tag?",
-        "Wie ist der Monat?",
+        "Wie spät ist es?",
+        "Welcher Monat ist es?",
+        "Welches Jahr ist es?",
       ],
-      hint: "Datum is the calendar date. Tag is the day, Zeit is time.",
+      hint: "Datum is the calendar date. The other questions ask for the time, the month, or the year.",
     }),
     sentence({
       id: "datum-mai",
@@ -222,11 +300,11 @@ export const SUPPORT_LEXICON_POOLS = {
       english: "The date is the first of May.",
       choices: [
         "Das Datum ist der erste Mai.",
-        "Der Tag ist der erste Mai.",
-        "Die Zeit ist der erste Mai.",
-        "Das Jahr ist der erste Mai.",
+        "Wie ist das Datum?",
+        "Es ist Mai.",
+        "Heute ist Montag.",
       ],
-      hint: "Datum is the calendar date.",
+      hint: "Datum is the calendar date. May alone, or a weekday, is not the first of May.",
     }),
   ],
   "measure-context": [
@@ -234,15 +312,15 @@ export const SUPPORT_LEXICON_POOLS = {
       id: "mass-meter",
       word: "Maß",
       token: "Maß",
-      form: "Das Maß ist ein Meter.",
-      english: "The measure is one meter.",
+      form: "Der Meter ist ein Maß.",
+      english: "The meter is a unit of measure.",
       choices: [
-        "Das Maß ist ein Meter.",
-        "Das ist ein Meter.",
         "Der Meter ist ein Maß.",
-        "Das Meter ist ein.",
+        "Das Maß ist ein Meter.",
+        "Ich habe einen Meter.",
+        "Wie lang ist das?",
       ],
-      hint: "Maß is the measure. Meter is the unit.",
+      hint: "Maß here is a unit of measure. Saying the measurement is one meter is a different fact.",
     }),
     sentence({
       id: "mass-welches",
@@ -252,11 +330,11 @@ export const SUPPORT_LEXICON_POOLS = {
       english: "Which measure is that?",
       choices: [
         "Welches Maß ist das?",
-        "Welcher Meter ist das?",
+        "Wie lang ist das?",
         "Welches Datum ist das?",
         "Welches Jahr ist das?",
       ],
-      hint: "Maß is the measure.",
+      hint: "Maß is the measure. The other questions ask the length, the date, or the year.",
     }),
   ],
   "fraction-words": [

@@ -200,6 +200,8 @@ export function referenceIdForPracticeContext(ctx) {
       compounds: "numbers.cardinal.compound",
       hundreds: "numbers.cardinal.hundreds",
       "number-words": "numbers.overview",
+      "number-senses": "numbers.overview",
+      "amount-words": "numbers.overview",
       "hundreds-plus": "numbers.cardinal.hundreds",
       "komma-read": "numbers.decimals.komma",
       "place-value": "numbers.decimals.komma",

@@ -55,6 +55,19 @@ describe("guided path order", () => {
     ]);
     assert.deepEqual(keys.slice(6), ["nouns:suffixes:wugs", "case:accusative:masc"]);
     assert.equal(NUMBERS_GUIDED_ORDER[0], "numbers:cardinals:number-words");
+    assert.equal(NUMBERS_GUIDED_ORDER[1], "numbers:cardinals:base");
+    assert.ok(
+      NUMBERS_GUIDED_ORDER.indexOf("numbers:cardinals:base") <
+        NUMBERS_GUIDED_ORDER.indexOf("numbers:cardinals:number-senses")
+    );
+    assert.ok(
+      NUMBERS_GUIDED_ORDER.indexOf("numbers:cardinals:number-senses") <
+        NUMBERS_GUIDED_ORDER.indexOf("numbers:cardinals:amount-words")
+    );
+    assert.ok(
+      NUMBERS_GUIDED_ORDER.indexOf("numbers:cardinals:amount-words") <
+        NUMBERS_GUIDED_ORDER.indexOf("numbers:cardinals:teens")
+    );
     assert.ok(
       NUMBERS_GUIDED_ORDER.indexOf("numbers:time:time-words") <
         NUMBERS_GUIDED_ORDER.indexOf("numbers:time:whole-hours")
@@ -80,32 +93,46 @@ describe("preset ladder", () => {
 });
 
 describe("graduation", () => {
-  it("moves to a harder step after three correct answers, and a miss stays on the step", () => {
+  it("stays on a step until each required item is correct, and a miss returns that item", () => {
+    const slice = ["n:0", "n:3", "n:6"];
     let progress = emptyGuidedProgress();
-    for (let i = 0; i < STAGE_BLOCK - 1; i++) {
-      progress = applyGuidedResult(progress, {
-        pathKeys: path,
-        correct: true,
-        ladderLength: 3,
-        unitKey: path[0],
-      });
-    }
+    progress = applyGuidedResult(progress, {
+      pathKeys: path,
+      correct: true,
+      ladderLength: 3,
+      unitKey: path[0],
+      contentKey: "n:0",
+      slice,
+    });
+    progress = applyGuidedResult(progress, {
+      pathKeys: path,
+      correct: true,
+      ladderLength: 3,
+      unitKey: path[0],
+      contentKey: "n:0",
+      slice,
+    });
     assert.equal(progress.stage, 0);
-    assert.equal(progress.streak, 2);
+    assert.deepEqual(progress.coverage[path[0]].correct, ["n:0"]);
     progress = applyGuidedResult(progress, {
       pathKeys: path,
       correct: false,
       ladderLength: 3,
       unitKey: path[0],
+      contentKey: "n:0",
+      slice,
     });
     assert.equal(progress.streak, 0);
-    assert.equal(progress.stage, 0);
-    for (let i = 0; i < STAGE_BLOCK; i++) {
+    assert.deepEqual(progress.coverage[path[0]].correct, []);
+    assert.deepEqual(progress.coverage[path[0]].wrong, ["n:0"]);
+    for (const contentKey of ["n:0", "n:3", "n:6"]) {
       progress = applyGuidedResult(progress, {
         pathKeys: path,
         correct: true,
         ladderLength: 3,
         unitKey: path[0],
+        contentKey,
+        slice,
       });
     }
     assert.equal(progress.openKey, path[0]);
@@ -113,7 +140,8 @@ describe("graduation", () => {
     assert.equal(progress.streak, 0);
   });
 
-  it("graduates a one-step unit and opens the next", () => {
+  it("graduates a one-step unit only after its slice is correct", () => {
+    const slice = ["id:zahl-digit", "id:zahl-digit-7", "id:zahl-ist"];
     let progress = emptyGuidedProgress();
     for (let i = 0; i < STAGE_BLOCK; i++) {
       progress = applyGuidedResult(progress, {
@@ -121,6 +149,20 @@ describe("graduation", () => {
         correct: true,
         ladderLength: 1,
         unitKey: path[0],
+        contentKey: slice[0],
+        slice,
+      });
+    }
+    assert.deepEqual(progress.graduated, []);
+    assert.equal(progress.openKey, path[0]);
+    for (const contentKey of slice) {
+      progress = applyGuidedResult(progress, {
+        pathKeys: path,
+        correct: true,
+        ladderLength: 1,
+        unitKey: path[0],
+        contentKey,
+        slice,
       });
     }
     assert.deepEqual(progress.graduated, [path[0]]);
@@ -166,24 +208,27 @@ describe("graduation", () => {
     assert.equal(focus.presetId, "listen");
   });
 
-  it("resumes a fresh profile from preset evidence", () => {
+  it("rewinds a step that advanced before any coverage was recorded", () => {
     const progress = hydrateGuidedProgress(
-      emptyGuidedProgress(),
-      path,
       {
-        [path[0]]: ["sentence"],
-        [path[1]]: ["listen", "build", "convert"],
+        ...emptyGuidedProgress(),
+        graduated: [path[0]],
+        openKey: path[1],
+        stage: 2,
+        streak: 2,
       },
-      {
-        grains: {
-          [`${path[0]}×sentence`]: { correct: 3, total: 3 },
-          [`${path[1]}×listen`]: { correct: 3, total: 4 },
-        },
-      }
+      path
     );
-    assert.deepEqual(progress.graduated, [path[0]]);
     assert.equal(progress.openKey, path[1]);
-    assert.equal(progress.stage, 1);
+    assert.equal(progress.stage, 0);
+    assert.equal(progress.streak, 0);
+  });
+
+  it("does not treat a short run of correct answers as a finished unit", () => {
+    const progress = hydrateGuidedProgress(emptyGuidedProgress(), path);
+    assert.deepEqual(progress.graduated, []);
+    assert.equal(progress.openKey, path[0]);
+    assert.equal(progress.stage, 0);
   });
 
   it("a jump leaves the skipped units behind the open unit", () => {
