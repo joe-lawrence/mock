@@ -1656,6 +1656,7 @@ body.is-session #view-case.is-active > #case-chart {
 }
 
 .stage {
+  position: relative;
   border: 1px solid var(--line);
   background: var(--surface);
   border-radius: var(--radius);
@@ -2177,6 +2178,19 @@ button.syl:disabled,
   z-index: 0;
 }
 
+/* Stage-scoped burst: spans reveal → bottom toolbar (prev / hint / speedo / next). */
+.answer-reveal-vfx--stage {
+  inset: auto;
+  width: auto;
+  height: auto;
+  z-index: 1;
+}
+
+.stage.is-answer > .actions {
+  position: relative;
+  z-index: 2;
+}
+
 .answer-reveal > .verdict,
 .answer-reveal > .answer-reveal-box,
 .answer-reveal > .answer-reveal-en,
@@ -2495,7 +2509,8 @@ button.syl:disabled,
 .numbers-listen-input.is-correct-flash,
 .numbers-convert-input.is-correct-flash,
 .listen-correct-badge.is-correct-flash,
-.answer-reveal-de.is-correct-flash {
+.answer-reveal-de.is-correct-flash,
+.verdict.is-correct-flash {
   position: relative;
   z-index: 2;
   border-color: var(--ok) !important;
@@ -2506,6 +2521,10 @@ button.syl:disabled,
   font-weight: 700;
   box-shadow: 0 0 0 0 var(--ok-soft);
   animation: correct-spotlight 0.38s ease-in-out 3;
+}
+
+.verdict.is-correct-flash::before {
+  background: currentColor;
 }
 
 .piece.is-wrong-flash,
@@ -2613,6 +2632,7 @@ button.syl:disabled,
   .numbers-convert-input.is-correct-flash,
   .listen-correct-badge.is-correct-flash,
   .answer-reveal-de.is-correct-flash,
+  .verdict.is-correct-flash,
   .piece.is-wrong-flash,
   .choice.is-wrong-flash,
   .slot.is-wrong-flash,
@@ -2627,7 +2647,8 @@ button.syl:disabled,
   .numbers-listen-input.is-correct-flash,
   .numbers-convert-input.is-correct-flash,
   .listen-correct-badge.is-correct-flash,
-  .answer-reveal-de.is-correct-flash {
+  .answer-reveal-de.is-correct-flash,
+  .verdict.is-correct-flash {
     background: var(--ok) !important;
     color: var(--on-ink) !important;
     outline: 3px solid var(--ok);
@@ -3790,6 +3811,14 @@ button.crumb-reason:focus-visible,
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Case conversion cue: labels the given citation form's case. */
+.prompt-case-tag {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 650;
   color: var(--muted);
 }
 

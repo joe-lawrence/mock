@@ -3,12 +3,12 @@
  * One-shot canvas burst driven by requestAnimationFrame — no workout timeline.
  */
 
-const SPARKS_PHYS_VEL_SCALE = 1.42;
+const SPARKS_PHYS_VEL_SCALE = 1.95;
 const SPARKS_PHYS_DRAG = 0.985;
-const SPARKS_PHYS_MAX_STEPS = 48;
-const FIREBALLS_BAND_Y_CENTER = 0.93;
-const FIREBALLS_BAND_Y_WAVE = 0.012;
-const BURST_DURATION_MS = 700;
+const SPARKS_PHYS_MAX_STEPS = 56;
+const FIREBALLS_BAND_Y_CENTER = 0.97;
+const FIREBALLS_BAND_Y_WAVE = 0.01;
+const BURST_DURATION_MS = 900;
 const HUE_CENTER = 10;
 const HUE_SPREAD = 30;
 /** Density vs presentationShared's 280 — more balls, same burst length. */
@@ -99,10 +99,10 @@ function paintFireballsFrame(canvas, t, seed) {
     const oy =
       h * (FIREBALLS_BAND_Y_CENTER + Math.sin(u * Math.PI) * FIREBALLS_BAND_Y_WAVE) +
       (rnd() - 0.5) * 10 * dpr;
-    const angle = -Math.PI / 2 + (rnd() - 0.5) * 0.85;
-    const sp = (2 + rnd() * 3) * dpr;
-    const vx0 = Math.cos(angle) * sp * (0.6 + rnd());
-    const vy0 = Math.sin(angle) * sp * (0.6 + rnd()) - 0.65 * dpr;
+    const angle = -Math.PI / 2 + (rnd() - 0.5) * 0.72;
+    const sp = (2.4 + rnd() * 3.6) * dpr;
+    const vx0 = Math.cos(angle) * sp * (0.55 + rnd());
+    const vy0 = Math.sin(angle) * sp * (0.75 + rnd()) - 1.15 * dpr;
     const pos = integrateSparkParticle(ox, oy, vx0, vy0, gStep, t);
     const x = pos.x + (rnd() - 0.5) * 2 * dpr;
     const y = pos.y + (rnd() - 0.5) * 2 * dpr;
@@ -126,8 +126,12 @@ function paintFireballsFrame(canvas, t, seed) {
 }
 
 function sizeCanvas(canvas) {
-  const parent = canvas.parentElement;
-  const rect = parent ? parent.getBoundingClientRect() : canvas.getBoundingClientRect();
+  // Prefer the canvas's own box so stage-mounted VFX (top/bottom) sizes correctly.
+  let rect = canvas.getBoundingClientRect();
+  if (rect.width < 2 || rect.height < 2) {
+    const parent = canvas.parentElement;
+    rect = parent ? parent.getBoundingClientRect() : rect;
+  }
   const dpr = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
   const bw = Math.max(1, Math.floor(rect.width * dpr));
   const bh = Math.max(1, Math.floor(rect.height * dpr));

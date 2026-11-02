@@ -362,8 +362,8 @@ import {
   isCorrectStreakMilestone,
   streakCelebrationFor,
   STREAK_CELEBRATE_PAUSE_MS,
-} from "./streak-celebrate.js?v=20261102-streak12";
-import { playFireballs, stopFireballs } from "./fireballs-vfx.js?v=20261102-streak12";
+} from "./streak-celebrate.js?v=20261102-streak13";
+import { playFireballs, stopFireballs } from "./fireballs-vfx.js?v=20261102-streak13";
 import {
   emptyPlaylistState,
   buildNumbersCatalog,
@@ -6648,7 +6648,10 @@ function showStreakCelebratePanel(pending) {
     </div>
   `;
 
-  // 1) Reveal + speak "X in a row!" — 2) then phrase/karaoke/caption + fireballs.
+  const verdictEl = host.querySelector(".streak-congrats-verdict");
+  if (verdictEl) applyCorrectFlash(verdictEl);
+
+  // 1) Flash + speak "X in a row!" — 2) then phrase/karaoke/caption + fireballs.
   speakStreakVerdict(pack.verdict, () => {
     const body = host.querySelector(".streak-congrats-body");
     if (body) {
@@ -6673,22 +6676,32 @@ function speakStreakVerdict(text, onDone) {
 }
 
 /**
- * Fireballs behind answer-key text/boxes.
- * Canvas is z-index:-1 inside an isolated reveal stacking context.
+ * Fireballs behind answer-key text/boxes and the bottom actions toolbar.
+ * Canvas lives on the stage so it can extend under prev / hint / speedo / next.
  */
 function startStreakFireballs(_prefix, root) {
-  const host = root;
-  if (!host) return;
-  // Remove any older stage-level canvas from earlier builds.
-  const stage = root.closest?.(".stage");
-  stage?.querySelectorAll(":scope > .answer-reveal-vfx").forEach((el) => el.remove());
-  let canvas = host.querySelector(":scope > .answer-reveal-vfx");
-  if (!canvas) {
-    canvas = document.createElement("canvas");
-    canvas.className = "answer-reveal-vfx";
-    canvas.setAttribute("aria-hidden", "true");
-    host.insertBefore(canvas, host.firstChild);
-  }
+  if (!root) return;
+  const stage = root.closest?.(".stage") || root;
+  // Drop any leftover reveal-scoped or stage canvases.
+  root.querySelectorAll(":scope > .answer-reveal-vfx").forEach((el) => el.remove());
+  stage.querySelectorAll(":scope > .answer-reveal-vfx").forEach((el) => el.remove());
+
+  const canvas = document.createElement("canvas");
+  canvas.className = "answer-reveal-vfx answer-reveal-vfx--stage";
+  canvas.setAttribute("aria-hidden", "true");
+  stage.appendChild(canvas);
+
+  const place = () => {
+    const stageRect = stage.getBoundingClientRect();
+    const revealRect = root.getBoundingClientRect();
+    if (!stageRect.height) return;
+    const top = Math.max(0, revealRect.top - stageRect.top);
+    canvas.style.top = `${top}px`;
+    canvas.style.bottom = "0px";
+    canvas.style.left = "0px";
+    canvas.style.right = "0px";
+  };
+  place();
   playFireballs(canvas, { seed: (state.correctStreak * 0x9e3779b9) >>> 0 });
 }
 
@@ -9529,7 +9542,15 @@ function caseInstructionText(question) {
   }
   if (question.quizType === "type") {
     if (question.target === "noun") return "Type the dative plural";
-    const label = String(question.family || "case").toLowerCase();
+    const label =
+      question.family ||
+      (question.case === "accusative"
+        ? "Accusative"
+        : question.case === "dative"
+          ? "Dative"
+          : question.case === "nominative"
+            ? "Nominative"
+            : "case");
     return `Type the ${label} article`;
   }
   if (question.kind === "gloss") return "Choose the meaning";
@@ -9539,6 +9560,8 @@ function caseInstructionText(question) {
 
 function caseFamilyText(question) {
   if (!question) return "";
+  // Type-the-article already names the target case in the instruction line.
+  if (question.quizType === "type" && question.target !== "noun") return "";
   if (question.family) return question.family;
   if (state.caseMode !== "review") return "";
   if (question.kind === "gloss") return "Meaning";
@@ -9679,6 +9702,12 @@ function caseCueHtml(question) {
     return `<span class="dial-cue">${html}</span>`;
   }
   const text = caseCueText(question);
+  // Type-the-article: cite the nominative with DE flag + case tag.
+  // TYPE THE ACCUSATIVE ARTICLE / [DE] (Nominative) der Hund
+  if (question?.quizType === "type" && question.target !== "noun") {
+    const inner = caseLemmaHtml(text, question);
+    return `<strong class="prompt-lang prompt-de dial-cue" lang="de">${FLAG_DE_SVG}<span class="prompt-case-tag">(Nominative)</span><span class="prompt-lang-text">${inner}</span></strong>`;
+  }
   const phrase =
     question?.quizType === "case-name" ||
     question?.quizType === "role" ||
