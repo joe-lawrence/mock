@@ -362,8 +362,8 @@ import {
   isCorrectStreakMilestone,
   streakCelebrationFor,
   STREAK_CELEBRATE_PAUSE_MS,
-} from "./streak-celebrate.js?v=20261102-streak13";
-import { playFireballs, stopFireballs } from "./fireballs-vfx.js?v=20261102-streak13";
+} from "./streak-celebrate.js?v=20261102-streak14";
+import { playFireballs, stopFireballs } from "./fireballs-vfx.js?v=20261102-streak14";
 import {
   emptyPlaylistState,
   buildNumbersCatalog,
@@ -6511,6 +6511,9 @@ function clearStreakCelebrate() {
   document.querySelectorAll(".answer-reveal-vfx").forEach((el) => {
     el.hidden = true;
   });
+  document.querySelectorAll(".has-streak-vfx").forEach((el) => {
+    el.classList.remove("has-streak-vfx");
+  });
 }
 
 /** Group original verdict/box/caption so equal a/b/c spacers can surround both keys. */
@@ -6650,8 +6653,11 @@ function showStreakCelebratePanel(pending) {
 
   const verdictEl = host.querySelector(".streak-congrats-verdict");
   if (verdictEl) applyCorrectFlash(verdictEl);
+  // Fireballs start with the title flash so the rise is on-screen during TTS,
+  // then continue under the German phrase (long burst, not a one-frame blip).
+  startStreakFireballs(pending.prefix, root);
 
-  // 1) Flash + speak "X in a row!" — 2) then phrase/karaoke/caption + fireballs.
+  // 1) Flash + speak "X in a row!" — 2) then phrase/karaoke/caption.
   speakStreakVerdict(pack.verdict, () => {
     const body = host.querySelector(".streak-congrats-body");
     if (body) {
@@ -6660,7 +6666,6 @@ function showStreakCelebratePanel(pending) {
     }
     const phonEl = host.querySelector(".streak-congrats-phonetic");
     const nodes = phonEl ? [...phonEl.querySelectorAll(".phon-beat")] : [];
-    startStreakFireballs(pending.prefix, root);
     playAnswerKey(pack.spoken, pack.parts, nodes);
   });
 }
@@ -6676,33 +6681,56 @@ function speakStreakVerdict(text, onDone) {
 }
 
 /**
- * Fireballs behind answer-key text/boxes and the bottom actions toolbar.
- * Canvas lives on the stage so it can extend under prev / hint / speedo / next.
+ * Fireballs behind answer-key text/boxes, extending under the actions toolbar.
+ * Canvas stays inside the reveal (so balls paint under opaque keys) and grows
+ * downward behind prev / hint / speedo / next.
  */
 function startStreakFireballs(_prefix, root) {
   if (!root) return;
-  const stage = root.closest?.(".stage") || root;
-  // Drop any leftover reveal-scoped or stage canvases.
-  root.querySelectorAll(":scope > .answer-reveal-vfx").forEach((el) => el.remove());
-  stage.querySelectorAll(":scope > .answer-reveal-vfx").forEach((el) => el.remove());
+  const stage = root.closest?.(".stage");
+  // Drop leftovers from earlier stage-mounted builds.
+  stage?.querySelectorAll(":scope > .answer-reveal-vfx").forEach((el) => el.remove());
 
-  const canvas = document.createElement("canvas");
-  canvas.className = "answer-reveal-vfx answer-reveal-vfx--stage";
-  canvas.setAttribute("aria-hidden", "true");
-  stage.appendChild(canvas);
+  let canvas = root.querySelector(":scope > .answer-reveal-vfx");
+  if (!canvas) {
+    canvas = document.createElement("canvas");
+    canvas.className = "answer-reveal-vfx";
+    canvas.setAttribute("aria-hidden", "true");
+    root.insertBefore(canvas, root.firstChild);
+  }
 
   const place = () => {
-    const stageRect = stage.getBoundingClientRect();
     const revealRect = root.getBoundingClientRect();
-    if (!stageRect.height) return;
-    const top = Math.max(0, revealRect.top - stageRect.top);
-    canvas.style.top = `${top}px`;
-    canvas.style.bottom = "0px";
+    const actions =
+      stage?.querySelector(":scope > .actions") ||
+      stage?.querySelector(".actions-nav");
+    const actionsRect = actions?.getBoundingClientRect();
+    // Extend from the top of the reveal through the bottom of the toolbar.
+    let extra = 0;
+    if (actionsRect && revealRect.height > 0) {
+      extra = Math.max(0, actionsRect.bottom - revealRect.bottom);
+    }
+    // Fallback if actions metrics are missing (vocab chrome, etc.).
+    if (extra < 8) extra = 72;
+    canvas.style.top = "0px";
     canvas.style.left = "0px";
     canvas.style.right = "0px";
+    canvas.style.bottom = `${-extra}px`;
+    canvas.style.width = "";
+    canvas.style.height = "";
   };
+  root.classList.add("has-streak-vfx");
+  stage?.classList.add("has-streak-vfx");
   place();
-  playFireballs(canvas, { seed: (state.correctStreak * 0x9e3779b9) >>> 0 });
+  // Force layout before sizing the bitmap.
+  void canvas.offsetHeight;
+  playFireballs(canvas, {
+    seed: (state.correctStreak * 0x9e3779b9) >>> 0,
+    onDone: () => {
+      root.classList.remove("has-streak-vfx");
+      stage?.classList.remove("has-streak-vfx");
+    },
+  });
 }
 
 /** Color-only tint for answer-key articles (no gender formatting). */

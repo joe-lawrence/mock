@@ -2168,25 +2168,23 @@ button.syl:disabled,
   text-align: center;
 }
 
-/* Behind all reveal content (needs isolation on .answer-reveal). */
+/* Behind reveal text/boxes; JS extends bottom under the actions toolbar. */
 .answer-reveal-vfx {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
+  width: auto;
+  height: auto;
   pointer-events: none;
   z-index: 0;
 }
 
-/* Stage-scoped burst: spans reveal → bottom toolbar (prev / hint / speedo / next). */
-.answer-reveal-vfx--stage {
-  inset: auto;
-  width: auto;
-  height: auto;
-  z-index: 1;
+/* Let the extended canvas paint under the toolbar without being clipped. */
+.stage.has-streak-vfx,
+.answer-reveal.has-streak-vfx {
+  overflow: visible;
 }
 
-.stage.is-answer > .actions {
+.stage.is-answer.has-streak-vfx > .actions {
   position: relative;
   z-index: 2;
 }
