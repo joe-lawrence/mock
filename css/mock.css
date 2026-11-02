@@ -2235,6 +2235,12 @@ button.syl:disabled,
   pointer-events: none;
 }
 
+/* Title shows first; body keeps layout space until TTS finishes. */
+.streak-congrats-body.is-deferred {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .verdict {
   display: inline-flex;
   align-items: center;

@@ -362,29 +362,48 @@ function meaningLabel(facts) {
   return primary;
 }
 
+/**
+ * Prefer distractors of the same word class (noun/verb/…); fill from others if short.
+ * @param {object} item
+ * @param {object[]} peers
+ * @param {(p: object) => boolean} usable
+ */
+function sameClassThenOthers(item, peers, usable) {
+  const same = [];
+  const other = [];
+  for (const p of peers || []) {
+    if (!usable(p)) continue;
+    if (item?.type && p.type === item.type) same.push(p);
+    else other.push(p);
+  }
+  return same.length ? [...same, ...other] : other;
+}
+
 function meaningDistractors(item, peers) {
   const answer = meaningLabel(factsForItem(item));
-  return peers.filter((p) => {
+  return sameClassThenOthers(item, peers, (p) => {
     if (!p || p.id === item.id) return false;
     const label = meaningLabel(factsForItem(p));
-    return label && label !== answer;
+    return !!(label && label !== answer);
   });
 }
 
 function formDistractors(item, peers) {
   const answer = displayForm(item);
-  return peers.filter((p) => {
+  return sameClassThenOthers(item, peers, (p) => {
     if (!p || p.id === item.id) return false;
     const label = displayForm(p);
-    return label && label !== answer;
+    return !!(label && label !== answer);
   });
 }
 
-/** Take answer + up to (n-1) distractors, shuffled. */
+/**
+ * Take answer + up to (n-1) distractors, then shuffle the final set.
+ * Distractors may be preference-ordered (same word class first); selection keeps that order.
+ */
 function shuffleUnique(answerChoices, distractors, n) {
-  const pool = shuffle([...distractors]);
   const out = [...answerChoices];
-  for (const d of pool) {
+  for (const d of distractors) {
     if (out.length >= n) break;
     if (out.some((c) => c.id === d.id || c.label === d.label)) continue;
     out.push(d);

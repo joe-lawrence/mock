@@ -186,6 +186,78 @@ describe("vocabulary practice question types", () => {
     assert.equal(evaluateVocabularyAnswer(q, zahl.id).status, "correct");
   });
 
+  it("prefers same word class for form distractors", () => {
+    const vor = {
+      id: "vocab.numbers.vor",
+      heading: "vor",
+      surface: "vor",
+      type: "function_word",
+      topic: "numbers",
+      gloss: "before / to",
+      sense: "clock time",
+      introduced_by: ["numbers.time"],
+      reference: ["numbers.time"],
+      engine: null,
+      engineJoin: "content-only",
+      derived: null,
+    };
+    const nach = {
+      id: "vocab.numbers.nach",
+      heading: "nach",
+      surface: "nach",
+      type: "function_word",
+      topic: "numbers",
+      gloss: "after / past",
+      sense: "clock time",
+      introduced_by: ["numbers.time"],
+      reference: ["numbers.time"],
+      engine: null,
+      engineJoin: "content-only",
+      derived: null,
+    };
+    const halb = {
+      id: "vocab.numbers.halb",
+      heading: "halb",
+      surface: "halb",
+      type: "function_word",
+      topic: "numbers",
+      gloss: "half",
+      sense: "",
+      introduced_by: ["numbers.time"],
+      reference: ["numbers.time"],
+      engine: null,
+      engineJoin: "content-only",
+      derived: null,
+    };
+    const viertel = {
+      id: "vocab.numbers.viertel",
+      heading: "Viertel",
+      surface: "Viertel",
+      type: "function_word",
+      topic: "numbers",
+      gloss: "quarter",
+      sense: "",
+      introduced_by: ["numbers.time"],
+      reference: ["numbers.time"],
+      engine: null,
+      engineJoin: "content-only",
+      derived: null,
+    };
+    const peers = [vor, nach, halb, viertel, zahl, nummer, stunde];
+    const q = createVocabularyQuestion(vor, "form", {
+      topic: "numbers",
+      peers,
+    });
+    const distractorIds = q.choices
+      .map((c) => c.id)
+      .filter((id) => id !== vor.id);
+    assert.equal(distractorIds.length, 3);
+    for (const id of distractorIds) {
+      const peer = peers.find((p) => p.id === id);
+      assert.equal(peer?.type, "function_word");
+    }
+  });
+
   it("weights picks toward morphology", () => {
     const peers = [engineNoun, wohnung, lehrer];
     const counts = { article: 0, gender: 0, meaning: 0, form: 0 };

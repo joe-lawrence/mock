@@ -365,7 +365,7 @@ export const vocabulary = {
     "surface": "passen zu",
     "type": "verb_preposition",
     "topic": "case",
-    "gloss": "to go with",
+    "gloss": "to fit with",
     "sense": "",
     "level": null,
     "area": null,
@@ -1301,7 +1301,7 @@ export const vocabulary = {
     "type": "function_word",
     "topic": "numbers",
     "gloss": "before / to",
-    "sense": "clock (fünf vor drei)",
+    "sense": "clock time",
     "level": 2,
     "area": "time",
     "introduced_by": [
@@ -1323,7 +1323,7 @@ export const vocabulary = {
     "type": "function_word",
     "topic": "numbers",
     "gloss": "after / past",
-    "sense": "clock (zehn nach drei)",
+    "sense": "clock time",
     "level": 2,
     "area": "time",
     "introduced_by": [

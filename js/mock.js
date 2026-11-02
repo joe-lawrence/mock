@@ -254,7 +254,7 @@ import {
   buildHelpModel,
   renderHelpSheetHtml,
   wireHelpSheet,
-} from "./help-sheet.js?v=20261030-casetakes";
+} from "./help-sheet.js?v=20261102-vocabfix";
 import {
   freshSupportVector,
   climbHelpRung,
@@ -347,7 +347,7 @@ import {
   mountVocabularyPanel,
   topicHasVocabulary,
   vocabAreasFromCurriculumTopics,
-} from "./vocabulary-ui.js?v=20261102-streak8";
+} from "./vocabulary-ui.js?v=20261102-streak12";
 import {
   vocabularyAreas,
   curriculumTopicToVocabArea,
@@ -362,8 +362,8 @@ import {
   isCorrectStreakMilestone,
   streakCelebrationFor,
   STREAK_CELEBRATE_PAUSE_MS,
-} from "./streak-celebrate.js?v=20261102-streak10";
-import { playFireballs, stopFireballs } from "./fireballs-vfx.js?v=20261102-streak10";
+} from "./streak-celebrate.js?v=20261102-streak12";
+import { playFireballs, stopFireballs } from "./fireballs-vfx.js?v=20261102-streak12";
 import {
   emptyPlaylistState,
   buildNumbersCatalog,
@@ -6061,12 +6061,14 @@ function streakCountingAllowed() {
 
 /**
  * Bump / reset consecutive corrects. Returns a celebration pack on milestones.
+ * Second-chance recovery after a first miss does not earn streak credit.
  * @param {boolean} ok
  * @returns {ReturnType<typeof streakCelebrationFor>|null}
  */
 function noteStreakAnswer(ok) {
   if (!streakCountingAllowed()) return null;
   if (ok) {
+    if (state.itemFirstMiss) return null;
     state.correctStreak = bumpCorrectStreak(state.correctStreak);
     if (isCorrectStreakMilestone(state.correctStreak)) {
       return streakCelebrationFor(state.correctStreak);
@@ -6634,19 +6636,27 @@ function showStreakCelebratePanel(pending) {
   host.hidden = false;
   host.classList.remove("is-slot");
   host.removeAttribute("aria-hidden");
+  // Title first (keeps body space reserved so a/b/c layout does not jump).
   host.innerHTML = `
     <p class="verdict is-ok streak-congrats-verdict" aria-live="polite">${escapeHtml(pack.verdict)}</p>
-    <div class="answer-reveal-box streak-congrats-box">
-      <p class="answer-reveal-de" lang="de">${escapeHtml(pack.de)}</p>
-      <p class="answer-reveal-phonetic streak-congrats-phonetic" lang="de" aria-live="polite">${phonHtml}</p>
+    <div class="streak-congrats-body is-deferred" aria-hidden="true">
+      <div class="answer-reveal-box streak-congrats-box">
+        <p class="answer-reveal-de" lang="de">${escapeHtml(pack.de)}</p>
+        <p class="answer-reveal-phonetic streak-congrats-phonetic" lang="de" aria-live="polite">${phonHtml}</p>
+      </div>
+      <p class="answer-reveal-en">${escapeHtml(pack.en)}</p>
     </div>
-    <p class="answer-reveal-en">${escapeHtml(pack.en)}</p>
   `;
 
-  const phonEl = host.querySelector(".streak-congrats-phonetic");
-  const nodes = phonEl ? [...phonEl.querySelectorAll(".phon-beat")] : [];
-  // Announce "X in a row!" first (speech only); fireballs + phrase karaoke after.
+  // 1) Reveal + speak "X in a row!" — 2) then phrase/karaoke/caption + fireballs.
   speakStreakVerdict(pack.verdict, () => {
+    const body = host.querySelector(".streak-congrats-body");
+    if (body) {
+      body.classList.remove("is-deferred");
+      body.removeAttribute("aria-hidden");
+    }
+    const phonEl = host.querySelector(".streak-congrats-phonetic");
+    const nodes = phonEl ? [...phonEl.querySelectorAll(".phon-beat")] : [];
     startStreakFireballs(pending.prefix, root);
     playAnswerKey(pack.spoken, pack.parts, nodes);
   });
@@ -9125,6 +9135,7 @@ function renderVocabularyPanel(territoryId) {
       playAnswerKey(spoken, parts, nodes, onDone);
     },
     noteStreakAnswer,
+    noteFirstMiss,
     armStreakCelebrate,
     clearStreakCelebrate,
     stopSpeech: () => stopSpeech({ keepAdvance: true }),
@@ -11694,14 +11705,20 @@ function recordVocabOnAssociateUnit(question, result) {
   const dealKey = associateDealKey(item);
   if (!dealKey) return;
   const correct = result?.status === "correct";
+  const status = correct
+    ? state.itemFirstMiss
+      ? "correct-after-retry"
+      : "correct"
+    : "incorrect";
   logGuidedQa({
     question: [question?.instruction, question?.prompt].filter(Boolean).join(" — "),
     answer: result?.given != null ? String(result.given) : "",
     expected: question?.expect != null ? String(question.expect) : "",
-    status: correct ? "correct" : "incorrect",
+    status,
     dealKey,
     itemKey: question.vocabId || "",
     evidenceIds: [],
+    recordEvidence: !state.itemFirstMiss,
   });
   if (!state.guidedVocabPending || !question?.vocabId) return;
   state.guidedVocabPending.delete(question.vocabId);
@@ -12469,11 +12486,24 @@ function noteFirstMiss({ question, answer, expected } = {}) {
 }
 
 /**
- * Final Q&A row for the item. After a first miss, practice retries are not
- * scored and must not appear in the audit log (first miss already logged).
+ * Final Q&A row for the item. After a first miss, a later correct is audit-only
+ * (`correct-after-retry`) — no evidence, graduation, or streak credit.
  */
 function logGuidedQaFinal({ question, answer, expected, status, note } = {}) {
-  if (state.itemFirstMiss) return;
+  if (state.itemFirstMiss) {
+    const recovered =
+      status === "correct" || status === "accepted-alternative";
+    if (!recovered) return;
+    logGuidedQa({
+      question,
+      answer,
+      expected,
+      status: "correct-after-retry",
+      note,
+      recordEvidence: false,
+    });
+    return;
+  }
   logGuidedQa({ question, answer, expected, status, note });
 }
 
@@ -21596,11 +21626,13 @@ function bind() {
   wirePracticeSwipeNav();
   document.getElementById("numbers-back").addEventListener("click", () => {
     clearNumbersAdvance();
+    clearStreakCelebrate();
     stopSpeech();
     quizNavBack();
   });
   document.getElementById("numbers-skip").addEventListener("click", () => {
     clearNumbersAdvance();
+    clearStreakCelebrate();
     stopSpeech();
     if (quizNavForward() === "history") return;
     // At end of sequence: skip / reveal then deal the next new item.
@@ -21619,11 +21651,13 @@ function bind() {
   document.getElementById("case-difficulty")?.addEventListener("click", onDifficultyClick);
   document.getElementById("nouns-back").addEventListener("click", () => {
     clearNounsAdvance();
+    clearStreakCelebrate();
     stopSpeech();
     quizNavBack();
   });
   document.getElementById("nouns-skip").addEventListener("click", () => {
     clearNounsAdvance();
+    clearStreakCelebrate();
     stopSpeech();
     if (quizNavForward() === "history") return;
     if (continueGuided()) return;
@@ -21797,11 +21831,15 @@ function bind() {
       return;
     }
     if (e.target.closest("[data-case-back]")) {
+      clearCorrectFlashTimer();
+      clearStreakCelebrate();
       stopSpeech();
       quizNavBack();
       return;
     }
     if (e.target.closest("[data-case-next]")) {
+      clearCorrectFlashTimer();
+      clearStreakCelebrate();
       stopSpeech();
       if (quizNavForward() === "history") return;
       if (continueGuided()) return;

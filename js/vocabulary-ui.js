@@ -11,7 +11,7 @@ import {
   vocabAreaForCurriculumTopic,
   getVocabulary,
   VOCABULARY_VERSION,
-} from "./generated/vocabulary.js?v=20261102-nomeng";
+} from "./generated/vocabulary.js?v=20261102-vocabfix";
 import {
   createVocabularyQuestion,
   displayForm,
@@ -21,7 +21,7 @@ import {
   pickQuestionType,
   questionTypesForItem,
   revealDeHtml,
-} from "./vocabulary-practice.js?v=20261030-composeex";
+} from "./vocabulary-practice.js?v=20261102-vocabfix";
 import { choiceSecondChanceOpen } from "./answer-shells.js?v=20261027-retry";
 import { flaggedCueHtml } from "./lang-flags.js?v=20261030-langflag";
 
@@ -269,6 +269,20 @@ export function mountVocabularyPanel(root, opts) {
   };
   if (resume?.deck?.length) items = session.deck;
 
+  /** Pending flash→answer-key TTS; bumped/cleared on swipe or nav so TTS never starts after leave. */
+  let revealFlashTimer = null;
+  let revealSpeakGen = 0;
+
+  const cancelPendingRevealSpeak = () => {
+    if (revealFlashTimer) {
+      clearTimeout(revealFlashTimer);
+      revealFlashTimer = null;
+    }
+    revealSpeakGen += 1;
+    opts.clearStreakCelebrate?.();
+    opts.stopSpeech?.();
+  };
+
   const resetDeck = () => {
     items = resolveItems();
     session.deck = items;
@@ -295,7 +309,7 @@ export function mountVocabularyPanel(root, opts) {
   };
 
   const goPrev = () => {
-    opts.stopSpeech?.();
+    cancelPendingRevealSpeak();
     if (opts.onBackNav) {
       opts.onBackNav();
       return;
@@ -313,7 +327,7 @@ export function mountVocabularyPanel(root, opts) {
   };
 
   const goNext = () => {
-    opts.stopSpeech?.();
+    cancelPendingRevealSpeak();
     const fwd = opts.onForward?.();
     if (fwd === "history" || fwd === "leave") return;
     if (session.mode === "learn") {
@@ -337,6 +351,11 @@ export function mountVocabularyPanel(root, opts) {
 
 
   const render = () => {
+    if (revealFlashTimer) {
+      clearTimeout(revealFlashTimer);
+      revealFlashTimer = null;
+    }
+    revealSpeakGen += 1;
     root.classList.remove("is-answer");
     if (!session.deck.length) {
       root.className = "vocab-panel stage stage-fill";
@@ -553,7 +572,14 @@ export function mountVocabularyPanel(root, opts) {
       });
       if (ok) opts.playFeedback?.("ok");
       else opts.playFeedback?.("bad");
-      window.setTimeout(() => {
+      if (revealFlashTimer) {
+        clearTimeout(revealFlashTimer);
+        revealFlashTimer = null;
+      }
+      const speakGen = revealSpeakGen;
+      revealFlashTimer = window.setTimeout(() => {
+        revealFlashTimer = null;
+        if (speakGen !== revealSpeakGen) return;
         showReveal(result, { autoAdvance: false, countStreak: true });
       }, VOCAB_CORRECT_FLASH_MS);
     };
@@ -589,6 +615,11 @@ export function mountVocabularyPanel(root, opts) {
           return;
         }
         opts.playFeedback?.("retry");
+        opts.noteFirstMiss?.({
+          answer: id,
+          expected: q.expect != null ? String(q.expect) : "",
+          question: [q.instruction, q.prompt].filter(Boolean).join(" — "),
+        });
         opts.noteStreakAnswer?.(false);
         if (attempt) {
           attempt.hidden = false;
@@ -682,7 +713,7 @@ export function mountVocabularyPanel(root, opts) {
   render();
   return {
     destroy() {
-      opts.stopSpeech?.();
+      cancelPendingRevealSpeak();
       root.classList.remove("is-answer");
       root.innerHTML = "";
     },
