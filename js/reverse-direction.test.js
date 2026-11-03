@@ -10,6 +10,7 @@ import {
   wugReverseChoose,
   reverseNumbersConvert,
   reverseCompassConvert,
+  moneyWrittenAlternates,
 } from "./reverse-direction.js";
 import { LEXICON, WUGS } from "../engine/nouns/index.js";
 import { vocabulary } from "./generated/vocabulary.js";
@@ -203,6 +204,27 @@ describe("reverse direction", () => {
     });
     assert.equal(money.answer, "3,50 €");
     assert.ok(money.acceptedForms.includes("3,50€"));
+
+    const whole = reverseNumbersConvert({
+      kind: "money",
+      form: "einhundertdreißig Euro",
+      written: "130,00 €",
+    });
+    assert.equal(whole.answer, "130,00 €");
+    assert.ok(whole.acceptedForms.includes("130 €"));
+    assert.ok(whole.acceptedForms.includes("130€"));
+    assert.ok(whole.acceptedForms.includes("130,00€"));
+    assert.deepEqual(
+      moneyWrittenAlternates("130,00 €").sort(),
+      [
+        "130 €",
+        "130,00 €",
+        "130,00€",
+        "130.00 €",
+        "130.00€",
+        "130€",
+      ].sort()
+    );
 
     const frac = reverseNumbersConvert({
       kind: "fraction",

@@ -3,12 +3,15 @@ import { describe, it } from "node:test";
 import {
   STAGE_BLOCK,
   NUMBERS_GUIDED_ORDER,
+  SPRINKLE_EVERY,
+  SPRINKLE_EVERY_MAX,
   applyGuidedResult,
   emptyGuidedProgress,
   hydrateGuidedProgress,
   orderGuidedKeys,
   planGuidedStep,
   presetLadder,
+  reviewIntervalOf,
   skipGuidedUnits,
 } from "./guided-path.js";
 
@@ -206,6 +209,45 @@ describe("graduation", () => {
     assert.equal(focus.review, false);
     assert.equal(focus.key, path[1]);
     assert.equal(focus.presetId, "listen");
+  });
+
+  it("stretches the review gap after successful retrieval, and snaps back on a miss", () => {
+    let progress = {
+      ...emptyGuidedProgress(),
+      graduated: [path[0]],
+      openKey: path[1],
+    };
+    assert.equal(reviewIntervalOf(progress), SPRINKLE_EVERY);
+    progress = applyGuidedResult(progress, {
+      pathKeys: path,
+      correct: true,
+      review: true,
+      unitKey: path[0],
+      contentKey: "n:1",
+    });
+    progress = applyGuidedResult(progress, {
+      pathKeys: path,
+      correct: true,
+      review: true,
+      unitKey: path[0],
+      contentKey: "n:2",
+    });
+    assert.equal(reviewIntervalOf(progress), Math.min(SPRINKLE_EVERY_MAX, SPRINKLE_EVERY * 2));
+    const spaced = planGuidedStep({
+      pathKeys: path,
+      progress: { ...progress, deals: 3, openKey: path[1], graduated: [path[0]] },
+      ladderOf,
+    });
+    // With gap 8, deal 4 is not a review turn.
+    assert.equal(spaced.review, false);
+    progress = applyGuidedResult(progress, {
+      pathKeys: path,
+      correct: false,
+      review: true,
+      unitKey: path[0],
+      contentKey: "n:3",
+    });
+    assert.equal(reviewIntervalOf(progress), SPRINKLE_EVERY);
   });
 
   it("rewinds a step that advanced before any coverage was recorded", () => {

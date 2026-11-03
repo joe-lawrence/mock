@@ -228,6 +228,27 @@ export function promptSlots(templates) {
 }
 
 /**
+ * Random pick from a discrete value list.
+ * Skips values in `avoid` when the pool still has another choice.
+ * `random` returns a number in [0, 1), like Math.random.
+ */
+export function drawFromPool(pool, avoid = [], random = Math.random) {
+  const values = (Array.isArray(pool) ? pool : [])
+    .map((n) => Number(n))
+    .filter((n) => Number.isFinite(n));
+  if (!values.length) return null;
+  const skip = new Set((avoid || []).map(Number).filter((n) => Number.isFinite(n)));
+  const open = values.filter((n) => !skip.has(n));
+  const pick = open.length ? open : values;
+  const roll = Number(random());
+  const index = Math.min(
+    pick.length - 1,
+    Math.floor((Number.isFinite(roll) ? roll : 0) * pick.length)
+  );
+  return pick[Math.max(0, index)];
+}
+
+/**
  * Random whole number from min through max, inclusive.
  * Skips values in `avoid` when the range still has another choice.
  * `random` returns a number in [0, 1), like Math.random.
@@ -238,12 +259,7 @@ export function drawPromptNumber(min, max, avoid = [], random = Math.random) {
   const span = [];
   for (let n = lo; n <= hi; n++) span.push(n);
   if (!span.length) return lo;
-  const skip = new Set(avoid || []);
-  const open = span.filter((n) => !skip.has(n));
-  const pool = open.length ? open : span;
-  const roll = Number(random());
-  const index = Math.min(pool.length - 1, Math.floor((Number.isFinite(roll) ? roll : 0) * pool.length));
-  return pool[Math.max(0, index)];
+  return drawFromPool(span, avoid, random);
 }
 
 export function parsePromptKey(contentKey) {

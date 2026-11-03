@@ -87,21 +87,22 @@ export function evaluateCardinalConstruction({ value, parts, grain = "constructi
   }
 
   const parsed = parseCardinalForm(built);
-  // parseCardinalForm folds case — only accept parse alts when the chips are
-  // already lowercase (cardinal orthography is lowercase).
+  // parseCardinalForm strips spaces — do not accept spaced surfaces
+  // ("neun und vierzig"); standard written compounds are fused.
   const caseOk = built === built.toLowerCase();
-  if (caseOk && parsed === value) {
+  const fusedOk = !/\s/.test(built);
+  if (caseOk && fusedOk && parsed === value) {
     return {
       status: "accepted-alternative",
       canonicalAnswers: [canonical],
       matchedAnswer: built,
-      explanation: "Parses to the target value with non-canonical spelling or spacing.",
+      explanation: "Parses to the target value with non-canonical spelling.",
       evidenceIds: [...evidenceIds, "eval.alt.parse"],
       slotMatch: null,
     };
   }
 
-  if (caseOk && parsed != null && parsed !== value) {
+  if (caseOk && fusedOk && parsed != null && parsed !== value) {
     return {
       status: "valid-but-unintended",
       canonicalAnswers: [canonical],

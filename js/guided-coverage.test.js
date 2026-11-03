@@ -7,6 +7,7 @@ import {
   normalizeQuestionText,
   numberSenseSurfaceKey,
   orderedContentKeys,
+  drawFromPool,
   drawPromptNumber,
   markCoverage,
   pickGuidedContent,
@@ -152,6 +153,9 @@ describe("guided coverage", () => {
     assert.equal(drawPromptNumber(0, 9, [0], () => 0), 1);
     assert.equal(drawPromptNumber(0, 99, [], () => 0), 0);
     assert.equal(drawPromptNumber(0, 99, [], () => 0.999), 99);
+    assert.equal(drawFromPool([20, 30, 40], [], () => 0), 20);
+    assert.equal(drawFromPool([20, 30, 40], [], () => 0.999), 40);
+    assert.equal(drawFromPool([20, 30, 40], [20], () => 0), 30);
     const saved = markCoverage(
       { "numbers:cardinals:number-words": { correct: [], wrong: [], recent: [], required: [] } },
       "numbers:cardinals:number-words",

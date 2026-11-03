@@ -198,6 +198,25 @@ describe("evaluateCardinalConstruction", () => {
     assert.equal(r.status, "accepted-alternative");
   });
 
+  it("rejects spaced compound surfaces (standard forms are fused)", () => {
+    const spacedCompound = evaluateCardinalConstruction({
+      value: 49,
+      parts: ["neun und vierzig"],
+    });
+    assert.equal(spacedCompound.status, "incorrect");
+    const spacedTeen = evaluateCardinalConstruction({
+      value: 17,
+      parts: ["sieb zehn"],
+    });
+    assert.equal(spacedTeen.status, "incorrect");
+    const spacedTens = evaluateCardinalConstruction({
+      value: 60,
+      parts: ["sech zig"],
+      grain: "construction",
+    });
+    assert.equal(spacedTens.status, "incorrect");
+  });
+
   it("flags a valid cardinal for the wrong value", () => {
     const r = evaluateCardinalConstruction({
       value: 24,

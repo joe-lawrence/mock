@@ -85,7 +85,7 @@ export function isCorrectStreakMilestone(streak) {
 /**
  * Phrase for this milestone (rotates 10→0, 20→1, …).
  * @param {number} streak
- * @returns {StreakPhrase & { verdict: string, streak: number }}
+ * @returns {StreakPhrase & { verdict: string, verdictSpoken: string, streak: number }}
  */
 export function streakCelebrationFor(streak) {
   const n = Math.max(0, Math.floor(Number(streak) || 0));
@@ -96,6 +96,7 @@ export function streakCelebrationFor(streak) {
     parts: phrase.parts.map((p) => ({ ...p })),
     streak: n,
     verdict: `${n} in a row!`,
+    verdictSpoken: `${n} in Folge!`,
   };
 }
 

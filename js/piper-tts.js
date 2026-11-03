@@ -852,9 +852,61 @@ async function phonemeIdsFor(text, config) {
   });
 }
 
+/** Extra length_scale for short UI lines (draws vowels out; default Piper is 1.0). */
+export const PIPER_SHORT_LENGTH_SCALE = 1.2;
+
+/**
+ * Short answer-key / UI utterances that benefit from prosody nudges.
+ * Ignores trailing sentence punctuation when measuring length.
+ * @param {string} text
+ */
+export function isShortPiperUtterance(text) {
+  const core = String(text || "")
+    .normalize("NFC")
+    .trim()
+    .replace(/[.!?…:;]+$/u, "");
+  if (!core) return false;
+  const words = core.split(/\s+/).filter(Boolean);
+  return words.length <= 3 && core.length <= 40;
+}
+
+/**
+ * Nudge Piper prosody on short UI lines so monosyllables aren't clipped.
+ * Appends a period when the utterance is short and lacks sentence punctuation.
+ * @param {string} text
+ * @returns {string}
+ */
+export function piperProsodyText(text) {
+  const trimmed = String(text || "")
+    .normalize("NFC")
+    .trim();
+  if (!trimmed) return trimmed;
+  if (/[.!?…:;]$/u.test(trimmed)) return trimmed;
+  if (isShortPiperUtterance(trimmed)) return `${trimmed}.`;
+  return trimmed;
+}
+
+/**
+ * Piper inference length_scale from rate + optional short-utterance boost.
+ * rate 1 = model default; &lt;1 slower, &gt;1 faster.
+ * @param {string} text
+ * @param {{ rate?: number, baseLengthScale?: number, shortLengthScale?: number, shortBoost?: boolean }} [opts]
+ */
+export function piperLengthScaleFor(text, opts = {}) {
+  const rate = Math.max(0.5, Math.min(1.4, opts.rate ?? 1));
+  const baseLen = Number(opts.baseLengthScale);
+  let lengthScale = (Number.isFinite(baseLen) && baseLen > 0 ? baseLen : 1) / rate;
+  if (opts.shortBoost !== false && isShortPiperUtterance(text)) {
+    const boost = Number(opts.shortLengthScale);
+    lengthScale *=
+      Number.isFinite(boost) && boost > 0 ? boost : PIPER_SHORT_LENGTH_SCALE;
+  }
+  return lengthScale;
+}
+
 /**
  * @param {string} text
- * @param {{ voiceId?: string, speakerKey?: string, rate?: number }} [opts]
+ * @param {{ voiceId?: string, speakerKey?: string, rate?: number, shortBoost?: boolean, shortLengthScale?: number }} [opts]
  */
 export async function synthesizeGerman(text, opts = {}) {
   const voiceId = opts.voiceId || readPiperVoicePref();
@@ -863,15 +915,15 @@ export async function synthesizeGerman(text, opts = {}) {
   if (!packed) throw new Error(`Voice not loaded: ${voiceId}`);
 
   const { session, config } = packed;
-  const trimmed = String(text || "")
-    .normalize("NFC")
-    .trim();
+  const trimmed = piperProsodyText(text);
   if (!trimmed) throw new Error("No text to synthesize");
 
-  // rate 1 = model default (ordinary pace). <1 slower, >1 faster.
-  const rate = Math.max(0.5, Math.min(1.4, opts.rate ?? 1));
-  const baseLen = config.inference.length_scale ?? 1;
-  const lengthScale = baseLen / rate;
+  const lengthScale = piperLengthScaleFor(trimmed, {
+    rate: opts.rate,
+    baseLengthScale: config.inference.length_scale ?? 1,
+    shortBoost: opts.shortBoost,
+    shortLengthScale: opts.shortLengthScale,
+  });
   const noiseScale = config.inference.noise_scale;
   const noiseW = config.inference.noise_w;
   const sampleRate = config.audio.sample_rate;

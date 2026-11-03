@@ -28,6 +28,7 @@ describe("streak celebrate", () => {
     assert.equal(STREAK_PHRASES.length, 6);
     const a = streakCelebrationFor(STREAK_MILESTONE);
     assert.equal(a.verdict, `${STREAK_MILESTONE} in a row!`);
+    assert.equal(a.verdictSpoken, `${STREAK_MILESTONE} in Folge!`);
     assert.equal(a.de, "Sehr gut!");
     assert.equal(a.en, "Very good!");
     assert.ok(a.parts.length >= 2);

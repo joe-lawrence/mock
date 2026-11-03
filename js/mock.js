@@ -149,7 +149,8 @@ import {
   wugReverseChoose,
   reverseNumbersConvert,
   reverseCompassConvert,
-} from "./reverse-direction.js?v=20261027-relengine";
+  moneyWrittenAlternates,
+} from "./reverse-direction.js?v=20261103-money-alt";
 import {
   compassPlaceholder,
   caseFormExample,
@@ -235,7 +236,7 @@ import {
   speakGermanPiper,
   stopPiperAudio,
   unlockPiperAudio,
-} from "./piper-tts.js?v=20261020-piper-demo8";
+} from "./piper-tts.js?v=20261103-length";
 
 import {
   buildSoundsChart,
@@ -320,7 +321,8 @@ import {
   planGuidedStep,
   presetLadder,
   orderGuidedKeys,
-} from "./guided-path.js?v=20261103-variety";
+  reviewIntervalOf,
+} from "./guided-path.js?v=20261103-dealer-audit";
 import {
   contentKeyOf,
   coverageSummary,
@@ -329,12 +331,14 @@ import {
   normalizeQuestionText,
   numberSenseSurfaceKey,
   orderedContentKeys,
+  drawFromPool,
   drawPromptNumber,
   pickGuidedContent,
   promptSlots,
   slicesForLadder,
+  SPAN_LIMIT,
   spanSample,
-} from "./guided-coverage.js?v=20261103-variety";
+} from "./guided-coverage.js?v=20261103-listen-rand";
 import {
   reportCardJson,
   fullAuditJson,
@@ -364,7 +368,7 @@ import {
   isCorrectStreakMilestone,
   streakCelebrationFor,
   STREAK_CELEBRATE_PAUSE_MS,
-} from "./streak-celebrate.js?v=20261103-streak17";
+} from "./streak-celebrate.js?v=20261103-folge";
 import { playFireballs, stopFireballs } from "./fireballs-vfx.js?v=20261103-streak17";
 import {
   emptyPlaylistState,
@@ -1533,6 +1537,63 @@ function guidedCardinalOrder() {
   return state.sessionMode === "guided" && state.numbersTopic === "cardinals";
 }
 
+/** Play listen cardinals: draw from the step pool at deal time (not a fixed permutation). */
+function randomListenCardinals() {
+  return (
+    state.sessionMode !== "guided" &&
+    state.numbersTopic === "cardinals" &&
+    state.numbersSessionKind !== "mix"
+  );
+}
+
+function recentListenCardinalValues() {
+  const digits = [];
+  for (const snap of state.numbersHistory || []) {
+    const meta = snap?.meta;
+    if (!meta) continue;
+    if (meta.kind != null && meta.kind !== "cardinal") continue;
+    if (!Number.isInteger(Number(meta.value))) continue;
+    digits.push(Number(meta.value));
+  }
+  return digits.slice(-4);
+}
+
+function listenRandomBatchSize(pool) {
+  const len = Array.isArray(pool) ? pool.length : 0;
+  if (len <= 0) return 0;
+  return Math.min(len, SPAN_LIMIT);
+}
+
+/** Fresh random values from the current cardinal listen pool (step min/max / discrete set). */
+function buildRandomListenCardinalDeck() {
+  const pool = listenValuePool();
+  const size = listenRandomBatchSize(pool);
+  if (!size) return [];
+  const avoid = recentListenCardinalValues();
+  // Prefer pinned / prior deck tip — never call currentNumberMeta (ensureListenDeck recurse).
+  const pinned = state.numbersPinnedMeta;
+  if (
+    pinned &&
+    (pinned.kind == null || pinned.kind === "cardinal") &&
+    Number.isInteger(Number(pinned.value))
+  ) {
+    avoid.push(Number(pinned.value));
+  } else if (Array.isArray(state.numbersListenDeck) && state.numbersListenDeck.length) {
+    const tip = state.numbersListenDeck[state.numbersListenCursor || 0];
+    const tipVal = typeof tip === "number" ? tip : tip?.value;
+    if (Number.isInteger(Number(tipVal))) avoid.push(Number(tipVal));
+  }
+  const deck = [];
+  for (let i = 0; i < size; i++) {
+    const n = drawFromPool(pool, avoid);
+    if (n == null) break;
+    deck.push(n);
+    avoid.push(n);
+    if (avoid.length > 4) avoid.shift();
+  }
+  return deck;
+}
+
 function reshuffleListenDeck() {
   const avoid = currentNumbersAvoidKey();
   const mixNonCardinal =
@@ -1548,7 +1609,10 @@ function reshuffleListenDeck() {
       avoid
     );
   } else if (guidedCardinalOrder()) {
+    // Guided coverage seeks specific n: keys — keep the full ordered set.
     state.numbersListenDeck = [...listenValuePool()].sort((a, b) => a - b);
+  } else if (randomListenCardinals()) {
+    state.numbersListenDeck = buildRandomListenCardinalDeck();
   } else {
     state.numbersListenDeck = shuffleAvoidingKey(listenValuePool(), avoid);
   }
@@ -1566,7 +1630,11 @@ function ensureListenDeck() {
   const decimalish = state.numbersTopic !== "cardinals" || mixNonCardinal;
   const expected = decimalish
     ? currentNumberPool().length
-    : listenValuePool().length;
+    : guidedCardinalOrder()
+      ? listenValuePool().length
+      : randomListenCardinals()
+        ? listenRandomBatchSize(listenValuePool())
+        : listenValuePool().length;
   if (
     state.numbersListenPoolKey !== key ||
     !Array.isArray(state.numbersListenDeck) ||
@@ -6683,8 +6751,8 @@ function showStreakCelebratePanel(pending) {
   const verdictEl = host.querySelector(".streak-congrats-verdict");
   if (verdictEl) applyCorrectFlash(verdictEl);
 
-  // 1) Flash + speak "X in a row!" — 2) then congrats phrase + fireballs together.
-  speakStreakVerdict(pack.verdict, () => {
+  // 1) Flash English title; TTS says "X in Folge!" — 2) then congrats + fireballs.
+  speakStreakVerdict(pack.verdictSpoken || pack.verdict, () => {
     const body = host.querySelector(".streak-congrats-body");
     if (body) {
       body.classList.remove("is-deferred");
@@ -10166,8 +10234,17 @@ function renderCasePractice() {
       !(state.caseDeck || []).length &&
       state.sessionMode !== "guided";
   }
+  // Same autoplay pattern as Numbers / Nouns / Sounds listen.
   if (question?.quizType === "listen" || question?.quizType === "listen-type") {
-    speakVisibleListenPrompt();
+    const say = question.sentence || question.prompt || "";
+    queueMicrotask(() => {
+      if (state.caseChecked || !say) return;
+      const current = casePresentedQuestion(state.caseQuestion);
+      if (current?.quizType !== "listen" && current?.quizType !== "listen-type") {
+        return;
+      }
+      speakGerman(current.sentence || current.prompt || say);
+    });
   }
   if (state.view === "case") {
     refreshPlaylistChrome();
@@ -11885,6 +11962,18 @@ function guidedDealAndGo() {
           !(progress.graduated || []).includes(key) &&
           !(progress.skipped || []).includes(key)
       );
+  const weakRows = collectGuidedWeakUnits(candidates, stats, progress);
+  const weakConceptRows = weakConcepts(store, {
+    threshold: WEAK_ACCURACY,
+    minTotal: 1,
+  }).map((w) => ({
+    id: w.stat.conceptId || w.key,
+    correct: w.stat.correct,
+    total: w.stat.total,
+  }));
+  const evidenceUnits = grainsOfKind(store, EVIDENCE_GRAIN.UNIT).length;
+  const evidencePresets = grainsOfKind(store, EVIDENCE_GRAIN.UNIT_PRESET).length;
+  const evidenceItems = grainsOfKind(store, EVIDENCE_GRAIN.ITEM).length;
   const dealLog = state.guidedDealLog || (state.guidedDealLog = []);
   dealLog.push({
     at: Date.now(),
@@ -11897,20 +11986,26 @@ function guidedDealAndGo() {
       stage: plan.stage,
       streak: progress.streak,
       block: STAGE_BLOCK,
+      reviewEvery: plan.reviewEvery || reviewIntervalOf(progress),
     },
     key: c.key,
     label: guidedLabelForCandidate(c),
     territory: c.territory,
     mode: preset || "",
-    seenCount: (progress.graduated || []).length,
+    graduatedCount: (progress.graduated || []).length,
     candidateCount: candidates.length,
+    /** @deprecated use graduatedCount — kept so older audit rows still render */
+    seenCount: (progress.graduated || []).length,
+    evidenceUnits,
+    evidencePresets,
+    evidenceItems,
     recentHintDepth: recentGuidedHintDepth(),
     recentFeltDifficulty: recentGuidedFeltDifficulty(),
     chosenStat: chosenStat
       ? { correct: chosenStat.correct, total: chosenStat.total }
       : null,
-    weak: [],
-    weakConcepts: [],
+    weak: weakRows,
+    weakConcepts: weakConceptRows,
     nextNewKey: nextKey || null,
     nextNewLabel: nextKey
       ? guidedLabelForCandidate(candidates.find((item) => item.key === nextKey))
@@ -12839,33 +12934,68 @@ function currentGuidedQuestionCue() {
   const meta = currentNumberMeta();
   const ex = state.currentExercise;
   const mode = state.numbersQuizMode;
+  const reverse = mode === "convert" && isReverse(state.quizDirection);
+  const spoken =
+    ex?.resolution?.form ||
+    meta?.form ||
+    (meta?.value != null ? cardinalForm(meta.value) : "");
+  const written =
+    meta?.written ||
+    (meta?.value != null ? String(meta.value) : "") ||
+    ex?.resolution?.written ||
+    "";
+
   const lead = (() => {
     if (mode === "listen") {
-      return ex?.resolution?.form || meta?.form || "(audio)";
+      // Always record the spoken German in writing so auditors can verify TTS.
+      const form = spoken || "(audio)";
+      return written && written !== form ? `${form} [${written}]` : form;
     }
     if (mode === "proofread") {
-      return ex?.prompt?.wrong || meta?.form || "—";
+      return ex?.prompt?.wrong || spoken || "—";
     }
     if (mode === "sentence") {
-      return (
+      const prompt =
         ex?.prompt?.written ||
         ex?.prompt?.sentence ||
         meta?.prompt ||
         meta?.written ||
-        "—"
-      );
+        "—";
+      if (meta?.value != null && spoken) {
+        return `${prompt} [${spoken}]`;
+      }
+      return prompt;
     }
     if (mode === "visual") {
       return (
-        numbersLead(meta, meta?.form || "") ||
+        numbersLead(meta, spoken || "") ||
         ex?.prompt?.written ||
         "—"
       );
     }
-    return numbersLead(meta, meta?.form || String(meta?.value ?? "—"));
+    if (mode === "convert" && reverse) {
+      return spoken || "—";
+    }
+    if (isGeneratedNumberCard(meta)) {
+      const prompt = meta.prompt || meta.pattern || "—";
+      return spoken ? `${prompt} [${spoken}]` : prompt;
+    }
+    return numbersLead(meta, spoken || String(meta?.value ?? "—"));
   })();
 
   const task = (() => {
+    if (mode === "convert" && reverse) {
+      const pack = reverseNumbersConvert({
+        kind: meta?.kind,
+        value: meta?.value,
+        n: meta?.n,
+        form: spoken,
+        written: meta?.written,
+        english: meta?.english || meta?.englishWritten,
+      });
+      const target = pack.answer || written;
+      return target ? `${pack.ask} → ${target}` : pack.ask;
+    }
     if (mode === "build" || mode === "convert") {
       if (meta?.kind === "decimal" && mode === "convert") {
         const example = convertReadingExample(meta);
@@ -13233,6 +13363,45 @@ function guidedStatLine(key, store) {
 }
 
 /**
+ * Units that still need attention for Dealer audit / coach.
+ * - developing: tested (or open misses) and not yet reliably correct
+ * - needs_review: graduated unit whose accuracy has slipped below threshold
+ * Mastered / unseen are omitted from the weak list.
+ */
+function collectGuidedWeakUnits(candidates, stats, progress) {
+  const graduated = new Set(progress?.graduated || []);
+  const rows = [];
+  for (const c of candidates || []) {
+    const s = stats?.[c.key];
+    const wrong = progress?.coverage?.[c.key]?.wrong || [];
+    const openMisses = wrong.length > 0;
+    if (!s?.total && !openMisses) continue;
+    const acc = s?.total ? s.correct / s.total : null;
+    let band = "developing";
+    if (acc != null && acc < WEAK_ACCURACY) {
+      band = graduated.has(c.key) ? "needs_review" : "developing";
+    } else if (openMisses) {
+      band = "developing";
+    } else {
+      continue;
+    }
+    rows.push({
+      id: c.key,
+      label: guidedLabelForCandidate(c),
+      correct: s?.correct || 0,
+      total: s?.total || 0,
+      band,
+    });
+  }
+  rows.sort((a, b) => {
+    const aa = a.total ? a.correct / a.total : 0;
+    const ba = b.total ? b.correct / b.total : 0;
+    return aa - ba;
+  });
+  return rows;
+}
+
+/**
  * Coach sheet — layers 1–2 by default; dealer policy behind a disclosure.
  * Opens only in Guided (caller checks sessionMode).
  */
@@ -13245,8 +13414,6 @@ function openGuidedCoachSheet() {
   const progress = state.guidedProgress || emptyGuidedProgress();
   const graduated = new Set(progress.graduated || []);
   const skippedSet = new Set(progress.skipped || []);
-  const seen = new Set([...graduated, ...skippedSet]);
-  if (progress.openKey) seen.add(progress.openKey);
   const store = scheduling.evidence;
   const stats = dealerStatsFromEvidence(store, candidates);
   const current = candidates.find((c) => c.key === key);
@@ -13257,18 +13424,13 @@ function openGuidedCoachSheet() {
       : "—";
   const currentStat = key ? guidedStatLine(key, store) : null;
 
-  // Weak = seen keys under mastery threshold, lowest accuracy first.
-  const weak = candidates
-    .filter((c) => seen.has(c.key))
-    .map((c) => {
-      const s = stats[c.key];
-      if (!s?.total) return null;
-      const acc = s.correct / s.total;
-      if (acc >= WEAK_ACCURACY) return null;
-      return { c, acc, s };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.acc - b.acc);
+  // Weak = developing / needs-review (accuracy or open misses), not "unseen".
+  const weak = collectGuidedWeakUnits(candidates, stats, progress).map((w) => ({
+    c: candidates.find((c) => c.key === w.id) || { key: w.id },
+    acc: w.total ? w.correct / w.total : 0,
+    s: { correct: w.correct, total: w.total },
+    band: w.band,
+  }));
 
   const nextNew = candidates.find(
     (c) => !graduated.has(c.key) && !skippedSet.has(c.key) && c.key !== progress.openKey
@@ -13327,12 +13489,12 @@ function openGuidedCoachSheet() {
   if (weak.length) {
     const rows = weak
       .slice(0, 5)
-      .map(
-        (w) =>
-          `<li><span>${escapeHtml(guidedLabelForCandidate(w.c))}</span> <span class="coach-stat">${w.s.correct} of ${w.s.total}</span></li>`
-      )
+      .map((w) => {
+        const band = w.band === "needs_review" ? "needs review" : "developing";
+        return `<li><span>${escapeHtml(guidedLabelForCandidate(w.c))}</span> <span class="coach-stat">${band} · ${w.s.correct} of ${w.s.total}</span></li>`;
+      })
       .join("");
-    progressBits += `<p class="coach-sub">Needs review</p><ul class="coach-list">${rows}</ul>`;
+    progressBits += `<p class="coach-sub">Developing / needs review</p><ul class="coach-list">${rows}</ul>`;
   }
   if (nextNew && reason?.code !== "new") {
     progressBits += `<p class="coach-soft">Next new: <strong>${escapeHtml(
@@ -13348,7 +13510,7 @@ function openGuidedCoachSheet() {
       <li><strong>Coverage</strong> — each step practices a spread of that unit. The same example is not repeated while others are still unanswered.</li>
       <li><strong>Harder step</strong> — the next preset starts after this step's required items have been answered correctly. A miss brings that item back.</li>
       <li><strong>Next unit</strong> — the unit finishes when every step's required items are done, not after a short streak.</li>
-      <li><strong>Review</strong> — every ${SPRINKLE_EVERY}th card can be one from a unit you already finished.</li>
+      <li><strong>Review</strong> — interleaved cards from finished units (starts every ${SPRINKLE_EVERY} deals; the gap grows when retrieval stays strong, up to a wider spacing).</li>
     </ol>
     <p class="coach-soft">This deal: <code>${escapeHtml(
       reason?.code || "—"
@@ -13439,19 +13601,23 @@ function formatGuidedDealRow(d) {
   const stat = d.chosenStat
     ? `${d.chosenStat.correct}/${d.chosenStat.total}`
     : "—";
+  const weakThresholdPct = Math.round(WEAK_ACCURACY * 100);
   const weak =
     d.weak?.length > 0
       ? d.weak
-          .map(
-            (w) =>
-              `${escapeHtml(w.label)} (${w.correct}/${w.total})`
-          )
+          .map((w) => {
+            const band = w.band ? `${w.band} ` : "";
+            return `${escapeHtml(w.label)} [${band}${w.correct}/${w.total}]`;
+          })
           .join("; ")
-      : "none";
+      : `none below ${weakThresholdPct}% / no open misses`;
   const feats = d.auditFeatures || {};
+  const graduated =
+    d.graduatedCount != null ? d.graduatedCount : d.seenCount;
   const featBits = [
     d.tier ? `tier ${d.tier}` : "",
     feats.preset ? `preset ${feats.preset}` : "",
+    feats.reviewEvery != null ? `reviewEvery ${feats.reviewEvery}` : "",
     feats.unitAcc != null ? `unit ${(feats.unitAcc * 100).toFixed(0)}%` : "",
     feats.hardAcc != null ? `hard ${(feats.hardAcc * 100).toFixed(0)}%` : "",
     feats.easyAcc != null ? `easy ${(feats.easyAcc * 100).toFixed(0)}%` : "",
@@ -13480,6 +13646,14 @@ function formatGuidedDealRow(d) {
           .map((w) => `${escapeHtml(w.id)} (${w.correct}/${w.total})`)
           .join("; ")
       : "";
+  const inventory = [
+    `graduated ${graduated ?? "—"}/${d.candidateCount ?? "—"} units`,
+    d.evidenceUnits != null ? `evidence units ${d.evidenceUnits}` : "",
+    d.evidencePresets != null ? `unit×preset ${d.evidencePresets}` : "",
+    d.evidenceItems != null ? `items ${d.evidenceItems}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const reasonClass = String(d.reason || "").replace(/_/g, "-");
   return `<li class="dbg-deal">
     <div class="dbg-qa-head">
@@ -13497,12 +13671,12 @@ function formatGuidedDealRow(d) {
         ? `<div class="dbg-soft">${escapeHtml(d.reasonHint)}</div>`
         : ""
     }
-    <div class="dbg-soft">seen ${d.seenCount}/${d.candidateCount} · unit stats ${escapeHtml(
+    <div class="dbg-soft">${escapeHtml(inventory)} · unit stats ${escapeHtml(
       stat
     )}${d.mode ? ` · ${escapeHtml(d.mode)}` : ""}${
       featBits ? ` · ${escapeHtml(featBits)}` : ""
     }</div>
-    <div class="dbg-soft">weak units: ${weak}</div>
+    <div class="dbg-soft">weak units (&lt;${weakThresholdPct}% or open miss): ${weak}</div>
     ${
       concepts
         ? `<div class="dbg-soft">weak concepts: ${concepts}</div>`
@@ -15370,8 +15544,22 @@ function numbersLead(meta, fallback = "") {
   return isClockMeta(meta) ? formatClockWritten(base) : base;
 }
 
-/** Action instruction — preset labels only (no topic/kind exceptions). */
-function numbersInstruction(mode, _meta) {
+/**
+ * Action instruction for the Numbers crumb.
+ * Convert · reverse asks for the written/€/digit side — not “Type the German”.
+ */
+function numbersInstruction(mode, meta) {
+  if (mode === "convert" && isReverse(state.quizDirection)) {
+    const pack = reverseNumbersConvert({
+      kind: meta?.kind,
+      value: meta?.value,
+      n: meta?.n,
+      form: meta?.form,
+      written: meta?.written,
+      english: meta?.english || meta?.englishWritten,
+    });
+    return pack?.ask || "Type the written form";
+  }
   return NUMBERS_INSTRUCTION[mode] || "";
 }
 
@@ -15670,16 +15858,27 @@ function normalizeAnswerCandidate(raw) {
  * How a typed convert answer matched the canonical / accepted forms.
  * @returns {{ ok: boolean, status: string, answer: string, expected: string, note: string }}
  */
+/** Expand accepted convert surfaces (money whole-euro format twins, etc.). */
+function expandConvertAcceptedForms(canonical, acceptedForms = []) {
+  const forms = [
+    String(canonical || "").trim(),
+    ...acceptedForms.map((f) => String(f || "").trim()).filter(Boolean),
+  ];
+  const out = [...forms];
+  for (const form of forms) {
+    if (/€/.test(form) || /^\d+[.,]\d{2}$/.test(form)) {
+      out.push(...moneyWrittenAlternates(form));
+    }
+  }
+  return [...new Set(out.filter(Boolean))];
+}
+
 function convertAnswerAudit(raw, canonical, acceptedForms = []) {
   const display = String(raw || "")
     .trim()
     .replace(/\s+/g, " ");
   const expected = String(canonical || "").trim();
-  const forms = [
-    expected,
-    ...acceptedForms.map((f) => String(f || "").trim()).filter(Boolean),
-  ];
-  const uniqForms = [...new Set(forms)];
+  const uniqForms = expandConvertAcceptedForms(expected, acceptedForms);
 
   // Exact surface match (no orthography fold).
   for (const form of uniqForms) {
@@ -15702,6 +15901,8 @@ function convertAnswerAudit(raw, canonical, acceptedForms = []) {
       note = "ss accepted for ß";
     } else if (/ß/.test(display) && /ss/i.test(form) && !/ß/.test(form)) {
       note = "ß accepted for ss";
+    } else if (/€/.test(display) || /€/.test(form)) {
+      note = "euro amount format";
     }
     return {
       ok: true,
@@ -15722,9 +15923,9 @@ function convertAnswerAudit(raw, canonical, acceptedForms = []) {
 }
 
 /**
- * Build/chip answers for the audit log — always show implied spaces between
- * chips (learners cannot type spaces in Build). Prefer chip join over the
- * engine's often-fused citation form (fünfzehnte → fünf zehn te).
+ * Build/chip answers for the audit log.
+ * Log the standard written (usually fused) citation form — not chip-spaced
+ * surfaces like "sieb zehn" / "neun und vierzig".
  */
 function buildAnswerForAudit(built, evaluation, canonicalForm) {
   const chips = (built || []).map((p) => String(p || "").trim()).filter(Boolean);
@@ -15735,34 +15936,29 @@ function buildAnswerForAudit(built, evaluation, canonicalForm) {
     .replace(/\s+/g, " ")
     .trim();
   const status = evaluation?.status || "";
-  // When chips spell the same orthography as the citation form, log the
-  // chip-spaced surface (Build's implied spaces), not the fused word.
-  const sameOrtho =
-    spaced &&
-    canonical &&
-    spaced.replace(/\s+/g, "") === canonical.replace(/\s+/g, "");
-  const spacedCanonical = sameOrtho ? spaced : canonical;
+  const expected = canonical || spaced || "—";
 
   if (status === "correct") {
     return {
-      answer: spaced || spacedCanonical || "—",
-      expected: spacedCanonical || spaced || "—",
+      answer: expected,
+      expected,
       status: "correct",
       note: "",
     };
   }
 
   if (status === "accepted-alternative") {
-    const matchedRaw = String(evaluation?.matchedAnswer || spaced)
+    const matchedRaw = String(evaluation?.matchedAnswer || "")
       .replace(/\s+/g, " ")
       .trim();
-    // Prefer chip spacing when matchedAnswer is a fused orthography twin.
-    const matched =
-      spaced &&
+    // Prefer fused citation when chips only differ by boundaries.
+    const matchedFusesToCanonical =
       matchedRaw &&
-      spaced.replace(/\s+/g, "") === matchedRaw.replace(/\s+/g, "")
-        ? spaced
-        : matchedRaw || spaced;
+      canonical &&
+      matchedRaw.replace(/\s+/g, "") === canonical.replace(/\s+/g, "");
+    const matched = matchedFusesToCanonical
+      ? canonical
+      : matchedRaw || expected;
     let note = "accepted alternate form";
     if (evaluation?.evidenceIds?.includes("eval.alt.segmentation")) {
       note = "alternate chip boundaries";
@@ -15776,17 +15972,16 @@ function buildAnswerForAudit(built, evaluation, canonicalForm) {
       note = stripHtmlToText(evaluation.explanation).slice(0, 80);
     }
     return {
-      answer: matched || spaced || "—",
-      expected: spacedCanonical || matched || "—",
+      answer: matched,
+      expected,
       status: "accepted-alternative",
       note,
     };
   }
 
-  // Incorrect / other — still space chips so the log is readable.
   return {
     answer: spaced || "—",
-    expected: spacedCanonical || spaced || "—",
+    expected,
     status: status === "valid-but-unintended" ? "incorrect" : status || "incorrect",
     note: "",
   };
@@ -15804,8 +15999,9 @@ function convertInputMatches(typed, targetForm, acceptedForms) {
       variants.push(normalizeAnswerCandidate(String(form).replace(/ß/g, "ss")));
     }
   };
-  add(targetForm);
-  for (const alt of acceptedForms || []) add(alt);
+  for (const form of expandConvertAcceptedForms(targetForm, acceptedForms || [])) {
+    add(form);
+  }
   const uniq = [...new Set(variants)];
   return {
     typed: t,
@@ -15831,6 +16027,8 @@ function renderNumbersConvert() {
   ensureSessionChip();
   ensureQuizDirectionValid();
   const reverse = isReverse(state.quizDirection);
+  // Direction can settle here — refresh crumb so reverse isn’t “Type the German”.
+  setActionInstruction("numbers", numbersInstruction("convert", meta));
 
   let promptHtml;
   const showEn = supportOn("english");
@@ -16005,28 +16203,8 @@ function checkNumbersConvert(raw, opts = {}) {
       }
     }
   }
-  // Cardinal compounds: allow value-parse only when casing already matches
-  // the all-lowercase cardinal orthography (no capitals to police).
-  if (
-    !reverse &&
-    !ok &&
-    exercise.resolution?.value != null &&
-    meta?.kind === "cardinal"
-  ) {
-    const spacingOk =
-      !/\s/.test(form) || /\s/.test(String(raw || "").trim());
-    if (spacingOk && typed === typed.toLowerCase()) {
-      const parsed = parseCardinalForm(typed.replace(/\s+/g, ""));
-      if (parsed === exercise.resolution.value) {
-        ok = true;
-        audit.ok = true;
-        audit.status = "accepted-alternative";
-        audit.answer = String(raw || "").trim().replace(/\s+/g, " ") || typed;
-        audit.expected = exercise.resolution.form;
-        audit.note = "accepted via value parse";
-      }
-    }
-  }
+  // Cardinal convert: do not accept spaced compounds ("sieb zehn",
+  // "neun und vierzig"). Standard written forms are fused; ß/ss is enough.
 
   pushScoredAttempt({
     territoryId: "numbers",
@@ -16147,7 +16325,7 @@ function checkNumbersListen(answer) {
     ok = convertInputMatches(String(answer), target, accepted).isComplete;
   } else if (writtenMode) {
     target = exercise.resolution.written;
-    ok = normalizeConvertInput(answer) === normalizeConvertInput(target);
+    ok = convertInputMatches(String(answer), target, accepted).isComplete;
   } else {
     target = exercise.resolution.value;
     ok = Number(answer) === Number(target);
@@ -20134,7 +20312,7 @@ function currentListenPrompt() {
   ) {
     const question = casePresentedQuestion(state.caseQuestion);
     if (question?.quizType === "listen" || question?.quizType === "listen-type") {
-      return question.sentence || "";
+      return question.sentence || question.prompt || "";
     }
   }
   if (
@@ -20173,11 +20351,18 @@ function speakVisibleListenPrompt() {
     );
     return;
   }
+  const caseId =
+    state.view === "case"
+      ? casePresentedQuestion(state.caseQuestion)?.playId ||
+        state.caseQueueIndex ||
+        ""
+      : "";
   const key = [
     state.view,
     state.numbersHistoryIndex,
     state.nounsHistoryIndex,
     state.soundsIndex,
+    caseId,
     text,
   ].join("|");
   if (spokenListenKey === key) return;

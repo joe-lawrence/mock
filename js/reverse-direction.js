@@ -99,6 +99,55 @@ function clockWrittenForms(written) {
 }
 
 /**
+ * Written euro amounts that mean the same value (whole euros drop optional `,00`).
+ * Canonical display stays `130,00 €`; learners may type `130 €`.
+ * @param {string} written
+ * @returns {string[]}
+ */
+export function moneyWrittenAlternates(written) {
+  const raw = String(written || "").trim().replace(/\s+/g, " ");
+  if (!raw) return [];
+  const forms = new Set();
+  const add = (s) => {
+    const t = String(s || "").trim().replace(/\s+/g, " ");
+    if (!t) return;
+    forms.add(t);
+    forms.add(t.replace(/\s+€/g, "€"));
+    if (/€$/.test(t) && !/\s€$/.test(t)) {
+      forms.add(t.replace(/€$/, " €"));
+    }
+  };
+  add(raw);
+  const m = /^(\d+)(?:[.,](\d{2}))?\s*€$/.exec(raw);
+  if (m) {
+    const euros = m[1];
+    const cents = m[2] ?? "00";
+    if (cents === "00") {
+      for (const s of [
+        `${euros} €`,
+        `${euros}€`,
+        `${euros},00 €`,
+        `${euros},00€`,
+        `${euros}.00 €`,
+        `${euros}.00€`,
+      ]) {
+        add(s);
+      }
+    } else {
+      for (const s of [
+        `${euros},${cents} €`,
+        `${euros},${cents}€`,
+        `${euros}.${cents} €`,
+        `${euros}.${cents}€`,
+      ]) {
+        add(s);
+      }
+    }
+  }
+  return uniqueForms([...forms]);
+}
+
+/**
  * German spoken form → the canonical written value (decimal, money, fraction,
  * clock, duration, measure).
  * @param {{ kind?: string, form?: string, written?: string }} meta
@@ -123,7 +172,7 @@ function writtenFormReverse(meta) {
     hint = "Read the German — type the amount (e.g. 3,50 €).";
     placeholder = "e.g. 3,50 €";
     ariaLabel = "Euro amount";
-    if (written) accepted.push(written.replace(/\s+€/g, "€"));
+    accepted = moneyWrittenAlternates(written);
   } else if (kind === "fraction" || kind === "mixed-fraction") {
     ask = "Type the fraction";
     hint = "Read the German — type the fraction (e.g. 2/3).";

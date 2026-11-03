@@ -10,10 +10,15 @@
  * they are built in, after Numbers.
  */
 
-import { markCoverage, normalizeCoverage, sliceCovered } from "./guided-coverage.js?v=20261103-variety";
+import { markCoverage, normalizeCoverage, sliceCovered } from "./guided-coverage.js?v=20261103-listen-rand";
 
 export const STAGE_BLOCK = 3;
+/** Baseline deals between reviews when a unit is open and others are finished. */
 export const SPRINKLE_EVERY = 4;
+/** Cap how far successful retrieval can stretch the review gap. */
+export const SPRINKLE_EVERY_MAX = 12;
+/** Successful reviews in a row before the gap grows. */
+export const REVIEW_STREAK_TO_GROW = 2;
 export const LADDER_STEPS = 3;
 
 /** Numbers units in guided order. Support-word steps open a topic, except money phrases. */
@@ -68,7 +73,7 @@ export const GUIDED_REASONS = Object.freeze({
   review: {
     code: "review",
     label: "Review",
-    hint: "A quick card from a unit you already finished.",
+    hint: "A quick card from a unit you already finished. Successful retrieval spaces these out further.",
   },
   done: {
     code: "continue",
@@ -77,7 +82,20 @@ export const GUIDED_REASONS = Object.freeze({
   },
 });
 
-/** @returns {{ graduated: string[], skipped: string[], openKey: string|null, stage: number, streak: number, deals: number }} */
+/**
+ * @returns {{
+ *   graduated: string[],
+ *   skipped: string[],
+ *   openKey: string|null,
+ *   stage: number,
+ *   streak: number,
+ *   deals: number,
+ *   coverage: object,
+ *   pickSalt: number,
+ *   reviewEvery: number,
+ *   reviewHits: number,
+ * }}
+ */
 export function emptyGuidedProgress() {
   return {
     graduated: [],
@@ -88,7 +106,15 @@ export function emptyGuidedProgress() {
     deals: 0,
     coverage: {},
     pickSalt: 0,
+    reviewEvery: SPRINKLE_EVERY,
+    reviewHits: 0,
   };
+}
+
+/** Current review gap (grows after reliable retrieval). */
+export function reviewIntervalOf(progress) {
+  const n = Math.floor(Number(progress?.reviewEvery) || SPRINKLE_EVERY);
+  return Math.min(SPRINKLE_EVERY_MAX, Math.max(SPRINKLE_EVERY, n));
 }
 
 function stringList(raw) {
@@ -120,6 +146,8 @@ export function normalizeGuidedProgress(raw) {
     deals: Math.max(0, Number(src.deals) || 0),
     coverage: normalizeCoverage(src.coverage),
     pickSalt: Math.max(0, Math.floor(Number(src.pickSalt) || 0)),
+    reviewEvery: reviewIntervalOf(src),
+    reviewHits: Math.max(0, Math.floor(Number(src.reviewHits) || 0)),
   };
 }
 
@@ -239,6 +267,20 @@ export function applyGuidedResult(progress, result) {
     if (unitKey && contentKey) {
       next.coverage = markCoverage(next.coverage, unitKey, contentKey, !!result.correct);
     }
+    // Successful retrieval stretches the gap; a miss snaps back to the baseline.
+    if (result.correct) {
+      next.reviewHits = (next.reviewHits || 0) + 1;
+      if (next.reviewHits >= REVIEW_STREAK_TO_GROW) {
+        next.reviewEvery = Math.min(
+          SPRINKLE_EVERY_MAX,
+          reviewIntervalOf(next) + SPRINKLE_EVERY
+        );
+        next.reviewHits = 0;
+      }
+    } else {
+      next.reviewHits = 0;
+      next.reviewEvery = SPRINKLE_EVERY;
+    }
     return next;
   }
   if (!open) return next;
@@ -296,8 +338,8 @@ export function planGuidedStep({ pathKeys, progress, ladderOf }) {
   const open = aligned.openKey;
   const graduated = aligned.graduated.filter((key) => keys.includes(key));
   const deals = aligned.deals + 1;
-  const reviewTurn =
-    !!open && deals % SPRINKLE_EVERY === 0 && graduated.length > 0;
+  const every = reviewIntervalOf(aligned);
+  const reviewTurn = !!open && deals % every === 0 && graduated.length > 0;
   if (!open) {
     const key = graduated[graduated.length - 1] || keys[0];
     const ladder = ladderOf(key) || [];
@@ -308,19 +350,24 @@ export function planGuidedStep({ pathKeys, progress, ladderOf }) {
       reason: GUIDED_REASONS.done,
       stage: 0,
       deals,
+      reviewEvery: every,
     };
   }
   if (reviewTurn) {
-    const index = (Math.floor(deals / SPRINKLE_EVERY) - 1) % graduated.length;
+    const index = (Math.floor(deals / every) - 1) % graduated.length;
     const key = graduated[index];
     const ladder = ladderOf(key) || [];
     return {
       key,
       presetId: ladder[0] || null,
       review: true,
-      reason: GUIDED_REASONS.review,
+      reason: {
+        ...GUIDED_REASONS.review,
+        hint: `A quick card from a unit you already finished (about every ${every} deals while retrieval stays strong).`,
+      },
       stage: 0,
       deals,
+      reviewEvery: every,
     };
   }
   const ladder = ladderOf(open) || [];
@@ -333,5 +380,6 @@ export function planGuidedStep({ pathKeys, progress, ladderOf }) {
     reason: GUIDED_REASONS.focus,
     stage,
     deals,
+    reviewEvery: every,
   };
 }
