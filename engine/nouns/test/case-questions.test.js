@@ -330,24 +330,20 @@ describe("case mixed questions", () => {
 });
 
 describe("case play deck", () => {
-  it("judges a changed form, then types it from the citation", () => {
+  it("judges a changed form without typing the article from the citation", () => {
     const play = buildCasePlayDeck(buildCaseUnitQuestions("case.acc.masc"));
     const types = new Set(play.map((q) => q.quizType));
     assert.equal(play.some((q) => q.quizType === "case-name"), false);
     assert.ok(types.has("proofread"));
     assert.ok(types.has("sentence"));
-    assert.ok(types.has("type"));
     assert.ok(types.has("listen"));
     assert.ok(types.has("build"));
-    assert.ok(types.size >= 2);
-    const typed = play.find(
-      (q) => q.quizType === "type" && q.lemma === "Bus" && q.articleKind === "definite"
+    assert.ok(types.has("sentence-type"));
+    assert.equal(
+      play.some((q) => q.quizType === "type" && q.target === "article"),
+      false
     );
-    assert.equal(typed.prompt, "der Bus");
-    assert.equal(typed.correct, "den");
-    assert.equal(typed.interaction.presetId, "produce");
-    assert.equal(typed.interaction.response, "freeform");
-    assert.equal(typed.prompt.includes("___"), false);
+    assert.ok(types.size >= 2);
     const judged = play.filter((q) => q.quizType === "proofread");
     assert.ok(judged.some((q) => q.correct === "Richtig"));
     assert.ok(judged.some((q) => q.correct === "Falsch"));
@@ -356,11 +352,11 @@ describe("case play deck", () => {
       (step) => step.id === "masc"
     ).modes;
     assert.ok(mascModes.includes("proofread"));
-    assert.ok(mascModes.includes("produce"));
+    assert.equal(mascModes.includes("produce"), false);
     assert.equal(mascModes.every((mode) => mode === "choose"), false);
   });
 
-  it("does not ask for a typed article when the form does not change", () => {
+  it("does not ask for a typed article from the citation form", () => {
     const unchanged = buildCasePlayDeck(buildCaseUnitQuestions("case.acc.unchanged"));
     const types = new Set(unchanged.map((q) => q.quizType));
     assert.equal(unchanged.some((q) => q.quizType === "type"), false);
@@ -371,6 +367,11 @@ describe("case play deck", () => {
     for (const id of ["case.dat.helfen", "case.prep.fuer", "case.dat.plural", "case.prep.ohne"]) {
       const play = buildCasePlayDeck(buildCaseUnitQuestions(id));
       assert.equal(play.some((q) => q.quizType === "case-name"), false, id);
+      assert.equal(
+        play.some((q) => q.quizType === "type" && q.target === "article"),
+        false,
+        id
+      );
       assert.ok(new Set(play.map((q) => q.quizType)).size >= 2, id);
     }
   });

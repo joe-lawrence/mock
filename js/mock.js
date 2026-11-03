@@ -335,10 +335,11 @@ import {
   drawPromptNumber,
   pickGuidedContent,
   promptSlots,
+  sliceForSkill,
   slicesForLadder,
   SPAN_LIMIT,
   spanSample,
-} from "./guided-coverage.js?v=20261103-listen-rand";
+} from "./guided-coverage.js?v=20261103-empty-slice";
 import {
   reportCardJson,
   fullAuditJson,
@@ -11678,6 +11679,7 @@ function dealerPresetSeeds() {
     "convert",
     "choose",
     "proofread",
+    "produce",
     "visual",
     "visual-freeform",
     "set-dial",
@@ -12259,8 +12261,9 @@ function placeGuidedCoverage(deck, unitKey, skill, writeIndex) {
     coverageTake(unitKey, keys.length)
   );
   const ladder = guidedLadderFor(unitKey);
-  const slices = slicesForLadder(required, ladder.length ? ladder : [skill || "practice"]);
-  const slice = slices[skill] || slices[ladder[0]] || required;
+  const rungs = ladder.length ? ladder : [skill || "practice"];
+  const slices = slicesForLadder(required, rungs);
+  const slice = sliceForSkill(slices, skill, rungs, required);
   const row = state.guidedProgress?.coverage?.[unitKey] || {
     correct: [],
     wrong: [],

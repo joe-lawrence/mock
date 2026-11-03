@@ -10,7 +10,7 @@
  * they are built in, after Numbers.
  */
 
-import { markCoverage, normalizeCoverage, sliceCovered } from "./guided-coverage.js?v=20261103-listen-rand";
+import { markCoverage, normalizeCoverage, sliceCovered } from "./guided-coverage.js?v=20261103-empty-slice";
 
 export const STAGE_BLOCK = 3;
 /** Baseline deals between reviews when a unit is open and others are finished. */

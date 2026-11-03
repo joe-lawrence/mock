@@ -176,8 +176,31 @@ export function slicesForLadder(contentKeys, ladder) {
   return slices;
 }
 
+/**
+ * Prefer the skill's own keys. An empty rung (common when the filtered deck
+ * has fewer items than the ladder) must not win over a sibling slice — `[]`
+ * is truthy and used to deadlock Guided on singleton produce/build decks.
+ * @param {Record<string, string[]>} slices
+ * @param {string} skill
+ * @param {readonly string[]} ladder
+ * @param {readonly string[]} required
+ */
+export function sliceForSkill(slices, skill, ladder = [], required = []) {
+  const nonEmpty = (name) => {
+    const list = slices?.[name];
+    return Array.isArray(list) && list.length ? list : null;
+  };
+  return (
+    nonEmpty(skill) ||
+    nonEmpty(ladder[0]) ||
+    (Array.isArray(required) && required.length ? [...required] : [])
+  );
+}
+
 export function sliceCovered(slice, correct) {
   const need = (slice || []).filter(Boolean);
+  // Empty means "no slice supplied" (or a hollow rung that should have been
+  // replaced via sliceForSkill). Do not treat it as finished coverage.
   if (!need.length) return false;
   const done = new Set(correct || []);
   return need.every((key) => done.has(key));

@@ -7,10 +7,11 @@
  *    articles are both dealt. This is error detection, not production.
  * 2. One later ask, rotating so a unit is not one quiz type:
  *    - sentence — pick the article in the existing sentence blank
- *    - produce — type the changed article from the nominative citation
  *    - listen — hear the sentence, pick the article
  *    - build — assemble the noun phrase from chips
- * Unchanged articles are not typed: die → die is not production.
+ * Articles are not typed from the nominative citation (der Hund → den);
+ * sentence-type / listen-type cover freeform production in context.
+ * Noun targets (dative plural) still alternate build and type.
  * case-name (pick one of Nominative / Accusative / Dative) is only dealt
  * when the unit contains all three cases, so the answer is not constant.
  * Typed answers are the article or noun alone, not a blank inside a sentence.
@@ -446,17 +447,16 @@ function buildSpec(question) {
 }
 
 /**
- * The second ask on an item. Unchanged articles are judged, selected, heard,
- * or built — not typed, because the citation and the target are the same word.
+ * The second ask on an item. Article slots are judged, selected, heard, or
+ * built — not typed from the citation form (der Hund → den), which added
+ * little beyond sentence-type / listen-type. Noun targets (dative plural)
+ * still alternate build and type.
  * @param {number} index
  * @param {object} question
  */
 function productionRole(index, question) {
   if (question?.target === "noun") return index % 2 === 0 ? "build" : "type";
-  if (!caseFormChanges(question)) {
-    return ["sentence", "build", "listen"][index % 3];
-  }
-  return ["sentence", "type", "listen", "build"][index % 4];
+  return ["sentence", "build", "listen"][index % 3];
 }
 
 /**
@@ -550,9 +550,9 @@ function proofreadCard(slot, showCorrect) {
   });
 }
 
+/** Freeform type prompt for noun targets (dative plural). Articles use sentence-type instead. */
 function typeCard(slot) {
   const base = slot.guidedQuestion || slot.unguidedQuestion;
-  const noun = base.target === "noun";
   return Object.freeze({
     ...base,
     id: `${base.id}.play.type`,
@@ -565,7 +565,7 @@ function typeCard(slot) {
     answerCue: slot.guidedQuestion?.cue || "",
     choices: Object.freeze([]),
     correct: base.correct,
-    family: noun ? "Dative plural" : caseNameLabel(base.case),
+    family: "Dative plural",
     focusPhrase: "",
     interaction: PLAY_INTERACTION.type,
   });
@@ -745,6 +745,7 @@ export function buildCasePlayDeck(questions) {
 
   const cards = [];
   const sentenceSeen = new Set();
+  const listenSeen = new Set();
   for (const plan of plans) {
     for (const role of plan.roles) {
       if (role === "case-name") cards.push(caseNameCard(plan.slot));
@@ -753,8 +754,13 @@ export function buildCasePlayDeck(questions) {
         const showCorrect = stableMod(`${base.contextId}:${base.lemma}:${base.target}`, 2) === 0;
         cards.push(proofreadCard(plan.slot, showCorrect));
       } else if (role === "type") cards.push(typeCard(plan.slot));
-      else if (role === "listen") cards.push(listenCard(plan.slot));
-      else if (role === "listen-type") cards.push(listenTypeCard(plan.slot));
+      else if (role === "listen") {
+        const base = plan.slot.guidedQuestion || plan.slot.unguidedQuestion;
+        const heard = String(base?.sentence || "");
+        if (!heard || listenSeen.has(heard)) continue;
+        listenSeen.add(heard);
+        cards.push(listenCard(plan.slot));
+      } else if (role === "listen-type") cards.push(listenTypeCard(plan.slot));
       else if (role === "sentence-type") cards.push(sentenceTypeCard(plan.slot));
       else if (role === "build") cards.push(buildCard(plan.slot));
       else {

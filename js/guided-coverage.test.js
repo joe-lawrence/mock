@@ -12,6 +12,8 @@ import {
   markCoverage,
   pickGuidedContent,
   promptSlots,
+  sliceCovered,
+  sliceForSkill,
   slicesForLadder,
   spanSample,
 } from "./guided-coverage.js";
@@ -28,6 +30,19 @@ describe("guided coverage", () => {
     assert.deepEqual(slices.build, ["n:1", "n:4", "n:7", "n:10"]);
     assert.deepEqual(slices.convert, ["n:2", "n:5", "n:8", "n:11"]);
     assert.equal(slices.listen.includes("n:1"), false);
+  });
+
+  it("does not keep an empty ladder rung when the filtered deck has one item", () => {
+    const required = ["id:play:build:article:fuer_acc_indef:Mann"];
+    const rungs = ["listen", "build", "sentence-type"];
+    const slices = slicesForLadder(required, rungs);
+    assert.deepEqual(slices.listen, required);
+    assert.deepEqual(slices.build, []);
+    assert.deepEqual(slices["sentence-type"], []);
+    assert.deepEqual(sliceForSkill(slices, "build", rungs, required), required);
+    assert.equal(sliceCovered([], ["anything"]), false);
+    assert.equal(sliceCovered(required, []), false);
+    assert.equal(sliceCovered(required, required), true);
   });
 
   it("asks for the next uncovered example, not the one just answered", () => {
