@@ -10,7 +10,7 @@
  * they are built in, after Numbers.
  */
 
-import { markCoverage, normalizeCoverage, sliceCovered } from "./guided-coverage.js?v=20261102-rand";
+import { markCoverage, normalizeCoverage, sliceCovered } from "./guided-coverage.js?v=20261103-variety";
 
 export const STAGE_BLOCK = 3;
 export const SPRINKLE_EVERY = 4;

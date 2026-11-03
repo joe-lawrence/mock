@@ -93,6 +93,14 @@ function fillPhrase(template, n) {
   return String(template || "").replace(/\{n\}/g, String(n));
 }
 
+function normalizeAvoid(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/ß/g, "ss")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
 function pickOne(list, random = Math.random) {
   if (!list?.length) return null;
   const roll = Number(random());
@@ -196,7 +204,12 @@ export function realizeNumberSense(template, opts = {}) {
     };
   }
 
-  const raw = pickOne(entry.phrases, random);
+  const avoid = normalizeAvoid(opts.avoidPrompt);
+  const phraseBank = (entry.phrases || []).filter((raw) => {
+    if (!avoid) return true;
+    return normalizeAvoid(fillPhrase(raw, n)) !== avoid;
+  });
+  const raw = pickOne(phraseBank.length ? phraseBank : entry.phrases, random);
   const phrase = fillPhrase(raw, n);
   if (direction === "reverse") {
     return {
@@ -243,9 +256,6 @@ export function realizeNumberSense(template, opts = {}) {
 /** Build one card for a zählen frame (and any leftover digit patterns). */
 export function realizeNumberPrompt(template, n) {
   const value = Number(n);
-  const min = Number.isInteger(template?.min) ? template.min : 0;
-  const max = Number.isInteger(template?.max) ? template.max : 9;
-  const others = otherNumbers(value, min, max, 3);
   const pattern = template?.pattern;
   let english = "";
   let form = "";
@@ -253,7 +263,13 @@ export function realizeNumberPrompt(template, n) {
   if (pattern === "zaehlen-sentence") {
     english = `I count to ${value}.`;
     form = `Ich zähle bis ${value}.`;
-    choices = [form, ...others.map((digit) => `Ich zähle bis ${digit}.`)];
+    // Same target number; distractors vary the wording (not Ich zähle bis N±k).
+    choices = [
+      form,
+      `Die Zahl ist ${value}.`,
+      `Ich habe ${value}.`,
+      `Wie viele sind das?`,
+    ];
   }
   return {
     kind: "example-sentence",

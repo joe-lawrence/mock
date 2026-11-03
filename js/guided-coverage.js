@@ -25,7 +25,25 @@ export const GUIDED_PICK = Object.freeze({
     label: "Review",
     hint: "The required items are done. This one comes back after the others.",
   },
+  contrast: {
+    code: "contrast",
+    label: "Contrast peek",
+    hint: "A related sense word so the thin unit does not hammer one surface.",
+  },
 });
+
+/**
+ * Surface fingerprint for Zahl/Nummer/Anzahl cards (lemma + task + direction + cue).
+ * Coverage still uses slot ids; this only de-dupes what the learner sees.
+ */
+export function numberSenseSurfaceKey(meta) {
+  const word = String(meta?.word || "");
+  const task = String(meta?.task || "");
+  const direction = String(meta?.direction || "");
+  const prompt = normalizeQuestionText(meta?.prompt || "");
+  const n = Number.isInteger(meta?.value) ? String(meta.value) : "";
+  return `${word}|${task}|${direction}|${prompt}|${n}`;
+}
 
 /** Ignore case, punctuation, and spacing when comparing a prompt to an earlier one. */
 export function normalizeQuestionText(text) {

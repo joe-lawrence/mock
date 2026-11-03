@@ -5,6 +5,7 @@ import {
   contentKeyOf,
   coverageTake,
   normalizeQuestionText,
+  numberSenseSurfaceKey,
   orderedContentKeys,
   drawPromptNumber,
   markCoverage,
@@ -107,6 +108,33 @@ describe("guided coverage", () => {
       contentKeyOf({ id: "zahl-digit" }),
       contentKeyOf({ id: "zahl-ist", form: "Die Zahl ist 4." })
     );
+  });
+
+  it("fingerprints number-sense surfaces for de-dupe without collapsing slots", () => {
+    assert.ok(GUIDED_PICK.contrast?.code === "contrast");
+    const a = numberSenseSurfaceKey({
+      word: "Zahl",
+      task: "phrase",
+      direction: "forward",
+      prompt: "The number is 3.",
+      value: 3,
+    });
+    const b = numberSenseSurfaceKey({
+      word: "Zahl",
+      task: "phrase",
+      direction: "forward",
+      prompt: "The number is 3.",
+      value: 3,
+    });
+    const c = numberSenseSurfaceKey({
+      word: "Zahl",
+      task: "phrase",
+      direction: "reverse",
+      prompt: "die Zahl",
+      value: 3,
+    });
+    assert.equal(a, b);
+    assert.notEqual(a, c);
   });
 
   it("draws a whole number from the range, and skips one just used when it can", () => {

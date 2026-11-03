@@ -3,8 +3,8 @@
  * Every 10 in a row (10, 20, 30…) opens a celebration reveal.
  */
 
-/** Celebrate every 10 consecutive correct answers (10, 20, 30…). */
-export const STREAK_MILESTONE = 10;
+/** Testing: every 2. Restore to 10 before ship. */
+export const STREAK_MILESTONE = 2;
 
 /** Pause after the original answer-key karaoke before congrats + fireballs. */
 export const STREAK_CELEBRATE_PAUSE_MS = 1000;

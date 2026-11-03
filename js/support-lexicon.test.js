@@ -182,11 +182,26 @@ describe("support lexicon questions", () => {
     );
     assert.equal(room.expect, "Nummer");
 
+    const avoided = realizeNumberSense(
+      { task: "phrase", word: "Zahl", pattern: "phrase:Zahl" },
+      { n: 3, direction: "forward", avoidPrompt: "The number is 3.", random: () => 0 }
+    );
+    const norm = (s) =>
+      String(s || "")
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, " ")
+        .trim();
+    assert.notEqual(norm(avoided.prompt), "the number is 3");
+
     const count = realizeNumberPrompt(
       { pattern: "zaehlen-sentence", word: "zählen", token: "zähle", min: 0, max: 99 },
       7
     );
     assert.equal(count.english, "I count to 7.");
     assert.equal(count.form, "Ich zähle bis 7.");
+    assert.equal(count.choices[0], count.form);
+    assert.ok(count.choices.every((c) => !/Ich zähle bis (?!7\b)\d+/.test(c)));
+    assert.ok(count.choices.some((c) => c.includes("Zahl")));
+    assert.equal(new Set(count.choices).size, count.choices.length);
   });
 });

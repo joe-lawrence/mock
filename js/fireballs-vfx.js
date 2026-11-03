@@ -3,19 +3,17 @@
  * One-shot canvas burst driven by requestAnimationFrame — no workout timeline.
  */
 
-const SPARKS_PHYS_VEL_SCALE = 1.35;
-const SPARKS_PHYS_DRAG = 0.988;
-const SPARKS_PHYS_MAX_STEPS = 64;
-/** Spawn near the bottom (toolbar band); rise fills most of the canvas. */
-const FIREBALLS_BAND_Y_CENTER = 0.92;
-const FIREBALLS_BAND_Y_WAVE = 0.015;
-/** Long enough to read as a rise, not a one-frame flash. */
-const BURST_DURATION_MS = 2200;
+const SPARKS_PHYS_VEL_SCALE = 1.42;
+const SPARKS_PHYS_DRAG = 0.985;
+const SPARKS_PHYS_MAX_STEPS = 48;
+const FIREBALLS_BAND_Y_CENTER = 0.93;
+const FIREBALLS_BAND_Y_WAVE = 0.012;
+const BURST_DURATION_MS = 700;
 const HUE_CENTER = 10;
 const HUE_SPREAD = 30;
 /** Density vs presentationShared's 280 — more balls, same burst length. */
-const FIREBALLS_REF_N = 520;
-const FIREBALLS_MAX_N = 640;
+const FIREBALLS_REF_N = 480;
+const FIREBALLS_MAX_N = 560;
 
 /** @type {{ canvas: HTMLCanvasElement, raf: number, onDone?: () => void } | null} */
 let active = null;
@@ -89,8 +87,7 @@ function paintFireballsFrame(canvas, t, seed) {
   const refCw = 800;
   const n = Math.max(140, Math.min(FIREBALLS_MAX_N, Math.round((cw * FIREBALLS_REF_N) / refCw)));
   const gStep = 0.1 * dpr;
-  // Hold full brightness through most of the rise; fade only late.
-  const burstFade = Math.max(0, 1 - Math.pow(t, 1.65) * 0.92);
+  const burstFade = Math.max(0, 1 - t * 0.98);
   const rnd = makeRng(seed >>> 0);
   const denom = Math.max(1, n - 1);
 
@@ -102,16 +99,15 @@ function paintFireballsFrame(canvas, t, seed) {
     const oy =
       h * (FIREBALLS_BAND_Y_CENTER + Math.sin(u * Math.PI) * FIREBALLS_BAND_Y_WAVE) +
       (rnd() - 0.5) * 10 * dpr;
-    const angle = -Math.PI / 2 + (rnd() - 0.5) * 0.78;
-    const sp = (1.8 + rnd() * 2.8) * dpr;
-    const vx0 = Math.cos(angle) * sp * (0.55 + rnd());
-    // Strong upward bias so the climb covers the reveal, without rocketing off in one frame.
-    const vy0 = Math.sin(angle) * sp * (0.7 + rnd() * 0.55) - 0.85 * dpr;
+    const angle = -Math.PI / 2 + (rnd() - 0.5) * 0.85;
+    const sp = (2 + rnd() * 3) * dpr;
+    const vx0 = Math.cos(angle) * sp * (0.6 + rnd());
+    const vy0 = Math.sin(angle) * sp * (0.6 + rnd()) - 0.65 * dpr;
     const pos = integrateSparkParticle(ox, oy, vx0, vy0, gStep, t);
     const x = pos.x + (rnd() - 0.5) * 2 * dpr;
     const y = pos.y + (rnd() - 0.5) * 2 * dpr;
-    const life = Math.max(0.12, 0.45 + rnd() * 0.4);
-    const aLife = burstFade * Math.min(1, (t + 0.12) / life) * Math.min(1, 0.55 + rnd() * 0.45);
+    const life = Math.max(0.08, 0.35 + rnd() * 0.35) * 0.95;
+    const aLife = burstFade * Math.min(1, (t + 0.08) / life) * Math.min(1, 0.48 + rnd() * 0.52);
     const hue = HUE_CENTER + (rnd() - 0.5) * 2 * HUE_SPREAD;
     const pr = (1.05 + rnd() * 1.75) * dpr;
     const a = Math.min(0.98, aLife * 1.35);
@@ -130,17 +126,12 @@ function paintFireballsFrame(canvas, t, seed) {
 }
 
 function sizeCanvas(canvas) {
-  // Prefer the canvas's own box (extended reveal VFX uses top/bottom).
-  let rect = canvas.getBoundingClientRect();
-  if (rect.width < 2 || rect.height < 2) {
-    const parent = canvas.parentElement;
-    rect = parent ? parent.getBoundingClientRect() : rect;
-  }
+  const parent = canvas.parentElement;
+  const rect = parent ? parent.getBoundingClientRect() : canvas.getBoundingClientRect();
   const dpr = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
   const bw = Math.max(1, Math.floor(rect.width * dpr));
   const bh = Math.max(1, Math.floor(rect.height * dpr));
-  // Avoid clearing the bitmap on sub-pixel layout jitter (looks like a one-frame flash).
-  if (Math.abs(canvas.width - bw) > 1 || Math.abs(canvas.height - bh) > 1) {
+  if (canvas.width !== bw || canvas.height !== bh) {
     canvas.width = bw;
     canvas.height = bh;
   }

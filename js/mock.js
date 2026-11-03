@@ -164,7 +164,7 @@ import {
   SUPPORT_LEXICON_POOLS,
   realizeNumberPrompt,
   realizeNumberSense,
-} from "./support-lexicon.js?v=20261102-playfix";
+} from "./support-lexicon.js?v=20261103-zaehlen";
 import {
   FRACTION_POOLS,
   FRACTION_POOL_BUILDERS,
@@ -320,19 +320,21 @@ import {
   planGuidedStep,
   presetLadder,
   orderGuidedKeys,
-} from "./guided-path.js?v=20261102-rand";
+} from "./guided-path.js?v=20261103-variety";
 import {
   contentKeyOf,
   coverageSummary,
   coverageTake,
+  GUIDED_PICK,
   normalizeQuestionText,
+  numberSenseSurfaceKey,
   orderedContentKeys,
   drawPromptNumber,
   pickGuidedContent,
   promptSlots,
   slicesForLadder,
   spanSample,
-} from "./guided-coverage.js?v=20261102-rand";
+} from "./guided-coverage.js?v=20261103-variety";
 import {
   reportCardJson,
   fullAuditJson,
@@ -362,8 +364,8 @@ import {
   isCorrectStreakMilestone,
   streakCelebrationFor,
   STREAK_CELEBRATE_PAUSE_MS,
-} from "./streak-celebrate.js?v=20261102-streak14";
-import { playFireballs, stopFireballs } from "./fireballs-vfx.js?v=20261102-streak14";
+} from "./streak-celebrate.js?v=20261103-streak17";
+import { playFireballs, stopFireballs } from "./fireballs-vfx.js?v=20261103-streak17";
 import {
   emptyPlaylistState,
   buildNumbersCatalog,
@@ -4320,6 +4322,22 @@ function citationAnswerParts(article, lemma) {
  * Karaoke for a practice sentence: frame words + article + lemma syllables.
  * Uses the article as written (ein vs der), not a forced definite citation form.
  */
+/**
+ * Digits in a practice sentence → German cardinal for TTS / karaoke
+ * ("94" → "vierundneunzig").
+ */
+function sentenceSpokenForm(sentence) {
+  return String(sentence || "").replace(/\b(\d+)\b/g, (_, digits) => {
+    const n = Number(digits);
+    if (!Number.isInteger(n) || n < 0 || n > 1000) return digits;
+    try {
+      return cardinalForm(n);
+    } catch {
+      return digits;
+    }
+  });
+}
+
 function sentenceAnswerParts(sentence, lemma) {
   const raw = String(sentence || "").trim();
   if (!raw) return [];
@@ -4341,6 +4359,20 @@ function sentenceAnswerParts(sentence, lemma) {
         source: "article",
       });
       continue;
+    }
+    // Bare digits in a sentence (Ich zähle bis 94) → morph beats for the cardinal.
+    if (/^\d+$/.test(clean)) {
+      const n = Number(clean);
+      const morph = Number.isInteger(n) ? synthesizeMorphGuides(n) : null;
+      if (morph?.length) {
+        parts.push(
+          ...morph.map((p) => ({
+            ...p,
+            source: p.source || "cardinal-digit",
+          }))
+        );
+        continue;
+      }
     }
     if (lemma && clean === lemma) {
       const body = lemmaBodyAnswerParts(lemma);
@@ -6511,9 +6543,6 @@ function clearStreakCelebrate() {
   document.querySelectorAll(".answer-reveal-vfx").forEach((el) => {
     el.hidden = true;
   });
-  document.querySelectorAll(".has-streak-vfx").forEach((el) => {
-    el.classList.remove("has-streak-vfx");
-  });
 }
 
 /** Group original verdict/box/caption so equal a/b/c spacers can surround both keys. */
@@ -6653,11 +6682,8 @@ function showStreakCelebratePanel(pending) {
 
   const verdictEl = host.querySelector(".streak-congrats-verdict");
   if (verdictEl) applyCorrectFlash(verdictEl);
-  // Fireballs start with the title flash so the rise is on-screen during TTS,
-  // then continue under the German phrase (long burst, not a one-frame blip).
-  startStreakFireballs(pending.prefix, root);
 
-  // 1) Flash + speak "X in a row!" — 2) then phrase/karaoke/caption.
+  // 1) Flash + speak "X in a row!" — 2) then congrats phrase + fireballs together.
   speakStreakVerdict(pack.verdict, () => {
     const body = host.querySelector(".streak-congrats-body");
     if (body) {
@@ -6666,6 +6692,7 @@ function showStreakCelebratePanel(pending) {
     }
     const phonEl = host.querySelector(".streak-congrats-phonetic");
     const nodes = phonEl ? [...phonEl.querySelectorAll(".phon-beat")] : [];
+    startStreakFireballs(pending.prefix, root);
     playAnswerKey(pack.spoken, pack.parts, nodes);
   });
 }
@@ -6681,9 +6708,8 @@ function speakStreakVerdict(text, onDone) {
 }
 
 /**
- * Fireballs behind answer-key text/boxes, extending under the actions toolbar.
- * Canvas stays inside the reveal (so balls paint under opaque keys) and grows
- * downward behind prev / hint / speedo / next.
+ * Fireballs behind answer-key text/boxes (same stacking context as the reveal).
+ * Kept inset to the reveal — cheap, visible, does not thrash stage overflow.
  */
 function startStreakFireballs(_prefix, root) {
   if (!root) return;
@@ -6698,38 +6724,13 @@ function startStreakFireballs(_prefix, root) {
     canvas.setAttribute("aria-hidden", "true");
     root.insertBefore(canvas, root.firstChild);
   }
-
-  const place = () => {
-    const revealRect = root.getBoundingClientRect();
-    const actions =
-      stage?.querySelector(":scope > .actions") ||
-      stage?.querySelector(".actions-nav");
-    const actionsRect = actions?.getBoundingClientRect();
-    // Extend from the top of the reveal through the bottom of the toolbar.
-    let extra = 0;
-    if (actionsRect && revealRect.height > 0) {
-      extra = Math.max(0, actionsRect.bottom - revealRect.bottom);
-    }
-    // Fallback if actions metrics are missing (vocab chrome, etc.).
-    if (extra < 8) extra = 72;
-    canvas.style.top = "0px";
-    canvas.style.left = "0px";
-    canvas.style.right = "0px";
-    canvas.style.bottom = `${-extra}px`;
-    canvas.style.width = "";
-    canvas.style.height = "";
-  };
-  root.classList.add("has-streak-vfx");
-  stage?.classList.add("has-streak-vfx");
-  place();
-  // Force layout before sizing the bitmap.
-  void canvas.offsetHeight;
+  canvas.hidden = false;
+  canvas.style.top = "";
+  canvas.style.left = "";
+  canvas.style.right = "";
+  canvas.style.bottom = "";
   playFireballs(canvas, {
     seed: (state.correctStreak * 0x9e3779b9) >>> 0,
-    onDone: () => {
-      root.classList.remove("has-streak-vfx");
-      stage?.classList.remove("has-streak-vfx");
-    },
   });
 }
 
@@ -8160,6 +8161,8 @@ function navigate(view, opts = {}) {
   state.selectedPiece = null;
   document.body.classList.toggle("is-session", view !== "hub");
   stopSpeech();
+  // Drop streak VFX / timers so rAF cannot keep hammering after leaving practice.
+  clearStreakCelebrate();
   // Drop pending auto-advance from the territory we left — otherwise a timer
   // can call renderNumbers/renderNouns and overwrite currentExercise mid-click.
   clearNumbersAdvance();
@@ -9586,6 +9589,27 @@ function caseInstructionText(question) {
   return "Choose the article";
 }
 
+/** Session audit line: instruction (cue) for Case cards. */
+function caseGuidedAuditQuestion(question) {
+  if (!question) return "—";
+  if (question.quizType === "listen" || question.quizType === "listen-type") {
+    const typing = question.quizType === "listen-type";
+    const noun = question.target === "noun";
+    const instr = noun
+      ? typing
+        ? "Type the form"
+        : "Pick the form"
+      : typing
+        ? "Type the article"
+        : "Pick the article";
+    return joinQaCue(question.sentence || question.prompt || "", instr);
+  }
+  const instr = caseInstructionText(question);
+  const cue =
+    caseCueText(question) || question.prompt || question.sentence || "";
+  return joinQaCue(cue, instr || caseAskText(question));
+}
+
 function caseFamilyText(question) {
   if (!question) return "";
   // Type-the-article already names the target case in the instruction line.
@@ -10490,7 +10514,7 @@ function submitTableAnswer(question, answer) {
         .map((choice) => choice.label)
         .join(", ");
   logGuidedQa({
-    question: question.prompt,
+    question: caseGuidedAuditQuestion(question),
     answer: Array.isArray(answer) ? answer.join(" ") : String(answer || ""),
     expected,
     status: state.caseStatus,
@@ -10545,7 +10569,7 @@ function submitCaseAnswer(answer, { wrongEl } = {}) {
       const ev = caseAttemptEvidence(question, false);
       state.caseFollowup = ev.componentFollowup;
       logGuidedQa({
-        question: question.prompt,
+        question: caseGuidedAuditQuestion(question),
         answer,
         expected: question.correct,
         status: "incorrect",
@@ -10590,7 +10614,7 @@ function submitCaseAnswer(answer, { wrongEl } = {}) {
       const ev = caseAttemptEvidence(question, ok);
       state.caseFollowup = ev.componentFollowup;
       logGuidedQa({
-        question: question.prompt,
+        question: caseGuidedAuditQuestion(question),
         answer,
         expected: question.correct,
         status: state.caseStatus,
@@ -11768,7 +11792,7 @@ function recordVocabOnAssociateUnit(question, result) {
       : "correct"
     : "incorrect";
   logGuidedQa({
-    question: [question?.instruction, question?.prompt].filter(Boolean).join(" — "),
+    question: joinQaCue(question?.prompt, question?.instruction),
     answer: result?.given != null ? String(result.given) : "",
     expected: question?.expect != null ? String(question.expect) : "",
     status,
@@ -11953,12 +11977,116 @@ function ensureGuidedPickSalt() {
   return pickSalt;
 }
 
+/** Prefer a new surface (task / direction / cue / n) without changing coverage slots. */
+function realizeSenseAvoidingSurface(template, dirs, lastSurface) {
+  const avoidPrompt = String(lastSurface || "").split("|")[3] || "";
+  const lastDir = String(lastSurface || "").split("|")[2] || "";
+  const preferDirs =
+    lastDir && dirs.length > 1 ? dirs.filter((d) => d !== lastDir).concat(dirs) : dirs;
+  let best = null;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const direction =
+      (template.direction && dirs.includes(template.direction) && template.direction) ||
+      preferDirs[attempt % Math.max(1, preferDirs.length)] ||
+      DIRECTION.FORWARD;
+    const digit = drawPromptNumber(
+      template.min ?? 0,
+      template.max ?? 9,
+      recentPromptNumbers()
+    );
+    const meta =
+      template.kind === "number-sense"
+        ? realizeNumberSense(template, {
+            n: digit,
+            direction,
+            avoidPrompt: attempt > 0 ? avoidPrompt : "",
+          })
+        : realizeNumberPrompt(template, digit);
+    if (!meta) continue;
+    const key = numberSenseSurfaceKey(meta);
+    if (!lastSurface || key !== lastSurface) return { meta, direction, digit, surface: key };
+    best = { meta, direction, digit, surface: key };
+  }
+  return best;
+}
+
+/**
+ * Soft-mix Nummer/Anzahl while covering Zahl (thin unit), without scoring those
+ * peeks against the Zahl slot list.
+ */
+function placeNumberWordsContrastPeek(deck, unitKey, slots, row, writeIndex) {
+  if (state.guidedReviewDeal) return false;
+  if (!String(unitKey || "").endsWith(":number-words")) return false;
+  const covered = slots.filter((key) => (row.correct || []).includes(key)).length;
+  if (covered < 1) return false;
+  const allCovered = slots.every((key) => (row.correct || []).includes(key));
+  if (allCovered) return false;
+  const recent = row.recent || [];
+  const last = String(recent[recent.length - 1] || "");
+  if (last.startsWith("peek:")) return false;
+  if (!slots.includes(last)) return false;
+
+  const contrastPool = SUPPORT_LEXICON_POOLS["number-senses"] || [];
+  if (!contrastPool.length) return false;
+  const lastPeekWord = String(state.guidedLastContrastWord || "");
+  const ranked = [...contrastPool].sort((a, b) => {
+    const aw = a.word === lastPeekWord ? 1 : 0;
+    const bw = b.word === lastPeekWord ? 1 : 0;
+    return aw - bw;
+  });
+  const template = ranked[Math.floor(Math.random() * ranked.length)] || ranked[0];
+  const dirs = directionsForNumbersCell(
+    state.numbersTopic,
+    state.numbersStep,
+    state.numbersQuizMode
+  );
+  const realized = realizeSenseAvoidingSurface(
+    template,
+    dirs,
+    state.guidedLastSenseSurface || ""
+  );
+  if (!realized?.meta) return false;
+  const { meta, direction, digit, surface } = realized;
+  state.numbersPinnedMeta = meta;
+  state.guidedLastSenseSurface = surface;
+  state.guidedLastContrastWord = template.word || "";
+  const pattern = template.pattern || `phrase:${template.word}`;
+  const idx = deck.findIndex((item) => item.pattern === pattern);
+  writeIndex(idx >= 0 ? idx : 0);
+  state.guidedActiveSlice = slots;
+  state.guidedActiveUnit = unitKey;
+  state.guidedActivePick = {
+    contentKey: `peek:${pattern}`,
+    reason: GUIDED_PICK.contrast,
+    pattern,
+    digit,
+    direction,
+    peek: true,
+  };
+  const step = coverageSummary(row.correct, slots);
+  if (!state.guidedReviewDeal) setGuidedUnitHud(unitKey, slots, slots);
+  else syncUnitProgressBar();
+  annotateGuidedDeal({
+    pick: GUIDED_PICK.contrast.code,
+    pickLabel: GUIDED_PICK.contrast.label,
+    contentKey: `peek:${pattern}:${digit}:${direction}`,
+    stepCovered: step.covered,
+    stepRequired: step.required,
+    unitCovered: step.covered,
+    unitRequired: step.required,
+    remaining: step.remaining.slice(0, 8).join(", "),
+  });
+  return true;
+}
+
 function placeGuidedNumberPrompts(deck, unitKey, skill, writeIndex) {
   const templates = deck.filter((item) => isGeneratedNumberCard(item) && item.pattern);
   if (!templates.length) return;
   const slots = promptSlots(templates);
   const progress = normalizeGuidedProgress(state.guidedProgress || emptyGuidedProgress());
   const row = progress.coverage?.[unitKey] || { correct: [], wrong: [], recent: [] };
+  if (placeNumberWordsContrastPeek(deck, unitKey, slots, row, writeIndex)) return;
+
   const pick = pickGuidedContent({
     slice: slots,
     correct: row.correct,
@@ -11973,15 +12101,22 @@ function placeGuidedNumberPrompts(deck, unitKey, skill, writeIndex) {
     state.numbersStep,
     state.numbersQuizMode
   );
-  const direction =
-    (template.direction && dirs.includes(template.direction) && template.direction) ||
-    dirs[Math.floor(Math.random() * Math.max(1, dirs.length))] ||
-    DIRECTION.FORWARD;
-  const digit = drawPromptNumber(template.min ?? 0, template.max ?? 9, recentPromptNumbers());
+  const realized = realizeSenseAvoidingSurface(
+    template,
+    dirs,
+    state.guidedLastSenseSurface || ""
+  );
+  const direction = realized?.direction || DIRECTION.FORWARD;
+  const digit = realized?.digit ?? drawPromptNumber(template.min ?? 0, template.max ?? 9, recentPromptNumbers());
   state.numbersPinnedMeta =
-    template.kind === "number-sense"
+    realized?.meta ||
+    (template.kind === "number-sense"
       ? realizeNumberSense(template, { n: digit, direction })
-      : realizeNumberPrompt(template, digit);
+      : realizeNumberPrompt(template, digit));
+  if (realized?.surface) state.guidedLastSenseSurface = realized.surface;
+  else if (state.numbersPinnedMeta) {
+    state.guidedLastSenseSurface = numberSenseSurfaceKey(state.numbersPinnedMeta);
+  }
   const idx = deck.findIndex(
     (item) =>
       item.pattern === pattern && (!item.direction || item.direction === direction)
@@ -11989,7 +12124,7 @@ function placeGuidedNumberPrompts(deck, unitKey, skill, writeIndex) {
   writeIndex(idx >= 0 ? idx : deck.indexOf(template));
   state.guidedActiveSlice = slots;
   state.guidedActiveUnit = unitKey;
-  state.guidedActivePick = { ...pick, pattern, digit, direction };
+  state.guidedActivePick = { ...pick, pattern, digit, direction, peek: false };
   const step = coverageSummary(row.correct, slots);
   const unit = coverageSummary(row.correct, slots);
   if (!state.guidedReviewDeal) setGuidedUnitHud(unitKey, slots, slots);
@@ -12583,15 +12718,21 @@ function stripHtmlToText(html) {
     .trim();
 }
 
-/** Cue + task for Q&A so the log is readable without the live UI. */
-function joinQaCue(lead, task) {
-  const L = stripHtmlToText(lead);
-  const T = stripHtmlToText(task);
-  if (!L && !T) return "—";
-  if (!T) return L;
-  if (!L) return T;
-  if (T === L || T.includes(L)) return T;
-  return `${L} — ${T}`;
+/**
+ * Cue + instruction for Q&A so the log is readable without the live UI.
+ * Common form: `Listen & choose (drei)` — instruction first, cue in parentheses.
+ * @param {string} cue  Content shown / heard (e.g. drei, der Hund)
+ * @param {string} instruction  Task label (e.g. Listen & choose)
+ */
+function joinQaCue(cue, instruction) {
+  const blank = (s) => !s || s === "—";
+  const C = stripHtmlToText(cue);
+  const I = stripHtmlToText(instruction);
+  if (blank(C) && blank(I)) return "—";
+  if (blank(C)) return I;
+  if (blank(I)) return C;
+  if (I === C || I.includes(C)) return I;
+  return `${I} (${C})`;
 }
 
 /** Prompt cue + form/task shown to the learner (full context for audit). */
@@ -12706,7 +12847,13 @@ function currentGuidedQuestionCue() {
       return ex?.prompt?.wrong || meta?.form || "—";
     }
     if (mode === "sentence") {
-      return ex?.prompt?.written || ex?.prompt?.sentence || "—";
+      return (
+        ex?.prompt?.written ||
+        ex?.prompt?.sentence ||
+        meta?.prompt ||
+        meta?.written ||
+        "—"
+      );
     }
     if (mode === "visual") {
       return (
@@ -12739,7 +12886,12 @@ function currentGuidedQuestionCue() {
       return ex?.prompt?.ask || "Name what you see";
     }
     if (mode === "sentence") {
-      return ex?.prompt?.ask || "Read the sentence aloud in German";
+      return (
+        ex?.prompt?.ask ||
+        meta?.ask ||
+        numbersInstruction("sentence", meta) ||
+        "Read the sentence"
+      );
     }
     if (mode === "listen") {
       if (isWrittenishMeta(meta)) {
@@ -12827,9 +12979,13 @@ function logGuidedQa({
     noteGuidedAnswer({
       unitKey,
       correct,
-      review: !!state.guidedReviewDeal,
+      // Contrast peeks must not count as Zahl slot cover / unit graduation.
+      review: !!state.guidedReviewDeal || !!state.guidedActivePick?.peek,
       contentKey: guidedAnswerContentKey(),
-      slice: state.guidedReviewDeal ? [] : state.guidedActiveSlice || [],
+      slice:
+        state.guidedReviewDeal || state.guidedActivePick?.peek
+          ? []
+          : state.guidedActiveSlice || [],
     });
   }
   const felt =
@@ -13269,7 +13425,7 @@ function formatGuidedQaRow(row) {
         depthLabel
       )}${escapeHtml(rungNote)}${escapeHtml(conceptNote)}${escapeHtml(contentNote)}${escapeHtml(pickNote)}${escapeHtml(repeatNote)}</span>
     </div>
-    <div><span class="dbg-k">Q</span> ${escapeHtml(row.question)}</div>
+    <div><span class="dbg-k">Q</span> - ${escapeHtml(row.question)}</div>
     <div><span class="dbg-k">A</span> ${escapeHtml(row.answer)}${
       showExp
         ? ` <span class="dbg-soft">→ ${escapeHtml(row.expected)}</span>`
@@ -14899,17 +15055,24 @@ function renderLexSentence(meta) {
       : meta.kind === "lex-word"
         ? "Choose the German form"
         : "Choose the German sentence");
+  const spoken = sentenceSpokenForm(revealDe);
   const exercise = {
     id: `ex.numbers.lex.${meta.id || expect}`,
     materials: {
       hint: meta.hint || "",
-      answerParts: sentenceAnswerParts(revealDe),
-      spoken: revealDe,
+      answerParts: sentenceAnswerParts(revealDe, meta.token || meta.word),
+      spoken,
     },
     resolution: {
       form: expect,
-      spoken: revealDe,
+      spoken,
       english: meta.english || "",
+    },
+    // Keep cue+ask on the exercise so session audit matches the live prompt.
+    prompt: {
+      written: meta.prompt || "",
+      sentence: meta.prompt || "",
+      ask,
     },
   };
   setCurrentExercise(exercise);
@@ -21414,7 +21577,7 @@ function checkSoundsDiscriminate(item) {
   const ok = state.soundsChoice === item.answer;
   if (state.sessionMode === "guided") {
     logGuidedQa({
-      question: item.prompt || item.play,
+      question: joinQaCue(item.play || item.prompt || "", "Listen & choose"),
       answer: state.soundsChoice,
       expected: item.answer,
       status: ok ? "correct" : "incorrect",
