@@ -255,15 +255,10 @@ export function mountArtikelClimber(root, options = {}) {
     spinVel: 0,
   };
 
-  /** Kick tumbling eyes in the direction of horizontal movement. */
-  function kickSpin(strength = 0.5) {
-    const dir =
-      Math.abs(player.vx) > 0.05
-        ? Math.sign(player.vx)
-        : Math.random() < 0.5
-          ? -1
-          : 1;
-    player.spinVel = dir * Math.abs(strength);
+  /** Mega-jump eye tumble — scaled by horizontal speed (straight up ≈ none). */
+  function kickMegaSpin() {
+    const scale = Math.max(-1, Math.min(1, player.vx / Math.max(MOVE_SPEED, 0.01)));
+    player.spinVel = scale * 0.72;
   }
 
   /** @param {"normal"|"happy"|"boost"|"scared"|"dead"} face @param {number} [ms] */
@@ -833,7 +828,6 @@ export function mountArtikelClimber(root, options = {}) {
     if (fromFall) {
       player.scaredBouncesLeft = 3;
       setFace("scared", 4000);
-      kickSpin(0.5);
       createParticles(player.x, padY, "#ef4444");
     } else {
       clearScaredFace();
@@ -1053,7 +1047,6 @@ export function mountArtikelClimber(root, options = {}) {
           const jumpBoost = keys.up ? -5 : 0;
           if (p.type === "safe") {
             player.vy = BOUNCE_VELOCITY + jumpBoost;
-            if (jumpBoost) kickSpin(0.28);
             if (player.scaredBouncesLeft > 0) {
               player.scaredBouncesLeft -= 1;
               if (player.scaredBouncesLeft <= 0) clearScaredFace();
@@ -1064,21 +1057,13 @@ export function mountArtikelClimber(root, options = {}) {
           } else if (p.type === player.targetWord?.gender) {
             const landed = player.targetWord;
             player.vy = MEGA_BOUNCE + jumpBoost;
-            // Big article hit (and boost) — tumble eyes with the ejection.
-            kickSpin(0.62 + (jumpBoost ? 0.22 : 0));
+            kickMegaSpin();
             clearBounceFloor();
             clearScaredFace();
             stampWordOnPlatform(p, landed);
             setFace("happy", 320);
-            // Speak first; delay the Web Audio chime so iOS doesn't demote TTS.
             speakWord(landed.article, landed.word);
-            const iosUa =
-              typeof navigator !== "undefined" &&
-              (/iPad|iPhone|iPod/.test(navigator.userAgent || "") ||
-                (navigator.platform === "MacIntel" &&
-                  (navigator.maxTouchPoints || 0) > 1));
-            if (iosUa) window.setTimeout(() => playFeedback("ok"), 280);
-            else playFeedback("ok");
+            playFeedback("ok");
             landed.correct = (landed.correct || 0) + 1;
             if (pools.graduatedPool.includes(landed)) {
               landed.postGradCorrect = (landed.postGradCorrect || 0) + 1;

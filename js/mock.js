@@ -210,7 +210,7 @@ import {
   mountNavCarousel,
 } from "./nav-carousel.js?v=20261104-climber-cards";
 import { climberWordsFromVocabUnits } from "./artikel-climber-vocab.js?v=20261103-climber";
-import { mountArtikelClimber } from "./artikel-climber.js?v=20261104-ios-piper";
+import { mountArtikelClimber } from "./artikel-climber.js?v=20261104-ios-sfx-off";
 import { keysSkippedByJump } from "./guided-jump.js";
 import {
   noteQuizNavEntry,
@@ -7446,7 +7446,8 @@ function startArtikelClimber(units, { audio = true } = {}) {
     audio,
     scoreEl,
     livesEl,
-    // Light OS TTS (same as artikel_climber.html) — Piper stalls the bounce frame.
+    // Light OS TTS — Piper stalls the bounce frame. On iOS, mute Web Audio SFX
+    // during Climber so speechSynthesis isn't demoted by the chime context.
     speak: (text) => {
       if (!audio) return;
       speakClimberLight(text);
@@ -7459,7 +7460,10 @@ function startArtikelClimber(units, { audio = true } = {}) {
       if (!audio) return;
       stopClimberLightTts();
     },
-    playFeedback: playFeedbackSound,
+    playFeedback: (kind) => {
+      if (isClimberLightIos()) return;
+      playFeedbackSound(kind);
+    },
     onExit: () => {
       stopClimberLightSpeechWatchdog();
       destroyArtikelClimber();
@@ -7536,7 +7540,7 @@ function applyClimberLightVoice(utterance) {
   if (climberLightDeVoice) utterance.voice = climberLightDeVoice;
 }
 
-/** WebKit: ambient session is muted by the ring/silent switch and fights SFX. */
+/** WebKit: prefer media playback so silent-switch / ambient doesn't mute TTS. */
 function ensureClimberPlaybackSession() {
   try {
     const session = navigator.audioSession;
@@ -7544,35 +7548,22 @@ function ensureClimberPlaybackSession() {
   } catch {
     /* ignore */
   }
-  // Open/resume the shared SFX context in the same gesture so Web Audio and
-  // speechSynthesis share a playback session instead of demoting TTS.
-  try {
-    const ctx = getFeedbackAudio();
-    if (ctx?.state === "suspended") void ctx.resume();
-  } catch {
-    /* ignore */
-  }
 }
 
 /**
- * Must run inside a user gesture (Start / Continue).
- * iOS: unlock Piper/WebAudio (speechSynthesis loses to SFX on iPhone).
- * Other: prime speechSynthesis.
+ * Must run inside a user gesture (Start / Continue). Primes speechSynthesis
+ * and (on iOS) avoids opening the SFX AudioContext so TTS can own the session.
  */
 function unlockClimberLightTts() {
-  ensureClimberPlaybackSession();
-  if (isClimberLightIos()) {
-    void unlockPiperAudio();
-    void ensurePiperVoice(readPiperVoicePref()).catch(() => {});
-    return;
-  }
   if (!("speechSynthesis" in window)) return;
   ensureClimberLightVoices();
+  ensureClimberPlaybackSession();
   startClimberLightSpeechWatchdog();
   try {
     const prime = new SpeechSynthesisUtterance("ja");
     applyClimberLightVoice(prime);
-    prime.volume = 0.15;
+    // Audible enough to unlock; Climber mutes SFX on iOS so this can be soft.
+    prime.volume = isClimberLightIos() ? 0.2 : 0.15;
     prime.rate = 1.15;
     window.speechSynthesis.resume();
     window.speechSynthesis.speak(prime);
@@ -7584,25 +7575,17 @@ function unlockClimberLightTts() {
 
 /** Stop current Climber utterance without poisoning the next iOS speak(). */
 function stopClimberLightTts() {
-  if (isClimberLightIos()) {
-    try {
-      stopPiperAudio();
-    } catch {
-      /* ignore */
-    }
-    return;
-  }
   if (!("speechSynthesis" in window)) return;
   try {
     window.speechSynthesis.cancel();
-    climberLightSpeakAfterCancel = true;
+    if (isClimberLightIos()) climberLightSpeakAfterCancel = true;
   } catch {
     /* ignore */
   }
 }
 
-/** Desktop/WebKit speechSynthesis path (unreliable on iPhone with SFX). */
-function speakClimberLightWebkit(text) {
+/** Climber TTS via browser speechSynthesis (no Piper — keeps the bounce frame light). */
+function speakClimberLight(text) {
   if (!("speechSynthesis" in window)) return;
   const say = String(text || "").trim();
   if (!say) return;
@@ -7623,14 +7606,18 @@ function speakClimberLightWebkit(text) {
         /* ignore */
       }
     };
-    if (climberLightSpeakAfterCancel || window.speechSynthesis.speaking) {
-      climberLightSpeakAfterCancel = false;
-      try {
-        window.speechSynthesis.cancel();
-      } catch {
-        /* ignore */
+    if (isClimberLightIos()) {
+      if (climberLightSpeakAfterCancel || window.speechSynthesis.speaking) {
+        climberLightSpeakAfterCancel = false;
+        try {
+          window.speechSynthesis.cancel();
+        } catch {
+          /* ignore */
+        }
+        window.setTimeout(fire, 60);
+        return;
       }
-      window.setTimeout(fire, 50);
+      fire();
       return;
     }
     window.speechSynthesis.cancel();
@@ -7638,27 +7625,6 @@ function speakClimberLightWebkit(text) {
   } catch {
     /* ignore */
   }
-}
-
-/**
- * Climber TTS: on iOS use deferred Piper (same Web Audio path as SFX).
- * Elsewhere keep instant speechSynthesis so the bounce frame stays light.
- */
-function speakClimberLight(text) {
-  const say = String(text || "").trim();
-  if (!say) return;
-  if (isClimberLightIos()) {
-    ensureClimberPlaybackSession();
-    // Off the physics frame — synth/play async so bounce stays smooth.
-    window.setTimeout(() => {
-      void speakGermanPiper(say, { rate: 1.1 }).catch((err) => {
-        console.warn("[climber] Piper speak failed, WebKit fallback", err);
-        speakClimberLightWebkit(say);
-      });
-    }, 0);
-    return;
-  }
-  speakClimberLightWebkit(say);
 }
 
 const SESSION_MODE_LABELS = { learn: "Learn", play: "Play", guided: "Guided" };
