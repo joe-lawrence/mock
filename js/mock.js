@@ -210,7 +210,7 @@ import {
   mountNavCarousel,
 } from "./nav-carousel.js?v=20261104-climber-cards";
 import { climberWordsFromVocabUnits } from "./artikel-climber-vocab.js?v=20261103-climber";
-import { mountArtikelClimber } from "./artikel-climber.js?v=20261104-ios-sfx-off";
+import { mountArtikelClimber } from "./artikel-climber.js?v=20261104-weakest-en";
 import { keysSkippedByJump } from "./guided-jump.js";
 import {
   noteQuizNavEntry,
@@ -7446,8 +7446,7 @@ function startArtikelClimber(units, { audio = true } = {}) {
     audio,
     scoreEl,
     livesEl,
-    // Light OS TTS — Piper stalls the bounce frame. On iOS, mute Web Audio SFX
-    // during Climber so speechSynthesis isn't demoted by the chime context.
+    // Climber: speechSynthesis only (no Piper — keeps bounce light; rest of app still uses Piper).
     speak: (text) => {
       if (!audio) return;
       speakClimberLight(text);
@@ -7461,7 +7460,6 @@ function startArtikelClimber(units, { audio = true } = {}) {
       stopClimberLightTts();
     },
     playFeedback: (kind) => {
-      if (isClimberLightIos()) return;
       playFeedbackSound(kind);
     },
     onExit: () => {

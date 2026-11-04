@@ -122,7 +122,7 @@ export function mountArtikelClimber(root, options = {}) {
         </div>
         <div class="climber-overlay is-hidden" data-climber-report-sheet hidden>
           <div class="climber-panel climber-report-panel">
-            <h1 class="climber-title">Bericht</h1>
+            <h1 class="climber-title">Spielanalyse</h1>
             <pre class="climber-report-body" data-climber-report-body></pre>
             <div class="climber-over-actions">
               <button type="button" class="btn btn-primary" data-climber-copy-text>Copy text</button>
@@ -228,14 +228,16 @@ export function mountArtikelClimber(root, options = {}) {
   /** Sliding deadzone anchors — relative drag, not screen halves (less sticky on iOS). */
   /** @type {Map<number, { ax: number, ay: number }>} */
   const pointerAnchors = new Map();
-  // Slightly tighter on iPhone so left/right engages sooner.
-  const TOUCH_DEAD_X =
+  const isTouchApple =
     typeof navigator !== "undefined" &&
     (/iPad|iPhone|iPod/.test(navigator.userAgent || "") ||
-      (navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1))
-      ? 5
-      : 10;
-  const TOUCH_DEAD_Y = 18;
+      (navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1));
+  // iPhone: tiny X deadzone + faster strafe — finger drags read small on CSS pixels.
+  const TOUCH_DEAD_X = isTouchApple ? 2.5 : 10;
+  const TOUCH_DEAD_Y = isTouchApple ? 16 : 18;
+  /** Up loses to left/right sooner when there's any sideways drag. */
+  const TOUCH_UP_MAX_DX = isTouchApple ? TOUCH_DEAD_X * 0.9 : TOUCH_DEAD_X * 1.35;
+  const TOUCH_MOVE_MULT = isTouchApple ? 1.45 : 1;
   const player = {
     x: 0,
     y: 0,
@@ -250,15 +252,35 @@ export function mountArtikelClimber(root, options = {}) {
     faceUntil: 0,
     /** X-eyes after a lost life; clears after safe bounces or steering. */
     scaredBouncesLeft: 0,
-    /** Eye-orbit spin (radians) after big ejections. */
+    /** Eye-orbit spin (radians) after mega+hold ejections. */
     spin: 0,
     spinVel: 0,
+    /** Normal (safe) bounces left before snapping eyes upright. */
+    spinSettleBounces: 0,
   };
 
-  /** Mega-jump eye tumble — scaled by horizontal speed (straight up ≈ none). */
+  /** Mega+hold eye tumble — scaled by horizontal speed (straight up ≈ none). */
   function kickMegaSpin() {
     const scale = Math.max(-1, Math.min(1, player.vx / Math.max(MOVE_SPEED, 0.01)));
     player.spinVel = scale * 0.72;
+    player.spinSettleBounces = 2;
+  }
+
+  /** Snap eyes upright and clear the settle countdown. */
+  function resetEyeSpin() {
+    player.spin = 0;
+    player.spinVel = 0;
+    player.spinSettleBounces = 0;
+  }
+
+  /** Count a normal bounce toward ending tumble (reset on the 2nd). */
+  function noteNormalBounceForSpin() {
+    if (player.spinSettleBounces <= 0) {
+      if (player.spin !== 0 || player.spinVel !== 0) resetEyeSpin();
+      return;
+    }
+    player.spinSettleBounces -= 1;
+    if (player.spinSettleBounces <= 0) resetEyeSpin();
   }
 
   /** @param {"normal"|"happy"|"boost"|"scared"|"dead"} face @param {number} [ms] */
@@ -285,10 +307,14 @@ export function mountArtikelClimber(root, options = {}) {
 
   function drawEyes() {
     const face = currentFace();
-    const tumbling = Math.abs(player.spinVel) > 0.05;
+    // Never tumble X-eyes (life loss / game over) — keep them upright.
+    const allowTumble = face !== "dead" && face !== "scared";
+    const tumbling = allowTumble && Math.abs(player.spinVel) > 0.05;
     const look = tumbling ? 0 : Math.max(-2.2, Math.min(2.2, player.vx * 0.35));
-    const cos = Math.cos(player.spin);
-    const sin = Math.sin(player.spin);
+    // Only orbit while spinning. Never leave normal * * stuck at a tilted angle.
+    const spin = tumbling ? player.spin : 0;
+    const cos = Math.cos(spin);
+    const sin = Math.sin(spin);
     const mapEye = (ox, oy) => ({
       x: player.x + ox * cos - oy * sin,
       y: player.y + ox * sin + oy * cos,
@@ -552,6 +578,42 @@ export function mountArtikelClimber(root, options = {}) {
     });
     rows.sort((a, b) => a.word.localeCompare(b.word, "de"));
 
+    const playedRows = rows.filter(
+      (r) => r.enteredPlay && r.correct + r.wrong > 0
+    );
+    const weakestPlayed = [...playedRows]
+      .map((r) => {
+        const attempts = r.correct + r.wrong;
+        const accuracy = r.correct / attempts;
+        return {
+          word: r.word,
+          article: r.article,
+          correct: r.correct,
+          wrong: r.wrong,
+          attempts,
+          accuracyPct: Math.round(accuracy * 100),
+          missPct: Math.round((1 - accuracy) * 100),
+        };
+      })
+      .sort((a, b) => {
+        if (b.missPct !== a.missPct) return b.missPct - a.missPct;
+        if (b.wrong !== a.wrong) return b.wrong - a.wrong;
+        if (a.correct !== b.correct) return a.correct - b.correct;
+        return a.word.localeCompare(b.word, "de");
+      })
+      .slice(0, 5);
+
+    const weakestLines =
+      weakestPlayed.length > 0
+        ? [
+            "Weakest words",
+            ...weakestPlayed.map(
+              (w, i) =>
+                `${i + 1}. ${w.article} ${w.word} — ${w.correct}✓ · ${w.wrong}✗ (${w.accuracyPct}%)`
+            ),
+          ]
+        : ["Weakest words", "— none played —"];
+
     const payload = {
       game: "wort-huepfer",
       endedAt: new Date().toISOString(),
@@ -598,6 +660,7 @@ export function mountArtikelClimber(root, options = {}) {
         },
         flags: snap.flags,
       },
+      weakestPlayed,
       words: rows,
     };
 
@@ -616,6 +679,8 @@ export function mountArtikelClimber(root, options = {}) {
 
     const textLines = [
       `Wort-Hüpfer — Punktzahl ${score}`,
+      "",
+      ...weakestLines,
       "",
       "Pools (mutually exclusive; should sum to deck)",
       `Unseen ${snap.unseen} · Active ${snap.active} · Graduated ${snap.graduated} · sum ${snap.unseen + snap.active + snap.graduated} / deck ${snap.deckTotal}`,
@@ -728,7 +793,7 @@ export function mountArtikelClimber(root, options = {}) {
     GRAVITY = BASE_GRAVITY * (speedScale * speedScale);
     BOUNCE_VELOCITY = BASE_BOUNCE * speedScale;
     MEGA_BOUNCE = BASE_MEGA_BOUNCE * speedScale;
-    MOVE_SPEED = BASE_MOVE * speedScale;
+    MOVE_SPEED = BASE_MOVE * speedScale * TOUCH_MOVE_MULT;
   }
 
   function hideOverlays() {
@@ -826,13 +891,13 @@ export function mountArtikelClimber(root, options = {}) {
     player.vy = fromFall ? MEGA_BOUNCE : BOUNCE_VELOCITY;
     player.isRescuing = true;
     if (fromFall) {
+      resetEyeSpin();
       player.scaredBouncesLeft = 3;
       setFace("scared", 4000);
       createParticles(player.x, padY, "#ef4444");
     } else {
       clearScaredFace();
-      player.spin = 0;
-      player.spinVel = 0;
+      resetEyeSpin();
     }
   }
 
@@ -874,6 +939,7 @@ export function mountArtikelClimber(root, options = {}) {
     clearKeys();
     canvasPointers.clear();
     pointerAnchors.clear();
+    resetEyeSpin();
     setFace("dead", 10_000);
     setWordDisplay("");
     closeReportSheet();
@@ -889,11 +955,7 @@ export function mountArtikelClimber(root, options = {}) {
         snap.hintDependencePct == null
           ? "—"
           : `${snap.hintDependencePct}% (${snap.introducedHinted}/${snap.deckTotal})`;
-      const grad =
-        snap.graduationRatePct == null
-          ? "—"
-          : `${snap.graduationRatePct}% (${snap.graduated}/${snap.introduced || 0})`;
-      summaryEl.textContent = `Hints ${hints} · Deck ${deck} · Grad ${grad}`;
+      summaryEl.textContent = `Hints ${hints} · Deck ${deck}`;
     }
     buildReport();
     if (startEl) {
@@ -1001,7 +1063,11 @@ export function mountArtikelClimber(root, options = {}) {
     player.y += player.vy;
     player.spin += player.spinVel;
     player.spinVel *= 0.965;
-    if (Math.abs(player.spinVel) < 0.002) player.spinVel = 0;
+    // When tumble energy dies, snap to horizontal * * (don't freeze at ~90°).
+    if (Math.abs(player.spinVel) < 0.002) {
+      player.spinVel = 0;
+      player.spin = 0;
+    }
     const screenCenterY = height / 2;
     // Don't scroll the field while recovering from a bottom fall.
     if (!player.isRescuing && player.y < cameraY + screenCenterY) {
@@ -1047,6 +1113,7 @@ export function mountArtikelClimber(root, options = {}) {
           const jumpBoost = keys.up ? -5 : 0;
           if (p.type === "safe") {
             player.vy = BOUNCE_VELOCITY + jumpBoost;
+            noteNormalBounceForSpin();
             if (player.scaredBouncesLeft > 0) {
               player.scaredBouncesLeft -= 1;
               if (player.scaredBouncesLeft <= 0) clearScaredFace();
@@ -1057,7 +1124,7 @@ export function mountArtikelClimber(root, options = {}) {
           } else if (p.type === player.targetWord?.gender) {
             const landed = player.targetWord;
             player.vy = MEGA_BOUNCE + jumpBoost;
-            kickMegaSpin();
+            if (keys.up) kickMegaSpin();
             clearBounceFloor();
             clearScaredFace();
             stampWordOnPlatform(p, landed);
@@ -1289,7 +1356,7 @@ export function mountArtikelClimber(root, options = {}) {
     dx = x - anchor.ax;
     dy = y - anchor.ay;
     const wantUp = dy <= -TOUCH_DEAD_Y || y < h * 0.28;
-    if (wantUp && Math.abs(dx) < TOUCH_DEAD_X * 1.35) return "up";
+    if (wantUp && Math.abs(dx) < TOUCH_UP_MAX_DX) return "up";
     if (dx <= -TOUCH_DEAD_X) return "left";
     if (dx >= TOUCH_DEAD_X) return "right";
     return null;
