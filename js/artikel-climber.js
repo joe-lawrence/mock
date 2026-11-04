@@ -50,7 +50,7 @@ const REPORT_LIST_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1.1em" h
  *   speak?: (text: string) => void,
  *   unlockSpeak?: () => void,
  *   stopSpeak?: () => void,
- *   playFeedback?: (kind: "ok"|"bad"|"retry") => void,
+ *   playFeedback?: (kind: "ok"|"bad"|"retry"|"splat") => void,
  *   scoreEl?: HTMLElement|null,
  *   livesEl?: HTMLElement|null,
  *   onExit?: () => void,
@@ -233,11 +233,11 @@ export function mountArtikelClimber(root, options = {}) {
     (/iPad|iPhone|iPod/.test(navigator.userAgent || "") ||
       (navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1));
   // iPhone: tight X deadzone + faster strafe — finger drags read small on CSS pixels.
-  const TOUCH_DEAD_X = isTouchApple ? 3.5 : 10;
+  const TOUCH_DEAD_X = isTouchApple ? 4.5 : 10;
   const TOUCH_DEAD_Y = isTouchApple ? 16 : 18;
   /** Up loses to left/right sooner when there's any sideways drag. */
-  const TOUCH_UP_MAX_DX = isTouchApple ? TOUCH_DEAD_X * 1.0 : TOUCH_DEAD_X * 1.35;
-  const TOUCH_MOVE_MULT = isTouchApple ? 1.35 : 1;
+  const TOUCH_UP_MAX_DX = isTouchApple ? TOUCH_DEAD_X * 1.1 : TOUCH_DEAD_X * 1.35;
+  const TOUCH_MOVE_MULT = isTouchApple ? 1.22 : 1;
   const player = {
     x: 0,
     y: 0,
@@ -1164,7 +1164,7 @@ export function mountArtikelClimber(root, options = {}) {
         return;
       }
       if (audioOn) stopSpeak();
-      playFeedback("bad");
+      playFeedback("splat");
       if (player.targetWord) {
         player.targetWord.wrong = (player.targetWord.wrong || 0) + 1;
         if (pools.graduatedPool.includes(player.targetWord)) {

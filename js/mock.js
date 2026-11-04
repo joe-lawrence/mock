@@ -210,7 +210,7 @@ import {
   mountNavCarousel,
 } from "./nav-carousel.js?v=20261104-climber-cards";
 import { climberWordsFromVocabUnits } from "./artikel-climber-vocab.js?v=20261103-climber";
-import { mountArtikelClimber } from "./artikel-climber.js?v=20261104-ios-strafe2";
+import { mountArtikelClimber } from "./artikel-climber.js?v=20261104-splat";
 import { keysSkippedByJump } from "./guided-jump.js";
 import {
   noteQuizNavEntry,
@@ -593,7 +593,8 @@ function getFeedbackAudio() {
 
 /**
  * Short UI chimes — positive ascending, soft miss / retry.
- * @param {"ok"|"bad"|"retry"} kind
+ * "splat" = Climber fall (brown noise burst, from artikel_climber.html).
+ * @param {"ok"|"bad"|"retry"|"splat"} kind
  */
 function playFeedbackSound(kind) {
   if (!readSfxEnabled()) return;
@@ -609,6 +610,36 @@ function playFeedbackSound(kind) {
 
   const run = () => {
     const now = ctx.currentTime;
+
+    if (kind === "splat") {
+      // Tone.NoiseSynth brown + short envelope (~8n) from the HTML prototype.
+      const dur = 0.4;
+      const frames = Math.max(1, Math.floor(ctx.sampleRate * dur));
+      const buffer = ctx.createBuffer(1, frames, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      let last = 0;
+      for (let i = 0; i < frames; i++) {
+        const white = Math.random() * 2 - 1;
+        last = (last + 0.02 * white) / 1.02;
+        data[i] = last * 3.5;
+      }
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(480, now);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.28, now + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      src.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      src.start(now);
+      src.stop(now + dur + 0.02);
+      return;
+    }
+
     const master = ctx.createGain();
     master.gain.value = 0.065;
     master.connect(ctx.destination);
@@ -7550,7 +7581,7 @@ function ensureClimberPlaybackSession() {
 
 /**
  * Must run inside a user gesture (Start / Continue). Primes speechSynthesis
- * and (on iOS) avoids opening the SFX AudioContext so TTS can own the session.
+ * silently (no audible "ja") so later land-speaks are allowed on iOS.
  */
 function unlockClimberLightTts() {
   if (!("speechSynthesis" in window)) return;
@@ -7558,11 +7589,9 @@ function unlockClimberLightTts() {
   ensureClimberPlaybackSession();
   startClimberLightSpeechWatchdog();
   try {
-    const prime = new SpeechSynthesisUtterance("ja");
-    applyClimberLightVoice(prime);
-    // Audible enough to unlock; Climber mutes SFX on iOS so this can be soft.
-    prime.volume = isClimberLightIos() ? 0.2 : 0.15;
-    prime.rate = 1.15;
+    const prime = new SpeechSynthesisUtterance(" ");
+    prime.volume = 0;
+    prime.rate = 10;
     window.speechSynthesis.resume();
     window.speechSynthesis.speak(prime);
     climberLightSpeakAfterCancel = false;
