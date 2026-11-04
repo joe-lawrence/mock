@@ -48,6 +48,7 @@ const REPORT_LIST_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1.1em" h
  *   words: { word: string, article: string, gender: string }[],
  *   audio?: boolean,
  *   speak?: (text: string) => void,
+ *   unlockSpeak?: () => void,
  *   playFeedback?: (kind: "ok"|"bad"|"retry") => void,
  *   scoreEl?: HTMLElement|null,
  *   livesEl?: HTMLElement|null,
@@ -58,6 +59,8 @@ export function mountArtikelClimber(root, options = {}) {
   const words = Array.isArray(options.words) ? options.words : [];
   const audioOn = options.audio !== false;
   const speak = typeof options.speak === "function" ? options.speak : () => {};
+  const unlockSpeak =
+    typeof options.unlockSpeak === "function" ? options.unlockSpeak : () => {};
   const playFeedback =
     typeof options.playFeedback === "function" ? options.playFeedback : () => {};
   const onExit = typeof options.onExit === "function" ? options.onExit : null;
@@ -1316,6 +1319,8 @@ export function mountArtikelClimber(root, options = {}) {
 
   root.querySelector("[data-climber-play]")?.addEventListener("click", (e) => {
     e.preventDefault();
+    // Unlock WebKit speechSynthesis while still inside the tap gesture.
+    if (audioOn) unlockSpeak();
     initGame();
   });
   root.querySelector("[data-climber-retry]")?.addEventListener("click", (e) => {
@@ -1324,6 +1329,7 @@ export function mountArtikelClimber(root, options = {}) {
   });
   root.querySelector("[data-climber-continue]")?.addEventListener("click", (e) => {
     e.preventDefault();
+    if (audioOn) unlockSpeak();
     continueGame();
   });
   root.querySelector("[data-climber-report]")?.addEventListener("click", (e) => {

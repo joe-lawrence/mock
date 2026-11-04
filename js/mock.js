@@ -210,7 +210,7 @@ import {
   mountNavCarousel,
 } from "./nav-carousel.js?v=20261104-climber-cards";
 import { climberWordsFromVocabUnits } from "./artikel-climber-vocab.js?v=20261103-climber";
-import { mountArtikelClimber } from "./artikel-climber.js?v=20261104-report-accuracy";
+import { mountArtikelClimber } from "./artikel-climber.js?v=20261104-ios-tts";
 import { keysSkippedByJump } from "./guided-jump.js";
 import {
   noteQuizNavEntry,
@@ -7442,6 +7442,10 @@ function startArtikelClimber(units, { audio = true } = {}) {
       if (!audio) return;
       speakClimberLight(text);
     },
+    unlockSpeak: () => {
+      if (!audio) return;
+      unlockClimberLightTts();
+    },
     playFeedback: playFeedbackSound,
     onExit: () => {
       destroyArtikelClimber();
@@ -7450,16 +7454,83 @@ function startArtikelClimber(units, { audio = true } = {}) {
   });
 }
 
+/** Cached German voice for Climber light TTS (WebKit/Chrome). */
+let climberLightDeVoice = null;
+let climberLightVoicesHooked = false;
+
+function isClimberLightIos() {
+  return (
+    typeof navigator !== "undefined" &&
+    /iPad|iPhone|iPod/.test(navigator.userAgent || "") &&
+    !window.MSStream
+  );
+}
+
+function refreshClimberLightDeVoice() {
+  if (!("speechSynthesis" in window)) return;
+  try {
+    const voices = window.speechSynthesis.getVoices() || [];
+    climberLightDeVoice =
+      voices.find((v) => /de-DE/i.test(v.lang || "")) ||
+      voices.find((v) => /^de([-_]|$)/i.test(v.lang || "")) ||
+      voices.find((v) => /german|deutsch/i.test(v.name || "")) ||
+      null;
+  } catch {
+    climberLightDeVoice = null;
+  }
+}
+
+function ensureClimberLightVoices() {
+  if (!("speechSynthesis" in window)) return;
+  refreshClimberLightDeVoice();
+  if (climberLightVoicesHooked) return;
+  climberLightVoicesHooked = true;
+  try {
+    window.speechSynthesis.addEventListener(
+      "voiceschanged",
+      refreshClimberLightDeVoice
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Must run inside a user gesture (Start / Continue). Unlocks WebKit speechSynthesis
+ * for later bounce utterances and warms the de-* voice list.
+ */
+function unlockClimberLightTts() {
+  if (!("speechSynthesis" in window)) return;
+  ensureClimberLightVoices();
+  try {
+    // Silent prime — counts as speak() under the tap gesture on iOS.
+    const prime = new SpeechSynthesisUtterance(" ");
+    prime.lang = "de-DE";
+    prime.volume = 0;
+    prime.rate = 1;
+    if (climberLightDeVoice) prime.voice = climberLightDeVoice;
+    window.speechSynthesis.speak(prime);
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Browser speechSynthesis for Climber only — cheap vs Piper on the game tick. */
 function speakClimberLight(text) {
   if (!("speechSynthesis" in window)) return;
   const say = String(text || "").trim();
   if (!say) return;
+  ensureClimberLightVoices();
   try {
-    window.speechSynthesis.cancel();
+    // iOS: cancel()-then-speak often drops the utterance. Desktop: cancel so
+    // rapid lands don't queue up.
+    if (!isClimberLightIos()) {
+      window.speechSynthesis.cancel();
+    }
     const msg = new SpeechSynthesisUtterance(say);
     msg.lang = "de-DE";
     msg.rate = 1.1;
+    if (climberLightDeVoice) msg.voice = climberLightDeVoice;
     window.speechSynthesis.speak(msg);
   } catch {
     /* ignore */
