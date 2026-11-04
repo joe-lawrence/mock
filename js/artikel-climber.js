@@ -10,8 +10,8 @@ import {
 } from "./artikel-climber-pools.js";
 
 const BASE_GRAVITY = 0.2;
-const BASE_BOUNCE = -9.5;
-const BASE_MEGA_BOUNCE = -13.0;
+const BASE_BOUNCE = -8.2;
+const BASE_MEGA_BOUNCE = -11.2;
 const BASE_MOVE = 3.0;
 const MAX_LIVES = 3;
 /** Eyes stay dark on the white ball in both themes. */
@@ -52,8 +52,6 @@ export function mountArtikelClimber(root, options = {}) {
         <div class="climber-overlay" data-climber-start>
           <div class="climber-panel">
             <h1 class="climber-title">Wort-Hüpfer</h1>
-            <p class="climber-lede">Land on the platform that matches the noun’s article.</p>
-            <button type="button" class="btn btn-primary" data-climber-play>Start</button>
             <label class="climber-speed">
               <select data-climber-speed aria-label="Speed">
                 <option value="0.8">Relaxed Rate</option>
@@ -61,6 +59,7 @@ export function mountArtikelClimber(root, options = {}) {
                 <option value="1.15">Frantic Pace</option>
               </select>
             </label>
+            <button type="button" class="btn btn-primary" data-climber-play>Start</button>
           </div>
         </div>
         <div class="climber-overlay is-hidden" data-climber-over hidden>
@@ -153,8 +152,13 @@ export function mountArtikelClimber(root, options = {}) {
   let MEGA_BOUNCE = BASE_MEGA_BOUNCE;
   let MOVE_SPEED = BASE_MOVE;
   const keys = { left: false, right: false, up: false };
-  /** @type {Map<number, "left"|"right"|"up">} */
+  /** @type {Map<number, "left"|"right"|"up"|null>} */
   const canvasPointers = new Map();
+  /** Sliding deadzone anchors — relative drag, not screen halves (less sticky on iOS). */
+  /** @type {Map<number, { ax: number, ay: number }>} */
+  const pointerAnchors = new Map();
+  const TOUCH_DEAD_X = 10;
+  const TOUCH_DEAD_Y = 18;
   const player = {
     x: 0,
     y: 0,
@@ -381,6 +385,7 @@ export function mountArtikelClimber(root, options = {}) {
     gameState = "start";
     clearKeys();
     canvasPointers.clear();
+    pointerAnchors.clear();
     score = 0;
     lives = MAX_LIVES;
     cameraY = 0;
@@ -409,29 +414,40 @@ export function mountArtikelClimber(root, options = {}) {
     animationId = requestAnimationFrame(gameLoop);
   }
 
-  function spawnRescuePlatform() {
-    const rescueY = cameraY + height - 20;
+  /** Small grey starter pad: keep until a correct gender land (no life lost if missed). */
+  function placeBounceFloor({ fromFall = false } = {}) {
+    const padY = cameraY + height - 50;
+    platforms = platforms.filter((p) => !p.isBounceFloor);
     platforms.push({
-      x: -50,
-      y: rescueY,
-      width: width + 100,
-      height: 40,
+      x: width / 2 - 40,
+      y: padY,
+      width: 80,
+      height: 15,
       type: "safe",
       broken: false,
+      isBounceFloor: true,
     });
     player.x = width / 2;
-    player.y = rescueY - player.radius - 5;
+    player.y = padY - player.radius - 5;
     player.vx = 0;
-    player.vy = MEGA_BOUNCE;
+    player.vy = fromFall ? MEGA_BOUNCE : BOUNCE_VELOCITY;
     player.isRescuing = true;
-    setFace("scared", 900);
-    createParticles(player.x, rescueY, "#ef4444");
+    if (fromFall) {
+      setFace("scared", 900);
+      createParticles(player.x, padY, "#ef4444");
+    }
+  }
+
+  function clearBounceFloor() {
+    platforms = platforms.filter((p) => !p.isBounceFloor);
+    player.isRescuing = false;
   }
 
   function endGame(reason) {
     gameState = "gameover";
     clearKeys();
     canvasPointers.clear();
+    pointerAnchors.clear();
     setFace("dead", 10_000);
     setWordDisplay("");
     if (finalEl) finalEl.textContent = String(score);
@@ -465,27 +481,15 @@ export function mountArtikelClimber(root, options = {}) {
     clouds = [];
     clearKeys();
     canvasPointers.clear();
-    player.x = width / 2;
-    player.y = Math.max(80, height - 150);
-    player.vx = 0;
-    player.vy = 0;
-    player.isRescuing = false;
+    pointerAnchors.clear();
     player.face = "normal";
     player.faceUntil = 0;
     player.targetWord = getNextWord();
     setWordDisplay(player.targetWord);
-    platforms.push({
-      x: width / 2 - 40,
-      y: height - 50,
-      width: 80,
-      height: 15,
-      type: "safe",
-      broken: false,
-    });
     generatePlatforms(height - 50);
+    placeBounceFloor({ fromFall: false });
     gameState = "playing";
     hideOverlays();
-    player.vy = BOUNCE_VELOCITY;
     animationId = requestAnimationFrame(gameLoop);
   }
 
@@ -503,13 +507,14 @@ export function mountArtikelClimber(root, options = {}) {
     setLivesDisplay(lives);
     clearKeys();
     canvasPointers.clear();
+    pointerAnchors.clear();
     player.face = "normal";
     player.faceUntil = 0;
     if (!player.targetWord) {
       player.targetWord = getNextWord();
     }
     setWordDisplay(player.targetWord);
-    spawnRescuePlatform();
+    placeBounceFloor({ fromFall: false });
     gameState = "playing";
     hideOverlays();
     animationId = requestAnimationFrame(gameLoop);
@@ -573,7 +578,7 @@ export function mountArtikelClimber(root, options = {}) {
             setFace("happy", 220);
           } else if (p.type === player.targetWord?.gender) {
             player.vy = MEGA_BOUNCE + jumpBoost;
-            player.isRescuing = false;
+            clearBounceFloor();
             setFace("happy", 320);
             speakWord(player.targetWord.article, player.targetWord.word);
             playFeedback("ok");
@@ -599,6 +604,11 @@ export function mountArtikelClimber(root, options = {}) {
     });
 
     if (player.y > cameraY + height + 20) {
+      // Still finding a platform after start/life — keep the floor, no life lost.
+      if (player.isRescuing) {
+        placeBounceFloor({ fromFall: true });
+        return;
+      }
       if (audioOn && "speechSynthesis" in window) {
         try {
           window.speechSynthesis.cancel();
@@ -614,7 +624,7 @@ export function mountArtikelClimber(root, options = {}) {
         endGame();
         return;
       }
-      spawnRescuePlatform();
+      placeBounceFloor({ fromFall: true });
     }
   }
 
@@ -760,14 +770,41 @@ export function mountArtikelClimber(root, options = {}) {
     keys.up = up;
   }
 
-  function zoneForPoint(clientX, clientY) {
+  function localPoint(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-    const w = rect.width || width;
-    const h = rect.height || height;
-    if (y < h / 3) return "up";
-    return x < w / 2 ? "left" : "right";
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+      h: rect.height || height,
+    };
+  }
+
+  /** @returns {"left"|"right"|"up"|null} */
+  function dirFromDrag(pointerId, clientX, clientY) {
+    const { x, y, h } = localPoint(clientX, clientY);
+    let anchor = pointerAnchors.get(pointerId);
+    if (!anchor) {
+      anchor = { ax: x, ay: y };
+      pointerAnchors.set(pointerId, anchor);
+    }
+    let dx = x - anchor.ax;
+    let dy = y - anchor.ay;
+    // Pull the deadzone with the finger so reversing left↔right is immediate.
+    if (dx <= -TOUCH_DEAD_X) anchor.ax = x + TOUCH_DEAD_X;
+    else if (dx >= TOUCH_DEAD_X) anchor.ax = x - TOUCH_DEAD_X;
+    if (dy <= -TOUCH_DEAD_Y) anchor.ay = y + TOUCH_DEAD_Y;
+    dx = x - anchor.ax;
+    dy = y - anchor.ay;
+    const wantUp = dy <= -TOUCH_DEAD_Y || y < h * 0.28;
+    if (wantUp && Math.abs(dx) < TOUCH_DEAD_X * 1.35) return "up";
+    if (dx <= -TOUCH_DEAD_X) return "left";
+    if (dx >= TOUCH_DEAD_X) return "right";
+    return null;
+  }
+
+  function applyPointerSample(pointerId, clientX, clientY) {
+    canvasPointers.set(pointerId, dirFromDrag(pointerId, clientX, clientY));
+    syncKeysFromCanvasPointers();
   }
 
   function onCanvasPointerDown(e) {
@@ -778,18 +815,28 @@ export function mountArtikelClimber(root, options = {}) {
     } catch {
       /* ignore */
     }
-    canvasPointers.set(e.pointerId, zoneForPoint(e.clientX, e.clientY));
+    const { x, y } = localPoint(e.clientX, e.clientY);
+    pointerAnchors.set(e.pointerId, { ax: x, ay: y });
+    // Finger down alone doesn't steer — wait for a drag past the deadzone.
+    canvasPointers.set(e.pointerId, null);
     syncKeysFromCanvasPointers();
   }
 
   function onCanvasPointerMove(e) {
     if (gameState !== "playing" || !canvasPointers.has(e.pointerId)) return;
-    canvasPointers.set(e.pointerId, zoneForPoint(e.clientX, e.clientY));
-    syncKeysFromCanvasPointers();
+    e.preventDefault();
+    const samples =
+      typeof e.getCoalescedEvents === "function" && e.getCoalescedEvents().length
+        ? e.getCoalescedEvents()
+        : [e];
+    for (const sample of samples) {
+      applyPointerSample(e.pointerId, sample.clientX, sample.clientY);
+    }
   }
 
   function onCanvasPointerUp(e) {
     canvasPointers.delete(e.pointerId);
+    pointerAnchors.delete(e.pointerId);
     syncKeysFromCanvasPointers();
   }
 
@@ -797,6 +844,7 @@ export function mountArtikelClimber(root, options = {}) {
     if (animationId) cancelAnimationFrame(animationId);
     clearKeys();
     canvasPointers.clear();
+    pointerAnchors.clear();
     if (scoreEl) scoreEl.hidden = true;
     if (livesEl) livesEl.hidden = true;
     window.removeEventListener("keydown", onKeyDown);
@@ -817,14 +865,21 @@ export function mountArtikelClimber(root, options = {}) {
     e.preventDefault();
     continueGame();
   });
-  // Canvas-only touch zones so overlay buttons still receive taps on iOS.
-  canvas.addEventListener("pointerdown", onCanvasPointerDown);
-  canvas.addEventListener("pointermove", onCanvasPointerMove);
+  // Relative thumb-drag on the canvas (not left/right screen halves).
+  canvas.addEventListener("pointerdown", onCanvasPointerDown, { passive: false });
+  canvas.addEventListener("pointermove", onCanvasPointerMove, { passive: false });
   canvas.addEventListener("pointerup", onCanvasPointerUp);
   canvas.addEventListener("pointercancel", onCanvasPointerUp);
   canvas.addEventListener("lostpointercapture", onCanvasPointerUp);
   canvas.addEventListener(
     "touchstart",
+    (e) => {
+      if (gameState === "playing") e.preventDefault();
+    },
+    { passive: false }
+  );
+  canvas.addEventListener(
+    "touchmove",
     (e) => {
       if (gameState === "playing") e.preventDefault();
     },
