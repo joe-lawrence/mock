@@ -17,6 +17,31 @@ const MAX_LIVES = 3;
 /** Eyes stay dark on the white ball in both themes. */
 const EYE_INK = "#1a2030";
 
+/*
+The MIT License (MIT)
+
+Copyright (c) 2019-2024 The Bootstrap Authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
+const REPORT_LIST_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1.1em" height="1.1em" fill="currentColor" class="bi bi-list-check" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M5 11.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5M3.854 2.146a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 1 1 .708-.708L2 3.293l1.146-1.147a.5.5 0 0 1 .708 0m0 4a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 1 1 .708-.708L2 7.293l1.146-1.147a.5.5 0 0 1 .708 0m0 4a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 0 1 .708-.708l.146.147 1.146-1.147a.5.5 0 0 1 .708 0"/></svg>`;
+
 /**
  * @param {HTMLElement} root
  * @param {{
@@ -45,6 +70,18 @@ export function mountArtikelClimber(root, options = {}) {
     <div class="climber-shell">
       <div class="climber-stage" data-climber-stage>
         <canvas class="climber-canvas" data-climber-canvas></canvas>
+        <div class="climber-progress" data-climber-progress hidden>
+          <span class="climber-progress-side">Hints <span data-climber-hints-pct>—</span></span>
+          <div class="climber-progress-track" aria-hidden="true">
+            <div class="climber-progress-half is-hints">
+              <div class="climber-progress-hints" data-climber-hints-bar></div>
+            </div>
+            <div class="climber-progress-half is-deck">
+              <div class="climber-progress-deck" data-climber-deck-bar></div>
+            </div>
+          </div>
+          <span class="climber-progress-side">Deck <span data-climber-deck-pct>0%</span></span>
+        </div>
         <div class="climber-next" data-climber-next hidden>
           <span class="climber-next-label">Next up</span>
           <span class="climber-next-word" data-climber-next-word></span>
@@ -67,9 +104,24 @@ export function mountArtikelClimber(root, options = {}) {
             <h1 class="climber-title">Spiel vorbei!</h1>
             <p class="climber-lede">Punktzahl</p>
             <p class="climber-final" data-climber-final>0</p>
+            <p class="climber-summary" data-climber-summary></p>
             <div class="climber-over-actions">
               <button type="button" class="btn btn-primary" data-climber-continue>Continue</button>
               <button type="button" class="btn" data-climber-retry>Restart</button>
+              <button type="button" class="btn climber-report-btn" data-climber-report aria-label="Full report card">
+                ${REPORT_LIST_SVG}
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="climber-overlay is-hidden" data-climber-report-sheet hidden>
+          <div class="climber-panel climber-report-panel">
+            <h1 class="climber-title">Bericht</h1>
+            <pre class="climber-report-body" data-climber-report-body></pre>
+            <div class="climber-over-actions">
+              <button type="button" class="btn btn-primary" data-climber-copy-text>Copy text</button>
+              <button type="button" class="btn" data-climber-copy-json>Copy JSON</button>
+              <button type="button" class="btn" data-climber-report-close>Done</button>
             </div>
           </div>
         </div>
@@ -82,10 +134,18 @@ export function mountArtikelClimber(root, options = {}) {
   const ctx = canvas.getContext("2d");
   const startEl = root.querySelector("[data-climber-start]");
   const overEl = root.querySelector("[data-climber-over]");
+  const reportSheetEl = root.querySelector("[data-climber-report-sheet]");
+  const reportBodyEl = root.querySelector("[data-climber-report-body]");
+  const summaryEl = root.querySelector("[data-climber-summary]");
   const finalEl = root.querySelector("[data-climber-final]");
   const speedEl = root.querySelector("[data-climber-speed]");
   const nextEl = root.querySelector("[data-climber-next]");
   const nextWordEl = root.querySelector("[data-climber-next-word]");
+  const progressEl = root.querySelector("[data-climber-progress]");
+  const hintsPctEl = root.querySelector("[data-climber-hints-pct]");
+  const deckPctEl = root.querySelector("[data-climber-deck-pct]");
+  const hintsBarEl = root.querySelector("[data-climber-hints-bar]");
+  const deckBarEl = root.querySelector("[data-climber-deck-bar]");
 
   function displayFont(weight, sizePx) {
     const family =
@@ -147,6 +207,11 @@ export function mountArtikelClimber(root, options = {}) {
   let clouds = [];
   let animationId = null;
   let pools = { unseenPool: [], activePool: [], graduatedPool: [] };
+  /** Distinct words that have appeared as a target at least once this run tree. */
+  /** @type {Map<string, object>} */
+  const seenByKey = new Map();
+  let lastReportText = "";
+  let lastReportJson = "";
   let GRAVITY = BASE_GRAVITY;
   let BOUNCE_VELOCITY = BASE_BOUNCE;
   let MEGA_BOUNCE = BASE_MEGA_BOUNCE;
@@ -171,6 +236,8 @@ export function mountArtikelClimber(root, options = {}) {
     /** @type {"normal"|"happy"|"boost"|"scared"|"dead"} */
     face: "normal",
     faceUntil: 0,
+    /** X-eyes after a lost life; clears after safe bounces or steering. */
+    scaredBouncesLeft: 0,
   };
 
   /** @param {"normal"|"happy"|"boost"|"scared"|"dead"} face @param {number} [ms] */
@@ -179,11 +246,18 @@ export function mountArtikelClimber(root, options = {}) {
     player.faceUntil = performance.now() + ms;
   }
 
+  function clearScaredFace() {
+    player.scaredBouncesLeft = 0;
+    if (player.face === "scared") {
+      player.face = "normal";
+      player.faceUntil = 0;
+    }
+  }
+
   function currentFace() {
     if (gameState === "gameover") return "dead";
-    if (player.isRescuing) return "scared";
+    if (player.scaredBouncesLeft > 0) return "scared";
     if (keys.up && player.vy < 0) return "boost";
-    if (player.vy > 10) return "scared";
     if (performance.now() < player.faceUntil) return player.face;
     return "normal";
   }
@@ -282,8 +356,293 @@ export function mountArtikelClimber(root, options = {}) {
     speak(`${article} ${word}`);
   }
 
+  function wordKey(w) {
+    return `${w?.gender || ""}:${w?.article || ""}:${w?.word || ""}`;
+  }
+
+  function noteWordInPlay(w) {
+    if (!w?.word) return;
+    const k = wordKey(w);
+    if (!seenByKey.has(k)) seenByKey.set(k, w);
+    if (typeof w.correct !== "number") w.correct = w.correct || 0;
+    if (typeof w.wrong !== "number") w.wrong = w.wrong || 0;
+    updateProgressUi();
+  }
+
+  function poolOf(w) {
+    if (pools.graduatedPool.includes(w)) return "graduated";
+    if (pools.activePool.includes(w)) return "active";
+    if (pools.unseenPool.includes(w)) return "unseen";
+    return null;
+  }
+
+  function pct(num, den) {
+    if (!den) return null;
+    return Math.round((num / den) * 100);
+  }
+
+  /**
+   * Deck progress = introduced / deck.
+   * Hint dependence (HUD) = introduced still showing hints / deck.
+   * Graduation rate = graduated / introduced.
+   * Introduced = active ∪ graduated (never unseen). Entered play = seen as target.
+   */
+  function progressSnapshot() {
+    const deckTotal = words.length;
+    const unseen = pools.unseenPool.length;
+    const active = pools.activePool.length;
+    const graduated = pools.graduatedPool.length;
+    const introducedList = [...pools.activePool, ...pools.graduatedPool];
+    const introduced = introducedList.length;
+    const introducedHinted = introducedList.filter(
+      (w) => w.showHint !== false
+    ).length;
+    const enteredPlayList = [...seenByKey.values()];
+    const enteredPlay = enteredPlayList.length;
+    const activeNotPlayed = pools.activePool.filter(
+      (w) => !seenByKey.has(wordKey(w))
+    );
+    const poolSum = unseen + active + graduated;
+    const flags = [];
+    if (deckTotal > 0 && poolSum !== deckTotal) {
+      flags.push(
+        `pool_sum_mismatch: unseen+active+graduated=${poolSum} deck=${deckTotal}`
+      );
+    }
+    if (introduced !== active + graduated) {
+      flags.push(
+        `introduced_mismatch: introduced=${introduced} active+graduated=${active + graduated}`
+      );
+    }
+    const hintedCheck = introducedList.filter((w) => w.showHint !== false)
+      .length;
+    if (hintedCheck !== introducedHinted) {
+      flags.push(`hint_count_mismatch: ${hintedCheck} vs ${introducedHinted}`);
+    }
+    for (const w of enteredPlayList) {
+      if (poolOf(w) === "unseen") {
+        flags.push(`entered_play_but_unseen: ${w.word}`);
+      }
+    }
+
+    const deckProgressPct = pct(introduced, deckTotal);
+    const hintDependencePct = pct(introducedHinted, deckTotal);
+    const hintAmongIntroducedPct = pct(introducedHinted, introduced);
+    const graduationRatePct = pct(graduated, introduced);
+
+    return {
+      deckTotal,
+      unseen,
+      active,
+      graduated,
+      introduced,
+      introducedHinted,
+      enteredPlay,
+      activeNotPlayed,
+      deckProgressPct,
+      hintDependencePct,
+      hintAmongIntroducedPct,
+      graduationRatePct,
+      flags,
+      // HUD aliases (same denominators as above)
+      hintsPct: hintDependencePct,
+      deckPct: deckProgressPct,
+      hintedCount: introducedHinted,
+      inPlayCount: enteredPlay,
+    };
+  }
+
+  function updateProgressUi() {
+    const snap = progressSnapshot();
+    if (hintsPctEl) {
+      hintsPctEl.textContent =
+        snap.hintDependencePct == null
+          ? "—"
+          : `${snap.hintDependencePct}% (${snap.introducedHinted}/${snap.deckTotal})`;
+    }
+    if (deckPctEl) {
+      deckPctEl.textContent =
+        snap.deckProgressPct == null
+          ? "0%"
+          : `${snap.deckProgressPct}% (${snap.introduced}/${snap.deckTotal})`;
+    }
+    if (hintsBarEl) {
+      hintsBarEl.style.width =
+        snap.hintDependencePct == null ? "0%" : `${snap.hintDependencePct}%`;
+    }
+    if (deckBarEl) {
+      deckBarEl.style.width =
+        snap.deckProgressPct == null ? "0%" : `${snap.deckProgressPct}%`;
+    }
+  }
+
+  function setProgressVisible(on) {
+    if (!progressEl) return;
+    progressEl.hidden = !on;
+  }
+
+  function buildReport() {
+    const snap = progressSnapshot();
+    const allWords = [
+      ...pools.unseenPool,
+      ...pools.activePool,
+      ...pools.graduatedPool,
+    ];
+    const byKey = new Map(allWords.map((w) => [wordKey(w), w]));
+    for (const [k, w] of seenByKey) if (!byKey.has(k)) byKey.set(k, w);
+
+    const rows = [...byKey.values()].map((w) => {
+      const pool = poolOf(w) || "unseen";
+      const introduced = pool === "active" || pool === "graduated";
+      const enteredPlay = seenByKey.has(wordKey(w));
+      let activeNote = "";
+      if (pool === "active" && !enteredPlay) {
+        activeNote =
+          "in active set (SRS) but not yet served as a climb target";
+      }
+      return {
+        word: w.word,
+        article: w.article,
+        gender: w.gender,
+        pool,
+        introduced,
+        enteredPlay,
+        activeNote: activeNote || undefined,
+        streak: w.streak || 0,
+        showHint: w.showHint !== false,
+        hintMeans:
+          "Color hint visible — not the same as lacking gender knowledge",
+        correct: w.correct || 0,
+        wrong: w.wrong || 0,
+        postGradCorrect: w.postGradCorrect || 0,
+        postGradWrong: w.postGradWrong || 0,
+      };
+    });
+    rows.sort((a, b) => a.word.localeCompare(b.word, "de"));
+
+    const payload = {
+      game: "wort-huepfer",
+      endedAt: new Date().toISOString(),
+      score,
+      speed: Number(speedEl?.value) || 1,
+      definitions: {
+        unseen: "Never introduced into the active SRS set",
+        active: "Introduced, not yet graduated",
+        graduated:
+          "Met current success threshold (streak); not durable mastery — still reviewed",
+        introduced: "active ∪ graduated",
+        enteredPlay: "Appeared at least once as the climb target",
+        deckProgress: "introduced / deckTotal",
+        hintDependence: "introduced with showHint / deckTotal (HUD)",
+        hintAmongIntroduced: "introduced with showHint / introduced",
+        graduationRate: "graduated / introduced",
+      },
+      summary: {
+        deckTotal: snap.deckTotal,
+        unseen: snap.unseen,
+        active: snap.active,
+        graduated: snap.graduated,
+        poolSum: snap.unseen + snap.active + snap.graduated,
+        introduced: snap.introduced,
+        enteredPlay: snap.enteredPlay,
+        activeNotYetPlayed: snap.activeNotPlayed.map((w) => w.word),
+        deckProgress: {
+          count: `${snap.introduced}/${snap.deckTotal}`,
+          pct: snap.deckProgressPct,
+        },
+        hintDependence: {
+          count: `${snap.introducedHinted}/${snap.deckTotal}`,
+          pct: snap.hintDependencePct,
+          note: "Full-deck denominator; hidden hints ≠ mastered gender",
+        },
+        hintAmongIntroduced: {
+          count: `${snap.introducedHinted}/${snap.introduced || 0}`,
+          pct: snap.hintAmongIntroducedPct,
+        },
+        graduationRate: {
+          count: `${snap.graduated}/${snap.introduced || 0}`,
+          pct: snap.graduationRatePct,
+          note: "Threshold met this run — not durable mastery",
+        },
+        flags: snap.flags,
+      },
+      words: rows,
+    };
+
+    const flagLines =
+      snap.flags.length > 0
+        ? ["", "FLAGS (consistency)", ...snap.flags.map((f) => `! ${f}`)]
+        : [];
+    const waiting =
+      snap.activeNotPlayed.length > 0
+        ? [
+            "",
+            "Active not yet played as target:",
+            ...snap.activeNotPlayed.map((w) => `- ${w.article} ${w.word}`),
+          ]
+        : [];
+
+    const textLines = [
+      `Wort-Hüpfer — Punktzahl ${score}`,
+      "",
+      "Pools (mutually exclusive; should sum to deck)",
+      `Unseen ${snap.unseen} · Active ${snap.active} · Graduated ${snap.graduated} · sum ${snap.unseen + snap.active + snap.graduated} / deck ${snap.deckTotal}`,
+      "",
+      `Deck progress ${snap.deckProgressPct ?? "—"}% (${snap.introduced}/${snap.deckTotal}) = introduced/deck`,
+      `Hint dependence ${snap.hintDependencePct ?? "—"}% (${snap.introducedHinted}/${snap.deckTotal}) = introduced+hint/deck`,
+      `Hint among introduced ${snap.hintAmongIntroducedPct ?? "—"}% (${snap.introducedHinted}/${snap.introduced || 0})`,
+      `Graduation rate ${snap.graduationRatePct ?? "—"}% (${snap.graduated}/${snap.introduced || 0}) = graduated/introduced`,
+      `Entered play (as target) ${snap.enteredPlay}/${snap.deckTotal}`,
+      "Note: Graduation = current streak threshold, not durable mastery. Post-grad reviews tracked separately.",
+      "Note: Hidden color hints ≠ proven gender knowledge.",
+      ...waiting,
+      ...flagLines,
+      "",
+      "Wort\tArtikel\tPool\tIntroduced\tPlayed\tStreak\tHint\t✓\t✗\tPostGrad✓\tPostGrad✗",
+      ...rows.map(
+        (r) =>
+          `${r.word}\t${r.article}\t${r.pool}\t${r.introduced ? "ja" : "nein"}\t${
+            r.enteredPlay ? "ja" : "nein"
+          }\t${r.streak}\t${r.showHint ? "ja" : "nein"}\t${r.correct}\t${r.wrong}\t${
+            r.postGradCorrect
+          }\t${r.postGradWrong}`
+      ),
+    ];
+    lastReportText = textLines.join("\n");
+    lastReportJson = JSON.stringify(payload, null, 2);
+    return payload;
+  }
+
+  function openReportSheet() {
+    buildReport();
+    if (reportBodyEl) reportBodyEl.textContent = lastReportText;
+    if (reportSheetEl) {
+      reportSheetEl.hidden = false;
+      reportSheetEl.classList.remove("is-hidden");
+    }
+  }
+
+  function closeReportSheet() {
+    if (reportSheetEl) {
+      reportSheetEl.hidden = true;
+      reportSheetEl.classList.add("is-hidden");
+    }
+  }
+
+  async function copyText(value) {
+    const text = String(value || "");
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      /* ignore */
+    }
+  }
+
   function getNextWord() {
-    return pickClimberWord({ ...pools, current: player.targetWord });
+    const next = pickClimberWord({ ...pools, current: player.targetWord });
+    noteWordInPlay(next);
+    return next;
   }
 
   function generatePlatforms(startY) {
@@ -401,6 +760,8 @@ export function mountArtikelClimber(root, options = {}) {
     setScoreDisplay(0);
     setLivesDisplay(MAX_LIVES);
     setWordDisplay("");
+    setProgressVisible(false);
+    closeReportSheet();
     if (overEl) {
       overEl.hidden = true;
       overEl.classList.add("is-hidden");
@@ -433,14 +794,45 @@ export function mountArtikelClimber(root, options = {}) {
     player.vy = fromFall ? MEGA_BOUNCE : BOUNCE_VELOCITY;
     player.isRescuing = true;
     if (fromFall) {
-      setFace("scared", 900);
+      player.scaredBouncesLeft = 3;
+      setFace("scared", 4000);
       createParticles(player.x, padY, "#ef4444");
+    } else {
+      clearScaredFace();
     }
   }
 
   function clearBounceFloor() {
     platforms = platforms.filter((p) => !p.isBounceFloor);
     player.isRescuing = false;
+  }
+
+  function stampWordOnPlatform(p, wordObj) {
+    if (!p || !wordObj?.word) return;
+    const word = String(wordObj.word);
+    p.stampWord = word;
+    ctx.font = displayFont(700, 13);
+    const targetW = Math.max(p.width, Math.ceil(ctx.measureText(word).width + 22));
+    if (targetW <= p.width + 0.5) return;
+    const center = p.x + p.width / 2;
+    p.width = targetW;
+    p.x = center - targetW / 2;
+    p.height = Math.max(p.height, 22);
+    const gap = 12;
+    const left = p.x;
+    const right = p.x + p.width;
+    for (const o of platforms) {
+      if (o === p || o.broken || o.isBounceFloor) continue;
+      if (Math.abs(o.y - p.y) > 28) continue;
+      const oMid = o.x + o.width / 2;
+      if (oMid <= center) {
+        const overlap = o.x + o.width + gap - left;
+        if (overlap > 0) o.x -= overlap;
+      } else {
+        const overlap = right + gap - o.x;
+        if (overlap > 0) o.x += overlap;
+      }
+    }
   }
 
   function endGame(reason) {
@@ -450,7 +842,26 @@ export function mountArtikelClimber(root, options = {}) {
     pointerAnchors.clear();
     setFace("dead", 10_000);
     setWordDisplay("");
+    closeReportSheet();
+    updateProgressUi();
+    const snap = progressSnapshot();
     if (finalEl) finalEl.textContent = String(score);
+    if (summaryEl) {
+      const deck =
+        snap.deckProgressPct == null
+          ? "—"
+          : `${snap.deckProgressPct}% (${snap.introduced}/${snap.deckTotal})`;
+      const hints =
+        snap.hintDependencePct == null
+          ? "—"
+          : `${snap.hintDependencePct}% (${snap.introducedHinted}/${snap.deckTotal})`;
+      const grad =
+        snap.graduationRatePct == null
+          ? "—"
+          : `${snap.graduationRatePct}% (${snap.graduated}/${snap.introduced || 0})`;
+      summaryEl.textContent = `Hints ${hints} · Deck ${deck} · Grad ${grad}`;
+    }
+    buildReport();
     if (startEl) {
       startEl.hidden = true;
       startEl.classList.add("is-hidden");
@@ -469,7 +880,10 @@ export function mountArtikelClimber(root, options = {}) {
     }
     if (animationId) cancelAnimationFrame(animationId);
     resize();
-    pools = initClimberPools(words.map((w) => ({ ...w })));
+    pools = initClimberPools(
+      words.map((w) => ({ ...w, correct: 0, wrong: 0 }))
+    );
+    seenByKey.clear();
     applySpeedFromUi();
     score = 0;
     lives = MAX_LIVES;
@@ -484,16 +898,19 @@ export function mountArtikelClimber(root, options = {}) {
     pointerAnchors.clear();
     player.face = "normal";
     player.faceUntil = 0;
+    updateProgressUi();
+    setProgressVisible(true);
     player.targetWord = getNextWord();
     setWordDisplay(player.targetWord);
     generatePlatforms(height - 50);
     placeBounceFloor({ fromFall: false });
     gameState = "playing";
     hideOverlays();
+    closeReportSheet();
     animationId = requestAnimationFrame(gameLoop);
   }
 
-  /** Resume after game over: keep score, height, and word pools; refill lives. */
+  /** Resume: fresh score/climb, keep spaced-repetition / hint progress. */
   function continueGame() {
     if (!words.length) {
       endGame("No gendered vocabulary in the selected sections.");
@@ -502,21 +919,33 @@ export function mountArtikelClimber(root, options = {}) {
     if (animationId) cancelAnimationFrame(animationId);
     resize();
     applySpeedFromUi();
+    score = 0;
     lives = MAX_LIVES;
-    setScoreDisplay(score);
+    setScoreDisplay(0);
     setLivesDisplay(lives);
+    cameraY = 0;
+    platforms = [];
+    particles = [];
+    clouds = [];
     clearKeys();
     canvasPointers.clear();
     pointerAnchors.clear();
     player.face = "normal";
     player.faceUntil = 0;
+    clearScaredFace();
+    setProgressVisible(true);
+    updateProgressUi();
     if (!player.targetWord) {
       player.targetWord = getNextWord();
+    } else {
+      noteWordInPlay(player.targetWord);
     }
     setWordDisplay(player.targetWord);
+    generatePlatforms(height - 50);
     placeBounceFloor({ fromFall: false });
     gameState = "playing";
     hideOverlays();
+    closeReportSheet();
     animationId = requestAnimationFrame(gameLoop);
   }
 
@@ -525,6 +954,12 @@ export function mountArtikelClimber(root, options = {}) {
     if (keys.left) player.vx = -MOVE_SPEED;
     else if (keys.right) player.vx = MOVE_SPEED;
     else player.vx = 0;
+    if (
+      player.scaredBouncesLeft > 0 &&
+      (keys.left || keys.right || keys.up)
+    ) {
+      clearScaredFace();
+    }
     player.x += player.vx;
     if (player.x < -player.radius) player.x = width + player.radius;
     if (player.x > width + player.radius) player.x = -player.radius;
@@ -575,14 +1010,28 @@ export function mountArtikelClimber(root, options = {}) {
           const jumpBoost = keys.up ? -5 : 0;
           if (p.type === "safe") {
             player.vy = BOUNCE_VELOCITY + jumpBoost;
-            setFace("happy", 220);
+            if (player.scaredBouncesLeft > 0) {
+              player.scaredBouncesLeft -= 1;
+              if (player.scaredBouncesLeft <= 0) clearScaredFace();
+              else setFace("scared", 4000);
+            } else {
+              setFace("happy", 220);
+            }
           } else if (p.type === player.targetWord?.gender) {
+            const landed = player.targetWord;
             player.vy = MEGA_BOUNCE + jumpBoost;
             clearBounceFloor();
+            clearScaredFace();
+            stampWordOnPlatform(p, landed);
             setFace("happy", 320);
-            speakWord(player.targetWord.article, player.targetWord.word);
+            speakWord(landed.article, landed.word);
             playFeedback("ok");
-            markClimberCorrect(pools, player.targetWord);
+            landed.correct = (landed.correct || 0) + 1;
+            if (pools.graduatedPool.includes(landed)) {
+              landed.postGradCorrect = (landed.postGradCorrect || 0) + 1;
+            }
+            markClimberCorrect(pools, landed);
+            updateProgressUi();
             player.targetWord = getNextWord();
             setWordDisplay(player.targetWord);
             createParticles(player.x, player.y, "#fde047");
@@ -617,7 +1066,15 @@ export function mountArtikelClimber(root, options = {}) {
         }
       }
       playFeedback("bad");
+      if (player.targetWord) {
+        player.targetWord.wrong = (player.targetWord.wrong || 0) + 1;
+        if (pools.graduatedPool.includes(player.targetWord)) {
+          player.targetWord.postGradWrong =
+            (player.targetWord.postGradWrong || 0) + 1;
+        }
+      }
       markClimberIncorrect(pools, player.targetWord);
+      updateProgressUi();
       lives = Math.max(0, lives - 1);
       setLivesDisplay(lives);
       if (lives <= 0) {
@@ -669,7 +1126,11 @@ export function mountArtikelClimber(root, options = {}) {
       ctx.font = displayFont(700, 13);
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(style.label, p.x + p.width / 2, p.y + p.height / 2);
+      ctx.fillText(
+        p.stampWord || style.label,
+        p.x + p.width / 2,
+        p.y + p.height / 2
+      );
     });
 
     particles.forEach((p) => {
@@ -864,6 +1325,24 @@ export function mountArtikelClimber(root, options = {}) {
   root.querySelector("[data-climber-continue]")?.addEventListener("click", (e) => {
     e.preventDefault();
     continueGame();
+  });
+  root.querySelector("[data-climber-report]")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    openReportSheet();
+  });
+  root.querySelector("[data-climber-report-close]")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    closeReportSheet();
+  });
+  root.querySelector("[data-climber-copy-text]")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (!lastReportText) buildReport();
+    copyText(lastReportText);
+  });
+  root.querySelector("[data-climber-copy-json]")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (!lastReportJson) buildReport();
+    copyText(lastReportJson);
   });
   // Relative thumb-drag on the canvas (not left/right screen halves).
   canvas.addEventListener("pointerdown", onCanvasPointerDown, { passive: false });

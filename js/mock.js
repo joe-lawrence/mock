@@ -210,7 +210,7 @@ import {
   mountNavCarousel,
 } from "./nav-carousel.js?v=20261104-climber-cards";
 import { climberWordsFromVocabUnits } from "./artikel-climber-vocab.js?v=20261103-climber";
-import { mountArtikelClimber } from "./artikel-climber.js?v=20261104-touch-drag";
+import { mountArtikelClimber } from "./artikel-climber.js?v=20261104-report-accuracy";
 import { keysSkippedByJump } from "./guided-jump.js";
 import {
   noteQuizNavEntry,
