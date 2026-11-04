@@ -232,12 +232,12 @@ export function mountArtikelClimber(root, options = {}) {
     typeof navigator !== "undefined" &&
     (/iPad|iPhone|iPod/.test(navigator.userAgent || "") ||
       (navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1));
-  // iPhone: tiny X deadzone + faster strafe — finger drags read small on CSS pixels.
-  const TOUCH_DEAD_X = isTouchApple ? 2.5 : 10;
+  // iPhone: tight X deadzone + faster strafe — finger drags read small on CSS pixels.
+  const TOUCH_DEAD_X = isTouchApple ? 3.5 : 10;
   const TOUCH_DEAD_Y = isTouchApple ? 16 : 18;
   /** Up loses to left/right sooner when there's any sideways drag. */
-  const TOUCH_UP_MAX_DX = isTouchApple ? TOUCH_DEAD_X * 0.9 : TOUCH_DEAD_X * 1.35;
-  const TOUCH_MOVE_MULT = isTouchApple ? 1.45 : 1;
+  const TOUCH_UP_MAX_DX = isTouchApple ? TOUCH_DEAD_X * 1.0 : TOUCH_DEAD_X * 1.35;
+  const TOUCH_MOVE_MULT = isTouchApple ? 1.35 : 1;
   const player = {
     x: 0,
     y: 0,
