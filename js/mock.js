@@ -208,7 +208,9 @@ import {
   curriculumUnitsMirroredBy,
   guidedBoundKeysForUnits,
   mountNavCarousel,
-} from "./nav-carousel.js?v=20261031-vocabprogress";
+} from "./nav-carousel.js?v=20261104-climber-cards";
+import { climberWordsFromVocabUnits } from "./artikel-climber-vocab.js?v=20261103-climber";
+import { mountArtikelClimber } from "./artikel-climber.js?v=20261104-wort-huepfer";
 import { keysSkippedByJump } from "./guided-jump.js";
 import {
   noteQuizNavEntry,
@@ -7376,9 +7378,93 @@ const els = {
     nouns: document.getElementById("view-nouns"),
     case: document.getElementById("view-case"),
     sounds: document.getElementById("view-sounds"),
+    climber: document.getElementById("view-climber"),
     coming: document.getElementById("view-coming"),
   },
 };
+
+/** @type {{ destroy?: () => void } | null} */
+let artikelClimberMount = null;
+
+function destroyArtikelClimber() {
+  artikelClimberMount?.destroy?.();
+  artikelClimberMount = null;
+  const host = document.getElementById("view-climber");
+  if (host) host.innerHTML = "";
+  const scoreEl = document.getElementById("climber-top-score");
+  if (scoreEl) {
+    scoreEl.hidden = true;
+    scoreEl.textContent = "0";
+  }
+  const livesEl = document.getElementById("climber-top-lives");
+  if (livesEl) {
+    livesEl.hidden = true;
+    livesEl.querySelectorAll(".climber-life").forEach((el) => {
+      el.classList.remove("is-lost");
+    });
+  }
+}
+
+function startArtikelClimber(units, { audio = true } = {}) {
+  destroyArtikelClimber();
+  const words = climberWordsFromVocabUnits(units);
+  state.sessionMode = "play";
+  state.navCaps = {
+    keyboard: state.navCaps?.keyboard ?? true,
+    audio,
+  };
+  clearCrossTerritoryMix();
+  clearLearnSeries();
+  destroyPlaylistMount();
+  resetSessionAuditLogs();
+  navigate("climber");
+  const host = document.getElementById("view-climber");
+  if (!host) return;
+  const scoreEl = document.getElementById("climber-top-score");
+  if (scoreEl) {
+    scoreEl.hidden = false;
+    scoreEl.textContent = "0";
+  }
+  const livesEl = document.getElementById("climber-top-lives");
+  if (livesEl) {
+    livesEl.hidden = false;
+    livesEl.querySelectorAll(".climber-life").forEach((el) => {
+      el.classList.remove("is-lost");
+    });
+  }
+  artikelClimberMount = mountArtikelClimber(host, {
+    words,
+    audio,
+    scoreEl,
+    livesEl,
+    // Light OS TTS (same as artikel_climber.html) — Piper stalls the bounce frame.
+    speak: (text) => {
+      if (!audio) return;
+      speakClimberLight(text);
+    },
+    playFeedback: playFeedbackSound,
+    onExit: () => {
+      destroyArtikelClimber();
+      navigate("hub");
+    },
+  });
+}
+
+/** Browser speechSynthesis for Climber only — cheap vs Piper on the game tick. */
+function speakClimberLight(text) {
+  if (!("speechSynthesis" in window)) return;
+  const say = String(text || "").trim();
+  if (!say) return;
+  try {
+    window.speechSynthesis.cancel();
+    const msg = new SpeechSynthesisUtterance(say);
+    msg.lang = "de-DE";
+    msg.rate = 1.1;
+    window.speechSynthesis.speak(msg);
+  } catch {
+    /* ignore */
+  }
+}
 
 const SESSION_MODE_LABELS = { learn: "Learn", play: "Play", guided: "Guided" };
 const NOUNS_MODE_CRUMB = {
@@ -8248,6 +8334,7 @@ function navigate(view, opts = {}) {
   });
 
   if (view === "hub") {
+    destroyArtikelClimber();
     navCarouselApi?.resetToMode?.();
     try {
       saveProfileStore(endProfileSession(loadProfileStore()));
@@ -8255,6 +8342,8 @@ function navigate(view, opts = {}) {
       /* profile storage is optional */
     }
   }
+
+  if (view !== "climber") destroyArtikelClimber();
 
   if (view === "numbers" || view === "nouns" || view === "sounds" || view === "case") {
     if (!opts.keepPhase) {
@@ -11397,7 +11486,23 @@ function beginQuizSession(mode, units) {
   }
 }
 
-function handleNavCarouselStart({ mode, units, keyboard, audio, practice, guided }) {
+function handleNavCarouselStart({
+  mode,
+  playKind,
+  units,
+  keyboard,
+  audio,
+  practice,
+  guided,
+}) {
+  if (mode === "play" && playKind === "climber") {
+    state.navCaps = {
+      keyboard: keyboard ?? true,
+      audio: audio ?? true,
+    };
+    startArtikelClimber(units || [], { audio: audio ?? true });
+    return;
+  }
   const sessionMode =
     guided || mode === "guided" ? "guided" : mode === "learn" ? "learn" : "play";
   if (units?.length && sessionMode !== "learn") beginQuizSession(sessionMode, units);

@@ -26,7 +26,8 @@
     <link rel="stylesheet" href="./css/mock.css?v=20261103-streak17" />
 
 
-    <link rel="stylesheet" href="./css/nav-carousel.css?v=20261030-vocabmirror" />
+    <link rel="stylesheet" href="./css/nav-carousel.css?v=20261104-climber-cards" />
+    <link rel="stylesheet" href="./css/artikel-climber.css?v=20261104-wort-huepfer" />
     <script type="importmap">
       {
         "imports": {
@@ -263,6 +264,25 @@
         <span class="territory-menu-btn coming-title" id="coming-title" hidden>
           Coming soon
         </span>
+
+        <span
+          id="climber-top-lives"
+          class="climber-top-lives"
+          hidden
+          aria-live="polite"
+          aria-label="Lives"
+        >
+          <span class="climber-life" data-i="0"></span>
+          <span class="climber-life" data-i="1"></span>
+          <span class="climber-life" data-i="2"></span>
+        </span>
+        <span
+          id="climber-top-score"
+          class="climber-top-score"
+          hidden
+          aria-live="polite"
+          >0</span
+        >
       </header>
 
       <!-- Persistent session chrome: active mode + breadcrumb (Numbers · Tens) -->
@@ -298,6 +318,14 @@
         <section id="view-hub" class="view is-active nc-hub" aria-label="Hub">
           <div id="nav-carousel-root"></div>
         </section>
+
+        <!-- ARTIKEL CLIMBER (Play arcade) -->
+        <section
+          id="view-climber"
+          class="view view-session view-climber"
+          aria-label="Wort-Hüpfer"
+          hidden
+        ></section>
 
         <!-- NUMBERS -->
         <section
@@ -749,6 +777,6 @@
       </div>
     </div>
 
-    <script type="module" src="./js/mock.js?v=20261103-case-listen"></script>
+    <script type="module" src="./js/mock.js?v=20261104-wort-huepfer"></script>
   </body>
 </html>

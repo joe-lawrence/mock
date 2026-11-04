@@ -168,16 +168,34 @@ html[data-theme="dark"] .nc-phone {
   pointer-events: none;
 }
 
-.nc-screen-nav {
+.nc-screen-nav,
+.nc-screen-playkind {
   transform: translateX(100%);
 }
 
-.nc-screen-nav.is-active {
+.nc-screen-nav.is-active,
+.nc-screen-playkind.is-active {
   transform: translateX(0);
 }
 
-.nc-screen-nav.is-active[hidden] {
+.nc-screen-nav.is-active[hidden],
+.nc-screen-playkind.is-active[hidden] {
   display: flex !important;
+}
+
+.nc-playkind-back {
+  align-self: flex-start;
+  margin: 0.35rem 1.25rem 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.35rem 0;
 }
 
 /* —— Screen 1 —— */

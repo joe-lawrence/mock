@@ -16,6 +16,7 @@ import {
 import { topicHasVocabulary } from "./vocabulary-ui.js?v=20261030-vocabspeedo";
 import { vocabulary } from "./generated/vocabulary.js?v=20261102-nomeng";
 import { caseNavTopics } from "./case-curriculum.js?v=20261029-declension";
+import { climberWordCountForUnit } from "./artikel-climber-vocab.js?v=20261103-climber";
 
 const CAPS_KEY = "schnapp-nav-caps";
 const LONG_MS = 500;
@@ -470,10 +471,29 @@ function shellHtml({ embedded }) {
         </div>
       </section>
 
+      <section class="nc-screen nc-screen-mode nc-screen-playkind" data-nc-screen="playkind" hidden>
+        ${brand}
+        <button type="button" class="nc-nest-btn nc-playkind-back" data-nc-playkind-back>
+          ${RETURN_SVG}<span>Play</span>
+        </button>
+        <h1 class="nc-mode-title">How do you want to play?</h1>
+        <p class="nc-mode-lede">Quiz uses territory units. Climber drills article gender from Vocabulary — pick all, or explore by unit.</p>
+        <div class="nc-mode-stack">
+          <button type="button" class="nc-mode-card" data-play-kind="quiz">
+            <span class="nc-mode-icon">${PLAY_SVG}</span>
+            <span class="nc-mode-label">Quiz</span>
+          </button>
+          <button type="button" class="nc-mode-card nc-mode-play" data-play-kind="climber">
+            <span class="nc-mode-icon">${GAME_SVG}</span>
+            <span class="nc-mode-label">Climber</span>
+          </button>
+        </div>
+      </section>
+
       <section class="nc-screen nc-screen-nav" data-nc-screen="2" hidden>
         ${brand}
-        <div class="nc-carousel-wrap">
-          <div class="nc-nest" data-nc-crumbs aria-label="Parent" hidden></div>
+        <div class="nc-nest" data-nc-crumbs aria-label="Parent" hidden></div>
+        <div class="nc-carousel-wrap" data-nc-quiz-wrap>
           <div class="nc-carousel no-scrollbar" data-nc-carousel aria-label="Topics and units"></div>
         </div>
         <footer class="nc-bar">
@@ -519,6 +539,7 @@ export function mountNavCarousel(container, options = {}) {
 
   const state = {
     mode: /** @type {"learn"|"play"|"guided"|null} */ (null),
+    playKind: /** @type {"quiz"|"climber"|null} */ (null),
     navStack: /** @type {object[]} */ ([]),
     selected: new Set(),
     keyboard: true,
@@ -552,6 +573,7 @@ export function mountNavCarousel(container, options = {}) {
   container.innerHTML = shellHtml({ embedded });
   const root = container.querySelector(".nc-phone");
   const s1 = root.querySelector('[data-nc-screen="1"]');
+  const sPlayKind = root.querySelector('[data-nc-screen="playkind"]');
   const s2 = root.querySelector('[data-nc-screen="2"]');
   const crumbsEl = root.querySelector("[data-nc-crumbs]");
   const carouselEl = root.querySelector("[data-nc-carousel]");
@@ -560,6 +582,8 @@ export function mountNavCarousel(container, options = {}) {
   const toastEl = root.querySelector("[data-nc-toast]");
   const playlistSheet = root.querySelector("[data-nc-playlist-sheet]");
   const playlistBody = root.querySelector("[data-nc-playlist-body]");
+  const vocabSections = vocabularyUnitsIn(tree);
+  const vocabularyRoot = tree.find((n) => n.id === "vocabulary") || null;
 
   const treeOrder = unitTreeOrderMap(tree);
 
@@ -600,7 +624,18 @@ export function mountNavCarousel(container, options = {}) {
     return false;
   }
 
+  function climberSelectedUnits() {
+    return vocabSections.filter((u) => state.selected.has(u.id));
+  }
+
+  function climberEligibleUnits() {
+    return climberSelectedUnits().filter((u) => climberWordCountForUnit(u) > 0);
+  }
+
   function eligibleUnits() {
+    if (state.mode === "play" && state.playKind === "climber") {
+      return climberEligibleUnits();
+    }
     const raw = selectedUnits();
     if (state.mode === "learn") return practiceUnitsForSelection(raw);
     if (state.mode === "guided") {
@@ -727,6 +762,14 @@ export function mountNavCarousel(container, options = {}) {
 
   function updateStartMeta() {
     if (!countEl) return;
+    if (state.mode === "play" && state.playKind === "climber") {
+      const words = climberEligibleUnits().reduce(
+        (n, u) => n + climberWordCountForUnit(u),
+        0
+      );
+      countEl.textContent = String(words);
+      return;
+    }
     countEl.textContent = String(eligibleUnits().length);
   }
 
@@ -759,6 +802,32 @@ export function mountNavCarousel(container, options = {}) {
   function renderCrumbs() {
     if (!crumbsEl) return;
     if (state.navStack.length === 0) {
+      if (state.mode === "play" && state.playKind) {
+        const label = state.playKind === "climber" ? "Climber" : "Quiz";
+        crumbsEl.classList.remove("is-vocab-row");
+        crumbsEl.setAttribute("aria-label", "Play options");
+        crumbsEl.removeAttribute("hidden");
+        crumbsEl.innerHTML = `
+          <div class="nc-mini is-none" role="button" tabindex="0" title="Back to Play options" data-go-playkind>
+            <p class="nc-mini-title">${RETURN_SVG}<span>${label}</span></p>
+          </div>
+        `;
+        const mini = crumbsEl.querySelector("[data-go-playkind]");
+        const goPlayKind = () => {
+          state.playKind = null;
+          state.selected = new Set();
+          closePlaylist();
+          showScreen(sPlayKind);
+        };
+        mini?.addEventListener("click", goPlayKind);
+        mini?.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            goPlayKind();
+          }
+        });
+        return;
+      }
       crumbsEl.classList.remove("is-vocab-row");
       crumbsEl.setAttribute("hidden", "");
       crumbsEl.innerHTML = "";
@@ -785,10 +854,17 @@ export function mountNavCarousel(container, options = {}) {
     });
   }
 
+  function isClimberMode() {
+    return state.mode === "play" && state.playKind === "climber";
+  }
+
   function createCard(item) {
     const sel = getNodeSelectionState(item);
     const isUnit = item.type === "unit";
-    const unplayable = isUnit && item.playable === false;
+    const noClimberWords =
+      isClimberMode() && isUnit && climberWordCountForUnit(item) === 0;
+    const unplayable =
+      (isUnit && item.playable === false) || noClimberWords;
 
     const card = document.createElement("article");
     card.className = `nc-card is-${sel}${unplayable ? " is-soon" : ""}`;
@@ -805,7 +881,7 @@ export function mountNavCarousel(container, options = {}) {
     const footer = !isUnit
       ? `<button type="button" class="nc-card-explore" data-explore aria-label="Explore ${item.title}"><span>Explore</span>${ARROW_SVG}</button>`
       : unplayable
-        ? `<div class="nc-card-hint">Soon</div>`
+        ? `<div class="nc-card-hint">${noClimberWords ? "No gender" : "Soon"}</div>`
         : `<div class="nc-card-hint" aria-hidden="true">&nbsp;</div>`;
 
     const title = item.kicker
@@ -912,8 +988,12 @@ export function mountNavCarousel(container, options = {}) {
   }
 
   function renderNav() {
+    // Climber reuses the same curriculum cards as Learn/Play Quiz, scoped to
+    // Vocabulary: tap = all decks, Explore = drill down by unit.
     let list = tree;
-    if (state.navStack.length > 0) {
+    if (isClimberMode() && state.navStack.length === 0) {
+      list = vocabularyRoot ? [vocabularyRoot] : [];
+    } else if (state.navStack.length > 0) {
       list = state.navStack[state.navStack.length - 1].children || [];
     }
     renderCrumbs();
@@ -926,28 +1006,45 @@ export function mountNavCarousel(container, options = {}) {
     updateStartMeta();
   }
 
+  function showScreen(el) {
+    for (const screen of [s1, sPlayKind, s2]) {
+      if (!screen) continue;
+      const on = screen === el;
+      screen.classList.toggle("is-active", on);
+      screen.classList.toggle("is-leaving", false);
+      screen.hidden = !on;
+    }
+  }
+
   function enterMode(mode) {
     state.mode = mode;
+    state.playKind = null;
     state.navStack = [];
     closePlaylist();
-    s1?.classList.add("is-leaving");
-    if (s2) {
-      s2.hidden = false;
-      void s2.offsetWidth;
-      s2.classList.add("is-active");
+    if (mode === "play") {
+      showScreen(sPlayKind);
+      return;
     }
+    showScreen(s2);
+    renderNav();
+  }
+
+  function enterPlayKind(kind) {
+    state.mode = "play";
+    state.playKind = kind === "climber" ? "climber" : "quiz";
+    state.navStack = [];
+    state.selected = new Set();
+    closePlaylist();
+    showScreen(s2);
     renderNav();
   }
 
   function resetToMode() {
     state.mode = null;
+    state.playKind = null;
     state.navStack = [];
     closePlaylist();
-    s2?.classList.remove("is-active");
-    s1?.classList.remove("is-leaving");
-    s1?.classList.add("is-active");
-    if (s2) s2.hidden = true;
-    if (s1) s1.hidden = false;
+    showScreen(s1);
     renderNav();
   }
 
@@ -959,6 +1056,8 @@ export function mountNavCarousel(container, options = {}) {
 
     const payload = {
       mode: state.mode,
+      playKind:
+        state.mode === "play" ? state.playKind || "quiz" : undefined,
       units,
       keyboard: state.keyboard,
       audio: state.audio,
@@ -980,7 +1079,13 @@ export function mountNavCarousel(container, options = {}) {
       .filter(Boolean)
       .join("+") || "pick";
     const modeLabel =
-      state.mode === "learn" ? "Learn" : state.mode === "guided" ? "Guided" : "Play";
+      state.mode === "learn"
+        ? "Learn"
+        : state.mode === "guided"
+          ? "Guided"
+          : payload.playKind === "climber"
+            ? "Climber"
+            : "Play";
     showToast(
       `${modeLabel} · ${units.length} unit${
         units.length === 1 ? "" : "s"
@@ -1043,6 +1148,12 @@ export function mountNavCarousel(container, options = {}) {
   root.querySelectorAll("[data-enter]").forEach((btn) => {
     btn.addEventListener("click", () => enterMode(btn.dataset.enter));
   });
+  root.querySelectorAll("[data-play-kind]").forEach((btn) => {
+    btn.addEventListener("click", () => enterPlayKind(btn.dataset.playKind));
+  });
+  root.querySelector("[data-nc-playkind-back]")?.addEventListener("click", () => {
+    resetToMode();
+  });
   playlistSheet?.querySelectorAll("[data-nc-playlist-close]").forEach((el) => {
     el.addEventListener("click", () => {
       closePlaylist();
@@ -1058,6 +1169,7 @@ export function mountNavCarousel(container, options = {}) {
     showToast,
     getState: () => ({
       mode: state.mode,
+      playKind: state.playKind,
       selected: [...state.selected],
       keyboard: state.keyboard,
       audio: state.audio,

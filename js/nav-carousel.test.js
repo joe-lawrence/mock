@@ -166,6 +166,15 @@ describe("Guided bounds", () => {
   });
 });
 
+describe("Play Climber sections", () => {
+  it("exposes Vocabulary units Climber can multi-select", () => {
+    const vocabs = vocabularyUnitsIn(buildNavTree());
+    assert.ok(vocabs.some((unit) => unit.id === "vocabulary:numbers:time"));
+    assert.ok(vocabs.some((unit) => unit.id === "vocabulary:nouns:suffixes"));
+    assert.ok(vocabs.every((unit) => unit.kind === "vocabulary" || unit.vocabTopic));
+  });
+});
+
 describe("Play caps for Case", () => {
   it("counts a selected Case unit under the default pick caps", () => {
     const units = caseNavUnits().filter((unit) => unit.playable);

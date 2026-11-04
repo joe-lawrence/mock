@@ -1,0 +1,288 @@
+/* Artikel Climber — theme-aware stage inside Schnapp */
+
+.view-climber {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  /* Drop session padding so the field fills the viewport under the topbar */
+  padding: 0 !important;
+}
+
+.climber-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  background: var(--wash);
+  overscroll-behavior: none;
+}
+
+.climber-top-lives {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.1rem 0;
+  flex-shrink: 0;
+}
+
+.climber-top-lives[hidden] {
+  display: none !important;
+}
+
+.climber-life {
+  position: relative;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid color-mix(in srgb, var(--line-strong) 70%, #fff);
+  box-sizing: border-box;
+  flex-shrink: 0;
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+.climber-life::before,
+.climber-life::after {
+  content: "";
+  position: absolute;
+  top: 38%;
+  width: 0.18rem;
+  height: 0.18rem;
+  border-radius: 50%;
+  background: #1a2030;
+}
+
+.climber-life::before {
+  left: 22%;
+}
+
+.climber-life::after {
+  right: 22%;
+}
+
+.climber-life.is-lost {
+  opacity: 0.28;
+  filter: grayscale(1);
+}
+
+.climber-top-score {
+  margin-left: 0.75rem;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.15rem;
+  color: var(--ink);
+  min-width: 1.5ch;
+  text-align: right;
+  padding: 0.15rem 0.15rem 0.15rem 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.climber-top-score[hidden] {
+  display: none !important;
+}
+
+.climber-over-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  justify-content: center;
+  margin-top: 0.35rem;
+}
+
+.climber-next {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+  max-width: min(48vw, 11rem);
+  pointer-events: none;
+  text-align: right;
+}
+
+.climber-next[hidden] {
+  display: none !important;
+}
+
+.climber-next-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+
+.climber-next-word {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.15rem;
+  line-height: 1.2;
+  color: #fff;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  background: #1a2030;
+  border: 1px solid color-mix(in srgb, #1a2030 70%, #fff);
+}
+
+html[data-theme="dark"] .climber-next:not(.is-hinted) .climber-next-word {
+  background: #0d1117;
+  border-color: color-mix(in srgb, #0d1117 60%, #fff);
+}
+
+.climber-next.is-hinted[data-gender="masc"] .climber-next-word {
+  background: color-mix(in srgb, var(--masc) 88%, transparent);
+  border-color: color-mix(in srgb, var(--masc-ink) 55%, transparent);
+  color: #fff;
+}
+
+.climber-next.is-hinted[data-gender="fem"] .climber-next-word {
+  background: color-mix(in srgb, var(--fem) 88%, transparent);
+  border-color: color-mix(in srgb, var(--fem-ink) 55%, transparent);
+  color: #fff;
+}
+
+.climber-next.is-hinted[data-gender="neut"] .climber-next-word {
+  background: color-mix(in srgb, var(--neut) 88%, transparent);
+  border-color: color-mix(in srgb, var(--neut-ink) 55%, transparent);
+  color: #fff;
+}
+
+.climber-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 160px;
+  overflow: hidden;
+  touch-action: none;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--signal) 28%, var(--wash)) 0%,
+      color-mix(in srgb, var(--neut) 18%, var(--wash)) 100%
+    );
+}
+
+html[data-theme="dark"] .climber-stage {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--signal) 22%, var(--wash)) 0%,
+      color-mix(in srgb, var(--surface) 70%, var(--wash)) 100%
+    );
+}
+
+.climber-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.climber-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  text-align: center;
+  background: color-mix(in srgb, var(--scrim) 28%, transparent);
+  color: var(--ink);
+  transition: opacity var(--ease);
+  /* Let buttons receive taps; field under canvas handles play controls */
+  pointer-events: auto;
+}
+
+.climber-overlay.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.climber-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  width: min(22rem, 100%);
+  padding: 1.25rem 1.15rem 1.15rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-strong);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: 0 14px 42px color-mix(in srgb, var(--scrim) 28%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.climber-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(1.6rem, 5vw, 2.2rem);
+  color: var(--ink);
+}
+
+.climber-lede {
+  margin: 0;
+  max-width: 100%;
+  color: color-mix(in srgb, var(--ink) 78%, transparent);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.climber-final {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 2.75rem;
+  color: var(--de-gold);
+  line-height: 1;
+}
+
+.climber-speed {
+  display: block;
+  margin-top: 0.15rem;
+}
+
+.climber-speed select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  padding: 0.35rem 0.45rem;
+  font: inherit;
+  font-weight: 600;
+}
+
+/* Nav: Play kind screen */
+.nc-screen-playkind .nc-mode-lede {
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 400px) {
+  .climber-overlay {
+    padding: 0.85rem;
+  }
+
+  .climber-panel {
+    gap: 0.5rem;
+    padding: 1rem 0.9rem;
+  }
+
+  .climber-title {
+    font-size: 1.45rem;
+  }
+}
