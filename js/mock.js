@@ -210,7 +210,7 @@ import {
   mountNavCarousel,
 } from "./nav-carousel.js?v=20261104-climber-cards";
 import { climberWordsFromVocabUnits } from "./artikel-climber-vocab.js?v=20261103-climber";
-import { mountArtikelClimber } from "./artikel-climber.js?v=20261104-ios-tts3";
+import { mountArtikelClimber } from "./artikel-climber.js?v=20261104-ios-piper";
 import { keysSkippedByJump } from "./guided-jump.js";
 import {
   noteQuizNavEntry,
@@ -7555,16 +7555,21 @@ function ensureClimberPlaybackSession() {
 }
 
 /**
- * Must run inside a user gesture (Start / Continue). Unlocks WebKit speechSynthesis
- * for later bounce utterances and warms the de-* voice list.
+ * Must run inside a user gesture (Start / Continue).
+ * iOS: unlock Piper/WebAudio (speechSynthesis loses to SFX on iPhone).
+ * Other: prime speechSynthesis.
  */
 function unlockClimberLightTts() {
+  ensureClimberPlaybackSession();
+  if (isClimberLightIos()) {
+    void unlockPiperAudio();
+    void ensurePiperVoice(readPiperVoicePref()).catch(() => {});
+    return;
+  }
   if (!("speechSynthesis" in window)) return;
   ensureClimberLightVoices();
-  ensureClimberPlaybackSession();
   startClimberLightSpeechWatchdog();
   try {
-    // volume=0 primes are ignored/break the queue on iOS — use a quiet real syllable.
     const prime = new SpeechSynthesisUtterance("ja");
     applyClimberLightVoice(prime);
     prime.volume = 0.15;
@@ -7579,17 +7584,25 @@ function unlockClimberLightTts() {
 
 /** Stop current Climber utterance without poisoning the next iOS speak(). */
 function stopClimberLightTts() {
+  if (isClimberLightIos()) {
+    try {
+      stopPiperAudio();
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
   if (!("speechSynthesis" in window)) return;
   try {
     window.speechSynthesis.cancel();
-    if (isClimberLightIos()) climberLightSpeakAfterCancel = true;
+    climberLightSpeakAfterCancel = true;
   } catch {
     /* ignore */
   }
 }
 
-/** Browser speechSynthesis for Climber only — cheap vs Piper on the game tick. */
-function speakClimberLight(text) {
+/** Desktop/WebKit speechSynthesis path (unreliable on iPhone with SFX). */
+function speakClimberLightWebkit(text) {
   if (!("speechSynthesis" in window)) return;
   const say = String(text || "").trim();
   if (!say) return;
@@ -7601,7 +7614,6 @@ function speakClimberLight(text) {
     applyClimberLightVoice(msg);
     msg.rate = 1.1;
     msg.volume = 1;
-
     const fire = () => {
       try {
         ensureClimberPlaybackSession();
@@ -7611,28 +7623,42 @@ function speakClimberLight(text) {
         /* ignore */
       }
     };
-
-    if (isClimberLightIos()) {
-      // Immediate cancel()+speak drops audio on WebKit; defer after interrupt.
-      if (climberLightSpeakAfterCancel || window.speechSynthesis.speaking) {
-        climberLightSpeakAfterCancel = false;
-        try {
-          window.speechSynthesis.cancel();
-        } catch {
-          /* ignore */
-        }
-        window.setTimeout(fire, 60);
-        return;
+    if (climberLightSpeakAfterCancel || window.speechSynthesis.speaking) {
+      climberLightSpeakAfterCancel = false;
+      try {
+        window.speechSynthesis.cancel();
+      } catch {
+        /* ignore */
       }
-      fire();
+      window.setTimeout(fire, 50);
       return;
     }
-
     window.speechSynthesis.cancel();
     fire();
   } catch {
     /* ignore */
   }
+}
+
+/**
+ * Climber TTS: on iOS use deferred Piper (same Web Audio path as SFX).
+ * Elsewhere keep instant speechSynthesis so the bounce frame stays light.
+ */
+function speakClimberLight(text) {
+  const say = String(text || "").trim();
+  if (!say) return;
+  if (isClimberLightIos()) {
+    ensureClimberPlaybackSession();
+    // Off the physics frame — synth/play async so bounce stays smooth.
+    window.setTimeout(() => {
+      void speakGermanPiper(say, { rate: 1.1 }).catch((err) => {
+        console.warn("[climber] Piper speak failed, WebKit fallback", err);
+        speakClimberLightWebkit(say);
+      });
+    }, 0);
+    return;
+  }
+  speakClimberLightWebkit(say);
 }
 
 const SESSION_MODE_LABELS = { learn: "Learn", play: "Play", guided: "Guided" };

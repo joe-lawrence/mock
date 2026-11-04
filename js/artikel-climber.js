@@ -250,7 +250,21 @@ export function mountArtikelClimber(root, options = {}) {
     faceUntil: 0,
     /** X-eyes after a lost life; clears after safe bounces or steering. */
     scaredBouncesLeft: 0,
+    /** Eye-orbit spin (radians) after big ejections. */
+    spin: 0,
+    spinVel: 0,
   };
+
+  /** Kick tumbling eyes in the direction of horizontal movement. */
+  function kickSpin(strength = 0.5) {
+    const dir =
+      Math.abs(player.vx) > 0.05
+        ? Math.sign(player.vx)
+        : Math.random() < 0.5
+          ? -1
+          : 1;
+    player.spinVel = dir * Math.abs(strength);
+  }
 
   /** @param {"normal"|"happy"|"boost"|"scared"|"dead"} face @param {number} [ms] */
   function setFace(face, ms = 280) {
@@ -276,56 +290,67 @@ export function mountArtikelClimber(root, options = {}) {
 
   function drawEyes() {
     const face = currentFace();
-    const look = Math.max(-2.2, Math.min(2.2, player.vx * 0.35));
-    const lx = player.x - 5 + look;
-    const rx = player.x + 5 + look;
-    const ey = player.y - 3;
+    const tumbling = Math.abs(player.spinVel) > 0.05;
+    const look = tumbling ? 0 : Math.max(-2.2, Math.min(2.2, player.vx * 0.35));
+    const cos = Math.cos(player.spin);
+    const sin = Math.sin(player.spin);
+    const mapEye = (ox, oy) => ({
+      x: player.x + ox * cos - oy * sin,
+      y: player.y + ox * sin + oy * cos,
+    });
+    const left = mapEye(-5 + look, -3);
+    const right = mapEye(5 + look, -3);
     ctx.strokeStyle = EYE_INK;
     ctx.fillStyle = EYE_INK;
     ctx.lineWidth = 1.6;
     ctx.lineCap = "round";
 
+    // While ejected/spinning, keep simple dots orbiting with the ball.
+    if (tumbling) {
+      ctx.beginPath();
+      ctx.arc(left.x, left.y, 2.15, 0, Math.PI * 2);
+      ctx.arc(right.x, right.y, 2.15, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+
     if (face === "dead" || face === "scared") {
-      // X eyes
       const s = face === "dead" ? 3.2 : 2.6;
-      for (const ex of [lx, rx]) {
+      for (const eye of [left, right]) {
         ctx.beginPath();
-        ctx.moveTo(ex - s, ey - s);
-        ctx.lineTo(ex + s, ey + s);
-        ctx.moveTo(ex + s, ey - s);
-        ctx.lineTo(ex - s, ey + s);
+        ctx.moveTo(eye.x - s, eye.y - s);
+        ctx.lineTo(eye.x + s, eye.y + s);
+        ctx.moveTo(eye.x + s, eye.y - s);
+        ctx.lineTo(eye.x - s, eye.y + s);
         ctx.stroke();
       }
       return;
     }
 
     if (face === "happy") {
-      // ^ ^ closed happy eyes
-      for (const ex of [lx, rx]) {
+      for (const eye of [left, right]) {
         ctx.beginPath();
-        ctx.arc(ex, ey + 1.2, 2.6, Math.PI * 1.15, Math.PI * 1.85);
+        ctx.arc(eye.x, eye.y + 1.2, 2.6, Math.PI * 1.15, Math.PI * 1.85);
         ctx.stroke();
       }
       return;
     }
 
     if (face === "boost") {
-      // wide open o o
-      for (const ex of [lx, rx]) {
+      for (const eye of [left, right]) {
         ctx.beginPath();
-        ctx.arc(ex, ey, 2.8, 0, Math.PI * 2);
+        ctx.arc(eye.x, eye.y, 2.8, 0, Math.PI * 2);
         ctx.stroke();
         ctx.beginPath();
-        ctx.arc(ex + look * 0.15, ey, 1.2, 0, Math.PI * 2);
+        ctx.arc(eye.x + look * 0.15, eye.y, 1.2, 0, Math.PI * 2);
         ctx.fill();
       }
       return;
     }
 
-    // normal dots
     ctx.beginPath();
-    ctx.arc(lx, ey, 2, 0, Math.PI * 2);
-    ctx.arc(rx, ey, 2, 0, Math.PI * 2);
+    ctx.arc(left.x, left.y, 2, 0, Math.PI * 2);
+    ctx.arc(right.x, right.y, 2, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -808,9 +833,12 @@ export function mountArtikelClimber(root, options = {}) {
     if (fromFall) {
       player.scaredBouncesLeft = 3;
       setFace("scared", 4000);
+      kickSpin(0.5);
       createParticles(player.x, padY, "#ef4444");
     } else {
       clearScaredFace();
+      player.spin = 0;
+      player.spinVel = 0;
     }
   }
 
@@ -977,6 +1005,9 @@ export function mountArtikelClimber(root, options = {}) {
     if (player.x > width + player.radius) player.x = -player.radius;
     player.vy += GRAVITY;
     player.y += player.vy;
+    player.spin += player.spinVel;
+    player.spinVel *= 0.965;
+    if (Math.abs(player.spinVel) < 0.002) player.spinVel = 0;
     const screenCenterY = height / 2;
     // Don't scroll the field while recovering from a bottom fall.
     if (!player.isRescuing && player.y < cameraY + screenCenterY) {
@@ -1022,6 +1053,7 @@ export function mountArtikelClimber(root, options = {}) {
           const jumpBoost = keys.up ? -5 : 0;
           if (p.type === "safe") {
             player.vy = BOUNCE_VELOCITY + jumpBoost;
+            if (jumpBoost) kickSpin(0.28);
             if (player.scaredBouncesLeft > 0) {
               player.scaredBouncesLeft -= 1;
               if (player.scaredBouncesLeft <= 0) clearScaredFace();
@@ -1032,6 +1064,8 @@ export function mountArtikelClimber(root, options = {}) {
           } else if (p.type === player.targetWord?.gender) {
             const landed = player.targetWord;
             player.vy = MEGA_BOUNCE + jumpBoost;
+            // Big article hit (and boost) — tumble eyes with the ejection.
+            kickSpin(0.62 + (jumpBoost ? 0.22 : 0));
             clearBounceFloor();
             clearScaredFace();
             stampWordOnPlatform(p, landed);
@@ -1043,7 +1077,7 @@ export function mountArtikelClimber(root, options = {}) {
               (/iPad|iPhone|iPod/.test(navigator.userAgent || "") ||
                 (navigator.platform === "MacIntel" &&
                   (navigator.maxTouchPoints || 0) > 1));
-            if (iosUa) window.setTimeout(() => playFeedback("ok"), 220);
+            if (iosUa) window.setTimeout(() => playFeedback("ok"), 280);
             else playFeedback("ok");
             landed.correct = (landed.correct || 0) + 1;
             if (pools.graduatedPool.includes(landed)) {
