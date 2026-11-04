@@ -210,7 +210,7 @@ import {
   mountNavCarousel,
 } from "./nav-carousel.js?v=20261104-climber-cards";
 import { climberWordsFromVocabUnits } from "./artikel-climber-vocab.js?v=20261103-climber";
-import { mountArtikelClimber } from "./artikel-climber.js?v=20261104-ios-tts";
+import { mountArtikelClimber } from "./artikel-climber.js?v=20261104-ios-tts2";
 import { keysSkippedByJump } from "./guided-jump.js";
 import {
   noteQuizNavEntry,
@@ -7387,6 +7387,8 @@ const els = {
 let artikelClimberMount = null;
 
 function destroyArtikelClimber() {
+  stopClimberLightSpeechWatchdog();
+  stopClimberLightTts();
   artikelClimberMount?.destroy?.();
   artikelClimberMount = null;
   const host = document.getElementById("view-climber");
@@ -7446,8 +7448,13 @@ function startArtikelClimber(units, { audio = true } = {}) {
       if (!audio) return;
       unlockClimberLightTts();
     },
+    stopSpeak: () => {
+      if (!audio) return;
+      stopClimberLightTts();
+    },
     playFeedback: playFeedbackSound,
     onExit: () => {
+      stopClimberLightSpeechWatchdog();
       destroyArtikelClimber();
       navigate("hub");
     },
@@ -7457,13 +7464,16 @@ function startArtikelClimber(units, { audio = true } = {}) {
 /** Cached German voice for Climber light TTS (WebKit/Chrome). */
 let climberLightDeVoice = null;
 let climberLightVoicesHooked = false;
+let climberLightResumeTimer = 0;
+/** After cancel on iOS, the next speak must be deferred or WebKit drops it. */
+let climberLightSpeakAfterCancel = false;
 
 function isClimberLightIos() {
-  return (
-    typeof navigator !== "undefined" &&
-    /iPad|iPhone|iPod/.test(navigator.userAgent || "") &&
-    !window.MSStream
-  );
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  if (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) return true;
+  // iPadOS desktop UA
+  return navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1;
 }
 
 function refreshClimberLightDeVoice() {
@@ -7495,6 +7505,30 @@ function ensureClimberLightVoices() {
   }
 }
 
+/** WebKit often leaves synthesis "paused"; nudge it while Climber is open. */
+function startClimberLightSpeechWatchdog() {
+  if (climberLightResumeTimer || !("speechSynthesis" in window)) return;
+  climberLightResumeTimer = window.setInterval(() => {
+    try {
+      if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+    } catch {
+      /* ignore */
+    }
+  }, 2500);
+}
+
+function stopClimberLightSpeechWatchdog() {
+  if (!climberLightResumeTimer) return;
+  window.clearInterval(climberLightResumeTimer);
+  climberLightResumeTimer = 0;
+}
+
+function applyClimberLightVoice(utterance) {
+  if (!utterance) return;
+  utterance.lang = "de-DE";
+  if (climberLightDeVoice) utterance.voice = climberLightDeVoice;
+}
+
 /**
  * Must run inside a user gesture (Start / Continue). Unlocks WebKit speechSynthesis
  * for later bounce utterances and warms the de-* voice list.
@@ -7502,14 +7536,27 @@ function ensureClimberLightVoices() {
 function unlockClimberLightTts() {
   if (!("speechSynthesis" in window)) return;
   ensureClimberLightVoices();
+  startClimberLightSpeechWatchdog();
   try {
-    // Silent prime — counts as speak() under the tap gesture on iOS.
-    const prime = new SpeechSynthesisUtterance(" ");
-    prime.lang = "de-DE";
-    prime.volume = 0;
-    prime.rate = 1;
-    if (climberLightDeVoice) prime.voice = climberLightDeVoice;
+    // volume=0 primes are ignored/break the queue on iOS — use a quiet real syllable.
+    const prime = new SpeechSynthesisUtterance("ja");
+    applyClimberLightVoice(prime);
+    prime.volume = 0.01;
+    prime.rate = 1.15;
+    window.speechSynthesis.resume();
     window.speechSynthesis.speak(prime);
+    climberLightSpeakAfterCancel = false;
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Stop current Climber utterance without poisoning the next iOS speak(). */
+function stopClimberLightTts() {
+  if (!("speechSynthesis" in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    if (isClimberLightIos()) climberLightSpeakAfterCancel = true;
   } catch {
     /* ignore */
   }
@@ -7521,17 +7568,40 @@ function speakClimberLight(text) {
   const say = String(text || "").trim();
   if (!say) return;
   ensureClimberLightVoices();
+  startClimberLightSpeechWatchdog();
   try {
-    // iOS: cancel()-then-speak often drops the utterance. Desktop: cancel so
-    // rapid lands don't queue up.
-    if (!isClimberLightIos()) {
-      window.speechSynthesis.cancel();
-    }
     const msg = new SpeechSynthesisUtterance(say);
-    msg.lang = "de-DE";
+    applyClimberLightVoice(msg);
     msg.rate = 1.1;
-    if (climberLightDeVoice) msg.voice = climberLightDeVoice;
-    window.speechSynthesis.speak(msg);
+    msg.volume = 1;
+
+    const fire = () => {
+      try {
+        window.speechSynthesis.resume();
+        window.speechSynthesis.speak(msg);
+      } catch {
+        /* ignore */
+      }
+    };
+
+    if (isClimberLightIos()) {
+      // Immediate cancel()+speak drops audio on WebKit; defer after interrupt.
+      if (climberLightSpeakAfterCancel || window.speechSynthesis.speaking) {
+        climberLightSpeakAfterCancel = false;
+        try {
+          window.speechSynthesis.cancel();
+        } catch {
+          /* ignore */
+        }
+        window.setTimeout(fire, 50);
+        return;
+      }
+      fire();
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    fire();
   } catch {
     /* ignore */
   }

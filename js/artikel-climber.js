@@ -49,6 +49,7 @@ const REPORT_LIST_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1.1em" h
  *   audio?: boolean,
  *   speak?: (text: string) => void,
  *   unlockSpeak?: () => void,
+ *   stopSpeak?: () => void,
  *   playFeedback?: (kind: "ok"|"bad"|"retry") => void,
  *   scoreEl?: HTMLElement|null,
  *   livesEl?: HTMLElement|null,
@@ -61,6 +62,8 @@ export function mountArtikelClimber(root, options = {}) {
   const speak = typeof options.speak === "function" ? options.speak : () => {};
   const unlockSpeak =
     typeof options.unlockSpeak === "function" ? options.unlockSpeak : () => {};
+  const stopSpeak =
+    typeof options.stopSpeak === "function" ? options.stopSpeak : () => {};
   const playFeedback =
     typeof options.playFeedback === "function" ? options.playFeedback : () => {};
   const onExit = typeof options.onExit === "function" ? options.onExit : null;
@@ -225,7 +228,13 @@ export function mountArtikelClimber(root, options = {}) {
   /** Sliding deadzone anchors — relative drag, not screen halves (less sticky on iOS). */
   /** @type {Map<number, { ax: number, ay: number }>} */
   const pointerAnchors = new Map();
-  const TOUCH_DEAD_X = 10;
+  // Slightly tighter on iPhone so left/right engages sooner.
+  const TOUCH_DEAD_X =
+    typeof navigator !== "undefined" &&
+    (/iPad|iPhone|iPod/.test(navigator.userAgent || "") ||
+      (navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1))
+      ? 5
+      : 10;
   const TOUCH_DEAD_Y = 18;
   const player = {
     x: 0,
@@ -1061,13 +1070,7 @@ export function mountArtikelClimber(root, options = {}) {
         placeBounceFloor({ fromFall: true });
         return;
       }
-      if (audioOn && "speechSynthesis" in window) {
-        try {
-          window.speechSynthesis.cancel();
-        } catch {
-          /* ignore */
-        }
-      }
+      if (audioOn) stopSpeak();
       playFeedback("bad");
       if (player.targetWord) {
         player.targetWord.wrong = (player.targetWord.wrong || 0) + 1;
@@ -1317,19 +1320,26 @@ export function mountArtikelClimber(root, options = {}) {
     root.innerHTML = "";
   }
 
-  root.querySelector("[data-climber-play]")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    // Unlock WebKit speechSynthesis while still inside the tap gesture.
+  const playBtn = root.querySelector("[data-climber-play]");
+  const continueBtn = root.querySelector("[data-climber-continue]");
+  // pointerdown keeps unlock inside the iOS user-gesture window more reliably than click.
+  const primeSpeak = () => {
     if (audioOn) unlockSpeak();
+  };
+  playBtn?.addEventListener("pointerdown", primeSpeak);
+  continueBtn?.addEventListener("pointerdown", primeSpeak);
+  playBtn?.addEventListener("click", (e) => {
+    e.preventDefault();
+    primeSpeak();
     initGame();
   });
   root.querySelector("[data-climber-retry]")?.addEventListener("click", (e) => {
     e.preventDefault();
     showStartScreen();
   });
-  root.querySelector("[data-climber-continue]")?.addEventListener("click", (e) => {
+  continueBtn?.addEventListener("click", (e) => {
     e.preventDefault();
-    if (audioOn) unlockSpeak();
+    primeSpeak();
     continueGame();
   });
   root.querySelector("[data-climber-report]")?.addEventListener("click", (e) => {
