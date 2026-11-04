@@ -210,7 +210,7 @@ import {
   mountNavCarousel,
 } from "./nav-carousel.js?v=20261104-climber-cards";
 import { climberWordsFromVocabUnits } from "./artikel-climber-vocab.js?v=20261103-climber";
-import { mountArtikelClimber } from "./artikel-climber.js?v=20261104-ios-tts2";
+import { mountArtikelClimber } from "./artikel-climber.js?v=20261104-ios-tts3";
 import { keysSkippedByJump } from "./guided-jump.js";
 import {
   noteQuizNavEntry,
@@ -599,6 +599,13 @@ function playFeedbackSound(kind) {
   if (!readSfxEnabled()) return;
   const ctx = getFeedbackAudio();
   if (!ctx) return;
+  // Keep WebKit in media playback so SFX doesn't silence speechSynthesis.
+  try {
+    const session = navigator.audioSession;
+    if (session && session.type !== "playback") session.type = "playback";
+  } catch {
+    /* ignore */
+  }
 
   const run = () => {
     const now = ctx.currentTime;
@@ -7529,6 +7536,24 @@ function applyClimberLightVoice(utterance) {
   if (climberLightDeVoice) utterance.voice = climberLightDeVoice;
 }
 
+/** WebKit: ambient session is muted by the ring/silent switch and fights SFX. */
+function ensureClimberPlaybackSession() {
+  try {
+    const session = navigator.audioSession;
+    if (session && session.type !== "playback") session.type = "playback";
+  } catch {
+    /* ignore */
+  }
+  // Open/resume the shared SFX context in the same gesture so Web Audio and
+  // speechSynthesis share a playback session instead of demoting TTS.
+  try {
+    const ctx = getFeedbackAudio();
+    if (ctx?.state === "suspended") void ctx.resume();
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * Must run inside a user gesture (Start / Continue). Unlocks WebKit speechSynthesis
  * for later bounce utterances and warms the de-* voice list.
@@ -7536,12 +7561,13 @@ function applyClimberLightVoice(utterance) {
 function unlockClimberLightTts() {
   if (!("speechSynthesis" in window)) return;
   ensureClimberLightVoices();
+  ensureClimberPlaybackSession();
   startClimberLightSpeechWatchdog();
   try {
     // volume=0 primes are ignored/break the queue on iOS — use a quiet real syllable.
     const prime = new SpeechSynthesisUtterance("ja");
     applyClimberLightVoice(prime);
-    prime.volume = 0.01;
+    prime.volume = 0.15;
     prime.rate = 1.15;
     window.speechSynthesis.resume();
     window.speechSynthesis.speak(prime);
@@ -7568,6 +7594,7 @@ function speakClimberLight(text) {
   const say = String(text || "").trim();
   if (!say) return;
   ensureClimberLightVoices();
+  ensureClimberPlaybackSession();
   startClimberLightSpeechWatchdog();
   try {
     const msg = new SpeechSynthesisUtterance(say);
@@ -7577,6 +7604,7 @@ function speakClimberLight(text) {
 
     const fire = () => {
       try {
+        ensureClimberPlaybackSession();
         window.speechSynthesis.resume();
         window.speechSynthesis.speak(msg);
       } catch {
@@ -7593,7 +7621,7 @@ function speakClimberLight(text) {
         } catch {
           /* ignore */
         }
-        window.setTimeout(fire, 50);
+        window.setTimeout(fire, 60);
         return;
       }
       fire();

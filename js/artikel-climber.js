@@ -1036,8 +1036,15 @@ export function mountArtikelClimber(root, options = {}) {
             clearScaredFace();
             stampWordOnPlatform(p, landed);
             setFace("happy", 320);
+            // Speak first; delay the Web Audio chime so iOS doesn't demote TTS.
             speakWord(landed.article, landed.word);
-            playFeedback("ok");
+            const iosUa =
+              typeof navigator !== "undefined" &&
+              (/iPad|iPhone|iPod/.test(navigator.userAgent || "") ||
+                (navigator.platform === "MacIntel" &&
+                  (navigator.maxTouchPoints || 0) > 1));
+            if (iosUa) window.setTimeout(() => playFeedback("ok"), 220);
+            else playFeedback("ok");
             landed.correct = (landed.correct || 0) + 1;
             if (pools.graduatedPool.includes(landed)) {
               landed.postGradCorrect = (landed.postGradCorrect || 0) + 1;
