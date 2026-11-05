@@ -31,6 +31,10 @@ const EYE_INK = "#1a2030";
 const DEATH_FACE_MS = 1000;
 /** Gate misses on the same target before it counts as an SRS word miss. */
 const GATE_MISSES_FOR_WORD_MISS = 2;
+/** No trees in this downhill band after the *correct* gate (overrun room). */
+const GATE_TREE_CLEAR_AFTER = 240;
+/** Extra width past the correct gate poles where trees are kept clear. */
+const GATE_TREE_CLEAR_PAD = 56;
 
 /*
 The MIT License (MIT)
@@ -695,19 +699,77 @@ export function mountArtikelSkier(root, options = {}) {
       row.gates.push({ x, width: pWidth, type: types[j] });
     }
     rows.push(row);
+    cullTreesAfterCorrectGates();
+  }
+
+  /** Gate matching the current ski target gender, if any. */
+  function correctGateInRow(row) {
+    const gender = player.targetWord?.gender;
+    if (!gender) return null;
+    return row.gates.find((g) => g.type === gender) || null;
+  }
+
+  /** Tree sits in the overrun corridor of a correct gate. */
+  function treeBlockedAfterCorrectGate(t) {
+    for (const row of rows) {
+      if (t.y < row.y || t.y > row.y + GATE_TREE_CLEAR_AFTER) continue;
+      const gate = correctGateInRow(row);
+      if (!gate) continue;
+      if (
+        t.x >= gate.x - GATE_TREE_CLEAR_PAD &&
+        t.x <= gate.x + gate.width + GATE_TREE_CLEAR_PAD
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function cullTreesAfterCorrectGates() {
+    trees = trees.filter((t) => !treeBlockedAfterCorrectGate(t));
   }
 
   function populateTrees(amount, startY, endY) {
+    const span = Math.max(1, endY - startY);
     for (let i = 0; i < amount; i++) {
-      trees.push({
-        x:
+      let placed = false;
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const y = startY + Math.random() * span;
+        const x =
           Math.random() > 0.5
-            ? Math.random() * (width * 0.15)
-            : width - Math.random() * (width * 0.15),
-        y: startY + Math.random() * (endY - startY),
-        size: 15 + Math.random() * 15,
-        color: Math.random() > 0.5 ? "#0f766e" : "#115e59",
-      });
+            ? Math.random() * (width * 0.12)
+            : width - Math.random() * (width * 0.12);
+        if (treeBlockedAfterCorrectGate({ x, y })) continue;
+        trees.push({
+          x,
+          y,
+          size: 15 + Math.random() * 15,
+          color: Math.random() > 0.5 ? "#0f766e" : "#115e59",
+        });
+        placed = true;
+        break;
+      }
+      if (!placed) {
+        // Prefer the edge opposite the correct gate; else nudge past the band.
+        let y = startY + Math.random() * span;
+        let preferLeft = Math.random() > 0.5;
+        for (const row of rows) {
+          if (y < row.y || y > row.y + GATE_TREE_CLEAR_AFTER) continue;
+          const gate = correctGateInRow(row);
+          if (!gate) continue;
+          preferLeft = gate.x + gate.width / 2 > width / 2;
+          y = row.y + GATE_TREE_CLEAR_AFTER + 20;
+          break;
+        }
+        trees.push({
+          x: preferLeft
+            ? Math.random() * (width * 0.12)
+            : width - Math.random() * (width * 0.12),
+          y,
+          size: 15 + Math.random() * 15,
+          color: Math.random() > 0.5 ? "#0f766e" : "#115e59",
+        });
+      }
     }
   }
 
@@ -1103,6 +1165,7 @@ export function mountArtikelSkier(root, options = {}) {
             gateMissStreak = 0;
             player.targetWord = getNextWord();
             queueUpcomingWord();
+            cullTreesAfterCorrectGates();
             createParticles(player.x, player.y, "#fde047", 25);
           } else if (skipMiss || player.jumpZ > 0) {
             // Hopped after previous gate (or still airborne) — ignore.
