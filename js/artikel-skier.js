@@ -20,6 +20,10 @@ const BASE_MAX_SPEED = 7.5;
 const LATERAL_ACCEL = 0.8;
 const MAX_LATERAL_SPEED = 6;
 const FRICTION = 0.85;
+/** Softer strafe on iPhone — screen-half taps felt twitchy. */
+const TOUCH_LATERAL_ACCEL = 0.55;
+const TOUCH_MAX_LATERAL_SPEED = 4.8;
+const TOUCH_FRICTION = 0.88;
 /** Match Wort-Hüpfer ball / face size. */
 const HEAD_RADIUS = 15;
 const EYE_INK = "#1a2030";
@@ -279,6 +283,20 @@ export function mountArtikelSkier(root, options = {}) {
   const keys = { left: false, right: false, up: false };
   /** @type {Map<number, "left"|"right"|"up"|null>} */
   const canvasPointers = new Map();
+  /** Sliding deadzone anchors — relative drag, not screen halves. */
+  /** @type {Map<number, { ax: number, ay: number }>} */
+  const pointerAnchors = new Map();
+  const isTouchApple =
+    typeof navigator !== "undefined" &&
+    (/iPad|iPhone|iPod/.test(navigator.userAgent || "") ||
+      (navigator.platform === "MacIntel" &&
+        (navigator.maxTouchPoints || 0) > 1));
+  // Slightly wider deadzone than Climber — ski strafe is continuous hold.
+  const TOUCH_DEAD_X = isTouchApple ? 8 : 12;
+  const TOUCH_DEAD_Y = isTouchApple ? 18 : 20;
+  const TOUCH_UP_MAX_DX = isTouchApple
+    ? TOUCH_DEAD_X * 1.15
+    : TOUCH_DEAD_X * 1.35;
 
   const player = {
     x: 0,
@@ -580,6 +598,14 @@ export function mountArtikelSkier(root, options = {}) {
     keys.right = false;
     keys.up = false;
     canvasPointers.clear();
+    pointerAnchors.clear();
+  }
+
+  function touchSteerActive() {
+    for (const dir of canvasPointers.values()) {
+      if (dir === "left" || dir === "right") return true;
+    }
+    return false;
   }
 
   function hideOverlays() {
@@ -929,11 +955,15 @@ export function mountArtikelSkier(root, options = {}) {
 
     if (player.invuln > 0) player.invuln -= 1;
 
-    if (keys.left) player.vx -= LATERAL_ACCEL;
-    if (keys.right) player.vx += LATERAL_ACCEL;
-    player.vx *= FRICTION;
-    if (player.vx > MAX_LATERAL_SPEED) player.vx = MAX_LATERAL_SPEED;
-    if (player.vx < -MAX_LATERAL_SPEED) player.vx = -MAX_LATERAL_SPEED;
+    const touchSteer = isTouchApple && touchSteerActive();
+    const accel = touchSteer ? TOUCH_LATERAL_ACCEL : LATERAL_ACCEL;
+    const maxLat = touchSteer ? TOUCH_MAX_LATERAL_SPEED : MAX_LATERAL_SPEED;
+    const friction = touchSteer ? TOUCH_FRICTION : FRICTION;
+    if (keys.left) player.vx -= accel;
+    if (keys.right) player.vx += accel;
+    player.vx *= friction;
+    if (player.vx > maxLat) player.vx = maxLat;
+    if (player.vx < -maxLat) player.vx = -maxLat;
     player.x += player.vx;
     if (player.x < player.radius) {
       player.x = player.radius;
@@ -1297,15 +1327,35 @@ export function mountArtikelSkier(root, options = {}) {
       x: clientX - rect.left,
       y: clientY - rect.top,
       h: rect.height || height,
-      w: rect.width || width,
     };
   }
 
-  function dirFromPoint(clientX, clientY) {
-    const { x, y, h, w } = localPoint(clientX, clientY);
-    if (y < h / 3) return "up";
-    if (x < w / 2) return "left";
-    return "right";
+  /** @returns {"left"|"right"|"up"|null} */
+  function dirFromDrag(pointerId, clientX, clientY) {
+    const { x, y, h } = localPoint(clientX, clientY);
+    let anchor = pointerAnchors.get(pointerId);
+    if (!anchor) {
+      anchor = { ax: x, ay: y };
+      pointerAnchors.set(pointerId, anchor);
+    }
+    let dx = x - anchor.ax;
+    let dy = y - anchor.ay;
+    // Slide the deadzone with the finger so reversing left↔right is snappy.
+    if (dx <= -TOUCH_DEAD_X) anchor.ax = x + TOUCH_DEAD_X;
+    else if (dx >= TOUCH_DEAD_X) anchor.ax = x - TOUCH_DEAD_X;
+    if (dy <= -TOUCH_DEAD_Y) anchor.ay = y + TOUCH_DEAD_Y;
+    dx = x - anchor.ax;
+    dy = y - anchor.ay;
+    const wantUp = dy <= -TOUCH_DEAD_Y || y < h * 0.28;
+    if (wantUp && Math.abs(dx) < TOUCH_UP_MAX_DX) return "up";
+    if (dx <= -TOUCH_DEAD_X) return "left";
+    if (dx >= TOUCH_DEAD_X) return "right";
+    return null;
+  }
+
+  function applyPointerSample(pointerId, clientX, clientY) {
+    canvasPointers.set(pointerId, dirFromDrag(pointerId, clientX, clientY));
+    syncKeysFromCanvasPointers();
   }
 
   function onKeyDown(e) {
@@ -1338,20 +1388,28 @@ export function mountArtikelSkier(root, options = {}) {
     } catch {
       /* ignore */
     }
-    canvasPointers.set(e.pointerId, dirFromPoint(e.clientX, e.clientY));
+    const { x, y, h } = localPoint(e.clientX, e.clientY);
+    pointerAnchors.set(e.pointerId, { ax: x, ay: y });
+    // Tap top band = hop; elsewhere wait for a drag past the deadzone.
+    canvasPointers.set(e.pointerId, y < h * 0.28 ? "up" : null);
     syncKeysFromCanvasPointers();
   }
 
   function onCanvasPointerMove(e) {
-    if (gameState !== "playing") return;
-    if (!canvasPointers.has(e.pointerId)) return;
+    if (gameState !== "playing" || !canvasPointers.has(e.pointerId)) return;
     e.preventDefault();
-    canvasPointers.set(e.pointerId, dirFromPoint(e.clientX, e.clientY));
-    syncKeysFromCanvasPointers();
+    const samples =
+      typeof e.getCoalescedEvents === "function" && e.getCoalescedEvents().length
+        ? e.getCoalescedEvents()
+        : [e];
+    for (const sample of samples) {
+      applyPointerSample(e.pointerId, sample.clientX, sample.clientY);
+    }
   }
 
   function onCanvasPointerUp(e) {
     canvasPointers.delete(e.pointerId);
+    pointerAnchors.delete(e.pointerId);
     syncKeysFromCanvasPointers();
   }
 
