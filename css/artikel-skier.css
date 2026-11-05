@@ -1,0 +1,408 @@
+/* Snow-Nomen — winter stage inside Schnapp (mirrors Wort-Hüpfer chrome) */
+
+.view-skier {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  padding: 0 !important;
+}
+
+.skier-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  background: var(--wash);
+  overscroll-behavior: none;
+}
+
+.skier-progress {
+  position: absolute;
+  top: 0.4rem;
+  left: 0.45rem;
+  right: 0.45rem;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0;
+  margin: 0;
+  pointer-events: none;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.skier-progress[hidden] {
+  display: none !important;
+}
+
+.skier-progress-side {
+  flex: 0 0 auto;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--ink) 78%, transparent);
+  text-shadow:
+    0 0 6px color-mix(in srgb, var(--wash) 80%, transparent),
+    0 1px 2px color-mix(in srgb, var(--wash) 70%, transparent);
+}
+
+.skier-progress-track {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: stretch;
+  min-width: 3rem;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 12%, transparent);
+  overflow: hidden;
+}
+
+.skier-progress-track::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -1px;
+  bottom: -1px;
+  width: 1px;
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--ink) 40%, transparent);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.skier-progress-half {
+  position: relative;
+  flex: 1 1 50%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.skier-progress-hints,
+.skier-progress-deck {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0%;
+  min-width: 0;
+  transition: width 0.2s ease;
+}
+
+.skier-progress-hints {
+  right: 0;
+  background: color-mix(in srgb, var(--de-gold, #c9a227) 82%, var(--fem));
+}
+
+.skier-progress-deck {
+  left: 0;
+  background: color-mix(in srgb, var(--neut) 75%, var(--signal));
+}
+
+.skier-summary {
+  margin: 0;
+  font-size: 0.85rem;
+  color: color-mix(in srgb, var(--ink) 72%, transparent);
+}
+
+.skier-report-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  padding-left: 0.65rem;
+  padding-right: 0.65rem;
+}
+
+.skier-report-btn svg {
+  display: block;
+}
+
+.skier-report-panel {
+  max-height: min(78vh, 34rem);
+  align-items: stretch;
+  text-align: left;
+}
+
+.skier-report-panel .skier-title {
+  text-align: center;
+}
+
+.skier-report-panel .skier-over-actions {
+  justify-content: center;
+}
+
+.skier-report-body {
+  margin: 0;
+  max-height: min(48vh, 20rem);
+  overflow: auto;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.skier-over-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  justify-content: center;
+  margin-top: 0.35rem;
+}
+
+.skier-next {
+  position: absolute;
+  top: 1.55rem;
+  right: 0.5rem;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.12rem;
+  max-width: min(48vw, 11rem);
+  padding: 0.28rem 0.38rem 0.32rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line-strong) 50%, transparent);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--scrim) 16%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+  text-align: right;
+  opacity: 1;
+  transition: opacity 0.12s linear;
+}
+
+.skier-next.is-correct .skier-next-label {
+  color: color-mix(in srgb, var(--neut) 70%, var(--ink));
+  letter-spacing: 0.06em;
+}
+
+.skier-next[hidden] {
+  display: none !important;
+}
+
+.skier-next-label {
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+
+.skier-next-word {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1.15;
+  color: #fff;
+  padding: 0.2rem 0.42rem;
+  border-radius: 999px;
+  background: #1a2030;
+  border: 1px solid color-mix(in srgb, #1a2030 70%, #fff);
+}
+
+html[data-theme="dark"] .skier-next:not(.is-hinted) .skier-next-word {
+  background: #0d1117;
+  border-color: color-mix(in srgb, #0d1117 60%, #fff);
+}
+
+.skier-next.is-hinted[data-gender="masc"] .skier-next-word {
+  background: color-mix(in srgb, var(--masc) 88%, transparent);
+  border-color: color-mix(in srgb, var(--masc-ink) 55%, transparent);
+  color: #fff;
+}
+
+.skier-next.is-hinted[data-gender="fem"] .skier-next-word {
+  background: color-mix(in srgb, var(--fem) 88%, transparent);
+  border-color: color-mix(in srgb, var(--fem-ink) 55%, transparent);
+  color: #fff;
+}
+
+.skier-next.is-hinted[data-gender="neut"] .skier-next-word {
+  background: color-mix(in srgb, var(--neut) 88%, transparent);
+  border-color: color-mix(in srgb, var(--neut-ink) 55%, transparent);
+  color: #fff;
+}
+
+.skier-speed-hud {
+  position: absolute;
+  top: 1.55rem;
+  left: 0.5rem;
+  z-index: 2;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: color-mix(in srgb, var(--ink) 72%, transparent);
+  text-shadow:
+    0 0 6px color-mix(in srgb, var(--wash) 80%, transparent),
+    0 1px 2px color-mix(in srgb, var(--wash) 70%, transparent);
+  pointer-events: none;
+}
+
+.skier-speed-hud[hidden] {
+  display: none !important;
+}
+
+.skier-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 160px;
+  overflow: hidden;
+  touch-action: none;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, #e0f2fe 70%, var(--wash)) 0%,
+    color-mix(in srgb, #f8fafc 85%, var(--wash)) 100%
+  );
+}
+
+html[data-theme="dark"] .skier-stage {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, #0c4a6e 35%, var(--wash)) 0%,
+    color-mix(in srgb, var(--surface) 70%, var(--wash)) 100%
+  );
+}
+
+.skier-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.skier-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  text-align: center;
+  background: color-mix(in srgb, var(--scrim) 28%, transparent);
+  color: var(--ink);
+  transition: opacity var(--ease);
+  pointer-events: auto;
+}
+
+.skier-overlay.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.skier-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  width: min(22rem, 100%);
+  padding: 1.25rem 1.15rem 1.15rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-strong);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: 0 14px 42px color-mix(in srgb, var(--scrim) 28%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.skier-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(1.6rem, 5vw, 2.2rem);
+  color: var(--ink);
+}
+
+.skier-overlay[data-skier-over] .skier-title {
+  font-size: clamp(1.15rem, 4.2vw, 1.65rem);
+  line-height: 1.25;
+  max-width: 18rem;
+}
+
+.skier-lede {
+  margin: 0;
+  max-width: 100%;
+  color: color-mix(in srgb, var(--ink) 78%, transparent);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.skier-final {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 2.75rem;
+  color: var(--de-gold);
+  line-height: 1;
+}
+
+.skier-speed {
+  display: block;
+  margin-top: 0.15rem;
+}
+
+.skier-speed select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  padding: 0.35rem 0.45rem;
+  font: inherit;
+  font-weight: 600;
+}
+
+.skier-hint-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.85rem;
+  justify-content: center;
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.skier-hint-row .is-masc {
+  color: var(--masc);
+}
+
+.skier-hint-row .is-fem {
+  color: var(--fem);
+}
+
+.skier-hint-row .is-neut {
+  color: var(--neut);
+}
+
+@media (max-width: 400px) {
+  .skier-overlay {
+    padding: 0.85rem;
+  }
+
+  .skier-panel {
+    gap: 0.5rem;
+    padding: 1rem 0.9rem;
+  }
+
+  .skier-title {
+    font-size: 1.45rem;
+  }
+}

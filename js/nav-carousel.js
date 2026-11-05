@@ -477,7 +477,7 @@ function shellHtml({ embedded }) {
           ${RETURN_SVG}<span>Play</span>
         </button>
         <h1 class="nc-mode-title">How do you want to play?</h1>
-        <p class="nc-mode-lede">Quiz uses territory units. Climber drills article gender from Vocabulary — pick all, or explore by unit.</p>
+        <p class="nc-mode-lede">Quiz uses territory units. Wort-Hüpfer and Snow-Nomen drill article gender from Vocabulary — pick all, or explore by unit.</p>
         <div class="nc-mode-stack">
           <button type="button" class="nc-mode-card" data-play-kind="quiz">
             <span class="nc-mode-icon">${PLAY_SVG}</span>
@@ -485,7 +485,11 @@ function shellHtml({ embedded }) {
           </button>
           <button type="button" class="nc-mode-card nc-mode-play" data-play-kind="climber">
             <span class="nc-mode-icon">${GAME_SVG}</span>
-            <span class="nc-mode-label">Climber</span>
+            <span class="nc-mode-label">Wort-Hüpfer</span>
+          </button>
+          <button type="button" class="nc-mode-card nc-mode-play" data-play-kind="skier">
+            <span class="nc-mode-icon">${GAME_SVG}</span>
+            <span class="nc-mode-label">Snow-Nomen</span>
           </button>
         </div>
       </section>
@@ -539,7 +543,7 @@ export function mountNavCarousel(container, options = {}) {
 
   const state = {
     mode: /** @type {"learn"|"play"|"guided"|null} */ (null),
-    playKind: /** @type {"quiz"|"climber"|null} */ (null),
+    playKind: /** @type {"quiz"|"climber"|"skier"|null} */ (null),
     navStack: /** @type {object[]} */ ([]),
     selected: new Set(),
     keyboard: true,
@@ -632,8 +636,15 @@ export function mountNavCarousel(container, options = {}) {
     return climberSelectedUnits().filter((u) => climberWordCountForUnit(u) > 0);
   }
 
+  function isArcadePlayKind() {
+    return (
+      state.mode === "play" &&
+      (state.playKind === "climber" || state.playKind === "skier")
+    );
+  }
+
   function eligibleUnits() {
-    if (state.mode === "play" && state.playKind === "climber") {
+    if (isArcadePlayKind()) {
       return climberEligibleUnits();
     }
     const raw = selectedUnits();
@@ -762,7 +773,7 @@ export function mountNavCarousel(container, options = {}) {
 
   function updateStartMeta() {
     if (!countEl) return;
-    if (state.mode === "play" && state.playKind === "climber") {
+    if (isArcadePlayKind()) {
       const words = climberEligibleUnits().reduce(
         (n, u) => n + climberWordCountForUnit(u),
         0
@@ -803,7 +814,12 @@ export function mountNavCarousel(container, options = {}) {
     if (!crumbsEl) return;
     if (state.navStack.length === 0) {
       if (state.mode === "play" && state.playKind) {
-        const label = state.playKind === "climber" ? "Climber" : "Quiz";
+        const label =
+          state.playKind === "climber"
+            ? "Wort-Hüpfer"
+            : state.playKind === "skier"
+              ? "Snow-Nomen"
+              : "Quiz";
         crumbsEl.classList.remove("is-vocab-row");
         crumbsEl.setAttribute("aria-label", "Play options");
         crumbsEl.removeAttribute("hidden");
@@ -854,17 +870,17 @@ export function mountNavCarousel(container, options = {}) {
     });
   }
 
-  function isClimberMode() {
-    return state.mode === "play" && state.playKind === "climber";
+  function isArcadeMode() {
+    return isArcadePlayKind();
   }
 
   function createCard(item) {
     const sel = getNodeSelectionState(item);
     const isUnit = item.type === "unit";
-    const noClimberWords =
-      isClimberMode() && isUnit && climberWordCountForUnit(item) === 0;
+    const noArcadeWords =
+      isArcadeMode() && isUnit && climberWordCountForUnit(item) === 0;
     const unplayable =
-      (isUnit && item.playable === false) || noClimberWords;
+      (isUnit && item.playable === false) || noArcadeWords;
 
     const card = document.createElement("article");
     card.className = `nc-card is-${sel}${unplayable ? " is-soon" : ""}`;
@@ -881,7 +897,7 @@ export function mountNavCarousel(container, options = {}) {
     const footer = !isUnit
       ? `<button type="button" class="nc-card-explore" data-explore aria-label="Explore ${item.title}"><span>Explore</span>${ARROW_SVG}</button>`
       : unplayable
-        ? `<div class="nc-card-hint">${noClimberWords ? "No gender" : "Soon"}</div>`
+        ? `<div class="nc-card-hint">${noArcadeWords ? "No gender" : "Soon"}</div>`
         : `<div class="nc-card-hint" aria-hidden="true">&nbsp;</div>`;
 
     const title = item.kicker
@@ -988,10 +1004,10 @@ export function mountNavCarousel(container, options = {}) {
   }
 
   function renderNav() {
-    // Climber reuses the same curriculum cards as Learn/Play Quiz, scoped to
+    // Arcade games reuse the same curriculum cards as Learn/Play Quiz, scoped to
     // Vocabulary: tap = all decks, Explore = drill down by unit.
     let list = tree;
-    if (isClimberMode() && state.navStack.length === 0) {
+    if (isArcadeMode() && state.navStack.length === 0) {
       list = vocabularyRoot ? [vocabularyRoot] : [];
     } else if (state.navStack.length > 0) {
       list = state.navStack[state.navStack.length - 1].children || [];
@@ -1031,7 +1047,8 @@ export function mountNavCarousel(container, options = {}) {
 
   function enterPlayKind(kind) {
     state.mode = "play";
-    state.playKind = kind === "climber" ? "climber" : "quiz";
+    state.playKind =
+      kind === "climber" ? "climber" : kind === "skier" ? "skier" : "quiz";
     state.navStack = [];
     state.selected = new Set();
     closePlaylist();
@@ -1084,8 +1101,10 @@ export function mountNavCarousel(container, options = {}) {
         : state.mode === "guided"
           ? "Guided"
           : payload.playKind === "climber"
-            ? "Climber"
-            : "Play";
+            ? "Wort-Hüpfer"
+            : payload.playKind === "skier"
+              ? "Snow-Nomen"
+              : "Play";
     showToast(
       `${modeLabel} · ${units.length} unit${
         units.length === 1 ? "" : "s"

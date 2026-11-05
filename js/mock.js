@@ -208,9 +208,10 @@ import {
   curriculumUnitsMirroredBy,
   guidedBoundKeysForUnits,
   mountNavCarousel,
-} from "./nav-carousel.js?v=20261104-climber-cards";
+} from "./nav-carousel.js?v=20261105-snow-nomen";
 import { climberWordsFromVocabUnits } from "./artikel-climber-vocab.js?v=20261103-climber";
-import { mountArtikelClimber } from "./artikel-climber.js?v=20261105-accrue";
+import { mountArtikelClimber } from "./artikel-climber.js?v=20261105-continue-score";
+import { mountArtikelSkier } from "./artikel-skier.js?v=20261105-two-miss";
 import { keysSkippedByJump } from "./guided-jump.js";
 import {
   noteQuizNavEntry,
@@ -594,7 +595,8 @@ function getFeedbackAudio() {
 /**
  * Short UI chimes — positive ascending, soft miss / retry.
  * "splat" = Climber fall (brown noise burst, from artikel_climber.html).
- * @param {"ok"|"bad"|"retry"|"splat"} kind
+ * "hop" = short hop chirp (Snow-Nomen jump).
+ * @param {"ok"|"bad"|"retry"|"splat"|"hop"} kind
  */
 function playFeedbackSound(kind) {
   if (!readSfxEnabled()) return;
@@ -610,6 +612,22 @@ function playFeedbackSound(kind) {
 
   const run = () => {
     const now = ctx.currentTime;
+
+    if (kind === "hop") {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.exponentialRampToValueAtTime(784.0, now + 0.08);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.12, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.18);
+      return;
+    }
 
     if (kind === "splat") {
       // Tone.NoiseSynth brown + short envelope (~8n) from the HTML prototype.
@@ -7417,20 +7435,17 @@ const els = {
     case: document.getElementById("view-case"),
     sounds: document.getElementById("view-sounds"),
     climber: document.getElementById("view-climber"),
+    skier: document.getElementById("view-skier"),
     coming: document.getElementById("view-coming"),
   },
 };
 
 /** @type {{ destroy?: () => void } | null} */
 let artikelClimberMount = null;
+/** @type {{ destroy?: () => void } | null} */
+let artikelSkierMount = null;
 
-function destroyArtikelClimber() {
-  stopClimberLightSpeechWatchdog();
-  stopClimberLightTts();
-  artikelClimberMount?.destroy?.();
-  artikelClimberMount = null;
-  const host = document.getElementById("view-climber");
-  if (host) host.innerHTML = "";
+function hideArcadeTopChrome() {
   const scoreEl = document.getElementById("climber-top-score");
   if (scoreEl) {
     scoreEl.hidden = true;
@@ -7445,7 +7460,28 @@ function destroyArtikelClimber() {
   }
 }
 
+function destroyArtikelClimber() {
+  stopClimberLightSpeechWatchdog();
+  stopClimberLightTts();
+  artikelClimberMount?.destroy?.();
+  artikelClimberMount = null;
+  const host = document.getElementById("view-climber");
+  if (host) host.innerHTML = "";
+  if (!artikelSkierMount) hideArcadeTopChrome();
+}
+
+function destroyArtikelSkier() {
+  stopClimberLightSpeechWatchdog();
+  stopClimberLightTts();
+  artikelSkierMount?.destroy?.();
+  artikelSkierMount = null;
+  const host = document.getElementById("view-skier");
+  if (host) host.innerHTML = "";
+  if (!artikelClimberMount) hideArcadeTopChrome();
+}
+
 function startArtikelClimber(units, { audio = true } = {}) {
+  destroyArtikelSkier();
   destroyArtikelClimber();
   const words = climberWordsFromVocabUnits(units);
   state.sessionMode = "play";
@@ -7477,7 +7513,7 @@ function startArtikelClimber(units, { audio = true } = {}) {
     audio,
     scoreEl,
     livesEl,
-    // Climber: speechSynthesis only (no Piper — keeps bounce light; rest of app still uses Piper).
+    // Arcade: speechSynthesis only (no Piper — keeps bounce/ski light; rest of app still uses Piper).
     speak: (text) => {
       if (!audio) return;
       speakClimberLight(text);
@@ -7496,6 +7532,62 @@ function startArtikelClimber(units, { audio = true } = {}) {
     onExit: () => {
       stopClimberLightSpeechWatchdog();
       destroyArtikelClimber();
+      navigate("hub");
+    },
+  });
+}
+
+function startArtikelSkier(units, { audio = true } = {}) {
+  destroyArtikelClimber();
+  destroyArtikelSkier();
+  const words = climberWordsFromVocabUnits(units);
+  state.sessionMode = "play";
+  state.navCaps = {
+    keyboard: state.navCaps?.keyboard ?? true,
+    audio,
+  };
+  clearCrossTerritoryMix();
+  clearLearnSeries();
+  destroyPlaylistMount();
+  resetSessionAuditLogs();
+  navigate("skier");
+  const host = document.getElementById("view-skier");
+  if (!host) return;
+  const scoreEl = document.getElementById("climber-top-score");
+  if (scoreEl) {
+    scoreEl.hidden = false;
+    scoreEl.textContent = "0";
+  }
+  const livesEl = document.getElementById("climber-top-lives");
+  if (livesEl) {
+    livesEl.hidden = false;
+    livesEl.querySelectorAll(".climber-life").forEach((el) => {
+      el.classList.remove("is-lost");
+    });
+  }
+  artikelSkierMount = mountArtikelSkier(host, {
+    words,
+    audio,
+    scoreEl,
+    livesEl,
+    speak: (text) => {
+      if (!audio) return;
+      speakClimberLight(text);
+    },
+    unlockSpeak: () => {
+      if (!audio) return;
+      unlockClimberLightTts();
+    },
+    stopSpeak: () => {
+      if (!audio) return;
+      stopClimberLightTts();
+    },
+    playFeedback: (kind) => {
+      playFeedbackSound(kind);
+    },
+    onExit: () => {
+      stopClimberLightSpeechWatchdog();
+      destroyArtikelSkier();
       navigate("hub");
     },
   });
@@ -8523,6 +8615,7 @@ function navigate(view, opts = {}) {
 
   if (view === "hub") {
     destroyArtikelClimber();
+    destroyArtikelSkier();
     navCarouselApi?.resetToMode?.();
     try {
       saveProfileStore(endProfileSession(loadProfileStore()));
@@ -8532,6 +8625,7 @@ function navigate(view, opts = {}) {
   }
 
   if (view !== "climber") destroyArtikelClimber();
+  if (view !== "skier") destroyArtikelSkier();
 
   if (view === "numbers" || view === "nouns" || view === "sounds" || view === "case") {
     if (!opts.keepPhase) {
@@ -11689,6 +11783,14 @@ function handleNavCarouselStart({
       audio: audio ?? true,
     };
     startArtikelClimber(units || [], { audio: audio ?? true });
+    return;
+  }
+  if (mode === "play" && playKind === "skier") {
+    state.navCaps = {
+      keyboard: keyboard ?? true,
+      audio: audio ?? true,
+    };
+    startArtikelSkier(units || [], { audio: audio ?? true });
     return;
   }
   const sessionMode =
