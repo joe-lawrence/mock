@@ -291,6 +291,39 @@ html[data-theme="dark"] .nc-phone {
   background: var(--ok);
 }
 
+/* Play kind: Quiz on top; Wort-Hüpfer + Snow-Nomen side by side (3 cards fit iPhone). */
+.nc-screen-playkind .nc-mode-lede {
+  margin-bottom: 0.85rem;
+  font-size: 0.92rem;
+}
+
+.nc-screen-playkind .nc-mode-stack {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: minmax(0, 0.85fr) minmax(0, 1fr);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+}
+
+.nc-screen-playkind .nc-mode-card[data-play-kind="quiz"] {
+  grid-column: 1 / -1;
+}
+
+.nc-screen-playkind .nc-mode-card.nc-mode-play {
+  grid-column: auto;
+}
+
+.nc-screen-playkind .nc-mode-label {
+  font-size: clamp(1.15rem, 4.5vw, 1.45rem);
+  text-align: center;
+  padding: 0 0.35rem;
+}
+
+.nc-screen-playkind .nc-mode-icon svg {
+  width: 2.4rem;
+  height: 2.4rem;
+}
+
 .nc-mode-icon {
   display: grid;
   place-items: center;

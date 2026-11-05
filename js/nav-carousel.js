@@ -477,7 +477,7 @@ function shellHtml({ embedded }) {
           ${RETURN_SVG}<span>Play</span>
         </button>
         <h1 class="nc-mode-title">How do you want to play?</h1>
-        <p class="nc-mode-lede">Quiz uses territory units. Wort-Hüpfer and Snow-Nomen drill article gender from Vocabulary — pick all, or explore by unit.</p>
+        <p class="nc-mode-lede">Quiz uses territory units. Wort-Hüpfer and Snow-Nomen drill article gender from Vocabulary.</p>
         <div class="nc-mode-stack">
           <button type="button" class="nc-mode-card" data-play-kind="quiz">
             <span class="nc-mode-icon">${PLAY_SVG}</span>

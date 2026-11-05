@@ -208,7 +208,7 @@ import {
   curriculumUnitsMirroredBy,
   guidedBoundKeysForUnits,
   mountNavCarousel,
-} from "./nav-carousel.js?v=20261105-snow-nomen";
+} from "./nav-carousel.js?v=20261105-playkind-fit";
 import { climberWordsFromVocabUnits } from "./artikel-climber-vocab.js?v=20261103-climber";
 import { mountArtikelClimber } from "./artikel-climber.js?v=20261105-continue-score";
 import { mountArtikelSkier } from "./artikel-skier.js?v=20261105-two-miss";
