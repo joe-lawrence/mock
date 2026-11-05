@@ -835,6 +835,19 @@ export function mountArtikelClimber(root, options = {}) {
     });
   }
 
+  /** Wipe run + report stats (Restart). Next Start begins a fresh session. */
+  function clearSessionStats() {
+    score = 0;
+    pools = { unseenPool: [], activePool: [], graduatedPool: [] };
+    seenByKey.clear();
+    lastReportText = "";
+    lastReportJson = "";
+    player.targetWord = null;
+    setScoreDisplay(0);
+    setProgressVisible(false);
+    updateProgressUi();
+  }
+
   /** First screen / Restart: clear run progress and show the start panel. */
   function showStartScreen() {
     if (animationId) cancelAnimationFrame(animationId);
@@ -842,22 +855,18 @@ export function mountArtikelClimber(root, options = {}) {
     clearKeys();
     canvasPointers.clear();
     pointerAnchors.clear();
-    score = 0;
+    clearSessionStats();
     lives = MAX_LIVES;
     cameraY = 0;
     platforms = [];
     particles = [];
-    pools = { unseenPool: [], activePool: [], graduatedPool: [] };
     player.vx = 0;
     player.vy = 0;
-    player.targetWord = null;
     player.isRescuing = false;
     player.face = "normal";
     player.faceUntil = 0;
-    setScoreDisplay(0);
     setLivesDisplay(MAX_LIVES);
     setWordDisplay("");
-    setProgressVisible(false);
     closeReportSheet();
     if (overEl) {
       overEl.hidden = true;
@@ -1006,7 +1015,10 @@ export function mountArtikelClimber(root, options = {}) {
     animationId = requestAnimationFrame(gameLoop);
   }
 
-  /** Resume: fresh score/climb, keep spaced-repetition / hint progress. */
+  /**
+   * Resume after game over: refill lives and keep climbing.
+   * Score, word ✓/✗, SRS pools, and report stats keep accruing until Restart.
+   */
   function continueGame() {
     if (!words.length) {
       endGame("No gendered vocabulary in the selected sections.");
@@ -1015,9 +1027,8 @@ export function mountArtikelClimber(root, options = {}) {
     if (animationId) cancelAnimationFrame(animationId);
     resize();
     applySpeedFromUi();
-    score = 0;
     lives = MAX_LIVES;
-    setScoreDisplay(0);
+    setScoreDisplay(score);
     setLivesDisplay(lives);
     cameraY = 0;
     platforms = [];
