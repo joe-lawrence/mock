@@ -330,11 +330,14 @@ describe("Case vocabulary words", () => {
       introducedBy: ["case.accusative"],
     });
     assert.ok(accusative.some((item) => item.surface === "für"));
-    assert.ok(accusative.every((item) => item.type !== "noun"));
+    assert.ok(accusative.some((item) => item.surface === "Mann"));
+    assert.ok(
+      accusative.some((item) => item.type === "noun" && item.engine?.lemma)
+    );
     const fuer = accusative.find((item) => item.surface === "für");
     const types = questionTypesForItem(fuer, {
       topic: "case",
-      peers: accusative,
+      peers: accusative.filter((item) => item.type !== "noun"),
     });
     assert.ok(types.includes("meaning"), fuer.id);
     const question = createVocabularyQuestion(fuer, "meaning", {
