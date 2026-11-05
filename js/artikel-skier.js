@@ -70,6 +70,7 @@ const REPORT_LIST_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1.1em" h
  *   unlockSpeak?: () => void,
  *   stopSpeak?: () => void,
  *   playFeedback?: (kind: "ok"|"bad"|"retry"|"splat"|"hop") => void,
+ *   setSnowfallSfx?: (on: boolean) => void,
  *   scoreEl?: HTMLElement|null,
  *   livesEl?: HTMLElement|null,
  *   onExit?: () => void,
@@ -85,6 +86,10 @@ export function mountArtikelSkier(root, options = {}) {
     typeof options.stopSpeak === "function" ? options.stopSpeak : () => {};
   const playFeedback =
     typeof options.playFeedback === "function" ? options.playFeedback : () => {};
+  const setSnowfallSfx =
+    typeof options.setSnowfallSfx === "function"
+      ? options.setSnowfallSfx
+      : () => {};
   const onExit = typeof options.onExit === "function" ? options.onExit : null;
   const scoreEl =
     options.scoreEl || document.getElementById("climber-top-score");
@@ -349,6 +354,50 @@ export function mountArtikelSkier(root, options = {}) {
   let trees = [];
   /** @type {object[]} */
   let ramps = [];
+  /** @type {{ x: number, y: number, r: number, vy: number, vx: number, a: number }[]} */
+  let snowfall = [];
+
+  function seedSnowfall() {
+    const n = Math.max(28, Math.min(64, Math.floor(width / 10)));
+    snowfall = Array.from({ length: n }, () => ({
+      x: Math.random() * Math.max(1, width),
+      y: Math.random() * Math.max(1, height),
+      r: 1.1 + Math.random() * 2.6,
+      vy: 0.4 + Math.random() * 1.1,
+      vx: -0.35 + Math.random() * 0.7,
+      a: 0.4 + Math.random() * 0.45,
+    }));
+  }
+
+  function updateSnowfall() {
+    if (!snowfall.length || width < 1) return;
+    const drift = awaitingInput ? 0.5 : 1 + Math.min(1.2, scrollSpeed * 0.03);
+    for (const f of snowfall) {
+      f.y += f.vy * drift;
+      f.x += f.vx + Math.sin(f.y * 0.025 + f.r) * 0.2;
+      if (f.y > height + 6) {
+        f.y = -6;
+        f.x = Math.random() * width;
+      }
+      if (f.x < -6) f.x = width + 6;
+      else if (f.x > width + 6) f.x = -6;
+    }
+  }
+
+  function drawSnowfall() {
+    if (!snowfall.length) return;
+    const theme =
+      document.documentElement.getAttribute("data-theme") || "light";
+    const flakeFill = theme === "dark" ? "#94a3b8" : "#ffffff";
+    for (const f of snowfall) {
+      ctx.globalAlpha = f.a;
+      ctx.fillStyle = flakeFill;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
 
   /** @param {"normal"|"happy"|"boost"|"dead"} face @param {number} [ms] */
   function setFace(face, ms = 280) {
@@ -636,6 +685,7 @@ export function mountArtikelSkier(root, options = {}) {
 
   function showStartScreen() {
     gameState = "start";
+    setSnowfallSfx(false);
     clearKeys();
     clearCorrectFlash();
     setProgressVisible(false);
@@ -669,6 +719,7 @@ export function mountArtikelSkier(root, options = {}) {
       player.y = height * 0.25;
       player.x = width / 2;
     }
+    if (gameState !== "start") seedSnowfall();
   }
 
   function createParticles(x, y, color, count = 15) {
@@ -699,7 +750,6 @@ export function mountArtikelSkier(root, options = {}) {
       row.gates.push({ x, width: pWidth, type: types[j] });
     }
     rows.push(row);
-    cullTreesAfterCorrectGates();
   }
 
   /** Gate matching the current ski target gender, if any. */
@@ -709,7 +759,10 @@ export function mountArtikelSkier(root, options = {}) {
     return row.gates.find((g) => g.type === gender) || null;
   }
 
-  /** Tree sits in the overrun corridor of a correct gate. */
+  /**
+   * True if a *new* tree would sit in the overrun corridor of a correct gate.
+   * Placement-only — never delete trees already on the course (they would pop).
+   */
   function treeBlockedAfterCorrectGate(t) {
     for (const row of rows) {
       if (t.y < row.y || t.y > row.y + GATE_TREE_CLEAR_AFTER) continue;
@@ -723,10 +776,6 @@ export function mountArtikelSkier(root, options = {}) {
       }
     }
     return false;
-  }
-
-  function cullTreesAfterCorrectGates() {
-    trees = trees.filter((t) => !treeBlockedAfterCorrectGate(t));
   }
 
   function populateTrees(amount, startY, endY) {
@@ -867,6 +916,7 @@ export function mountArtikelSkier(root, options = {}) {
     deathUntil = 0;
     pendingGameOver = false;
     gameState = "gameover";
+    setSnowfallSfx(false);
     clearKeys();
     clearCorrectFlash();
     closeReportSheet();
@@ -934,12 +984,14 @@ export function mountArtikelSkier(root, options = {}) {
     player.targetWord = getNextWord();
     queueUpcomingWord();
     seedTrack();
+    seedSnowfall();
     gameState = "playing";
     hideOverlays();
     closeReportSheet();
     lastReportText = "";
     lastReportJson = "";
     beginAwaitingInput();
+    setSnowfallSfx(true);
     animationId = requestAnimationFrame(gameLoop);
   }
 
@@ -985,10 +1037,12 @@ export function mountArtikelSkier(root, options = {}) {
     }
     queueUpcomingWord();
     seedTrack();
+    seedSnowfall();
     gameState = "playing";
     hideOverlays();
     closeReportSheet();
     beginAwaitingInput();
+    setSnowfallSfx(true);
     animationId = requestAnimationFrame(gameLoop);
   }
 
@@ -1000,9 +1054,12 @@ export function mountArtikelSkier(root, options = {}) {
         p.life -= 0.03;
       });
       particles = particles.filter((p) => p.life > 0);
+      updateSnowfall();
       return;
     }
     if (gameState !== "playing") return;
+
+    updateSnowfall();
 
     particles.forEach((p) => {
       p.x += p.vx;
@@ -1165,7 +1222,6 @@ export function mountArtikelSkier(root, options = {}) {
             gateMissStreak = 0;
             player.targetWord = getNextWord();
             queueUpcomingWord();
-            cullTreesAfterCorrectGates();
             createParticles(player.x, player.y, "#fde047", 25);
           } else if (skipMiss || player.jumpZ > 0) {
             // Hopped after previous gate (or still airborne) — ignore.
@@ -1268,6 +1324,12 @@ export function mountArtikelSkier(root, options = {}) {
     });
     ctx.globalAlpha = 1;
 
+    // Behind the skier so flakes don't sit on top of the player.
+    drawSnowfall();
+
+    const theme =
+      document.documentElement.getAttribute("data-theme") || "light";
+
     ctx.save();
     ctx.translate(player.x, player.y + idleBobY());
     if (player.jumpZ > 0) {
@@ -1294,7 +1356,7 @@ export function mountArtikelSkier(root, options = {}) {
     const skiAngle = -turn * 0.72;
 
     // Two plain ski strokes (+Y = down-slope). Crossed for wipeout + game over.
-    ctx.strokeStyle = "#334155";
+    ctx.strokeStyle = theme === "dark" ? "#cbd5e1" : "#334155";
     ctx.lineWidth = 4;
     ctx.lineCap = "round";
     const skiSpread = HEAD_RADIUS * 0.42;
@@ -1571,6 +1633,7 @@ export function mountArtikelSkier(root, options = {}) {
 
   function destroy() {
     if (animationId) cancelAnimationFrame(animationId);
+    setSnowfallSfx(false);
     clearKeys();
     if (scoreEl) scoreEl.hidden = true;
     if (livesEl) livesEl.hidden = true;
