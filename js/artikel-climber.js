@@ -13,7 +13,7 @@ import {
   progressSnapshot as sharedProgressSnapshot,
   wordKey,
 } from "./artikel-game-progress.js";
-import { TOASTER_FRAMES } from "./toaster-sprites.js?v=20261106-toaster-rare";
+import { TOASTER_FRAMES } from "./toaster-sprites.js?v=20261106-hopper-stick";
 
 const BASE_GRAVITY = 0.2;
 const BASE_BOUNCE = -8.2;
@@ -287,19 +287,35 @@ export function mountArtikelClimber(root, options = {}) {
   const keys = { left: false, right: false, up: false };
   /** @type {Map<number, "left"|"right"|"up"|null>} */
   const canvasPointers = new Map();
-  /** Sliding deadzone anchors — relative drag, not screen halves (less sticky on iOS). */
-  /** @type {Map<number, { ax: number, ay: number }>} */
-  const pointerAnchors = new Map();
+  /**
+   * Per-finger virtual stick (same model as Snow-Nomen).
+   * Fixed origin at touch-down + enter/exit hysteresis.
+   * @type {Map<number, {
+   *   ox: number, oy: number,
+   *   smx: number, smy: number,
+   *   dir: "left"|"right"|"up"|null,
+   *   pending: "left"|"right"|"up"|null,
+   *   pendingSince: number,
+   *   axis: "h"|"v"|null,
+   * }>}
+   */
+  const pointerSticks = new Map();
   const isTouchApple =
     typeof navigator !== "undefined" &&
     (/iPad|iPhone|iPod/.test(navigator.userAgent || "") ||
-      (navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1));
-  // iPhone: tight X deadzone + faster strafe — finger drags read small on CSS pixels.
-  const TOUCH_DEAD_X = isTouchApple ? 4.5 : 10;
-  const TOUCH_DEAD_Y = isTouchApple ? 16 : 18;
-  /** Up loses to left/right sooner when there's any sideways drag. */
-  const TOUCH_UP_MAX_DX = isTouchApple ? TOUCH_DEAD_X * 1.1 : TOUCH_DEAD_X * 1.35;
+      (navigator.platform === "MacIntel" &&
+        (navigator.maxTouchPoints || 0) > 1));
+  // Enter deadzone (engage) vs larger reverse threshold (flip) — hysteresis.
+  const STICK_ENTER = isTouchApple ? 14 : 16;
+  const STICK_HOLD = isTouchApple ? 7 : 8;
+  const STICK_REVERSE = isTouchApple ? 28 : 32;
+  const STICK_UP_ENTER = isTouchApple ? 16 : 18;
+  const STICK_SMOOTH = 0.35;
+  const STICK_CONFIRM_MS = 35;
   const TOUCH_MOVE_MULT = isTouchApple ? 1.22 : 1;
+  /** Soft lateral when an Apple touch stick is active (matches skier feel). */
+  const TOUCH_MOVE_ACCEL = 0.42;
+  const TOUCH_FRICTION = 0.88;
   const player = {
     x: 0,
     y: 0,
@@ -621,6 +637,15 @@ export function mountArtikelClimber(root, options = {}) {
     keys.left = false;
     keys.right = false;
     keys.up = false;
+    canvasPointers.clear();
+    pointerSticks.clear();
+  }
+
+  function touchSteerActive() {
+    for (const dir of canvasPointers.values()) {
+      if (dir) return true;
+    }
+    return false;
   }
 
   function applySpeedFromUi() {
@@ -829,7 +854,7 @@ export function mountArtikelClimber(root, options = {}) {
     gameState = "start";
     clearKeys();
     canvasPointers.clear();
-    pointerAnchors.clear();
+    pointerSticks.clear();
     clearSessionStats();
     lives = MAX_LIVES;
     cameraY = 0;
@@ -895,7 +920,7 @@ export function mountArtikelClimber(root, options = {}) {
     gameState = "gameover";
     clearKeys();
     canvasPointers.clear();
-    pointerAnchors.clear();
+    pointerSticks.clear();
     resetEyeSpin();
     setFace("dead", 10_000);
     clearCorrectFlash();
@@ -949,7 +974,7 @@ export function mountArtikelClimber(root, options = {}) {
     toasters = [];
     clearKeys();
     canvasPointers.clear();
-    pointerAnchors.clear();
+    pointerSticks.clear();
     player.face = "normal";
     player.faceUntil = 0;
     updateProgressUi();
@@ -991,7 +1016,7 @@ export function mountArtikelClimber(root, options = {}) {
     toasters = [];
     clearKeys();
     canvasPointers.clear();
-    pointerAnchors.clear();
+    pointerSticks.clear();
     player.face = "normal";
     player.faceUntil = 0;
     clearScaredFace();
@@ -1019,7 +1044,15 @@ export function mountArtikelClimber(root, options = {}) {
     if (gameState !== "playing") return;
     updateCorrectFlashFade();
     updateToasters();
-    if (keys.left) player.vx = -MOVE_SPEED;
+    const touchSteer = isTouchApple && touchSteerActive();
+    if (touchSteer) {
+      if (keys.left) player.vx -= TOUCH_MOVE_ACCEL;
+      if (keys.right) player.vx += TOUCH_MOVE_ACCEL;
+      if (!keys.left && !keys.right) player.vx *= TOUCH_FRICTION;
+      if (player.vx > MOVE_SPEED) player.vx = MOVE_SPEED;
+      if (player.vx < -MOVE_SPEED) player.vx = -MOVE_SPEED;
+      if (!keys.left && !keys.right && Math.abs(player.vx) < 0.05) player.vx = 0;
+    } else if (keys.left) player.vx = -MOVE_SPEED;
     else if (keys.right) player.vx = MOVE_SPEED;
     else player.vx = 0;
     if (
@@ -1315,31 +1348,107 @@ export function mountArtikelClimber(root, options = {}) {
     };
   }
 
-  /** @returns {"left"|"right"|"up"|null} */
-  function dirFromDrag(pointerId, clientX, clientY) {
+  /**
+   * Discrete direction from a floating virtual stick.
+   * Techniques: fixed origin, EMA smoothing, enter/hold/reverse hysteresis,
+   * axis lock, and short confirm delay before flipping.
+   * @returns {"left"|"right"|"up"|null}
+   */
+  function dirFromStick(pointerId, clientX, clientY) {
     const { x, y, h } = localPoint(clientX, clientY);
-    let anchor = pointerAnchors.get(pointerId);
-    if (!anchor) {
-      anchor = { ax: x, ay: y };
-      pointerAnchors.set(pointerId, anchor);
+    let stick = pointerSticks.get(pointerId);
+    if (!stick) {
+      stick = {
+        ox: x,
+        oy: y,
+        smx: 0,
+        smy: 0,
+        dir: /** @type {null} */ (null),
+        pending: /** @type {null} */ (null),
+        pendingSince: 0,
+        axis: /** @type {null} */ (null),
+      };
+      pointerSticks.set(pointerId, stick);
     }
-    let dx = x - anchor.ax;
-    let dy = y - anchor.ay;
-    // Pull the deadzone with the finger so reversing left↔right is immediate.
-    if (dx <= -TOUCH_DEAD_X) anchor.ax = x + TOUCH_DEAD_X;
-    else if (dx >= TOUCH_DEAD_X) anchor.ax = x - TOUCH_DEAD_X;
-    if (dy <= -TOUCH_DEAD_Y) anchor.ay = y + TOUCH_DEAD_Y;
-    dx = x - anchor.ax;
-    dy = y - anchor.ay;
-    const wantUp = dy <= -TOUCH_DEAD_Y || y < h * 0.28;
-    if (wantUp && Math.abs(dx) < TOUCH_UP_MAX_DX) return "up";
-    if (dx <= -TOUCH_DEAD_X) return "left";
-    if (dx >= TOUCH_DEAD_X) return "right";
-    return null;
+
+    const rawDx = x - stick.ox;
+    const rawDy = y - stick.oy;
+    stick.smx += (rawDx - stick.smx) * STICK_SMOOTH;
+    stick.smy += (rawDy - stick.smy) * STICK_SMOOTH;
+    const dx = stick.smx;
+    const dy = stick.smy;
+    const adx = Math.abs(dx);
+    const ady = Math.abs(dy);
+
+    /** @type {"left"|"right"|"up"|null} */
+    let candidate = null;
+    if (stick.dir === "left" || stick.dir === "right") {
+      stick.axis = "h";
+    } else if (stick.dir === "up") {
+      stick.axis = "v";
+    }
+
+    if (stick.axis === "h" || (!stick.axis && adx >= ady)) {
+      if (stick.dir === "left") {
+        if (dx <= -STICK_HOLD) candidate = "left";
+        else if (dx >= STICK_REVERSE) candidate = "right";
+      } else if (stick.dir === "right") {
+        if (dx >= STICK_HOLD) candidate = "right";
+        else if (dx <= -STICK_REVERSE) candidate = "left";
+      } else if (adx >= STICK_ENTER && adx >= ady * 0.85) {
+        candidate = dx < 0 ? "left" : "right";
+      }
+    }
+
+    if (!candidate && (stick.axis === "v" || !stick.axis)) {
+      const tapTop = y < h * 0.28 && adx < STICK_ENTER * 0.75;
+      if (stick.dir === "up") {
+        if (dy <= -STICK_HOLD || tapTop) candidate = "up";
+      } else if ((dy <= -STICK_UP_ENTER && ady > adx) || tapTop) {
+        candidate = "up";
+      }
+    }
+
+    const now = performance.now();
+    if (candidate === stick.dir) {
+      stick.pending = null;
+      stick.pendingSince = 0;
+      return stick.dir;
+    }
+    if (!candidate) {
+      if (
+        stick.dir === "left" ||
+        stick.dir === "right" ||
+        stick.dir === "up"
+      ) {
+        const stillHeld =
+          (stick.dir === "left" && dx <= -STICK_HOLD) ||
+          (stick.dir === "right" && dx >= STICK_HOLD) ||
+          (stick.dir === "up" && dy <= -STICK_HOLD);
+        if (stillHeld) return stick.dir;
+      }
+      stick.dir = null;
+      stick.axis = null;
+      stick.pending = null;
+      return null;
+    }
+
+    if (stick.pending !== candidate) {
+      stick.pending = candidate;
+      stick.pendingSince = now;
+      return stick.dir;
+    }
+    if (now - stick.pendingSince < STICK_CONFIRM_MS && stick.dir) {
+      return stick.dir;
+    }
+    stick.dir = candidate;
+    stick.axis = candidate === "up" ? "v" : "h";
+    stick.pending = null;
+    return stick.dir;
   }
 
   function applyPointerSample(pointerId, clientX, clientY) {
-    canvasPointers.set(pointerId, dirFromDrag(pointerId, clientX, clientY));
+    canvasPointers.set(pointerId, dirFromStick(pointerId, clientX, clientY));
     syncKeysFromCanvasPointers();
   }
 
@@ -1351,28 +1460,32 @@ export function mountArtikelClimber(root, options = {}) {
     } catch {
       /* ignore */
     }
-    const { x, y } = localPoint(e.clientX, e.clientY);
-    pointerAnchors.set(e.pointerId, { ax: x, ay: y });
-    // Finger down alone doesn't steer — wait for a drag past the deadzone.
-    canvasPointers.set(e.pointerId, null);
+    const { x, y, h } = localPoint(e.clientX, e.clientY);
+    pointerSticks.set(e.pointerId, {
+      ox: x,
+      oy: y,
+      smx: 0,
+      smy: 0,
+      dir: y < h * 0.28 ? "up" : null,
+      pending: null,
+      pendingSince: 0,
+      axis: y < h * 0.28 ? "v" : null,
+    });
+    // Tap top band = boost; elsewhere wait for stick to leave the enter deadzone.
+    canvasPointers.set(e.pointerId, y < h * 0.28 ? "up" : null);
     syncKeysFromCanvasPointers();
   }
 
   function onCanvasPointerMove(e) {
     if (gameState !== "playing" || !canvasPointers.has(e.pointerId)) return;
     e.preventDefault();
-    const samples =
-      typeof e.getCoalescedEvents === "function" && e.getCoalescedEvents().length
-        ? e.getCoalescedEvents()
-        : [e];
-    for (const sample of samples) {
-      applyPointerSample(e.pointerId, sample.clientX, sample.clientY);
-    }
+    // Latest sample only — coalesced bursts fight hysteresis.
+    applyPointerSample(e.pointerId, e.clientX, e.clientY);
   }
 
   function onCanvasPointerUp(e) {
     canvasPointers.delete(e.pointerId);
-    pointerAnchors.delete(e.pointerId);
+    pointerSticks.delete(e.pointerId);
     syncKeysFromCanvasPointers();
   }
 
@@ -1380,7 +1493,7 @@ export function mountArtikelClimber(root, options = {}) {
     if (animationId) cancelAnimationFrame(animationId);
     clearKeys();
     canvasPointers.clear();
-    pointerAnchors.clear();
+    pointerSticks.clear();
     if (scoreEl) scoreEl.hidden = true;
     if (livesEl) livesEl.hidden = true;
     window.removeEventListener("keydown", onKeyDown);
@@ -1429,7 +1542,7 @@ export function mountArtikelClimber(root, options = {}) {
     if (!lastReportJson) buildReport();
     copyText(lastReportJson);
   });
-  // Relative thumb-drag on the canvas (not left/right screen halves).
+  // Virtual stick on the canvas (same model as Snow-Nomen).
   canvas.addEventListener("pointerdown", onCanvasPointerDown, { passive: false });
   canvas.addEventListener("pointermove", onCanvasPointerMove, { passive: false });
   canvas.addEventListener("pointerup", onCanvasPointerUp);
