@@ -211,7 +211,7 @@ import {
 } from "./nav-carousel.js?v=20261105-playkind-fit";
 import { climberWordsFromVocabUnits } from "./artikel-climber-vocab.js?v=20261103-climber";
 import { mountArtikelClimber } from "./artikel-climber.js?v=20261106-hopper-stick";
-import { mountArtikelSkier } from "./artikel-skier.js?v=20261106-skier-sparse";
+import { mountArtikelSkier } from "./artikel-skier.js?v=20261106-no-snow-sfx";
 import { keysSkippedByJump } from "./guided-jump.js";
 import {
   noteQuizNavEntry,
@@ -541,10 +541,6 @@ function initTheme() {
 
 const SFX_KEY = "schnapp-sfx";
 let feedbackAudioCtx = null;
-/** Snow-Nomen course ambience — soft looping snowfall (Web Audio). */
-let snowfallWanted = false;
-/** @type {null | { src: AudioBufferSourceNode, gain: GainNode, lfo: OscillatorNode, flakeTimer: number }} */
-let snowfallNodes = null;
 
 function readSfxEnabled() {
   try {
@@ -563,8 +559,6 @@ function setSfxEnabled(on) {
     /* ignore */
   }
   syncSfxMenu(on);
-  if (on && snowfallWanted) startSnowfallSfx();
-  else if (!on) stopSnowfallSfxNodes();
 }
 
 function syncSfxMenu(on = readSfxEnabled()) {
@@ -604,170 +598,6 @@ function ensurePlaybackAudioSession() {
     if (session && session.type !== "playback") session.type = "playback";
   } catch {
     /* ignore */
-  }
-}
-
-function stopSnowfallSfxNodes() {
-  if (!snowfallNodes) return;
-  const nodes = snowfallNodes;
-  snowfallNodes = null;
-  try {
-    if (nodes.flakeTimer) clearTimeout(nodes.flakeTimer);
-  } catch {
-    /* ignore */
-  }
-  const ctx = feedbackAudioCtx;
-  const now = ctx ? ctx.currentTime : 0;
-  try {
-    nodes.gain.gain.cancelScheduledValues(now);
-    nodes.gain.gain.setValueAtTime(Math.max(0.0001, nodes.gain.gain.value), now);
-    nodes.gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
-  } catch {
-    /* ignore */
-  }
-  try {
-    nodes.lfo.stop(now + 0.5);
-  } catch {
-    /* ignore */
-  }
-  try {
-    nodes.src.stop(now + 0.5);
-  } catch {
-    /* ignore */
-  }
-}
-
-/**
- * Soft course snowfall loop for Snow-Nomen. Idempotent; respects SFX toggle.
- * @param {boolean} on
- */
-function setSnowfallSfx(on) {
-  snowfallWanted = !!on;
-  if (!snowfallWanted) {
-    stopSnowfallSfxNodes();
-    return;
-  }
-  startSnowfallSfx();
-}
-
-function startSnowfallSfx() {
-  if (!snowfallWanted || !readSfxEnabled()) {
-    stopSnowfallSfxNodes();
-    return;
-  }
-  if (snowfallNodes) return;
-  const ctx = getFeedbackAudio();
-  if (!ctx) return;
-  ensurePlaybackAudioSession();
-
-  const run = () => {
-    if (!snowfallWanted || !readSfxEnabled() || snowfallNodes) return;
-
-    // Soft pink-ish noise loop — airy snowfall bed.
-    const dur = 3.2;
-    const frames = Math.max(1, Math.floor(ctx.sampleRate * dur));
-    const buffer = ctx.createBuffer(1, frames, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    let b0 = 0;
-    let b1 = 0;
-    let b2 = 0;
-    for (let i = 0; i < frames; i++) {
-      const white = Math.random() * 2 - 1;
-      b0 = 0.99765 * b0 + white * 0.099046;
-      b1 = 0.963 * b1 + white * 0.111972;
-      b2 = 0.57 * b2 + white * 0.28185;
-      data[i] = (b0 + b1 + b2) * 0.35;
-    }
-
-    const src = ctx.createBufferSource();
-    src.buffer = buffer;
-    src.loop = true;
-
-    const highpass = ctx.createBiquadFilter();
-    highpass.type = "highpass";
-    highpass.frequency.value = 140;
-    highpass.Q.value = 0.5;
-
-    const lowpass = ctx.createBiquadFilter();
-    lowpass.type = "lowpass";
-    lowpass.frequency.value = 2800;
-    lowpass.Q.value = 0.5;
-
-    // windGain (LFO) → masterGain (fade / level) → out
-    const windGain = ctx.createGain();
-    windGain.gain.value = 1;
-
-    const gain = ctx.createGain();
-    const now = ctx.currentTime;
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.14, now + 0.8);
-
-    const lfo = ctx.createOscillator();
-    lfo.type = "sine";
-    lfo.frequency.value = 0.08;
-    const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 0.22;
-    lfo.connect(lfoGain);
-    lfoGain.connect(windGain.gain);
-
-    src.connect(highpass);
-    highpass.connect(lowpass);
-    lowpass.connect(windGain);
-    windGain.connect(gain);
-    gain.connect(ctx.destination);
-    src.start(now);
-    lfo.start(now);
-
-    // Sparse soft flake ticks — light ice crystal taps at irregular intervals.
-    let flakeTimer = 0;
-    const scheduleFlake = () => {
-      flakeTimer = window.setTimeout(() => {
-        if (!snowfallWanted || !readSfxEnabled() || !snowfallNodes) {
-          stopSnowfallSfxNodes();
-          return;
-        }
-        if (feedbackAudioCtx && feedbackAudioCtx.state === "running") {
-          const t = feedbackAudioCtx.currentTime;
-          const osc = feedbackAudioCtx.createOscillator();
-          const g = feedbackAudioCtx.createGain();
-          const f = feedbackAudioCtx.createBiquadFilter();
-          f.type = "bandpass";
-          f.frequency.value = 2400 + Math.random() * 3200;
-          f.Q.value = 6;
-          osc.type = "triangle";
-          osc.frequency.setValueAtTime(1800 + Math.random() * 2200, t);
-          osc.frequency.exponentialRampToValueAtTime(
-            900 + Math.random() * 600,
-            t + 0.08
-          );
-          g.gain.setValueAtTime(0.0001, t);
-          g.gain.exponentialRampToValueAtTime(
-            0.028 + Math.random() * 0.02,
-            t + 0.008
-          );
-          g.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
-          osc.connect(f);
-          f.connect(g);
-          g.connect(feedbackAudioCtx.destination);
-          osc.start(t);
-          osc.stop(t + 0.14);
-        }
-        if (snowfallNodes) {
-          snowfallNodes.flakeTimer = 0;
-          scheduleFlake();
-        }
-      }, 380 + Math.random() * 900);
-      if (snowfallNodes) snowfallNodes.flakeTimer = flakeTimer;
-    };
-
-    snowfallNodes = { src, gain, lfo, flakeTimer: 0 };
-    scheduleFlake();
-  };
-
-  if (ctx.state === "suspended") {
-    void ctx.resume().then(run).catch(() => {});
-  } else {
-    run();
   }
 }
 
@@ -7647,7 +7477,6 @@ function destroyArtikelClimber() {
 function destroyArtikelSkier() {
   stopClimberLightSpeechWatchdog();
   stopClimberLightTts();
-  setSnowfallSfx(false);
   artikelSkierMount?.destroy?.();
   artikelSkierMount = null;
   const host = document.getElementById("view-skier");
@@ -7760,7 +7589,6 @@ function startArtikelSkier(units, { audio = true } = {}) {
     playFeedback: (kind) => {
       playFeedbackSound(kind);
     },
-    setSnowfallSfx,
     onExit: () => {
       stopClimberLightSpeechWatchdog();
       destroyArtikelSkier();

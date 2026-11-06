@@ -88,7 +88,6 @@ const REPORT_LIST_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1.1em" h
  *   unlockSpeak?: () => void,
  *   stopSpeak?: () => void,
  *   playFeedback?: (kind: "ok"|"bad"|"retry"|"splat"|"hop") => void,
- *   setSnowfallSfx?: (on: boolean) => void,
  *   scoreEl?: HTMLElement|null,
  *   livesEl?: HTMLElement|null,
  *   onExit?: () => void,
@@ -104,10 +103,6 @@ export function mountArtikelSkier(root, options = {}) {
     typeof options.stopSpeak === "function" ? options.stopSpeak : () => {};
   const playFeedback =
     typeof options.playFeedback === "function" ? options.playFeedback : () => {};
-  const setSnowfallSfx =
-    typeof options.setSnowfallSfx === "function"
-      ? options.setSnowfallSfx
-      : () => {};
   const onExit = typeof options.onExit === "function" ? options.onExit : null;
   const scoreEl =
     options.scoreEl || document.getElementById("climber-top-score");
@@ -736,7 +731,6 @@ export function mountArtikelSkier(root, options = {}) {
 
   function showStartScreen() {
     gameState = "start";
-    setSnowfallSfx(false);
     clearKeys();
     clearCorrectFlash();
     setProgressVisible(false);
@@ -1025,7 +1019,6 @@ export function mountArtikelSkier(root, options = {}) {
     deathUntil = 0;
     pendingGameOver = false;
     gameState = "gameover";
-    setSnowfallSfx(false);
     clearKeys();
     clearCorrectFlash();
     closeReportSheet();
@@ -1100,7 +1093,6 @@ export function mountArtikelSkier(root, options = {}) {
     lastReportText = "";
     lastReportJson = "";
     beginAwaitingInput();
-    setSnowfallSfx(true);
     animationId = requestAnimationFrame(gameLoop);
   }
 
@@ -1151,7 +1143,6 @@ export function mountArtikelSkier(root, options = {}) {
     hideOverlays();
     closeReportSheet();
     beginAwaitingInput();
-    setSnowfallSfx(true);
     animationId = requestAnimationFrame(gameLoop);
   }
 
@@ -1766,7 +1757,6 @@ export function mountArtikelSkier(root, options = {}) {
 
   function destroy() {
     if (animationId) cancelAnimationFrame(animationId);
-    setSnowfallSfx(false);
     clearKeys();
     if (scoreEl) scoreEl.hidden = true;
     if (livesEl) livesEl.hidden = true;
