@@ -216,6 +216,30 @@
   border: 1px solid color-mix(in srgb, #1a2030 70%, #fff);
 }
 
+.skier-next.is-case-flash .skier-next-word {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+}
+
+.skier-next.is-case-flash .skier-next-word .gender-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  color: inherit;
+}
+
+.skier-next.is-case-flash .skier-next-word .gender-icon {
+  width: 1.28rem;
+  height: 1.28rem;
+  flex: 0 0 auto;
+  /* Fill icons read thin at chip size — stroke fattens the glyph. */
+  stroke: currentColor;
+  stroke-width: 0.85px;
+  paint-order: stroke fill;
+  overflow: visible;
+}
+
 html[data-theme="dark"] .skier-next:not(.is-hinted) .skier-next-word {
   background: #0d1117;
   border-color: color-mix(in srgb, #0d1117 60%, #fff);
@@ -237,6 +261,18 @@ html[data-theme="dark"] .skier-next:not(.is-hinted) .skier-next-word {
   background: color-mix(in srgb, var(--neut) 88%, transparent);
   border-color: color-mix(in srgb, var(--neut-ink) 55%, transparent);
   color: #fff;
+}
+
+.skier-next.is-hinted[data-gender="plur"] .skier-next-word,
+.skier-next.is-hinted[data-gender="kein"] .skier-next-word {
+  background: color-mix(in srgb, var(--de-gold, #c9a227) 82%, transparent);
+  border-color: color-mix(in srgb, var(--de-gold, #c9a227) 55%, var(--ink));
+  color: #1a2030;
+}
+
+html[data-theme="dark"] .skier-next.is-hinted[data-gender="plur"] .skier-next-word,
+html[data-theme="dark"] .skier-next.is-hinted[data-gender="kein"] .skier-next-word {
+  color: #0d1117;
 }
 
 .skier-speed-hud {
@@ -368,6 +404,33 @@ html[data-theme="dark"] .skier-stage {
   padding: 0.35rem 0.45rem;
   font: inherit;
   font-weight: 600;
+}
+
+.skier-course {
+  display: flex;
+  width: 100%;
+  gap: 0.35rem;
+  margin-top: 0.1rem;
+}
+
+.skier-course-btn {
+  flex: 1 1 50%;
+  margin: 0;
+  padding: 0.42rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: color-mix(in srgb, var(--ink) 78%, transparent);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.skier-course-btn.is-active {
+  border-color: color-mix(in srgb, var(--de-gold, #c9a227) 70%, var(--line));
+  background: color-mix(in srgb, var(--de-gold, #c9a227) 18%, transparent);
+  color: var(--ink);
 }
 
 .skier-hint-row {

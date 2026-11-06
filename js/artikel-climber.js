@@ -721,7 +721,7 @@ export function mountArtikelClimber(root, options = {}) {
   }
 
   function maybeSpawnToaster() {
-    if (gameState !== "playing") return;
+    if (gameState !== "playing" && gameState !== "gameover") return;
     if (width < 8 || height < 8) return;
     if (toasters.length >= TOASTER_MAX) return;
     if (Math.random() > TOASTER_SPAWN_CHANCE) return;
@@ -1299,7 +1299,11 @@ export function mountArtikelClimber(root, options = {}) {
 
   function gameLoop() {
     if (gameState === "playing") update();
-    else tickAmbient();
+    else {
+      tickAmbient();
+      // Keep easter-egg toasters drifting behind the game-over overlay.
+      if (gameState === "gameover") updateToasters();
+    }
     draw();
     animationId = requestAnimationFrame(gameLoop);
   }

@@ -13,6 +13,12 @@ import {
   progressSnapshot as sharedProgressSnapshot,
   wordKey,
 } from "./artikel-game-progress.js";
+import {
+  DEFAULT_CASE_GOVERNORS,
+  GENDER_LANES,
+  buildCaseTrial,
+} from "./artikel-skier-cases.js";
+import { genderMarkHtml } from "./gender-marks.js";
 
 const MAX_LIVES = 3;
 const BASE_MIN_SPEED = 3.5;
@@ -83,18 +89,32 @@ const REPORT_LIST_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1.1em" h
  * @param {HTMLElement} root
  * @param {{
  *   words: { word: string, article: string, gender: string }[],
+ *   caseWords?: { word: string, article: string, gender: string, caseGoverns?: ("acc"|"dat")[] }[],
  *   audio?: boolean,
  *   speak?: (text: string) => void,
  *   unlockSpeak?: () => void,
  *   stopSpeak?: () => void,
  *   playFeedback?: (kind: "ok"|"bad"|"retry"|"splat"|"hop") => void,
+ *   caseGovernors?: { surface: string, case: "acc"|"dat" }[],
  *   scoreEl?: HTMLElement|null,
  *   livesEl?: HTMLElement|null,
  *   onExit?: () => void,
  * }} options
  */
 export function mountArtikelSkier(root, options = {}) {
-  const words = Array.isArray(options.words) ? options.words : [];
+  const nounWords = Array.isArray(options.words) ? options.words : [];
+  const caseWords =
+    Array.isArray(options.caseWords) && options.caseWords.length
+      ? options.caseWords
+      : nounWords;
+  const caseGovernors =
+    Array.isArray(options.caseGovernors) && options.caseGovernors.length
+      ? options.caseGovernors
+      : DEFAULT_CASE_GOVERNORS;
+  /** Nouns slope uses selected units; Cases slope uses curated Case-topic nouns. */
+  function deckWords() {
+    return courseMode === "cases" ? caseWords : nounWords;
+  }
   const audioOn = options.audio !== false;
   const speak = typeof options.speak === "function" ? options.speak : () => {};
   const unlockSpeak =
@@ -133,8 +153,8 @@ export function mountArtikelSkier(root, options = {}) {
         <div class="skier-overlay" data-skier-start>
           <div class="skier-panel">
             <h1 class="skier-title">Snow-Nomen</h1>
-            <p class="skier-lede">Ski through the correct gate. Steer or hop to start.</p>
-            <p class="skier-hint-row">
+            <p class="skier-lede" data-skier-lede>Ski through the correct gate. Steer or hop to start.</p>
+            <p class="skier-hint-row" data-skier-hints>
               <span class="is-masc">Blue = Der</span>
               <span class="is-fem">Red = Die</span>
               <span class="is-neut">Green = Das</span>
@@ -146,6 +166,10 @@ export function mountArtikelSkier(root, options = {}) {
                 <option value="1.25">Frantic Pace</option>
               </select>
             </label>
+            <div class="skier-course" role="group" aria-label="Course">
+              <button type="button" class="skier-course-btn is-active" data-skier-course="nouns">Nouns slope</button>
+              <button type="button" class="skier-course-btn" data-skier-course="cases">Cases slope</button>
+            </div>
             <button type="button" class="btn btn-primary" data-skier-play>Start</button>
           </div>
         </div>
@@ -198,6 +222,145 @@ export function mountArtikelSkier(root, options = {}) {
   const deckPctEl = root.querySelector("[data-skier-deck-pct]");
   const hintsBarEl = root.querySelector("[data-skier-hints-bar]");
   const deckBarEl = root.querySelector("[data-skier-deck-bar]");
+  const ledeEl = root.querySelector("[data-skier-lede]");
+  const hintsRowEl = root.querySelector("[data-skier-hints]");
+  const courseBtns = [
+    ...root.querySelectorAll("[data-skier-course]"),
+  ];
+
+  /** @type {"nouns"|"cases"} */
+  let courseMode = "nouns";
+  /** Separate case-article tallies (def vs indef). */
+  const caseStats = {
+    def: { correct: 0, wrong: 0 },
+    indef: { correct: 0, wrong: 0 },
+  };
+  /**
+   * Per-attempt Cases combos for the report (trigger × noun × case row).
+   * @type {{
+   *   prompt: string,
+   *   trigger: string,
+   *   noun: string,
+   *   case: string,
+   *   parity: string,
+   *   number: string,
+   *   gender: string,
+   *   article: string,
+   *   ruleText: string,
+   *   result: "correct"|"wrong",
+   *   at: string,
+   * }[]}
+   */
+  let caseComboLog = [];
+  /**
+   * Active Cases-slope trial (null on Nouns slope).
+   * @type {ReturnType<typeof buildCaseTrial>|null}
+   */
+  let caseTrial = null;
+  /**
+   * Non-blocking center watermark after a correct case gate.
+   * @type {null | {
+   *   trigger: string,
+   *   article: string,
+   *   noun: string,
+   *   tint: string,
+   *   born: number,
+   *   ruleMs: number,
+   *   nounMs: number,
+   * }}
+   */
+  let ghostText = null;
+
+  function isCasesCourse() {
+    return courseMode === "cases";
+  }
+
+  function syncCourseUi() {
+    for (const btn of courseBtns) {
+      const mode = btn.getAttribute("data-skier-course");
+      btn.classList.toggle("is-active", mode === courseMode);
+    }
+    if (ledeEl) {
+      ledeEl.textContent = isCasesCourse()
+        ? "Match the noun’s color to the gate. Case articles update on the poles. Steer or hop to start."
+        : "Ski through the correct gate. Steer or hop to start.";
+    }
+    if (hintsRowEl) {
+      hintsRowEl.innerHTML = isCasesCourse()
+        ? `<span class="is-masc">Match color / plural</span><span>Gates = case row</span><span class="is-neut">Def · Indef/Kein</span>`
+        : `<span class="is-masc">Blue = Der</span><span class="is-fem">Red = Die</span><span class="is-neut">Green = Das</span>`;
+    }
+  }
+
+  function setCourseMode(mode) {
+    courseMode = mode === "cases" ? "cases" : "nouns";
+    syncCourseUi();
+  }
+
+  function restampUnpassedCaseGates() {
+    if (!isCasesCourse() || !caseTrial?.gateArticles?.length) return;
+    const labels = caseTrial.gateArticles;
+    const n = GENDER_LANES.length;
+    for (const row of rows) {
+      if (row.passed) continue;
+      if (row.gates.length !== n) continue;
+      for (let j = 0; j < n; j++) {
+        const article = labels[j];
+        const g = row.gates[j];
+        g.type = GENDER_LANES[j];
+        g.article = article;
+        g.label = String(article).toUpperCase();
+      }
+    }
+  }
+
+  function attachCaseTrial(noun) {
+    if (!isCasesCourse() || !noun) {
+      caseTrial = null;
+      return;
+    }
+    caseTrial = buildCaseTrial(caseGovernors, noun);
+    restampUnpassedCaseGates();
+  }
+
+  function clearGhostText() {
+    ghostText = null;
+  }
+
+  function spawnGhostText(trial) {
+    if (!trial) return;
+    ghostText = {
+      trigger: trial.trigger,
+      article: trial.correctArticle,
+      noun: trial.noun,
+      tint: trial.tint || trial.gender || "masc",
+      born: performance.now(),
+      ruleMs: 1100,
+      nounMs: 720,
+    };
+  }
+
+  /** @param {"correct"|"wrong"} result */
+  function noteCaseAttempt(result) {
+    if (!isCasesCourse() || !caseTrial) return;
+    const bucket =
+      caseTrial.parity === "indef" ? caseStats.indef : caseStats.def;
+    if (result === "correct") bucket.correct += 1;
+    else bucket.wrong += 1;
+    caseComboLog.push({
+      prompt: `${caseTrial.trigger} ➔ ${caseTrial.noun}`,
+      trigger: caseTrial.trigger,
+      noun: caseTrial.noun,
+      case: caseTrial.case,
+      parity: caseTrial.parity,
+      number: caseTrial.number,
+      gender: caseTrial.gender,
+      article: caseTrial.correctArticle,
+      ruleText: caseTrial.ruleText,
+      result,
+      at: new Date().toISOString(),
+    });
+  }
 
   function displayFont(weight, sizePx) {
     const family =
@@ -232,8 +395,9 @@ export function mountArtikelSkier(root, options = {}) {
     nextEl.hidden = true;
     nextEl.style.opacity = "";
     nextEl.removeAttribute("data-gender");
-    nextEl.classList.remove("is-hinted");
+    nextEl.classList.remove("is-hinted", "is-case-flash");
     nextWordEl.textContent = "";
+    nextWordEl.innerHTML = "";
     nextWordEl.title = "";
     if (nextLabelEl) nextLabelEl.textContent = "CORRECT";
   }
@@ -242,21 +406,51 @@ export function mountArtikelSkier(root, options = {}) {
     hideCorrectChip();
   }
 
-  /** After a correct gate: show color-coded article + noun until the next gate nears. */
-  function showCorrectFlash(landed) {
+  function genderMarkId(gender) {
+    if (gender === "fem") return "feminine";
+    if (gender === "neut") return "neuter";
+    if (gender === "plur") return "plural";
+    if (gender === "kein") return "kein";
+    return "masculine";
+  }
+
+  /**
+   * After a correct gate: Nouns = article + noun; Cases = case name + gender SVG.
+   * @param {object} landed
+   * @param {{ caseId?: "acc"|"dat", number?: "sg"|"pl", parity?: "def"|"indef", tint?: string }} [opts]
+   */
+  function showCorrectFlash(landed, opts = {}) {
     if (!nextEl || !nextWordEl || !landed?.word) return;
+    const gender = landed.gender || "";
+    const tint = opts.tint || gender;
     correctFlash = {
       article: String(landed.article || "").trim(),
       word: String(landed.word || "").trim(),
-      gender: landed.gender || "",
+      gender: tint || gender,
     };
     if (nextLabelEl) nextLabelEl.textContent = "CORRECT";
     nextEl.classList.add("is-correct", "is-hinted");
+    nextEl.classList.toggle("is-case-flash", isCasesCourse());
     if (correctFlash.gender) nextEl.dataset.gender = correctFlash.gender;
     else nextEl.removeAttribute("data-gender");
-    const text = `${correctFlash.article} ${correctFlash.word}`.trim();
-    nextWordEl.textContent = text;
-    nextWordEl.title = text;
+
+    if (isCasesCourse()) {
+      const caseId = opts.caseId || caseTrial?.case || "acc";
+      const number = opts.number || caseTrial?.number || "sg";
+      const parity = opts.parity || caseTrial?.parity || "def";
+      const caseLabel = caseId === "dat" ? "Dative" : "Accusative";
+      let mark = genderMarkId(gender);
+      if (number === "pl") mark = parity === "indef" ? "kein" : "plural";
+      if (mark === "kein" || mark === "plural") {
+        nextEl.dataset.gender = mark === "kein" ? "kein" : "plur";
+      }
+      nextWordEl.innerHTML = genderMarkHtml(mark, caseLabel);
+      nextWordEl.title = caseLabel;
+    } else {
+      const text = `${correctFlash.article} ${correctFlash.word}`.trim();
+      nextWordEl.textContent = text;
+      nextWordEl.title = text;
+    }
     nextEl.hidden = false;
     nextEl.style.opacity = "1";
   }
@@ -583,16 +777,21 @@ export function mountArtikelSkier(root, options = {}) {
       cs.getPropertyValue("--masc").trim() || "#3b82f6";
     const fem = cs.getPropertyValue("--fem").trim() || "#ef4444";
     const neut = cs.getPropertyValue("--neut").trim() || "#22c55e";
+    const plur =
+      cs.getPropertyValue("--de-gold").trim() || "#c9a227";
     const mascInk =
       cs.getPropertyValue("--masc-ink").trim() || "#1d4ed8";
     const femInk =
       cs.getPropertyValue("--fem-ink").trim() || "#b91c1c";
     const neutInk =
       cs.getPropertyValue("--neut-ink").trim() || "#15803d";
+    const plurInk =
+      cs.getPropertyValue("--ink").trim() || "#334155";
     return {
       masc: { fill: masc, solid: masc, border: mascInk, label: "DER" },
       fem: { fill: fem, solid: fem, border: femInk, label: "DIE" },
       neut: { fill: neut, solid: neut, border: neutInk, label: "DAS" },
+      plur: { fill: plur, solid: plur, border: plurInk, label: "PL" },
     };
   }
 
@@ -611,7 +810,7 @@ export function mountArtikelSkier(root, options = {}) {
   }
 
   function progressSnapshot() {
-    return sharedProgressSnapshot({ words, pools, seenByKey });
+    return sharedProgressSnapshot({ words: deckWords(), pools, seenByKey });
   }
 
   function updateProgressUi() {
@@ -650,14 +849,47 @@ export function mountArtikelSkier(root, options = {}) {
       gameTitle: "Snow-Nomen",
       score,
       speed: Number(speedEl?.value) || 1,
-      words,
+      words: deckWords(),
       pools,
       seenByKey,
       targetLabel: "ski target",
     });
-    lastReportText = report.text;
-    lastReportJson = report.json;
-    return report.payload;
+    let payload = report.payload;
+    let text = report.text;
+    if (isCasesCourse()) {
+      const comboLines =
+        caseComboLog.length > 0
+          ? caseComboLog.map((c, i) => {
+              const caseLabel = c.case === "dat" ? "dat" : "acc";
+              const mark = c.result === "correct" ? "✓" : "✗";
+              return `${i + 1}. ${mark} ${c.prompt} → ${c.ruleText} [${caseLabel}/${c.parity}/${c.number}]`;
+            })
+          : ["— none —"];
+      payload = {
+        ...payload,
+        course: "cases",
+        caseArticles: {
+          definite: { ...caseStats.def },
+          indefinite: { ...caseStats.indef },
+        },
+        caseCombos: caseComboLog.map((c) => ({ ...c })),
+      };
+      text = [
+        text,
+        "",
+        "Case articles (this run)",
+        `Definite ${caseStats.def.correct}✓ · ${caseStats.def.wrong}✗`,
+        `Indefinite ${caseStats.indef.correct}✓ · ${caseStats.indef.wrong}✗`,
+        "",
+        "Case combos (prompt → rule)",
+        ...comboLines,
+      ].join("\n");
+    } else {
+      payload = { ...payload, course: "nouns" };
+    }
+    lastReportText = text;
+    lastReportJson = JSON.stringify(payload, null, 2);
+    return payload;
   }
 
   function openReportSheet() {
@@ -700,6 +932,7 @@ export function mountArtikelSkier(root, options = {}) {
         : pickClimberWord({ ...pools, current: player.targetWord });
     upcomingWord = null;
     noteWordInPlay(next);
+    attachCaseTrial(next);
     return next;
   }
 
@@ -733,8 +966,10 @@ export function mountArtikelSkier(root, options = {}) {
     gameState = "start";
     clearKeys();
     clearCorrectFlash();
+    clearGhostText();
     setProgressVisible(false);
     closeReportSheet();
+    syncCourseUi();
     if (overEl) {
       overEl.hidden = true;
       overEl.classList.add("is-hidden");
@@ -781,27 +1016,57 @@ export function mountArtikelSkier(root, options = {}) {
   }
 
   function generateGateRow(yPos) {
-    const types = ["masc", "fem", "neut"];
     const row = { y: yPos, gates: [], passed: false };
     const playableWidth = width * 0.85;
     const offsetX = (width - playableWidth) / 2;
-    const laneWidth = playableWidth / 3;
-    const pWidth = Math.min(80, laneWidth - 10);
-    const maxJitter = (laneWidth - pWidth) / 2;
-    for (let j = 0; j < 3; j++) {
+    const caseMode =
+      isCasesCourse() &&
+      caseTrial?.gateArticles?.length === GENDER_LANES.length;
+    const laneCount = caseMode ? GENDER_LANES.length : 3;
+    const laneWidth = playableWidth / laneCount;
+    const pWidth = Math.min(caseMode ? 58 : 80, laneWidth - 6);
+    const maxJitter = Math.max(0, (laneWidth - pWidth) / 2);
+    const caseLabels = caseMode ? caseTrial.gateArticles : null;
+
+    for (let j = 0; j < laneCount; j++) {
       const jitter = Math.random() * maxJitter * 2 - maxJitter;
       const x =
         offsetX + j * laneWidth + (laneWidth - pWidth) / 2 + jitter;
-      row.gates.push({ x, width: pWidth, type: types[j] });
+      const type = caseMode ? GENDER_LANES[j] : GENDER_LANES[j];
+      if (caseLabels) {
+        const article = caseLabels[j];
+        row.gates.push({
+          x,
+          width: pWidth,
+          type,
+          article,
+          label: String(article).toUpperCase(),
+        });
+      } else {
+        // Nouns slope: masc / fem / neut only.
+        row.gates.push({ x, width: pWidth, type: GENDER_LANES[j] });
+      }
     }
     rows.push(row);
   }
 
-  /** Gate matching the current ski target gender, if any. */
+  /** Target lane: gender (sg) or plur (pl) on Cases; gender on Nouns. */
+  function targetGateType() {
+    if (isCasesCourse() && caseTrial?.number === "pl") return "plur";
+    return player.targetWord?.gender || null;
+  }
+
+  /** Correct gate = color / plural lane match. */
   function correctGateInRow(row) {
-    const gender = player.targetWord?.gender;
-    if (!gender) return null;
-    return row.gates.find((g) => g.type === gender) || null;
+    const type = targetGateType();
+    if (!type) return null;
+    return row.gates.find((g) => g.type === type) || null;
+  }
+
+  function matchedGateIsCorrect(matchedGate) {
+    if (!matchedGate) return false;
+    const type = targetGateType();
+    return !!type && matchedGate.type === type;
   }
 
   /**
@@ -969,6 +1234,7 @@ export function mountArtikelSkier(root, options = {}) {
 
   /** One missed gate; SRS miss only after GATE_MISSES_FOR_WORD_MISS in a row. */
   function noteGateMiss() {
+    noteCaseAttempt("wrong");
     gateMissStreak += 1;
     if (gateMissStreak >= GATE_MISSES_FOR_WORD_MISS) {
       registerWordMiss();
@@ -1034,7 +1300,11 @@ export function mountArtikelSkier(root, options = {}) {
         snap.hintDependencePct == null
           ? "—"
           : `${snap.hintDependencePct}% (${snap.introducedHinted}/${snap.deckTotal})`;
-      summaryEl.textContent = `Hints ${hints} · Deck ${deck}`;
+      let line = `Hints ${hints} · Deck ${deck}`;
+      if (isCasesCourse()) {
+        line += ` · Def ${caseStats.def.correct}✓/${caseStats.def.wrong}✗ · Indef ${caseStats.indef.correct}✓/${caseStats.indef.wrong}✗`;
+      }
+      summaryEl.textContent = line;
     }
     buildReport();
     if (startEl) {
@@ -1049,16 +1319,23 @@ export function mountArtikelSkier(root, options = {}) {
   }
 
   function initGame() {
-    if (!words.length) {
+    const deck = deckWords();
+    if (!deck.length) {
       endGame();
       return;
     }
     if (animationId) cancelAnimationFrame(animationId);
     resize();
     pools = initClimberPools(
-      words.map((w) => ({ ...w, correct: 0, wrong: 0 }))
+      deck.map((w) => ({ ...w, correct: 0, wrong: 0 }))
     );
     seenByKey.clear();
+    caseStats.def.correct = 0;
+    caseStats.def.wrong = 0;
+    caseStats.indef.correct = 0;
+    caseStats.indef.wrong = 0;
+    caseComboLog = [];
+    clearGhostText();
     applySpeedFromUi();
     score = 0;
     lives = MAX_LIVES;
@@ -1101,7 +1378,7 @@ export function mountArtikelSkier(root, options = {}) {
    * Word ✓/✗, SRS pools, and report stats keep accruing until Restart.
    */
   function continueGame() {
-    if (!words.length) {
+    if (!deckWords().length) {
       endGame();
       return;
     }
@@ -1130,11 +1407,13 @@ export function mountArtikelSkier(root, options = {}) {
     setProgressVisible(true);
     updateProgressUi();
     clearCorrectFlash();
+    clearGhostText();
     if (!player.targetWord) {
       upcomingWord = null;
       player.targetWord = getNextWord();
     } else {
       noteWordInPlay(player.targetWord);
+      attachCaseTrial(player.targetWord);
     }
     queueUpcomingWord();
     seedTrack();
@@ -1319,14 +1598,18 @@ export function mountArtikelSkier(root, options = {}) {
             }
           }
 
-          if (
-            matchedGate &&
-            matchedGate.type === player.targetWord?.gender
-          ) {
-            score += 100;
+          if (matchedGateIsCorrect(matchedGate)) {
+            score += 1;
             setScoreDisplay(score);
             const landed = player.targetWord;
-            speakWord(landed.article, landed.word);
+            noteCaseAttempt("correct");
+            if (isCasesCourse() && caseTrial) {
+              spawnGhostText(caseTrial);
+              // Cases TTS: only the case-forcing phrase + article (e.g. "mit dem").
+              if (audioOn) speak(caseTrial.ruleText);
+            } else {
+              speakWord(landed.article, landed.word);
+            }
             playFeedback("ok");
             setFace("happy", 360);
             landed.correct = (landed.correct || 0) + 1;
@@ -1335,7 +1618,12 @@ export function mountArtikelSkier(root, options = {}) {
             }
             markClimberCorrect(pools, landed);
             updateProgressUi();
-            showCorrectFlash(landed);
+            showCorrectFlash(landed, {
+              caseId: caseTrial?.case,
+              number: caseTrial?.number,
+              parity: caseTrial?.parity,
+              tint: caseTrial?.tint,
+            });
             gateMissStreak = 0;
             player.targetWord = getNextWord();
             queueUpcomingWord();
@@ -1410,7 +1698,7 @@ export function mountArtikelSkier(root, options = {}) {
 
     rows.forEach((r) => {
       r.gates.forEach((g) => {
-        const style = colors[g.type];
+        const style = colors[g.type] || colors.masc;
         ctx.fillStyle = style.border;
         ctx.beginPath();
         ctx.roundRect(g.x, r.y + 4, g.width, 20, 8);
@@ -1420,10 +1708,12 @@ export function mountArtikelSkier(root, options = {}) {
         ctx.roundRect(g.x, r.y, g.width, 20, 8);
         ctx.fill();
         ctx.fillStyle = "#fff";
-        ctx.font = displayFont(900, 14);
+        const label = g.label || style.label;
+        const fontSize = label && label.length > 3 ? 11 : 14;
+        ctx.font = displayFont(900, fontSize);
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(style.label, g.x + g.width / 2, r.y + 10);
+        ctx.fillText(label, g.x + g.width / 2, r.y + 10);
       });
     });
 
@@ -1523,40 +1813,123 @@ export function mountArtikelSkier(root, options = {}) {
     ctx.restore();
 
     if (player.targetWord && gameState === "playing" && !dying) {
-      ctx.font = displayFont(700, 18);
-      ctx.textAlign = "center";
-      const wordWidth = ctx.measureText(player.targetWord.word).width;
-      const showHint = player.targetWord.showHint !== false;
-      const theme =
-        document.documentElement.getAttribute("data-theme") || "light";
-      const hiddenFill = theme === "dark" ? "#0d1117" : "#1a2030";
-      const bubbleColor = showHint
-        ? colors[player.targetWord.gender].solid
-        : hiddenFill;
       const bubbleH = 30;
       const bubbleY =
         player.y - player.jumpZ - HEAD_RADIUS - bubbleH - 10;
-      ctx.fillStyle = bubbleColor;
-      ctx.beginPath();
-      ctx.roundRect(
-        player.x - wordWidth / 2 - 12,
-        bubbleY,
-        wordWidth + 24,
-        bubbleH,
-        bubbleH / 2
-      );
-      ctx.fill();
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = "#ffffff";
-      ctx.stroke();
-      ctx.fillStyle = "#ffffff";
-      ctx.textBaseline = "middle";
-      ctx.fillText(
-        player.targetWord.word,
-        player.x,
-        bubbleY + bubbleH / 2
-      );
+      const themeNow =
+        document.documentElement.getAttribute("data-theme") || "light";
+      const hiddenFill = themeNow === "dark" ? "#0d1117" : "#1a2030";
+      const showHint = player.targetWord.showHint !== false;
+      const genderStyle = colors[player.targetWord.gender] || colors.masc;
+
+      if (isCasesCourse() && caseTrial) {
+        // Micro-prompt: trigger ➔ noun; gender/plural color fades when showHint is off.
+        const trigger = `${caseTrial.trigger} ➔ `;
+        const noun = caseTrial.noun;
+        const nounStyle = colors[caseTrial.tint] || genderStyle;
+        const nounFill = showHint ? nounStyle.solid : "#ffffff";
+        ctx.font = displayFont(700, 15);
+        const triggerW = ctx.measureText(trigger).width;
+        const nounW = ctx.measureText(noun).width;
+        const padX = 12;
+        const bw = Math.min(width - 16, triggerW + nounW + padX * 2);
+        const bx = player.x - bw / 2;
+        ctx.fillStyle = hiddenFill;
+        ctx.beginPath();
+        ctx.roundRect(bx, bubbleY, bw, bubbleH, bubbleH / 2);
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#ffffff";
+        ctx.stroke();
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "left";
+        const textX = player.x - (triggerW + nounW) / 2;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(trigger, textX, bubbleY + bubbleH / 2);
+        ctx.fillStyle = nounFill;
+        ctx.fillText(noun, textX + triggerW, bubbleY + bubbleH / 2);
+      } else {
+        ctx.font = displayFont(700, 18);
+        ctx.textAlign = "center";
+        const wordWidth = ctx.measureText(player.targetWord.word).width;
+        const bubbleColor = showHint ? genderStyle.solid : hiddenFill;
+        ctx.fillStyle = bubbleColor;
+        ctx.beginPath();
+        ctx.roundRect(
+          player.x - wordWidth / 2 - 12,
+          bubbleY,
+          wordWidth + 24,
+          bubbleH,
+          bubbleH / 2
+        );
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#ffffff";
+        ctx.stroke();
+        ctx.fillStyle = "#ffffff";
+        ctx.textBaseline = "middle";
+        ctx.fillText(
+          player.targetWord.word,
+          player.x,
+          bubbleY + bubbleH / 2
+        );
+      }
     }
+
+    drawGhostText(colors);
+  }
+
+  function drawGhostText(colors) {
+    if (!ghostText) return;
+    const age = performance.now() - ghostText.born;
+    const maxLife = Math.max(ghostText.ruleMs, ghostText.nounMs);
+    if (age >= maxLife) {
+      ghostText = null;
+      return;
+    }
+    const ruleT = Math.min(1, age / ghostText.ruleMs);
+    const nounT = Math.min(1, age / ghostText.nounMs);
+    // Ease out — noun dies faster (higher t sooner → lower alpha).
+    const ruleAlpha = Math.max(0, 1 - ruleT * ruleT);
+    const nounAlpha = Math.max(0, 1 - nounT * nounT * (0.85 + nounT));
+    const scale = 0.92 + Math.min(1, age / 280) * 0.28;
+    const tint = colors[ghostText.tint] || colors.masc;
+    const cx = width / 2;
+    const cy = height * 0.42;
+    const artUp = String(ghostText.article || "").toUpperCase();
+    const ruleLeft = `${ghostText.trigger} `;
+    const theme =
+      document.documentElement.getAttribute("data-theme") || "light";
+    const nounColor =
+      theme === "dark" ? "rgba(148,163,184,1)" : "rgba(100,116,139,1)";
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    ctx.font = displayFont(800, 28);
+    const leftW = ctx.measureText(ruleLeft).width;
+    const artW = ctx.measureText(artUp).width;
+    const totalW = leftW + artW;
+    const x0 = -totalW / 2;
+
+    ctx.globalAlpha = ruleAlpha * 0.88;
+    ctx.fillStyle = tint.solid;
+    ctx.textAlign = "left";
+    ctx.fillText(ruleLeft, x0, 0);
+    ctx.font = displayFont(900, 30);
+    ctx.fillText(artUp, x0 + leftW, 0);
+
+    ctx.globalAlpha = nounAlpha * 0.75;
+    ctx.fillStyle = nounColor;
+    ctx.font = displayFont(500, 22);
+    ctx.textAlign = "center";
+    ctx.fillText(ghostText.noun, 0, 34);
+
+    ctx.restore();
+    ctx.globalAlpha = 1;
   }
 
   function gameLoop() {
@@ -1773,6 +2146,12 @@ export function mountArtikelSkier(root, options = {}) {
   };
   playBtn?.addEventListener("pointerdown", primeSpeak);
   continueBtn?.addEventListener("pointerdown", primeSpeak);
+  for (const btn of courseBtns) {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      setCourseMode(btn.getAttribute("data-skier-course") || "nouns");
+    });
+  }
   playBtn?.addEventListener("click", (e) => {
     e.preventDefault();
     primeSpeak();
@@ -1782,6 +2161,7 @@ export function mountArtikelSkier(root, options = {}) {
     e.preventDefault();
     showStartScreen();
   });
+  syncCourseUi();
   continueBtn?.addEventListener("click", (e) => {
     e.preventDefault();
     primeSpeak();

@@ -2,7 +2,11 @@
  * Artikel Climber word pool from Schnapp vocabulary (gendered items only).
  */
 
-import { getVocabulary, vocabularyForScope } from "./generated/vocabulary.js";
+import {
+  getVocabulary,
+  vocabularyForScope,
+  vocabularyForTopic,
+} from "./generated/vocabulary.js";
 import { factsForItem } from "./vocabulary-practice.js";
 
 const GENDER_SHORT = Object.freeze({
@@ -96,6 +100,31 @@ export function climberWordsFromIds(ids) {
     if (!word) continue;
     seen.add(id);
     out.push(word);
+  }
+  return out;
+}
+
+/**
+ * Curated Case-topic nouns for Snow-Nomen Cases slope.
+ * Includes `caseGoverns` from vocab (`acc` / `dat`) so triggers can match the lesson.
+ * @returns {{ word: string, article: string, gender: "masc"|"fem"|"neut", vocabId: string, caseGoverns: ("acc"|"dat")[] }[]}
+ */
+export function caseSkiNounsFromVocab() {
+  const out = [];
+  const seen = new Set();
+  for (const item of vocabularyForTopic("case")) {
+    if (!item || item.type !== "noun" || !item.id || seen.has(item.id)) continue;
+    const word = climberWordFromItem(item);
+    if (!word) continue;
+    const caseGoverns = (Array.isArray(item.governs) ? item.governs : [])
+      .map((g) => String(g || "").toLowerCase())
+      .filter((g) => g === "accusative" || g === "dative")
+      .map((g) => (g === "dative" ? "dat" : "acc"));
+    seen.add(item.id);
+    out.push({
+      ...word,
+      caseGoverns: caseGoverns.length ? caseGoverns : ["acc"],
+    });
   }
   return out;
 }

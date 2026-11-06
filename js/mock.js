@@ -209,9 +209,14 @@ import {
   guidedBoundKeysForUnits,
   mountNavCarousel,
 } from "./nav-carousel.js?v=20261105-playkind-fit";
-import { climberWordsFromVocabUnits } from "./artikel-climber-vocab.js?v=20261103-climber";
-import { mountArtikelClimber } from "./artikel-climber.js?v=20261106-hopper-stick";
-import { mountArtikelSkier } from "./artikel-skier.js?v=20261106-no-snow-sfx";
+import {
+  caseSkiNounsFromVocab,
+  climberWordsFromVocabUnits,
+} from "./artikel-climber-vocab.js?v=20261106-case-nouns";
+import { mountArtikelClimber } from "./artikel-climber.js?v=20261106-toaster-over";
+import { mountArtikelSkier } from "./artikel-skier.js?v=20261106-case-combo";
+import { caseGovernorsFromVocabItems } from "./artikel-skier-cases.js";
+import { vocabularyForTopic } from "./generated/vocabulary.js";
 import { keysSkippedByJump } from "./guided-jump.js";
 import {
   noteQuizNavEntry,
@@ -7571,6 +7576,8 @@ function startArtikelSkier(units, { audio = true } = {}) {
   }
   artikelSkierMount = mountArtikelSkier(host, {
     words,
+    caseWords: caseSkiNounsFromVocab(),
+    caseGovernors: caseGovernorsFromVocabItems(vocabularyForTopic("case")),
     audio,
     scoreEl,
     livesEl,
