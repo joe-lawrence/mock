@@ -13,6 +13,7 @@ import {
   progressSnapshot as sharedProgressSnapshot,
   wordKey,
 } from "./artikel-game-progress.js";
+import { TOASTER_FRAMES } from "./toaster-sprites.js?v=20261106-toaster-rare";
 
 const BASE_GRAVITY = 0.2;
 const BASE_BOUNCE = -8.2;
@@ -21,6 +22,13 @@ const BASE_MOVE = 3.0;
 const MAX_LIVES = 3;
 /** Eyes stay dark on the white ball in both themes. */
 const EYE_INK = "#1a2030";
+/** Occasional After Dark–style flying toaster easter egg (washed-out sky prop). */
+const TOASTER_SPAWN_CHANCE = 0.001;
+const TOASTER_MAX = 2;
+const TOASTER_SCALE = 1.05;
+/** Sky wash on opaque toaster pixels (keeps hard occlusion vs clouds). */
+const TOASTER_WASH_LIGHT = "rgba(214, 226, 238, 0.78)";
+const TOASTER_WASH_DARK = "rgba(58, 74, 98, 0.62)";
 
 /*
 The MIT License (MIT)
@@ -93,8 +101,8 @@ export function mountArtikelClimber(root, options = {}) {
           </div>
           <span class="climber-progress-side">Deck <span data-climber-deck-pct>0%</span></span>
         </div>
-        <div class="climber-next" data-climber-next hidden>
-          <span class="climber-next-label">Next up</span>
+        <div class="climber-next is-correct" data-climber-next hidden>
+          <span class="climber-next-label" data-climber-next-label>CORRECT</span>
           <span class="climber-next-word" data-climber-next-word></span>
         </div>
         <div class="climber-overlay" data-climber-start>
@@ -151,6 +159,7 @@ export function mountArtikelClimber(root, options = {}) {
   const finalEl = root.querySelector("[data-climber-final]");
   const speedEl = root.querySelector("[data-climber-speed]");
   const nextEl = root.querySelector("[data-climber-next]");
+  const nextLabelEl = root.querySelector("[data-climber-next-label]");
   const nextWordEl = root.querySelector("[data-climber-next-word]");
   const progressEl = root.querySelector("[data-climber-progress]");
   const hintsPctEl = root.querySelector("[data-climber-hints-pct]");
@@ -182,29 +191,62 @@ export function mountArtikelClimber(root, options = {}) {
     livesEl.setAttribute("aria-label", `Lives: ${n} of ${MAX_LIVES}`);
   }
 
-  /** @param {{ word?: string, gender?: string, showHint?: boolean }|string|null|undefined} word */
-  function setWordDisplay(word) {
+  /** @type {{ article: string, word: string, gender: string, shownAt: number }|null} */
+  let correctFlash = null;
+  /** Hold CORRECT fully visible, then ease out (row gaps are too tight for ski-style distance fade alone). */
+  const CORRECT_HOLD_MS = 1200;
+  const CORRECT_FADE_MS = 700;
+
+  function hideCorrectChip() {
+    correctFlash = null;
     if (!nextEl || !nextWordEl) return;
-    const entry = typeof word === "string" ? { word } : word;
-    const text = String(entry?.word || "").trim();
-    if (!text) {
-      nextEl.hidden = true;
-      nextWordEl.textContent = "";
-      nextEl.removeAttribute("data-gender");
-      nextEl.classList.remove("is-hinted");
-      return;
-    }
-    nextEl.hidden = false;
+    nextEl.hidden = true;
+    nextEl.style.opacity = "";
+    nextEl.removeAttribute("data-gender");
+    nextEl.classList.remove("is-hinted");
+    nextWordEl.textContent = "";
+    nextWordEl.title = "";
+    if (nextLabelEl) nextLabelEl.textContent = "CORRECT";
+  }
+
+  function clearCorrectFlash() {
+    hideCorrectChip();
+  }
+
+  /** After a correct land: show color-coded article + noun, then hold and fade. */
+  function showCorrectFlash(landed) {
+    if (!nextEl || !nextWordEl || !landed?.word) return;
+    correctFlash = {
+      article: String(landed.article || "").trim(),
+      word: String(landed.word || "").trim(),
+      gender: landed.gender || "",
+      shownAt: performance.now(),
+    };
+    if (nextLabelEl) nextLabelEl.textContent = "CORRECT";
+    nextEl.classList.add("is-correct", "is-hinted");
+    if (correctFlash.gender) nextEl.dataset.gender = correctFlash.gender;
+    else nextEl.removeAttribute("data-gender");
+    const text = `${correctFlash.article} ${correctFlash.word}`.trim();
     nextWordEl.textContent = text;
     nextWordEl.title = text;
-    const showHint = entry?.showHint !== false && entry?.gender;
-    if (showHint) {
-      nextEl.dataset.gender = entry.gender;
-      nextEl.classList.add("is-hinted");
-    } else {
-      nextEl.removeAttribute("data-gender");
-      nextEl.classList.remove("is-hinted");
+    nextEl.hidden = false;
+    nextEl.style.opacity = "1";
+  }
+
+  /** Hold at full opacity, then fade out (same feel as Snow-Nomen’s linger). */
+  function updateCorrectFlashFade() {
+    if (!correctFlash || !nextEl) return;
+    const elapsed = performance.now() - correctFlash.shownAt;
+    if (elapsed < CORRECT_HOLD_MS) {
+      nextEl.style.opacity = "1";
+      return;
     }
+    const t = (elapsed - CORRECT_HOLD_MS) / CORRECT_FADE_MS;
+    if (t >= 1) {
+      clearCorrectFlash();
+      return;
+    }
+    nextEl.style.opacity = String(Math.max(0, 1 - t));
   }
 
   let width = 0;
@@ -216,7 +258,22 @@ export function mountArtikelClimber(root, options = {}) {
   let platforms = [];
   let particles = [];
   let clouds = [];
+  /**
+   * World-space flight in the cloud band (scrolls with sky, behind platforms/player).
+   * layer "back" = fully behind clouds, "mid" = fully in front of clouds.
+   * @type {{ x: number, y: number, vx: number, vy: number, frame: number, frameAcc: number, wingDir: number, scale: number, layer: "back"|"mid" }[]}
+   */
+  let toasters = [];
   let animationId = null;
+
+  const toasterImgs = TOASTER_FRAMES.map((src) => {
+    const img = new Image();
+    img.src = src;
+    return img;
+  });
+  /** Scratch canvas so wash stays on toaster pixels without alpha-blending through clouds. */
+  const toasterScratch = document.createElement("canvas");
+  const toasterScratchCtx = toasterScratch.getContext("2d");
   let pools = { unseenPool: [], activePool: [], graduatedPool: [] };
   /** Distinct words that have appeared as a target at least once this run tree. */
   /** @type {Map<string, object>} */
@@ -503,12 +560,11 @@ export function mountArtikelClimber(root, options = {}) {
     }
   }
 
-  /** Queued subsequent word for the "Next up" chip (not the current target). */
+  /** Pre-rolled next target (internal queue only — no HUD). */
   let upcomingWord = /** @type {object|null} */ (null);
 
-  function refreshUpcomingDisplay() {
+  function queueUpcomingWord() {
     upcomingWord = pickClimberWord({ ...pools, current: player.targetWord });
-    setWordDisplay(upcomingWord);
   }
 
   function getNextWord() {
@@ -602,16 +658,156 @@ export function mountArtikelClimber(root, options = {}) {
     });
   }
 
+  /** @param {number} x @param {number} y */
+  function createToaster(x, y) {
+    return {
+      x,
+      y,
+      vx: -(1.0 + Math.random() * 1.2),
+      vy: 0.35 + Math.random() * 0.55,
+      frame: Math.floor(Math.random() * 5),
+      frameAcc: 0,
+      wingDir: 1,
+      scale: TOASTER_SCALE * (0.85 + Math.random() * 0.3),
+      layer: Math.random() < 0.5 ? "back" : "mid",
+    };
+  }
+
+  /** Rare opening sighting: at most one, and often none. */
+  function seedAmbientToasters() {
+    toasters = [];
+    if (width < 8 || height < 8) return;
+    if (Math.random() > 0.35) return;
+    const y = cameraY + (0.15 + Math.random() * 0.7) * height;
+    const x = -40 + Math.random() * (width + 80);
+    toasters.push(createToaster(x, y));
+  }
+
+  /** Occasional toaster higher in the climb — not a guaranteed fill. */
+  function topUpToastersAhead() {
+    if (width < 8 || height < 8) return;
+    if (toasters.length >= TOASTER_MAX) return;
+    if (Math.random() > TOASTER_SPAWN_CHANCE * 0.6) return;
+    const yLo = cameraY - height * 1.4;
+    const yHi = cameraY + height * 0.15;
+    const y = yLo + Math.random() * Math.max(40, yHi - yLo);
+    const x = width + 20 + Math.random() * 60;
+    toasters.push(createToaster(x, y));
+  }
+
+  function maybeSpawnToaster() {
+    if (gameState !== "playing") return;
+    if (width < 8 || height < 8) return;
+    if (toasters.length >= TOASTER_MAX) return;
+    if (Math.random() > TOASTER_SPAWN_CHANCE) return;
+    // Enter from the right anywhere in the visible (+ slightly above) sky column.
+    const yMin = cameraY - height * 0.2;
+    const yMax = cameraY + height * 0.95;
+    toasters.push(
+      createToaster(
+        width + 20 + Math.random() * 40,
+        yMin + Math.random() * Math.max(48, yMax - yMin)
+      )
+    );
+  }
+
+  function updateToasters() {
+    maybeSpawnToaster();
+    topUpToastersAhead();
+    for (const t of toasters) {
+      t.x += t.vx;
+      t.y += t.vy;
+      t.frameAcc += 1;
+      if (t.frameAcc >= 5) {
+        t.frameAcc = 0;
+        t.frame += t.wingDir;
+        if (t.frame >= 4) {
+          t.frame = 4;
+          t.wingDir = -1;
+        } else if (t.frame <= 0) {
+          t.frame = 0;
+          t.wingDir = 1;
+        }
+      }
+    }
+    toasters = toasters.filter(
+      (t) =>
+        t.x > -140 &&
+        t.y < cameraY + height + 160 &&
+        t.y > cameraY - height * 1.6
+    );
+  }
+
+  function fillCloudShape(c) {
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
+    ctx.arc(c.x + c.radius * 0.9, c.y + c.radius * 0.2, c.radius * 0.8, 0, Math.PI * 2);
+    ctx.arc(c.x - c.radius * 0.9, c.y + c.radius * 0.2, c.radius * 0.7, 0, Math.PI * 2);
+    ctx.arc(c.x + c.radius * 0.4, c.y - c.radius * 0.5, c.radius * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  /** Erase back-layer toaster pixels under clouds so translucent clouds never show a blend. */
+  function punchCloudsThroughBackToasters() {
+    if (!toasters.some((t) => t.layer === "back") || !clouds.length) return;
+    ctx.save();
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.fillStyle = "#fff";
+    clouds.forEach(fillCloudShape);
+    ctx.restore();
+  }
+
+  /**
+   * Draw toaster with sky wash baked into opaque sprite pixels (no globalAlpha mush).
+   * @param {HTMLImageElement} img
+   * @param {number} x
+   * @param {number} y
+   * @param {number} dw
+   * @param {number} dh
+   */
+  function drawWashedToaster(img, x, y, dw, dh) {
+    if (!toasterScratchCtx) {
+      ctx.drawImage(img, x, y, dw, dh);
+      return;
+    }
+    const tw = Math.max(1, Math.ceil(dw));
+    const th = Math.max(1, Math.ceil(dh));
+    if (toasterScratch.width !== tw) toasterScratch.width = tw;
+    if (toasterScratch.height !== th) toasterScratch.height = th;
+    toasterScratchCtx.clearRect(0, 0, tw, th);
+    toasterScratchCtx.imageSmoothingEnabled = false;
+    toasterScratchCtx.globalCompositeOperation = "source-over";
+    toasterScratchCtx.globalAlpha = 1;
+    toasterScratchCtx.drawImage(img, 0, 0, dw, dh);
+    toasterScratchCtx.globalCompositeOperation = "source-atop";
+    const theme =
+      document.documentElement.getAttribute("data-theme") || "light";
+    toasterScratchCtx.fillStyle =
+      theme === "dark" ? TOASTER_WASH_DARK : TOASTER_WASH_LIGHT;
+    toasterScratchCtx.fillRect(0, 0, tw, th);
+    toasterScratchCtx.globalCompositeOperation = "source-over";
+    ctx.drawImage(toasterScratch, x, y);
+  }
+
+  /** @param {"back"|"mid"} layer */
+  function drawToastersLayer(layer) {
+    const list = toasters.filter((t) => t.layer === layer);
+    if (!list.length) return;
+    const prevSmooth = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+    for (const t of list) {
+      const img = toasterImgs[t.frame] || toasterImgs[0];
+      if (!img?.complete || !img.naturalWidth) continue;
+      const dw = img.naturalWidth * t.scale;
+      const dh = img.naturalHeight * t.scale;
+      drawWashedToaster(img, t.x - dw / 2, t.y - dh / 2, dw, dh);
+    }
+    ctx.imageSmoothingEnabled = prevSmooth;
+  }
+
   function drawClouds() {
     ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
-    clouds.forEach((c) => {
-      ctx.beginPath();
-      ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
-      ctx.arc(c.x + c.radius * 0.9, c.y + c.radius * 0.2, c.radius * 0.8, 0, Math.PI * 2);
-      ctx.arc(c.x - c.radius * 0.9, c.y + c.radius * 0.2, c.radius * 0.7, 0, Math.PI * 2);
-      ctx.arc(c.x + c.radius * 0.4, c.y - c.radius * 0.5, c.radius * 0.6, 0, Math.PI * 2);
-      ctx.fill();
-    });
+    clouds.forEach(fillCloudShape);
   }
 
   /** Wipe run + report stats (Restart). Next Start begins a fresh session. */
@@ -639,13 +835,14 @@ export function mountArtikelClimber(root, options = {}) {
     cameraY = 0;
     platforms = [];
     particles = [];
+    toasters = [];
     player.vx = 0;
     player.vy = 0;
     player.isRescuing = false;
     player.face = "normal";
     player.faceUntil = 0;
     setLivesDisplay(MAX_LIVES);
-    setWordDisplay("");
+    clearCorrectFlash();
     closeReportSheet();
     if (overEl) {
       overEl.hidden = true;
@@ -694,34 +891,6 @@ export function mountArtikelClimber(root, options = {}) {
     player.isRescuing = false;
   }
 
-  function stampWordOnPlatform(p, wordObj) {
-    if (!p || !wordObj?.word) return;
-    const word = String(wordObj.word);
-    p.stampWord = word;
-    ctx.font = displayFont(700, 13);
-    const targetW = Math.max(p.width, Math.ceil(ctx.measureText(word).width + 22));
-    if (targetW <= p.width + 0.5) return;
-    const center = p.x + p.width / 2;
-    p.width = targetW;
-    p.x = center - targetW / 2;
-    p.height = Math.max(p.height, 22);
-    const gap = 12;
-    const left = p.x;
-    const right = p.x + p.width;
-    for (const o of platforms) {
-      if (o === p || o.broken || o.isBounceFloor) continue;
-      if (Math.abs(o.y - p.y) > 28) continue;
-      const oMid = o.x + o.width / 2;
-      if (oMid <= center) {
-        const overlap = o.x + o.width + gap - left;
-        if (overlap > 0) o.x -= overlap;
-      } else {
-        const overlap = right + gap - o.x;
-        if (overlap > 0) o.x += overlap;
-      }
-    }
-  }
-
   function endGame(reason) {
     gameState = "gameover";
     clearKeys();
@@ -729,7 +898,7 @@ export function mountArtikelClimber(root, options = {}) {
     pointerAnchors.clear();
     resetEyeSpin();
     setFace("dead", 10_000);
-    setWordDisplay("");
+    clearCorrectFlash();
     closeReportSheet();
     updateProgressUi();
     const snap = progressSnapshot();
@@ -777,6 +946,7 @@ export function mountArtikelClimber(root, options = {}) {
     platforms = [];
     particles = [];
     clouds = [];
+    toasters = [];
     clearKeys();
     canvasPointers.clear();
     pointerAnchors.clear();
@@ -784,11 +954,14 @@ export function mountArtikelClimber(root, options = {}) {
     player.faceUntil = 0;
     updateProgressUi();
     setProgressVisible(true);
+    clearCorrectFlash();
     upcomingWord = null;
     player.targetWord = getNextWord();
-    refreshUpcomingDisplay();
+    queueUpcomingWord();
     generatePlatforms(height - 50);
     placeBounceFloor({ fromFall: false });
+    seedAmbientClouds();
+    seedAmbientToasters();
     gameState = "playing";
     hideOverlays();
     closeReportSheet();
@@ -815,6 +988,7 @@ export function mountArtikelClimber(root, options = {}) {
     platforms = [];
     particles = [];
     clouds = [];
+    toasters = [];
     clearKeys();
     canvasPointers.clear();
     pointerAnchors.clear();
@@ -823,15 +997,18 @@ export function mountArtikelClimber(root, options = {}) {
     clearScaredFace();
     setProgressVisible(true);
     updateProgressUi();
+    clearCorrectFlash();
     if (!player.targetWord) {
       upcomingWord = null;
       player.targetWord = getNextWord();
     } else {
       noteWordInPlay(player.targetWord);
     }
-    refreshUpcomingDisplay();
+    queueUpcomingWord();
     generatePlatforms(height - 50);
     placeBounceFloor({ fromFall: false });
+    seedAmbientClouds();
+    seedAmbientToasters();
     gameState = "playing";
     hideOverlays();
     closeReportSheet();
@@ -840,6 +1017,8 @@ export function mountArtikelClimber(root, options = {}) {
 
   function update() {
     if (gameState !== "playing") return;
+    updateCorrectFlashFade();
+    updateToasters();
     if (keys.left) player.vx = -MOVE_SPEED;
     else if (keys.right) player.vx = MOVE_SPEED;
     else player.vx = 0;
@@ -920,7 +1099,6 @@ export function mountArtikelClimber(root, options = {}) {
             if (keys.up) kickMegaSpin();
             clearBounceFloor();
             clearScaredFace();
-            stampWordOnPlatform(p, landed);
             setFace("happy", 320);
             speakWord(landed.article, landed.word);
             playFeedback("ok");
@@ -930,8 +1108,9 @@ export function mountArtikelClimber(root, options = {}) {
             }
             markClimberCorrect(pools, landed);
             updateProgressUi();
+            showCorrectFlash(landed);
             player.targetWord = getNextWord();
-            refreshUpcomingDisplay();
+            queueUpcomingWord();
             createParticles(player.x, player.y, "#fde047");
           }
           break;
@@ -967,7 +1146,8 @@ export function mountArtikelClimber(root, options = {}) {
       }
       markClimberIncorrect(pools, player.targetWord);
       updateProgressUi();
-      refreshUpcomingDisplay();
+      clearCorrectFlash();
+      queueUpcomingWord();
       lives = Math.max(0, lives - 1);
       setLivesDisplay(lives);
       if (lives <= 0) {
@@ -990,7 +1170,13 @@ export function mountArtikelClimber(root, options = {}) {
 
     ctx.save();
     ctx.translate(0, -cameraY);
+    // Sky stack at cloud depth: hard behind/in-front of clouds, never with player.
+    if (gameState !== "start") {
+      drawToastersLayer("back");
+      punchCloudsThroughBackToasters();
+    }
     drawClouds();
+    if (gameState !== "start") drawToastersLayer("mid");
 
     if (gameState === "start") {
       ctx.restore();
@@ -1019,11 +1205,7 @@ export function mountArtikelClimber(root, options = {}) {
       ctx.font = displayFont(700, 13);
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(
-        p.stampWord || style.label,
-        p.x + p.width / 2,
-        p.y + p.height / 2
-      );
+      ctx.fillText(style.label, p.x + p.width / 2, p.y + p.height / 2);
     });
 
     particles.forEach((p) => {
@@ -1272,7 +1454,7 @@ export function mountArtikelClimber(root, options = {}) {
   window.addEventListener("resize", resize);
   setScoreDisplay(0);
   setLivesDisplay(MAX_LIVES);
-  setWordDisplay("");
+  clearCorrectFlash();
   resize();
   seedAmbientClouds();
   requestAnimationFrame(() => {

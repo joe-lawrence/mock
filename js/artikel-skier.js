@@ -35,6 +35,24 @@ const GATE_MISSES_FOR_WORD_MISS = 2;
 const GATE_TREE_CLEAR_AFTER = 240;
 /** Extra width past the correct gate poles where trees are kept clear. */
 const GATE_TREE_CLEAR_PAD = 56;
+/** Rare SkiFree-style lurkers — yeti in trees, ski-man in clearings. */
+const LURKER_YETI_CHANCE = 0.14;
+const LURKER_SKIER_CHANCE = 0.045;
+const LURKER_MIN_GAP = 320;
+/** Ski-man stays clear of gate approach and overrun. */
+const LURKER_SKIER_GATE_BEFORE = 180;
+const LURKER_SKIER_GATE_AFTER = 260;
+const LURKER_SKIER_SCALE = 2;
+const LURKER_YETI_SCALE = 2.15;
+/** Embedded sprites (avoids brittle /img fetch during module cache-busting). */
+const LURKER_DATA = {
+  skier:
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABcAAAAaCAYAAABctMd+AAAAnUlEQVR42t2WUQ6AMAhDd/TdbEerZriMqDBh8COxX4ZH7dBYilI4L64SUXcoCftDVmA3nDe+O25drTkG3F1xMAEn3DxAeuQB49p2LsEduY8E9PtO5zKcsifpBuxhdeD/4NfhIgT+1NYnYb75qXBho7CdubKqCDnUBOfLAWlwhO57ciThcLNzOAdQ1VoxtBoARVIjHH1RfyffXVjV6wBGXVW1DgoGdAAAAABJRU5ErkJggg==",
+  yeti:
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAoCAYAAACfKfiZAAAA4klEQVR42u2YURKDMAhEuf+pcrNtP9rRWkKAsrEfOJMxo6P7XAQlIiKQYzvPt21QxLETBsq4xQU4XdJgURUGE3CM8TV+cA1aCJZhmogj8aCIuPAhOJlnX3gXhGr/xYmScC8B8JrjdMwJAG/GodgB7TyiNsExsqntA3h6DmvPqKLaTTXh0oI0rX5K3mvH60v0W6AwDWPi1yc3KiFoAIYg1QXTdnYYQuIMiAZogAa4vQ40QAiC2U15P8VUAFl0RdTOGsEmFixx5jUN8J8AmfQq+0nNNBsw1prSSzXYGDrfCgYD4AFpmXZIIsYfZwAAAABJRU5ErkJggg==",
+  ouch:
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAZCAYAAABQDyyRAAAA60lEQVR42t2WURLDIAhEuf+lPNr2w9hCWBE1tjPNzP4l7IuwJCJ7Fy795AJQ9XcQmDjaxwHeBVVRfBPCACRBnj+FpgmQYwOZBTmeiC4IPoZbEFgGIS3LJmgldhZECxZkUM95YrEvBmA2vgstaH4eYDI11BN5ALouMvFF5IWsefUQJ1EQAcg+ADPXEPc3J0N5FoBEEhmvxAwUNJUiTmpIRzsBUwvptncuFSI/oFsAfso9QH1zCyA8IamTBjNmAHEL+PPBiehJQygNoB01wLjGcLVGN/I02Pb05sh8PWOATCQ7CRjWD284/IvtAF6pVr1UcC4OTQAAAABJRU5ErkJggg==",
+};
 
 /*
 The MIT License (MIT)
@@ -354,8 +372,19 @@ export function mountArtikelSkier(root, options = {}) {
   let trees = [];
   /** @type {object[]} */
   let ramps = [];
+  /** @type {{ kind: "skier"|"yeti"|"ouch", x: number, y: number, faceLeft: boolean }[]} */
+  let lurkers = [];
   /** @type {{ x: number, y: number, r: number, vy: number, vx: number, a: number }[]} */
   let snowfall = [];
+
+  const lurkerImgs = {
+    skier: new Image(),
+    yeti: new Image(),
+    ouch: new Image(),
+  };
+  lurkerImgs.skier.src = LURKER_DATA.skier;
+  lurkerImgs.yeti.src = LURKER_DATA.yeti;
+  lurkerImgs.ouch.src = LURKER_DATA.ouch;
 
   function seedSnowfall() {
     const n = Math.max(28, Math.min(64, Math.floor(width / 10)));
@@ -397,6 +426,28 @@ export function mountArtikelSkier(root, options = {}) {
       ctx.fill();
     }
     ctx.globalAlpha = 1;
+  }
+
+  function drawLurkers() {
+    if (!lurkers.length) return;
+    const prevSmooth = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+    for (const l of lurkers) {
+      const img = lurkerImgs[l.kind];
+      if (!img?.complete || !img.naturalWidth) continue;
+      const scale =
+        l.kind === "yeti" ? LURKER_YETI_SCALE : LURKER_SKIER_SCALE;
+      const dw = img.naturalWidth * scale;
+      const dh = img.naturalHeight * scale;
+      ctx.save();
+      ctx.translate(l.x, l.y);
+      // OUCH is a top-down wipeout — don't mirror it.
+      if (l.faceLeft && l.kind !== "ouch") ctx.scale(-1, 1);
+      // Anchor near feet so they sit among tree trunks.
+      ctx.drawImage(img, -dw / 2, -dh + 6, dw, dh);
+      ctx.restore();
+    }
+    ctx.imageSmoothingEnabled = prevSmooth;
   }
 
   /** @param {"normal"|"happy"|"boost"|"dead"} face @param {number} [ms] */
@@ -833,12 +884,68 @@ export function mountArtikelSkier(root, options = {}) {
     });
   }
 
+  function lurkerTooClose(y) {
+    return lurkers.some((l) => Math.abs(l.y - y) < LURKER_MIN_GAP);
+  }
+
+  /** True if y sits on the approach or overrun of any gate row. */
+  function skierBlockedNearGate(y) {
+    for (const row of rows) {
+      if (
+        y >= row.y - LURKER_SKIER_GATE_BEFORE &&
+        y <= row.y + LURKER_SKIER_GATE_AFTER
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Occasional static SkiFree skier (clearing) / yeti (tree line). */
+  function maybePlaceLurker(startY, endY) {
+    if (width < 8) return;
+    const span = Math.max(1, endY - startY);
+
+    if (Math.random() < LURKER_YETI_CHANCE) {
+      const y = startY + Math.random() * span;
+      if (!lurkerTooClose(y)) {
+        const left = Math.random() > 0.5;
+        lurkers.push({
+          kind: "yeti",
+          x: left
+            ? width * (0.03 + Math.random() * 0.09)
+            : width * (0.88 + Math.random() * 0.09),
+          y,
+          faceLeft: !left,
+        });
+      }
+    }
+
+    if (Math.random() < LURKER_SKIER_CHANCE) {
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const y = startY + Math.random() * span;
+        if (lurkerTooClose(y) || skierBlockedNearGate(y)) continue;
+        const leftClearing = Math.random() > 0.5;
+        lurkers.push({
+          kind: "skier",
+          x: leftClearing
+            ? width * (0.22 + Math.random() * 0.14)
+            : width * (0.64 + Math.random() * 0.14),
+          y,
+          faceLeft: !leftClearing,
+        });
+        break;
+      }
+    }
+  }
+
   function seedTrack() {
     rows = [];
     particles = [];
     trail = [];
     trees = [];
     ramps = [];
+    lurkers = [];
     let startY = height + 100;
     for (let i = 0; i < 5; i++) {
       const rowY = startY + i * 600;
@@ -846,6 +953,8 @@ export function mountArtikelSkier(root, options = {}) {
       maybePlaceRamp(rowY);
     }
     populateTrees(30, -100, height + 800);
+    maybePlaceLurker(height * 0.4, height + 700);
+    maybePlaceLurker(height + 200, height + 900);
   }
 
   /** Full SRS word miss — no life lost. */
@@ -1122,6 +1231,9 @@ export function mountArtikelSkier(root, options = {}) {
     trees.forEach((t) => {
       t.y -= scrollSpeed;
     });
+    lurkers.forEach((l) => {
+      l.y -= scrollSpeed;
+    });
     rows.forEach((r) => {
       r.y -= scrollSpeed;
     });
@@ -1143,6 +1255,20 @@ export function mountArtikelSkier(root, options = {}) {
         if (dist < player.radius + t.size * 0.4 && player.jumpZ < 10) {
           killSkier();
           return;
+        }
+      }
+    }
+
+    // Ski over the clearing ski-man → classic OUCH wipeout (no life lost).
+    if (!awaitingInput && player.jumpZ < 10) {
+      for (const l of lurkers) {
+        if (l.kind !== "skier") continue;
+        const dx = player.x - l.x;
+        const dy = player.y - (l.y - 18);
+        if (Math.hypot(dx, dy) < player.radius + 18) {
+          l.kind = "ouch";
+          playFeedback("splat");
+          createParticles(l.x, l.y - 10, "#f8fafc", 14);
         }
       }
     }
@@ -1245,12 +1371,16 @@ export function mountArtikelSkier(root, options = {}) {
         ? Math.max(...trees.map((t) => t.y))
         : height;
       if (highestTreeY < height * 1.5) {
-        populateTrees(8, highestTreeY + 50, highestTreeY + 300);
+        const fromY = highestTreeY + 50;
+        const toY = highestTreeY + 300;
+        populateTrees(8, fromY, toY);
+        maybePlaceLurker(fromY, toY);
       }
     }
 
     rows = rows.filter((r) => r.y > -100);
     trees = trees.filter((t) => t.y > -50);
+    lurkers = lurkers.filter((l) => l.y > -60);
     ramps = ramps.filter((r) => r.y > -50);
     trail.forEach((t) => {
       t.life -= 0.015;
@@ -1305,6 +1435,9 @@ export function mountArtikelSkier(root, options = {}) {
         ctx.fillText(style.label, g.x + g.width / 2, r.y + 10);
       });
     });
+
+    // Lurkers sit in the tree line (under trees so foliage can cover them).
+    drawLurkers();
 
     trees.forEach((t) => {
       ctx.fillStyle = t.color;

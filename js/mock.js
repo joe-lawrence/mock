@@ -210,8 +210,8 @@ import {
   mountNavCarousel,
 } from "./nav-carousel.js?v=20261105-playkind-fit";
 import { climberWordsFromVocabUnits } from "./artikel-climber-vocab.js?v=20261103-climber";
-import { mountArtikelClimber } from "./artikel-climber.js?v=20261105-continue-score";
-import { mountArtikelSkier } from "./artikel-skier.js?v=20261105-flake-behind";
+import { mountArtikelClimber } from "./artikel-climber.js?v=20261106-toaster-rare";
+import { mountArtikelSkier } from "./artikel-skier.js?v=20261106-skier-sparse";
 import { keysSkippedByJump } from "./guided-jump.js";
 import {
   noteQuizNavEntry,
