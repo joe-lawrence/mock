@@ -214,8 +214,8 @@ import {
   climberWordsFromVocabUnits,
 } from "./artikel-climber-vocab.js?v=20261107-ans-space2";
 import { mountArtikelClimber } from "./artikel-climber.js?v=20261107-ans-space2";
-import { mountArtikelSkier } from "./artikel-skier.js?v=20261107-gate-gap";
-import { loadSnowNomenConstructions } from "./artikel-skier-cases.js?v=20261107-gate-gap";
+import { mountArtikelSkier } from "./artikel-skier.js?v=20261107-ghost-fix";
+import { loadSnowNomenConstructions } from "./artikel-skier-cases.js?v=20261107-ghost-fix";
 import { keysSkippedByJump } from "./guided-jump.js";
 import {
   noteQuizNavEntry,
@@ -361,7 +361,7 @@ import {
   mountVocabularyPanel,
   topicHasVocabulary,
   vocabAreasFromCurriculumTopics,
-} from "./vocabulary-ui.js?v=20261107-gate-gap";
+} from "./vocabulary-ui.js?v=20261107-ghost-fix";
 import {
   vocabularyAreas,
   curriculumTopicToVocabArea,

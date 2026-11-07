@@ -405,20 +405,27 @@ export function mountArtikelSkier(root, options = {}) {
 
   /**
    * Canvas fade for the resolved answer (Cases: trigger + article; Nouns: article).
+   * Case trials use `correctArticle`; noun flashes pass `article`.
    * @param {{
    *   trigger?: string,
-   *   article: string,
+   *   article?: string,
+   *   correctArticle?: string,
    *   noun: string,
    *   tint?: string,
+   *   gender?: string,
    * }} trial
    */
   function spawnGhostText(trial) {
-    if (!trial?.article || !trial?.noun) return;
+    const article = String(
+      trial?.article || trial?.correctArticle || ""
+    ).trim();
+    const noun = String(trial?.noun || "").trim();
+    if (!article || !noun) return;
     ghostText = {
       trigger: String(trial.trigger || "").trim(),
-      article: trial.article,
-      noun: trial.noun,
-      tint: trial.tint || "masc",
+      article,
+      noun,
+      tint: trial.tint || trial.gender || "masc",
       born: performance.now(),
       ruleMs: 1500,
       nounMs: 980,
