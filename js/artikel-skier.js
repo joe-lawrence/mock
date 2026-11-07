@@ -1637,9 +1637,27 @@ export function mountArtikelSkier(root, options = {}) {
     if (
       !awaitingInput &&
       player.jumpZ === 0 &&
-      (Math.abs(player.vx) > 0.5 || Math.random() > 0.5)
+      (Math.abs(player.vx) > 0.5 || Math.random() > 0.45)
     ) {
-      trail.push({ x: player.x, y: player.y, life: 1.0 });
+      // Two ski tracks (not one fat groove), matching ski spread + carve angle.
+      const turn = Math.max(
+        -1,
+        Math.min(1, player.vx / MAX_LATERAL_SPEED)
+      );
+      const skiAngle = -turn * 0.72;
+      const skiSpread = HEAD_RADIUS * 0.42;
+      const c = Math.cos(skiAngle);
+      const s = Math.sin(skiAngle);
+      trail.push({
+        x: player.x - skiSpread * c,
+        y: player.y - skiSpread * s,
+        life: 1.0,
+      });
+      trail.push({
+        x: player.x + skiSpread * c,
+        y: player.y + skiSpread * s,
+        life: 1.0,
+      });
     }
 
     if (!awaitingInput) {
@@ -1735,10 +1753,10 @@ export function mountArtikelSkier(root, options = {}) {
     const colors = genderColors();
 
     trail.forEach((t) => {
-      ctx.globalAlpha = t.life * 0.4;
+      ctx.globalAlpha = t.life * 0.35;
       ctx.fillStyle = "#cbd5e1";
       ctx.beginPath();
-      ctx.arc(t.x, t.y, 4, 0, Math.PI * 2);
+      ctx.arc(t.x, t.y, 1.6, 0, Math.PI * 2);
       ctx.fill();
     });
     ctx.globalAlpha = 1;
