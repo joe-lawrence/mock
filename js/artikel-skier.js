@@ -159,6 +159,18 @@ export function mountArtikelSkier(root, options = {}) {
           <div class="skier-panel">
             <h1 class="skier-title">Snow-Nomen</h1>
             <p class="skier-lede" data-skier-lede>Ski through the correct gate. Steer or hop to start.</p>
+            <div class="skier-course" role="group" aria-label="Slope">
+              <button type="button" class="skier-course-btn is-active" data-skier-course="nouns">Nouns</button>
+              <button type="button" class="skier-course-btn" data-skier-course="cases">Cases</button>
+            </div>
+            <div class="skier-trails" data-skier-trails-nouns role="group" aria-label="Nouns trail">
+              <button type="button" class="skier-trail-btn is-active" data-skier-trail="fixed">Der · Die · Das</button>
+              <button type="button" class="skier-trail-btn" data-skier-trail="random">Random articles</button>
+            </div>
+            <div class="skier-trails is-hidden" data-skier-trails-cases role="group" aria-label="Cases trail" hidden>
+              <button type="button" class="skier-trail-btn is-active" data-skier-trail="def">Definite</button>
+              <button type="button" class="skier-trail-btn" data-skier-trail="indef">Indefinite</button>
+            </div>
             <label class="skier-speed">
               <select data-skier-speed aria-label="Speed">
                 <option value="0.8">Relaxed Rate</option>
@@ -166,10 +178,6 @@ export function mountArtikelSkier(root, options = {}) {
                 <option value="1.25">Frantic Pace</option>
               </select>
             </label>
-            <div class="skier-course" role="group" aria-label="Course">
-              <button type="button" class="skier-course-btn is-active" data-skier-course="nouns">Nouns slope</button>
-              <button type="button" class="skier-course-btn" data-skier-course="cases">Cases slope</button>
-            </div>
             <button type="button" class="btn btn-primary" data-skier-play>Start</button>
           </div>
         </div>
@@ -225,9 +233,18 @@ export function mountArtikelSkier(root, options = {}) {
   const courseBtns = [
     ...root.querySelectorAll("[data-skier-course]"),
   ];
+  const trailsNounsEl = root.querySelector("[data-skier-trails-nouns]");
+  const trailsCasesEl = root.querySelector("[data-skier-trails-cases]");
+  const trailBtns = [...root.querySelectorAll("[data-skier-trail]")];
 
   /** @type {"nouns"|"cases"} */
   let courseMode = "nouns";
+  /**
+   * Nouns: fixed (der/die/das lanes) | random (shuffled articles, one valid).
+   * Cases: def | indef.
+   * @type {"fixed"|"random"|"def"|"indef"}
+   */
+  let trailMode = "fixed";
   /** Separate case-article tallies (def vs indef). */
   const caseStats = {
     def: { correct: 0, wrong: 0 },
@@ -279,11 +296,60 @@ export function mountArtikelSkier(root, options = {}) {
       const mode = btn.getAttribute("data-skier-course");
       btn.classList.toggle("is-active", mode === courseMode);
     }
+    const nounsOn = !isCasesCourse();
+    if (trailsNounsEl) {
+      trailsNounsEl.hidden = !nounsOn;
+      trailsNounsEl.classList.toggle("is-hidden", !nounsOn);
+    }
+    if (trailsCasesEl) {
+      trailsCasesEl.hidden = nounsOn;
+      trailsCasesEl.classList.toggle("is-hidden", nounsOn);
+    }
+    for (const btn of trailBtns) {
+      const id = btn.getAttribute("data-skier-trail");
+      btn.classList.toggle("is-active", id === trailMode);
+    }
   }
 
   function setCourseMode(mode) {
-    courseMode = mode === "cases" ? "cases" : "nouns";
+    const next = mode === "cases" ? "cases" : "nouns";
+    if (next !== courseMode) {
+      courseMode = next;
+      // Default trail for the newly selected slope.
+      trailMode = next === "cases" ? "def" : "fixed";
+    }
     syncCourseUi();
+  }
+
+  function setTrailMode(mode) {
+    const id = String(mode || "");
+    if (isCasesCourse()) {
+      if (id === "def" || id === "indef") trailMode = id;
+    } else if (id === "fixed" || id === "random") {
+      trailMode = id;
+    }
+    syncCourseUi();
+  }
+
+  /** Nominative article gate specs (nouns slope). */
+  const NOM_GATES = Object.freeze([
+    { type: "masc", article: "der", label: "DER" },
+    { type: "fem", article: "die", label: "DIE" },
+    { type: "neut", article: "das", label: "DAS" },
+  ]);
+
+  function shuffleGates(list) {
+    const out = [...list];
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+  }
+
+  /** Noun trail gate order: fixed der/die/das or shuffled (exactly one valid). */
+  function nounGateSpecs() {
+    return trailMode === "random" ? shuffleGates(NOM_GATES) : [...NOM_GATES];
   }
 
   function restampUnpassedCaseGates() {
@@ -310,13 +376,14 @@ export function mountArtikelSkier(root, options = {}) {
     }
     const constructions = constructionsForNoun(caseGovernors, noun);
     const pool = constructions.length ? constructions : caseGovernors;
+    const indefChance = trailMode === "indef" ? 1 : 0;
     /** @type {ReturnType<typeof buildCaseTrial>|null} */
     let best = null;
     const recentArts = recentCaseArticles.slice(-ANSWER_SPACING);
     const recentSet = new Set(recentArts);
     const lastArt = recentArts[recentArts.length - 1];
     for (let i = 0; i < 10; i++) {
-      const trial = buildCaseTrial(pool, noun);
+      const trial = buildCaseTrial(pool, noun, { indefChance });
       if (!best) best = trial;
       const key = String(trial.correctArticle || "").toLowerCase();
       if (key && !recentSet.has(key)) {
@@ -333,13 +400,22 @@ export function mountArtikelSkier(root, options = {}) {
     ghostText = null;
   }
 
+  /**
+   * Canvas fade for the resolved answer (Cases: trigger + article; Nouns: article).
+   * @param {{
+   *   trigger?: string,
+   *   article: string,
+   *   noun: string,
+   *   tint?: string,
+   * }} trial
+   */
   function spawnGhostText(trial) {
-    if (!trial) return;
+    if (!trial?.article || !trial?.noun) return;
     ghostText = {
-      trigger: trial.trigger,
-      article: trial.correctArticle,
+      trigger: String(trial.trigger || "").trim(),
+      article: trial.article,
       noun: trial.noun,
-      tint: trial.tint || trial.gender || "masc",
+      tint: trial.tint || "masc",
       born: performance.now(),
       ruleMs: 1500,
       nounMs: 980,
@@ -424,7 +500,8 @@ export function mountArtikelSkier(root, options = {}) {
   }
 
   /**
-   * After a correct gate: Nouns = article + noun; Cases = case name + gender SVG.
+   * After a correct gate: classification chip (Cases = case name; Nouns = gender)
+   * plus sized gender SVG — Ghost Text carries article + noun.
    * @param {object} landed
    * @param {{ caseId?: "acc"|"dat", number?: "sg"|"pl", parity?: "def"|"indef", tint?: string }} [opts]
    */
@@ -438,28 +515,31 @@ export function mountArtikelSkier(root, options = {}) {
       gender: tint || gender,
     };
     if (nextLabelEl) nextLabelEl.textContent = "CORRECT";
-    nextEl.classList.add("is-correct", "is-hinted");
-    nextEl.classList.toggle("is-case-flash", isCasesCourse());
+    nextEl.classList.add("is-correct", "is-hinted", "is-case-flash");
     if (correctFlash.gender) nextEl.dataset.gender = correctFlash.gender;
     else nextEl.removeAttribute("data-gender");
 
+    let mark = genderMarkId(gender);
+    let label = "Masculine";
     if (isCasesCourse()) {
       const caseId = opts.caseId || caseTrial?.case || "acc";
       const number = opts.number || caseTrial?.number || "sg";
       const parity = opts.parity || caseTrial?.parity || "def";
-      const caseLabel = caseId === "dat" ? "Dative" : "Accusative";
-      let mark = genderMarkId(gender);
+      label = caseId === "dat" ? "Dative" : "Accusative";
       if (number === "pl") mark = parity === "indef" ? "kein" : "plural";
       if (mark === "kein" || mark === "plural") {
         nextEl.dataset.gender = mark === "kein" ? "kein" : "plur";
       }
-      nextWordEl.innerHTML = genderMarkHtml(mark, caseLabel);
-      nextWordEl.title = caseLabel;
+    } else if (gender === "fem") {
+      label = "Feminine";
+    } else if (gender === "neut") {
+      label = "Neuter";
     } else {
-      const text = `${correctFlash.article} ${correctFlash.word}`.trim();
-      nextWordEl.textContent = text;
-      nextWordEl.title = text;
+      label = "Masculine";
+      mark = "masculine";
     }
+    nextWordEl.innerHTML = genderMarkHtml(mark, label);
+    nextWordEl.title = label;
     nextEl.hidden = false;
     nextEl.style.opacity = "1";
   }
@@ -877,6 +957,7 @@ export function mountArtikelSkier(root, options = {}) {
       payload = {
         ...payload,
         course: "cases",
+        trail: trailMode,
         caseArticles: {
           definite: { ...caseStats.def },
           indefinite: { ...caseStats.indef },
@@ -894,7 +975,7 @@ export function mountArtikelSkier(root, options = {}) {
         ...comboLines,
       ].join("\n");
     } else {
-      payload = { ...payload, course: "nouns" };
+      payload = { ...payload, course: "nouns", trail: trailMode };
     }
     lastReportText = text;
     lastReportJson = JSON.stringify(payload, null, 2);
@@ -1086,24 +1167,30 @@ export function mountArtikelSkier(root, options = {}) {
     const pWidth = Math.min(caseMode ? 58 : 80, laneWidth - 6);
     const maxJitter = Math.max(0, (laneWidth - pWidth) / 2);
     const caseLabels = caseMode ? caseTrial.gateArticles : null;
+    const nounSpecs = caseMode ? null : nounGateSpecs();
 
     for (let j = 0; j < laneCount; j++) {
       const jitter = Math.random() * maxJitter * 2 - maxJitter;
       const x =
         offsetX + j * laneWidth + (laneWidth - pWidth) / 2 + jitter;
-      const type = caseMode ? GENDER_LANES[j] : GENDER_LANES[j];
       if (caseLabels) {
         const article = caseLabels[j];
         row.gates.push({
           x,
           width: pWidth,
-          type,
+          type: GENDER_LANES[j],
           article,
           label: String(article).toUpperCase(),
         });
       } else {
-        // Nouns slope: masc / fem / neut only.
-        row.gates.push({ x, width: pWidth, type: GENDER_LANES[j] });
+        const spec = nounSpecs[j];
+        row.gates.push({
+          x,
+          width: pWidth,
+          type: spec.type,
+          article: spec.article,
+          label: spec.label,
+        });
       }
     }
     rows.push(row);
@@ -1115,8 +1202,23 @@ export function mountArtikelSkier(root, options = {}) {
     return player.targetWord?.gender || null;
   }
 
-  /** Correct gate = color / plural lane match. */
+  /** Correct nominative article for the current noun target. */
+  function targetNounArticle() {
+    return String(player.targetWord?.article || "")
+      .trim()
+      .toLowerCase();
+  }
+
+  /** Correct gate = article match (nouns) or gender/plural lane (cases). */
   function correctGateInRow(row) {
+    if (!isCasesCourse()) {
+      const want = targetNounArticle();
+      if (!want) return null;
+      const hits = row.gates.filter(
+        (g) => String(g.article || "").toLowerCase() === want
+      );
+      return hits.length === 1 ? hits[0] : null;
+    }
     const type = targetGateType();
     if (!type) return null;
     return row.gates.find((g) => g.type === type) || null;
@@ -1124,6 +1226,12 @@ export function mountArtikelSkier(root, options = {}) {
 
   function matchedGateIsCorrect(matchedGate) {
     if (!matchedGate) return false;
+    if (!isCasesCourse()) {
+      const want = targetNounArticle();
+      return (
+        !!want && String(matchedGate.article || "").toLowerCase() === want
+      );
+    }
     const type = targetGateType();
     return !!type && matchedGate.type === type;
   }
@@ -1687,6 +1795,11 @@ export function mountArtikelSkier(root, options = {}) {
               // Cases TTS: only the case-forcing phrase + article (e.g. "mit dem").
               if (audioOn) speak(caseTrial.ruleText);
             } else {
+              spawnGhostText({
+                article: landed.article,
+                noun: landed.word,
+                tint: landed.gender || "masc",
+              });
               speakWord(landed.article, landed.word);
             }
             playFeedback("ok");
@@ -1976,7 +2089,8 @@ export function mountArtikelSkier(root, options = {}) {
     const cx = width / 2;
     const cy = height * 0.42;
     const artUp = String(ghostText.article || "").toUpperCase();
-    const ruleLeft = `${ghostText.trigger} `;
+    const trigger = String(ghostText.trigger || "").trim();
+    const ruleLeft = trigger ? `${trigger} ` : "";
     const theme =
       document.documentElement.getAttribute("data-theme") || "light";
     const nounColor =
@@ -1994,7 +2108,8 @@ export function mountArtikelSkier(root, options = {}) {
     ctx.textBaseline = "middle";
 
     ctx.font = displayFont(800, 28);
-    const leftW = ctx.measureText(ruleLeft).width;
+    const leftW = ruleLeft ? ctx.measureText(ruleLeft).width : 0;
+    ctx.font = displayFont(900, 30);
     const artW = ctx.measureText(artUp).width;
     const totalW = leftW + artW;
     const x0 = -totalW / 2;
@@ -2008,7 +2123,10 @@ export function mountArtikelSkier(root, options = {}) {
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = 0;
     }
-    ctx.fillText(ruleLeft, x0, 0);
+    if (ruleLeft) {
+      ctx.font = displayFont(800, 28);
+      ctx.fillText(ruleLeft, x0, 0);
+    }
     ctx.font = displayFont(900, 30);
     ctx.fillText(artUp, x0 + leftW, 0);
     ctx.shadowBlur = 0;
@@ -2242,6 +2360,12 @@ export function mountArtikelSkier(root, options = {}) {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       setCourseMode(btn.getAttribute("data-skier-course") || "nouns");
+    });
+  }
+  for (const btn of trailBtns) {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      setTrailMode(btn.getAttribute("data-skier-trail") || "");
     });
   }
   playBtn?.addEventListener("click", (e) => {

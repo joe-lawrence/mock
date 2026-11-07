@@ -214,8 +214,8 @@ import {
   climberWordsFromVocabUnits,
 } from "./artikel-climber-vocab.js?v=20261107-ans-space2";
 import { mountArtikelClimber } from "./artikel-climber.js?v=20261107-ans-space2";
-import { mountArtikelSkier } from "./artikel-skier.js?v=20261107-ski-tracks";
-import { loadSnowNomenConstructions } from "./artikel-skier-cases.js?v=20261107-ski-tracks";
+import { mountArtikelSkier } from "./artikel-skier.js?v=20261107-noun-chip";
+import { loadSnowNomenConstructions } from "./artikel-skier-cases.js?v=20261107-noun-chip";
 import { keysSkippedByJump } from "./guided-jump.js";
 import {
   noteQuizNavEntry,

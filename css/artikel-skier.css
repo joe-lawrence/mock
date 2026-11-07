@@ -407,14 +407,21 @@ html[data-theme="dark"] .skier-stage {
   font-weight: 600;
 }
 
-.skier-course {
+.skier-course,
+.skier-trails {
   display: flex;
   width: 100%;
   gap: 0.35rem;
   margin-top: 0.1rem;
 }
 
-.skier-course-btn {
+.skier-trails[hidden],
+.skier-trails.is-hidden {
+  display: none !important;
+}
+
+.skier-course-btn,
+.skier-trail-btn {
   flex: 1 1 50%;
   margin: 0;
   padding: 0.42rem 0.5rem;
@@ -428,7 +435,8 @@ html[data-theme="dark"] .skier-stage {
   cursor: pointer;
 }
 
-.skier-course-btn.is-active {
+.skier-course-btn.is-active,
+.skier-trail-btn.is-active {
   border-color: color-mix(in srgb, var(--de-gold, #c9a227) 70%, var(--line));
   background: color-mix(in srgb, var(--de-gold, #c9a227) 18%, transparent);
   color: var(--ink);
