@@ -21,7 +21,7 @@ import {
   pickQuestionType,
   questionTypesForItem,
   revealDeHtml,
-} from "./vocabulary-practice.js?v=20261102-vocabfix";
+} from "./vocabulary-practice.js?v=20261107-case-lib";
 import { choiceSecondChanceOpen } from "./answer-shells.js?v=20261027-retry";
 import { flaggedCueHtml } from "./lang-flags.js?v=20261030-langflag";
 
@@ -86,15 +86,26 @@ function actionsNavHtml({ refDisabled = false } = {}) {
     </div>`;
 }
 
+function isCaseSlotQuestion(q) {
+  return q?.type === "case" || q?.type === "caseContext";
+}
+
 function vocabPromptHtml(q) {
   if (q?.type === "case") {
     const word = flaggedCueHtml("de", esc(q.promptText || ""));
     const label = esc(q.slotLabel || "Case");
     return `<span class="vocab-case-line">${word}<span class="vocab-case-takes">takes the</span><span class="slot" data-vocab-case-slot aria-label="${label}">${label}</span></span>`;
   }
+  if (q?.type === "caseContext") {
+    const frame = esc(q.promptFrame || "");
+    const noun = flaggedCueHtml("de", esc(q.promptText || ""));
+    const label = esc(q.slotLabel || "Case");
+    return `<span class="vocab-case-line"><span class="vocab-case-takes">In “${frame}”,</span> ${noun}<span class="vocab-case-takes"> is in</span><span class="slot" data-vocab-case-slot aria-label="${label}">${label}</span></span>`;
+  }
   const text = esc(q?.prompt || "");
   if (q?.type === "meaning") return flaggedCueHtml("de", text);
   if (q?.type === "form") return flaggedCueHtml("en", text);
+  if (q?.type === "caseArticle") return flaggedCueHtml("de", text);
   const lang = q?.promptLang === "de" ? ' lang="de"' : "";
   return `<span${lang}>${text}</span>`;
 }
@@ -459,7 +470,7 @@ export function mountVocabularyPanel(root, opts) {
       verdict.classList.add(ok ? "is-ok" : "is-bad");
       verdict.textContent =
         result?.verdictLabel || (ok ? "Correct" : "Answer");
-      if (q.type === "case") {
+      if (isCaseSlotQuestion(q)) {
         const shown =
           ok && result?.given
             ? caseChoiceLabel(q, result.given)
@@ -557,7 +568,7 @@ export function mountVocabularyPanel(root, opts) {
         attempt.textContent = "";
       }
       const ok = result?.status === "correct";
-      if (q.type === "case") {
+      if (isCaseSlotQuestion(q)) {
         const shown =
           ok && result?.given
             ? caseChoiceLabel(q, result.given)
@@ -593,7 +604,7 @@ export function mountVocabularyPanel(root, opts) {
         if (entry.revealed || btn.disabled) return;
         const id = btn.getAttribute("data-vocab-choice");
         const result = evaluateVocabularyAnswer(q, id);
-        if (q.type === "case") {
+        if (isCaseSlotQuestion(q)) {
           paintVocabCaseSlot(
             root,
             caseChoiceLabel(q, id),

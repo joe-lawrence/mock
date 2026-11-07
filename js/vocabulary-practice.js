@@ -6,9 +6,15 @@
  */
 
 import { caseExampleSentences } from "../engine/nouns/practice-compose.js?v=20261030-composeex";
+import {
+  caseArticleChoiceList,
+  isCaseGovernor,
+  nounHasCaseFrames,
+  pickCaseFrameForNoun,
+} from "./case-library.js";
 import { resetPhraseRotation, rotatePhrase } from "./phrase-rotation.js";
 
-/** @typedef {"article"|"gender"|"meaning"|"form"|"case"} VocabQuestionTypeId */
+/** @typedef {"article"|"gender"|"meaning"|"form"|"case"|"caseContext"|"caseArticle"} VocabQuestionTypeId */
 
 const ARTICLE_CHOICES = [
   { id: "der", label: "der", gender: "masculine" },
@@ -27,6 +33,8 @@ const TYPE_WEIGHTS = {
   article: 4,
   gender: 3,
   case: 4,
+  caseContext: 3,
+  caseArticle: 3,
   meaning: 2,
   form: 2,
 };
@@ -102,7 +110,13 @@ export function questionTypesForItem(item, scope = {}) {
   const allowMorph = scope.allowGenderMorphology !== false;
   if (allowMorph && facts.article) types.push("article");
   if (allowMorph && facts.gender) types.push("gender");
-  if (facts.governs?.length) types.push("case");
+  // Case government (“takes the …”) — constructions only, never nouns.
+  if (isCaseGovernor(item)) types.push("case");
+  // Noun-in-frame case practice (shared Case library pairings).
+  if (nounHasCaseFrames(item)) {
+    types.push("caseContext");
+    types.push("caseArticle");
+  }
 
   // Meaning / form MCQs need a gloss and at least one peer distractor when possible.
   if (facts.gloss) {
@@ -235,6 +249,9 @@ export function createVocabularyQuestion(item, type, scope = {}) {
       };
     }
     case "case": {
+      if (!isCaseGovernor(item)) {
+        throw new Error(`case questions require a governor, got ${item.type}`);
+      }
       const answers = facts.governs;
       const requirement = caseRequirementText(answers);
       return {
@@ -255,6 +272,66 @@ export function createVocabularyQuestion(item, type, scope = {}) {
         revealEn: `${facts.surface} takes the ${requirement}.`,
         revealArticle: null,
         revealGender: null,
+        input: "choice",
+      };
+    }
+    case "caseContext": {
+      const frame = pickCaseFrameForNoun(item);
+      if (!frame) {
+        throw new Error(`no case frame for ${item.id}`);
+      }
+      return {
+        id: `${item.id}:caseContext:${frame.constructionId}`,
+        vocabId: item.id,
+        type,
+        instruction: "Choose the case",
+        prompt: `In “${frame.trigger} ${frame.phrase}”, ${frame.noun} is in`,
+        slotLabel: "Case",
+        promptLang: "",
+        promptText: frame.noun,
+        promptFrame: `${frame.trigger} ${frame.phrase}`,
+        promptStem: frame.promptStem,
+        expect: frame.caseLong,
+        accept: [frame.caseLong],
+        choices: shuffle(CASE_CHOICES.map((c) => ({ ...c }))),
+        choiceKind: "grid",
+        revealDe: `${frame.trigger} ${frame.phrase}`,
+        revealKaraoke: "sentence",
+        revealEn: `After ${frame.trigger}, ${frame.noun} is in the ${frame.caseLong} (${frame.phrase}).`,
+        revealArticle: frame.article,
+        revealGender: frame.genderLong,
+        constructionId: frame.constructionId,
+        input: "choice",
+      };
+    }
+    case "caseArticle": {
+      const parity = Math.random() < 0.38 ? "indef" : "def";
+      const frame = pickCaseFrameForNoun(item, { parity });
+      if (!frame) {
+        throw new Error(`no case frame for ${item.id}`);
+      }
+      const choices = shuffle(
+        caseArticleChoiceList(frame.case, frame.parity).map((c) => ({ ...c }))
+      );
+      return {
+        id: `${item.id}:caseArticle:${frame.constructionId}:${frame.parity}`,
+        vocabId: item.id,
+        type,
+        instruction: "Choose the article",
+        prompt: frame.promptStem,
+        promptLang: "",
+        promptText: frame.promptStem,
+        promptStem: frame.promptStem,
+        expect: frame.article,
+        accept: [frame.article],
+        choices,
+        choiceKind: "articles",
+        revealDe: `${frame.trigger} ${frame.phrase}`,
+        revealKaraoke: "sentence",
+        revealEn: `${frame.trigger} takes the ${frame.caseLong} → ${frame.phrase}.`,
+        revealArticle: frame.article,
+        revealGender: frame.genderLong,
+        constructionId: frame.constructionId,
         input: "choice",
       };
     }

@@ -28,6 +28,9 @@ const BASE_MIN_SPEED = 3.5;
 const BASE_MAX_SPEED = 7.5;
 /** Cases slope reads denser prompts — keep it slower than Nouns. */
 const CASES_SPEED_FACTOR = 0.74;
+/** Vertical distance between gate rows (world units down-slope). */
+const GATE_GAP_NOUNS = 600;
+const GATE_GAP_CASES = 760;
 const LATERAL_ACCEL = 0.8;
 const MAX_LATERAL_SPEED = 6;
 const FRICTION = 0.85;
@@ -1365,6 +1368,10 @@ export function mountArtikelSkier(root, options = {}) {
     }
   }
 
+  function gateRowGap() {
+    return isCasesCourse() ? GATE_GAP_CASES : GATE_GAP_NOUNS;
+  }
+
   function seedTrack() {
     rows = [];
     particles = [];
@@ -1373,8 +1380,9 @@ export function mountArtikelSkier(root, options = {}) {
     ramps = [];
     lurkers = [];
     let startY = height + 100;
+    const gap = gateRowGap();
     for (let i = 0; i < 5; i++) {
-      const rowY = startY + i * 600;
+      const rowY = startY + i * gap;
       generateGateRow(rowY);
       maybePlaceRamp(rowY);
     }
@@ -1833,7 +1841,7 @@ export function mountArtikelSkier(root, options = {}) {
     if (!awaitingInput) {
       let highestY = rows.length ? rows[rows.length - 1].y : height;
       if (highestY < height * 1.5) {
-        const newY = highestY + 600;
+        const newY = highestY + gateRowGap();
         generateGateRow(newY);
         maybePlaceRamp(newY);
       }

@@ -13,14 +13,16 @@
  */
 
 import { articleForm } from "../engine/nouns/noun.js";
-import { getVocabulary } from "./generated/vocabulary.js";
 import {
   isCompatiblePair,
+  loadCaseConstruction as loadLibConstruction,
+  loadCaseConstructions,
+  singleCaseFromGoverns,
   SNOW_NOMEN_COMPATIBILITY,
   SNOW_NOMEN_CONSTRUCTION_IDS,
   SNOW_NOMEN_EXCLUDED_CONSTRUCTION_IDS,
   snowNomenPlayableNounIds,
-} from "./artikel-skier-case-content.js";
+} from "./case-library.js";
 
 /** @typedef {"acc"|"dat"} CaseId */
 /** @typedef {"masc"|"fem"|"neut"} GenderId */
@@ -32,12 +34,6 @@ import {
 export const GENDER_LANES = Object.freeze(
   /** @type {const} */ (["masc", "fem", "neut", "plur"])
 );
-
-const GENDER_LONG = Object.freeze({
-  masc: "masculine",
-  fem: "feminine",
-  neut: "neuter",
-});
 
 const CASE_LONG = Object.freeze({
   acc: "accusative",
@@ -59,18 +55,7 @@ const SHORT_GENDER = Object.freeze({
  * }} CaseConstruction
  */
 
-/**
- * Parse a curriculum `governs` list into a single CaseId, or null if mixed/empty.
- * @param {unknown} governs
- * @returns {CaseId|null}
- */
-export function singleCaseFromGoverns(governs) {
-  const cases = (Array.isArray(governs) ? governs : [])
-    .map((g) => String(g || "").toLowerCase())
-    .filter((g) => g === "accusative" || g === "dative");
-  if (cases.length !== 1) return null;
-  return cases[0] === "dative" ? "dat" : "acc";
-}
+export { singleCaseFromGoverns };
 
 /**
  * Load one allowlisted construction from the Case vocabulary record.
@@ -78,31 +63,24 @@ export function singleCaseFromGoverns(governs) {
  * @returns {CaseConstruction|null}
  */
 export function loadCaseConstruction(id) {
-  if (SNOW_NOMEN_EXCLUDED_CONSTRUCTION_IDS.includes(id)) return null;
-  if (!SNOW_NOMEN_CONSTRUCTION_IDS.includes(id)) return null;
-  const item = getVocabulary(id);
-  if (!item || item.topic !== "case") return null;
-  const caseId = singleCaseFromGoverns(item.governs);
-  if (!caseId) return null;
-  const surface = String(item.surface || "").trim();
-  if (!surface) return null;
+  const c = loadLibConstruction(id);
+  if (!c) return null;
   return {
-    id: String(item.id),
-    surface,
-    case: caseId,
-    governs: Array.isArray(item.governs) ? [...item.governs] : [],
+    id: c.id,
+    surface: c.surface,
+    case: c.case,
+    governs: c.governs,
   };
 }
 
 /** All eligible constructions for the initial Cases slope. */
 export function loadSnowNomenConstructions() {
-  /** @type {CaseConstruction[]} */
-  const out = [];
-  for (const id of SNOW_NOMEN_CONSTRUCTION_IDS) {
-    const c = loadCaseConstruction(id);
-    if (c) out.push(c);
-  }
-  return out;
+  return loadCaseConstructions().map((c) => ({
+    id: c.id,
+    surface: c.surface,
+    case: c.case,
+    governs: c.governs,
+  }));
 }
 
 /**

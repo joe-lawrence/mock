@@ -388,4 +388,45 @@ describe("Case vocabulary words", () => {
     assert.equal(evaluateVocabularyAnswer(mixed, "dative").status, "correct");
     assert.equal(evaluateVocabularyAnswer(mixed, "nominative").status, "incorrect");
   });
+
+  it("does not ask noun ‘takes the case’; uses framed case drills instead", () => {
+    const accusative = vocabularyForScope("case", {
+      introducedBy: ["case.accusative"],
+    });
+    const mann = accusative.find((item) => item.surface === "Mann");
+    assert.ok(mann);
+    const types = questionTypesForItem(mann, { topic: "case", peers: accusative });
+    assert.ok(!types.includes("case"), "nouns must not get governor case MCQs");
+    assert.ok(types.includes("caseContext"));
+    assert.ok(types.includes("caseArticle"));
+    assert.ok(types.includes("article"));
+
+    const ctx = createVocabularyQuestion(mann, "caseContext", {
+      topic: "case",
+      peers: accusative,
+    });
+    assert.match(ctx.prompt, /Mann is in/);
+    assert.match(ctx.promptFrame || "", /Mann/);
+    assert.ok(["accusative", "dative"].includes(ctx.expect));
+    assert.equal(
+      evaluateVocabularyAnswer(ctx, ctx.expect).status,
+      "correct"
+    );
+    assert.equal(
+      evaluateVocabularyAnswer(ctx, "nominative").status,
+      "incorrect"
+    );
+
+    const art = createVocabularyQuestion(mann, "caseArticle", {
+      topic: "case",
+      peers: accusative,
+    });
+    assert.match(art.prompt, /➔ Mann/);
+    assert.ok(art.choices.some((c) => c.id === art.expect));
+    assert.equal(
+      evaluateVocabularyAnswer(art, art.expect).status,
+      "correct"
+    );
+    assert.throws(() => createVocabularyQuestion(mann, "case", { topic: "case" }));
+  });
 });
