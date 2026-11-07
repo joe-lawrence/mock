@@ -3,16 +3,18 @@
  */
 
 import {
+  ANSWER_SPACING,
   initClimberPools,
   markClimberCorrect,
   markClimberIncorrect,
   pickClimberWord,
-} from "./artikel-climber-pools.js";
+  wordAnswerKey,
+} from "./artikel-climber-pools.js?v=20261107-ans-space2";
 import {
   buildGameReport,
   progressSnapshot as sharedProgressSnapshot,
   wordKey,
-} from "./artikel-game-progress.js";
+} from "./artikel-game-progress.js?v=20261107-ans-space2";
 import { TOASTER_FRAMES } from "./toaster-sprites.js?v=20261106-hopper-stick";
 
 const BASE_GRAVITY = 0.2;
@@ -578,18 +580,47 @@ export function mountArtikelClimber(root, options = {}) {
 
   /** Pre-rolled next target (internal queue only — no HUD). */
   let upcomingWord = /** @type {object|null} */ (null);
+  /** Recent answer keys (articles / genders) for spaced selection. */
+  let recentAnswers = /** @type {string[]} */ ([]);
+
+  function rememberAnswerKey(key) {
+    const k = String(key || "")
+      .trim()
+      .toLowerCase();
+    if (!k) return;
+    recentAnswers.push(k);
+    if (recentAnswers.length > ANSWER_SPACING * 4) {
+      recentAnswers = recentAnswers.slice(-ANSWER_SPACING * 4);
+    }
+  }
+
+  function pickOpts() {
+    return {
+      recentAnswers,
+      answerKeyOf: wordAnswerKey,
+    };
+  }
 
   function queueUpcomingWord() {
-    upcomingWord = pickClimberWord({ ...pools, current: player.targetWord });
+    upcomingWord = pickClimberWord(
+      { ...pools, current: player.targetWord },
+      Math.random,
+      pickOpts()
+    );
   }
 
   function getNextWord() {
     const next =
       upcomingWord && upcomingWord !== player.targetWord
         ? upcomingWord
-        : pickClimberWord({ ...pools, current: player.targetWord });
+        : pickClimberWord(
+            { ...pools, current: player.targetWord },
+            Math.random,
+            pickOpts()
+          );
     upcomingWord = null;
     noteWordInPlay(next);
+    rememberAnswerKey(wordAnswerKey(next));
     return next;
   }
 
@@ -981,6 +1012,7 @@ export function mountArtikelClimber(root, options = {}) {
     setProgressVisible(true);
     clearCorrectFlash();
     upcomingWord = null;
+    recentAnswers = [];
     player.targetWord = getNextWord();
     queueUpcomingWord();
     generatePlatforms(height - 50);

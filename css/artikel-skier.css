@@ -230,12 +230,13 @@
 }
 
 .skier-next.is-case-flash .skier-next-word .gender-icon {
-  width: 1.28rem;
-  height: 1.28rem;
+  /* Match .skier-next-word font-size (was oversized vs “Accusative”/“Dative”). */
+  width: 0.95em;
+  height: 0.95em;
   flex: 0 0 auto;
   /* Fill icons read thin at chip size — stroke fattens the glyph. */
   stroke: currentColor;
-  stroke-width: 0.85px;
+  stroke-width: 0.7px;
   paint-order: stroke fill;
   overflow: visible;
 }

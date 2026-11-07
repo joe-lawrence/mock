@@ -3,26 +3,31 @@
  */
 
 import {
+  ANSWER_SPACING,
   initClimberPools,
   markClimberCorrect,
   markClimberIncorrect,
   pickClimberWord,
-} from "./artikel-climber-pools.js";
+  wordAnswerKey,
+} from "./artikel-climber-pools.js?v=20261107-ans-space2";
 import {
   buildGameReport,
   progressSnapshot as sharedProgressSnapshot,
   wordKey,
-} from "./artikel-game-progress.js";
+} from "./artikel-game-progress.js?v=20261107-ans-space2";
 import {
   DEFAULT_CASE_GOVERNORS,
   GENDER_LANES,
   buildCaseTrial,
-} from "./artikel-skier-cases.js";
+  constructionsForNoun,
+} from "./artikel-skier-cases.js?v=20261107-ans-space2";
 import { genderMarkHtml } from "./gender-marks.js";
 
 const MAX_LIVES = 3;
 const BASE_MIN_SPEED = 3.5;
 const BASE_MAX_SPEED = 7.5;
+/** Cases slope reads denser prompts — keep it slower than Nouns. */
+const CASES_SPEED_FACTOR = 0.74;
 const LATERAL_ACCEL = 0.8;
 const MAX_LATERAL_SPEED = 6;
 const FRICTION = 0.85;
@@ -154,11 +159,6 @@ export function mountArtikelSkier(root, options = {}) {
           <div class="skier-panel">
             <h1 class="skier-title">Snow-Nomen</h1>
             <p class="skier-lede" data-skier-lede>Ski through the correct gate. Steer or hop to start.</p>
-            <p class="skier-hint-row" data-skier-hints>
-              <span class="is-masc">Blue = Der</span>
-              <span class="is-fem">Red = Die</span>
-              <span class="is-neut">Green = Das</span>
-            </p>
             <label class="skier-speed">
               <select data-skier-speed aria-label="Speed">
                 <option value="0.8">Relaxed Rate</option>
@@ -222,8 +222,6 @@ export function mountArtikelSkier(root, options = {}) {
   const deckPctEl = root.querySelector("[data-skier-deck-pct]");
   const hintsBarEl = root.querySelector("[data-skier-hints-bar]");
   const deckBarEl = root.querySelector("[data-skier-deck-bar]");
-  const ledeEl = root.querySelector("[data-skier-lede]");
-  const hintsRowEl = root.querySelector("[data-skier-hints]");
   const courseBtns = [
     ...root.querySelectorAll("[data-skier-course]"),
   ];
@@ -241,6 +239,7 @@ export function mountArtikelSkier(root, options = {}) {
    *   prompt: string,
    *   trigger: string,
    *   noun: string,
+   *   lemma: string,
    *   case: string,
    *   parity: string,
    *   number: string,
@@ -280,16 +279,6 @@ export function mountArtikelSkier(root, options = {}) {
       const mode = btn.getAttribute("data-skier-course");
       btn.classList.toggle("is-active", mode === courseMode);
     }
-    if (ledeEl) {
-      ledeEl.textContent = isCasesCourse()
-        ? "Match the noun’s color to the gate. Case articles update on the poles. Steer or hop to start."
-        : "Ski through the correct gate. Steer or hop to start.";
-    }
-    if (hintsRowEl) {
-      hintsRowEl.innerHTML = isCasesCourse()
-        ? `<span class="is-masc">Match color / plural</span><span>Gates = case row</span><span class="is-neut">Def · Indef/Kein</span>`
-        : `<span class="is-masc">Blue = Der</span><span class="is-fem">Red = Die</span><span class="is-neut">Green = Das</span>`;
-    }
   }
 
   function setCourseMode(mode) {
@@ -319,7 +308,24 @@ export function mountArtikelSkier(root, options = {}) {
       caseTrial = null;
       return;
     }
-    caseTrial = buildCaseTrial(caseGovernors, noun);
+    const constructions = constructionsForNoun(caseGovernors, noun);
+    const pool = constructions.length ? constructions : caseGovernors;
+    /** @type {ReturnType<typeof buildCaseTrial>|null} */
+    let best = null;
+    const recentArts = recentCaseArticles.slice(-ANSWER_SPACING);
+    const recentSet = new Set(recentArts);
+    const lastArt = recentArts[recentArts.length - 1];
+    for (let i = 0; i < 10; i++) {
+      const trial = buildCaseTrial(pool, noun);
+      if (!best) best = trial;
+      const key = String(trial.correctArticle || "").toLowerCase();
+      if (key && !recentSet.has(key)) {
+        best = trial;
+        break;
+      }
+      if (key && key !== lastArt) best = trial;
+    }
+    caseTrial = best;
     restampUnpassedCaseGates();
   }
 
@@ -335,8 +341,10 @@ export function mountArtikelSkier(root, options = {}) {
       noun: trial.noun,
       tint: trial.tint || trial.gender || "masc",
       born: performance.now(),
-      ruleMs: 1100,
-      nounMs: 720,
+      ruleMs: 1500,
+      nounMs: 980,
+      /** One glow pulse on phrase + article at reveal. */
+      glowMs: 480,
     };
   }
 
@@ -351,6 +359,7 @@ export function mountArtikelSkier(root, options = {}) {
       prompt: `${caseTrial.trigger} ➔ ${caseTrial.noun}`,
       trigger: caseTrial.trigger,
       noun: caseTrial.noun,
+      lemma: caseTrial.lemma || caseTrial.noun,
       case: caseTrial.case,
       parity: caseTrial.parity,
       number: caseTrial.number,
@@ -464,8 +473,8 @@ export function mountArtikelSkier(root, options = {}) {
       return;
     }
     const dist = nextGate.y - player.y;
-    const fadeStart = 300;
-    const fadeEnd = 100;
+    const fadeStart = 380;
+    const fadeEnd = 90;
     if (dist <= fadeEnd) {
       clearCorrectFlash();
       return;
@@ -920,19 +929,68 @@ export function mountArtikelSkier(root, options = {}) {
 
   /** Pre-rolled next target (internal queue only — no HUD). */
   let upcomingWord = /** @type {object|null} */ (null);
+  /** Recent gate answers (der/die/das or masc/fem/neut) for spaced selection. */
+  let recentAnswers = /** @type {string[]} */ ([]);
+  /** Cases slope: recent declined articles (den/dem/…) for trial variety. */
+  let recentCaseArticles = /** @type {string[]} */ ([]);
+
+  function rememberAnswerKey(key, into = "answers") {
+    const k = String(key || "")
+      .trim()
+      .toLowerCase();
+    if (!k) return;
+    if (into === "case") {
+      recentCaseArticles.push(k);
+      if (recentCaseArticles.length > ANSWER_SPACING * 4) {
+        recentCaseArticles = recentCaseArticles.slice(-ANSWER_SPACING * 4);
+      }
+      return;
+    }
+    recentAnswers.push(k);
+    if (recentAnswers.length > ANSWER_SPACING * 4) {
+      recentAnswers = recentAnswers.slice(-ANSWER_SPACING * 4);
+    }
+  }
+
+  function pickOpts() {
+    return {
+      recentAnswers,
+      // Cases: space by gender lane; nouns: by nominative article.
+      answerKeyOf: isCasesCourse()
+        ? (w) =>
+            String(w?.gender || "")
+              .trim()
+              .toLowerCase()
+        : wordAnswerKey,
+    };
+  }
 
   function queueUpcomingWord() {
-    upcomingWord = pickClimberWord({ ...pools, current: player.targetWord });
+    upcomingWord = pickClimberWord(
+      { ...pools, current: player.targetWord },
+      Math.random,
+      pickOpts()
+    );
   }
 
   function getNextWord() {
     const next =
       upcomingWord && upcomingWord !== player.targetWord
         ? upcomingWord
-        : pickClimberWord({ ...pools, current: player.targetWord });
+        : pickClimberWord(
+            { ...pools, current: player.targetWord },
+            Math.random,
+            pickOpts()
+          );
     upcomingWord = null;
     noteWordInPlay(next);
     attachCaseTrial(next);
+    if (isCasesCourse()) {
+      rememberAnswerKey(caseTrial?.tint || caseTrial?.gender || next?.gender);
+      rememberAnswerKey(caseTrial?.correctArticle, "case");
+    } else {
+      rememberAnswerKey(wordAnswerKey(next));
+    }
     return next;
   }
 
@@ -982,8 +1040,9 @@ export function mountArtikelSkier(root, options = {}) {
 
   function applySpeedFromUi() {
     const scale = Number(speedEl?.value) || 1;
-    minSpeed = BASE_MIN_SPEED * scale;
-    maxSpeed = BASE_MAX_SPEED * scale;
+    const courseFactor = isCasesCourse() ? CASES_SPEED_FACTOR : 1;
+    minSpeed = BASE_MIN_SPEED * scale * courseFactor;
+    maxSpeed = BASE_MAX_SPEED * scale * courseFactor;
   }
 
   function resize() {
@@ -1360,6 +1419,8 @@ export function mountArtikelSkier(root, options = {}) {
     setProgressVisible(true);
     clearCorrectFlash();
     upcomingWord = null;
+    recentAnswers = [];
+    recentCaseArticles = [];
     player.targetWord = getNextWord();
     queueUpcomingWord();
     seedTrack();
@@ -1902,6 +1963,11 @@ export function mountArtikelSkier(root, options = {}) {
       document.documentElement.getAttribute("data-theme") || "light";
     const nounColor =
       theme === "dark" ? "rgba(148,163,184,1)" : "rgba(100,116,139,1)";
+    const glowMs = ghostText.glowMs || 0;
+    const glow =
+      glowMs > 0 && age < glowMs
+        ? Math.sin(Math.PI * (age / glowMs))
+        : 0;
 
     ctx.save();
     ctx.translate(cx, cy);
@@ -1918,9 +1984,17 @@ export function mountArtikelSkier(root, options = {}) {
     ctx.globalAlpha = ruleAlpha * 0.88;
     ctx.fillStyle = tint.solid;
     ctx.textAlign = "left";
+    if (glow > 0.02) {
+      ctx.shadowColor = tint.solid;
+      ctx.shadowBlur = 6 + glow * 22;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+    }
     ctx.fillText(ruleLeft, x0, 0);
     ctx.font = displayFont(900, 30);
     ctx.fillText(artUp, x0 + leftW, 0);
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = "transparent";
 
     ctx.globalAlpha = nounAlpha * 0.75;
     ctx.fillStyle = nounColor;

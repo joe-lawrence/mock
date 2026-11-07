@@ -8,6 +8,7 @@ import {
   vocabularyForTopic,
 } from "./generated/vocabulary.js";
 import { factsForItem } from "./vocabulary-practice.js";
+import { snowNomenPlayableNounIds } from "./artikel-skier-case-content.js";
 
 const GENDER_SHORT = Object.freeze({
   masculine: "masc",
@@ -105,26 +106,36 @@ export function climberWordsFromIds(ids) {
 }
 
 /**
- * Curated Case-topic nouns for Snow-Nomen Cases slope.
- * Includes `caseGoverns` from vocab (`acc` / `dat`) so triggers can match the lesson.
- * @returns {{ word: string, article: string, gender: "masc"|"fem"|"neut", vocabId: string, caseGoverns: ("acc"|"dat")[] }[]}
+ * Case-curriculum nouns for Snow-Nomen Cases slope.
+ * Only nouns that appear in the construction compatibility whitelist.
+ * Gender/article come from the canonical lexicon-backed vocab record —
+ * never hardcoded. Noun `governs` is curriculum intro metadata only and
+ * must not drive case selection (that comes from the construction).
+ * @returns {{
+ *   word: string,
+ *   article: string,
+ *   gender: "masc"|"fem"|"neut",
+ *   vocabId: string,
+ *   plural: string|null,
+ * }[]}
  */
 export function caseSkiNounsFromVocab() {
   const out = [];
-  const seen = new Set();
-  for (const item of vocabularyForTopic("case")) {
-    if (!item || item.type !== "noun" || !item.id || seen.has(item.id)) continue;
+  const playable = new Set(snowNomenPlayableNounIds());
+  for (const id of playable) {
+    const item = getVocabulary(id);
+    if (!item || item.type !== "noun" || item.topic !== "case") continue;
     const word = climberWordFromItem(item);
     if (!word) continue;
-    const caseGoverns = (Array.isArray(item.governs) ? item.governs : [])
-      .map((g) => String(g || "").toLowerCase())
-      .filter((g) => g === "accusative" || g === "dative")
-      .map((g) => (g === "dative" ? "dat" : "acc"));
-    seen.add(item.id);
+    const facts = factsForItem(item);
+    const pluralRaw = facts.plural ? String(facts.plural).trim() : "";
+    const plural =
+      pluralRaw && pluralRaw !== word.word ? pluralRaw : null;
     out.push({
       ...word,
-      caseGoverns: caseGoverns.length ? caseGoverns : ["acc"],
+      plural,
     });
   }
+  out.sort((a, b) => a.word.localeCompare(b.word, "de"));
   return out;
 }

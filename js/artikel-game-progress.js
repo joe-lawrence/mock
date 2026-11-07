@@ -26,10 +26,28 @@ function pct(num, den) {
 }
 
 /**
+ * Laplace-smoothed miss rate for “needs review / least certain” ranking.
+ * Prioritizes practice order under sparse evidence — not a pure weakness rank.
+ * 0/1 → 0.33, 1/1 → 0.67, 5/5 → 0.86, 0/5 → 0.14
+ * @param {number} wrong
+ * @param {number} attempts
+ */
+export function smoothedMissRate(wrong, attempts) {
+  const w = Math.max(0, Number(wrong) || 0);
+  const n = Math.max(0, Number(attempts) || 0);
+  return (w + 1) / (n + 2);
+}
+
+/**
  * Deck progress = introduced / deck.
  * Hint dependence (HUD) = introduced still showing hints / deck.
  * Graduation rate = graduated / introduced.
  * Introduced = active ∪ graduated (never unseen). Entered play = seen as target.
+ *
+ * Hint splits:
+ * - introducedHintedNotPlayed = in active∪graduated with hint, never a ski target
+ * - introducedHintedPlayed = hinted and actually served as target
+ * - hintAmongPlayed = hinted among entered-play / entered-play
  *
  * @param {{
  *   words: object[],
@@ -44,11 +62,19 @@ export function progressSnapshot({ words, pools, seenByKey }) {
   const graduated = pools.graduatedPool.length;
   const introducedList = [...pools.activePool, ...pools.graduatedPool];
   const introduced = introducedList.length;
-  const introducedHinted = introducedList.filter(
+  const introducedHintedList = introducedList.filter(
     (w) => w.showHint !== false
-  ).length;
+  );
+  const introducedHinted = introducedHintedList.length;
   const enteredPlayList = [...seenByKey.values()];
   const enteredPlay = enteredPlayList.length;
+  const introducedHintedPlayed = introducedHintedList.filter((w) =>
+    seenByKey.has(wordKey(w))
+  ).length;
+  const introducedHintedNotPlayed = introducedHinted - introducedHintedPlayed;
+  const playedHinted = enteredPlayList.filter(
+    (w) => w.showHint !== false
+  ).length;
   const activeNotPlayed = pools.activePool.filter(
     (w) => !seenByKey.has(wordKey(w))
   );
@@ -77,6 +103,7 @@ export function progressSnapshot({ words, pools, seenByKey }) {
   const deckProgressPct = pct(introduced, deckTotal);
   const hintDependencePct = pct(introducedHinted, deckTotal);
   const hintAmongIntroducedPct = pct(introducedHinted, introduced);
+  const hintAmongPlayedPct = pct(playedHinted, enteredPlay);
   const graduationRatePct = pct(graduated, introduced);
 
   return {
@@ -86,11 +113,15 @@ export function progressSnapshot({ words, pools, seenByKey }) {
     graduated,
     introduced,
     introducedHinted,
+    introducedHintedPlayed,
+    introducedHintedNotPlayed,
+    playedHinted,
     enteredPlay,
     activeNotPlayed,
     deckProgressPct,
     hintDependencePct,
     hintAmongIntroducedPct,
+    hintAmongPlayedPct,
     graduationRatePct,
     flags,
     // HUD aliases (same denominators as above)
@@ -164,10 +195,12 @@ export function buildGameReport({
   const playedRows = rows.filter(
     (r) => r.enteredPlay && r.correct + r.wrong > 0
   );
+  // Keep payload key weakestPlayed for audit compatibility; label is “Needs review”.
   const weakestPlayed = [...playedRows]
     .map((r) => {
       const attempts = r.correct + r.wrong;
       const accuracy = r.correct / attempts;
+      const missSmooth = smoothedMissRate(r.wrong, attempts);
       return {
         word: r.word,
         article: r.article,
@@ -176,26 +209,29 @@ export function buildGameReport({
         attempts,
         accuracyPct: Math.round(accuracy * 100),
         missPct: Math.round((1 - accuracy) * 100),
+        missScore: Math.round(missSmooth * 1000) / 1000,
       };
     })
     .sort((a, b) => {
-      if (b.missPct !== a.missPct) return b.missPct - a.missPct;
+      // Uncertainty-aware practice order: smoothed miss, then raw errors, then n.
+      if (b.missScore !== a.missScore) return b.missScore - a.missScore;
       if (b.wrong !== a.wrong) return b.wrong - a.wrong;
-      if (a.correct !== b.correct) return a.correct - b.correct;
+      if (b.attempts !== a.attempts) return b.attempts - a.attempts;
       return a.word.localeCompare(b.word, "de");
     })
     .slice(0, 5);
 
-  const weakestLines =
+  const needsReviewLines =
     weakestPlayed.length > 0
       ? [
-          "Weakest words",
+          "Needs review (least certain — not pure weakness)",
+          "Order: Laplace (wrong+1)/(n+2); show errors and sample size",
           ...weakestPlayed.map(
             (w, i) =>
-              `${i + 1}. ${w.article} ${w.word} — ${w.correct}✓ · ${w.wrong}✗ (${w.accuracyPct}%)`
+              `${i + 1}. ${w.article} ${w.word} — ${w.wrong} errors · n=${w.attempts} (${w.correct}✓/${w.wrong}✗) · score ${w.missScore}`
           ),
         ]
-      : ["Weakest words", "— none played —"];
+      : ["Needs review", "— none played —"];
 
   const payload = {
     game: gameId,
@@ -210,9 +246,18 @@ export function buildGameReport({
       introduced: "active ∪ graduated",
       enteredPlay: `Appeared at least once as the ${targetLabel}`,
       deckProgress: "introduced / deckTotal",
-      hintDependence: "introduced with showHint / deckTotal (HUD)",
+      hintDependence:
+        "introduced with showHint / deckTotal (HUD; includes not-yet-played)",
       hintAmongIntroduced: "introduced with showHint / introduced",
+      hintAmongPlayed:
+        "entered-play still showing hint / entered-play (actual target exposure)",
+      introducedHintedNotPlayed:
+        "introduced + hint, but never served as a ski/climber target",
       graduationRate: "graduated / introduced",
+      needsReviewRanking:
+        "Least certain for more practice: Laplace (wrong+1)/(attempts+2). Not a pure demonstrated-weakness rank — sparse evidence ranks above strong performance with few tries.",
+      weakestRanking:
+        "Alias of needsReviewRanking (legacy key)",
     },
     summary: {
       deckTotal: snap.deckTotal,
@@ -230,11 +275,20 @@ export function buildGameReport({
       hintDependence: {
         count: `${snap.introducedHinted}/${snap.deckTotal}`,
         pct: snap.hintDependencePct,
-        note: "Full-deck denominator; hidden hints ≠ mastered gender",
+        note: "Includes introduced-but-not-played; see hintAmongPlayed for exposure",
       },
       hintAmongIntroduced: {
         count: `${snap.introducedHinted}/${snap.introduced || 0}`,
         pct: snap.hintAmongIntroducedPct,
+      },
+      hintAmongPlayed: {
+        count: `${snap.playedHinted}/${snap.enteredPlay || 0}`,
+        pct: snap.hintAmongPlayedPct,
+        note: "Only words that were actual ski/climber targets",
+      },
+      introducedHintedSplit: {
+        played: snap.introducedHintedPlayed,
+        notPlayed: snap.introducedHintedNotPlayed,
       },
       graduationRate: {
         count: `${snap.graduated}/${snap.introduced || 0}`,
@@ -263,14 +317,16 @@ export function buildGameReport({
   const textLines = [
     `${gameTitle} — Punktzahl ${score}`,
     "",
-    ...weakestLines,
+    ...needsReviewLines,
     "",
     "Pools (mutually exclusive; should sum to deck)",
     `Unseen ${snap.unseen} · Active ${snap.active} · Graduated ${snap.graduated} · sum ${snap.unseen + snap.active + snap.graduated} / deck ${snap.deckTotal}`,
     "",
     `Deck progress ${snap.deckProgressPct ?? "—"}% (${snap.introduced}/${snap.deckTotal}) = introduced/deck`,
-    `Hint dependence ${snap.hintDependencePct ?? "—"}% (${snap.introducedHinted}/${snap.deckTotal}) = introduced+hint/deck`,
+    `Hint dependence ${snap.hintDependencePct ?? "—"}% (${snap.introducedHinted}/${snap.deckTotal}) = introduced+hint/deck (incl. not-yet-played)`,
     `Hint among introduced ${snap.hintAmongIntroducedPct ?? "—"}% (${snap.introducedHinted}/${snap.introduced || 0})`,
+    `Hint among played ${snap.hintAmongPlayedPct ?? "—"}% (${snap.playedHinted}/${snap.enteredPlay || 0}) = hinted targets / targets`,
+    `Hinted introduced — played ${snap.introducedHintedPlayed} · not yet played ${snap.introducedHintedNotPlayed}`,
     `Graduation rate ${snap.graduationRatePct ?? "—"}% (${snap.graduated}/${snap.introduced || 0}) = graduated/introduced`,
     `Entered play (as ${targetLabel}) ${snap.enteredPlay}/${snap.deckTotal}`,
     "Note: Graduation = current streak threshold, not durable mastery. Post-grad reviews tracked separately.",

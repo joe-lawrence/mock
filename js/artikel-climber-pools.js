@@ -1,9 +1,26 @@
 /**
- * Pure spaced-repetition helpers for Artikel Climber (testable without canvas).
+ * Pure spaced-repetition helpers for Artikel Climber / Snow-Nomen (testable without canvas).
  */
 
 export const ACTIVE_SIZE = 5;
 export const TARGET_STREAK = 3;
+
+/** Prefer not reusing an answer key that appeared in this many recent targets. */
+export const ANSWER_SPACING = 3;
+
+/**
+ * Gate / article answer identity for spacing (der|die|das or masc|fem|neut).
+ * @param {{ article?: string, gender?: string }|null|undefined} word
+ */
+export function wordAnswerKey(word) {
+  const article = String(word?.article || "")
+    .trim()
+    .toLowerCase();
+  if (article) return article;
+  return String(word?.gender || "")
+    .trim()
+    .toLowerCase();
+}
 
 /**
  * @param {object[]} vocab — mutable word objects (streak fields attached in place)
@@ -36,22 +53,65 @@ export function initClimberPools(vocab) {
 }
 
 /**
+ * Prefer candidates whose answer key is outside the recent window, then
+ * at least different from the last answer, then any candidate.
+ * @param {object[]} candidates
+ * @param {string[]} recentAnswers
+ * @param {(w: object) => string} keyOf
+ */
+export function preferSpacedAnswers(
+  candidates,
+  recentAnswers,
+  keyOf = wordAnswerKey
+) {
+  if (!candidates?.length) return [];
+  const recent = Array.isArray(recentAnswers) ? recentAnswers : [];
+  const window = recent.slice(-ANSWER_SPACING);
+  const windowSet = new Set(window.filter(Boolean));
+  if (windowSet.size) {
+    const fresh = candidates.filter((w) => !windowSet.has(keyOf(w)));
+    if (fresh.length) return fresh;
+  }
+  const last = window[window.length - 1];
+  if (last) {
+    const changed = candidates.filter((w) => keyOf(w) !== last);
+    if (changed.length) return changed;
+  }
+  return candidates;
+}
+
+/**
  * @param {{ unseenPool: object[], activePool: object[], graduatedPool: object[], current?: object|null }} pools
  * @param {() => number} [random]
+ * @param {{
+ *   recentAnswers?: string[],
+ *   answerKeyOf?: (w: object) => string,
+ * }} [opts]
  */
-export function pickClimberWord(pools, random = Math.random) {
+export function pickClimberWord(pools, random = Math.random, opts = {}) {
   const { unseenPool, activePool, graduatedPool, current } = pools;
+  const recentAnswers = opts.recentAnswers || [];
+  const keyOf = opts.answerKeyOf || wordAnswerKey;
+
+  const choose = (list) => {
+    const spaced = preferSpacedAnswers(list, recentAnswers, keyOf);
+    const pool = spaced.length ? spaced : list;
+    if (!pool.length) return null;
+    return pool[Math.floor(random() * pool.length)];
+  };
+
   if (!activePool.length && !unseenPool.length) {
     if (!graduatedPool.length) return null;
-    return graduatedPool[Math.floor(random() * graduatedPool.length)];
+    return choose(graduatedPool);
   }
   if (graduatedPool.length > 0 && random() < 0.15) {
-    return graduatedPool[Math.floor(random() * graduatedPool.length)];
+    const fromGrad = choose(graduatedPool);
+    if (fromGrad) return fromGrad;
   }
   let candidates = activePool.filter((w) => w !== current);
   if (!candidates.length) candidates = activePool;
   if (!candidates.length) return null;
-  return candidates[Math.floor(random() * candidates.length)];
+  return choose(candidates);
 }
 
 /**

@@ -4,6 +4,7 @@ import {
   buildGameReport,
   poolOf,
   progressSnapshot,
+  smoothedMissRate,
   wordKey,
 } from "./artikel-game-progress.js";
 import {
@@ -35,6 +36,91 @@ describe("artikel-game-progress", () => {
     assert.equal(snap.enteredPlay, 1);
     assert.ok(snap.introducedHinted >= 1);
     assert.equal(poolOf(first, pools), "active");
+    assert.equal(
+      snap.introducedHintedPlayed + snap.introducedHintedNotPlayed,
+      snap.introducedHinted
+    );
+    assert.ok(snap.introducedHintedPlayed >= 1);
+    assert.ok(typeof snap.hintAmongPlayedPct === "number" || snap.hintAmongPlayedPct === null);
+  });
+
+  it("smoothedMissRate down-ranks tiny samples vs larger ones", () => {
+    assert.ok(smoothedMissRate(1, 1) < smoothedMissRate(4, 5));
+    assert.ok(smoothedMissRate(0, 1) > smoothedMissRate(0, 5));
+  });
+
+  it("needs-review ranking prefers consistent misses over a single miss", () => {
+    const words = [
+      word("A"),
+      word("B", "fem", "die"),
+      word("C", "neut", "das"),
+      word("D"),
+      word("E", "fem", "die"),
+    ];
+    const pools = initClimberPools(words.map((w) => ({ ...w, correct: 0, wrong: 0 })));
+    const seenByKey = new Map();
+    const once = pools.activePool[0];
+    const often = pools.activePool[1];
+    once.wrong = 1;
+    once.correct = 0;
+    often.wrong = 4;
+    often.correct = 1;
+    seenByKey.set(wordKey(once), once);
+    seenByKey.set(wordKey(often), often);
+    const report = buildGameReport({
+      gameId: "snow-nomen",
+      gameTitle: "Snow-Nomen",
+      score: 1,
+      speed: 1,
+      words,
+      pools,
+      seenByKey,
+    });
+    assert.equal(report.payload.weakestPlayed[0].word, often.word);
+    assert.match(report.text, /Needs review \(least certain/);
+    assert.match(
+      report.text,
+      new RegExp(`${often.wrong} errors · n=${often.correct + often.wrong}`)
+    );
+    assert.match(report.payload.definitions.needsReviewRanking, /Not a pure/);
+    assert.match(report.text, /Hint among played/);
+    assert.match(report.text, /not yet played/);
+  });
+
+  it("needs-review lines put errors and n ahead of smoothed score", () => {
+    const words = [word("Ball"), word("Hemd", "neut", "das"), word("Kleid", "neut", "das")];
+    const pools = initClimberPools(words.map((w) => ({ ...w, correct: 0, wrong: 0 })));
+    const seenByKey = new Map();
+    for (const w of pools.activePool) {
+      if (w.word === "Ball") {
+        w.correct = 1;
+        w.wrong = 0;
+      } else if (w.word === "Hemd") {
+        w.correct = 1;
+        w.wrong = 0;
+      } else if (w.word === "Kleid") {
+        w.correct = 7;
+        w.wrong = 2;
+      }
+      seenByKey.set(wordKey(w), w);
+    }
+    const report = buildGameReport({
+      gameId: "snow-nomen",
+      gameTitle: "Snow-Nomen",
+      score: 0,
+      speed: 1,
+      words,
+      pools,
+      seenByKey,
+    });
+    const lines = report.text.split("\n");
+    const review = lines.filter((l) => /^\d+\. /.test(l));
+    assert.equal(review.length, 3);
+    // Sparse perfect trials outrank well-evidenced mild misses on score — label must not say “weakest”.
+    assert.match(review[0], /0 errors · n=1/);
+    assert.match(review[0], /score 0\.333/);
+    assert.match(review.find((l) => /Kleid/.test(l)), /2 errors · n=9/);
+    assert.doesNotMatch(report.text, /Weakest words/);
   });
 
   it("buildGameReport grades misses and graduation like Wort-Hüpfer", () => {
