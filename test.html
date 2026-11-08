@@ -34,7 +34,7 @@
             position: absolute;
             transform-origin: center center;
             will-change: transform;
-            pointer-events: none; /* Let touches pass through to the overlay */
+            pointer-events: none;
         }
 
         #touch-overlay {
@@ -125,7 +125,7 @@
         let vs = 0;
 
         let deadzone = 2.0; 
-        const panSpeed = 0.5;
+        const panSpeed = 0.6;
         const zoomSpeed = 0.005;
         const FRICTION = 0.82; 
         const MIN_SCALE = 1.0; 
@@ -151,13 +151,14 @@
             deadzoneVal.innerText = `${deadzone.toFixed(1)}°`;
         });
 
+        // ENFORCE ASPECT RATIO AND NO-BLANK-SPACE SIZING
         function calculateBaseSize() {
             if (!img.complete || img.naturalWidth === 0) return;
             
             const imgRatio = img.naturalWidth / img.naturalHeight;
             const screenRatio = window.innerWidth / window.innerHeight;
             
-            // Calculate dimensions so the image completely covers the screen at scale 1.0 (object-fit: cover logic)
+            // This strictly mimics 'object-fit: cover' to ensure the screen is always filled at scale 1.0
             if (imgRatio > screenRatio) {
                 baseH = window.innerHeight;
                 baseW = baseH * imgRatio;
@@ -185,6 +186,17 @@
                 modeIndicator.innerHTML = '👁️ PAN MODE';
                 modeIndicator.className = 'bg-emerald-500/20 border border-emerald-500 text-emerald-400 font-bold px-4 py-2 rounded-full backdrop-blur shadow-lg shadow-emerald-900/20 transition-colors duration-200';
                 instructionText.innerText = 'Press & hold to Zoom';
+
+                // RECALIBRATE ON RELEASE: Reset zero-point to wherever the phone is currently resting
+                if (curBeta !== null && curGamma !== null) {
+                    baseBeta = curBeta;
+                    baseGamma = curGamma;
+                }
+                
+                // Kill lingering momentum to prevent sudden jumps
+                vx = 0;
+                vy = 0;
+                vs = 0;
             }
         }
 
@@ -215,6 +227,7 @@
                 let dBeta = curBeta - baseBeta;
                 let dGamma = curGamma - baseGamma;
 
+                // Handle gimbal lock wrap-arounds
                 if (dBeta > 180) dBeta -= 360;
                 if (dBeta < -180) dBeta += 360;
                 if (dGamma > 90) dGamma -= 180;
@@ -230,14 +243,14 @@
                     activeGamma = dGamma > 0 ? dGamma - deadzone : dGamma + deadzone;
                 }
 
-                // --- THE TOGGLE FIX ---
                 if (isHolding) {
-                    // Zoom Mode: Beta only. Gamma (left/right) is ignored.
+                    // Zoom Mode: Beta only. 
                     vs += -activeBeta * zoomSpeed;
                 } else {
-                    // Pan Mode: Left/Right and Up/Down pan.
-                    vx += -activeGamma * panSpeed;
-                    vy += -activeBeta * panSpeed;
+                    // Pan Mode: Normalize pan speed by dividing by current scale 
+                    // (So panning at 3x zoom feels exactly as smooth as panning at 1x zoom)
+                    vx += (-activeGamma * panSpeed) / scale;
+                    vy += (-activeBeta * panSpeed) / scale;
                 }
             }
 
@@ -245,10 +258,12 @@
             y += vy;
             scale += vs;
 
+            // Apply friction damping
             vx *= FRICTION;
             vy *= FRICTION;
             vs *= FRICTION;
 
+            // ENFORCE BOUNDARIES & NO BLANK SPACE
             scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
 
             const maxPanX = Math.max(0, (baseW * scale - window.innerWidth) / 2);
@@ -302,8 +317,11 @@
         }
 
         function recalibrate() {
-            baseBeta = null;
-            baseGamma = null;
+            baseBeta = curBeta;
+            baseGamma = curGamma;
+            
+            vx = 0; vy = 0; vs = 0;
+            
             recalibrateBtn.classList.add('bg-indigo-400');
             setTimeout(() => recalibrateBtn.classList.remove('bg-indigo-400'), 200);
         }
