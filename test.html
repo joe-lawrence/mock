@@ -167,11 +167,15 @@
         let panSensitivity = 1.0;
         let zoomSensitivity = 1.0;
 
-        // Image & Touch Data
+        // Touch & Gesture Lock Data
         let baseW = 0;
         let baseH = 0;
         let holdX = window.innerWidth / 2;
         let holdY = window.innerHeight / 2;
+        
+        let activeGesture = null; // 'none', 'pan', or 'zoom'
+        let touchStartX = 0;
+        let touchStartY = 0;
         let lastTouchX = null;
         let lastTouchY = null;
 
@@ -201,7 +205,7 @@
             modeSwipeBtn.className = 'flex-1 py-2 text-sm font-bold bg-indigo-600 text-white rounded-md shadow transition-colors';
             modeTiltBtn.className = 'flex-1 py-2 text-sm font-medium text-slate-400 hover:text-slate-200 rounded-md transition-colors';
             panSensitivityContainer.style.opacity = '0.4';
-            panSensitivityContainer.style.pointerEvents = 'none'; // Swipe is 1:1, so tilt sensitivity doesn't apply
+            panSensitivityContainer.style.pointerEvents = 'none'; 
         });
 
         // Wiring Up Sliders
@@ -234,16 +238,20 @@
         img.onload = calculateBaseSize;
         window.addEventListener('resize', calculateBaseSize);
 
-        // TOUCH HANDLING
+        // MUTUALLY EXCLUSIVE TOUCH HANDLING
         function handleTouchStart(e, clientX, clientY) {
             isHolding = true;
+            activeGesture = 'none'; 
+            
             holdX = clientX;
             holdY = clientY;
+            touchStartX = clientX;
+            touchStartY = clientY;
             lastTouchX = clientX;
             lastTouchY = clientY;
 
             if (panMode === 'swipe') {
-                modeIndicator.innerHTML = '👆 SWIPE & TILT';
+                modeIndicator.innerHTML = '👆 TOUCHED';
                 instructionText.innerText = 'Drag to Pan / Tilt to Zoom';
             } else {
                 modeIndicator.innerHTML = '🔍 ZOOM MODE';
@@ -254,21 +262,31 @@
 
         function handleTouchMove(e, clientX, clientY) {
             if (isHolding && panMode === 'swipe') {
-                const dx = clientX - lastTouchX;
-                const dy = clientY - lastTouchY;
                 
-                // Directly drag the image
-                x += dx;
-                y += dy;
-                
-                // Kill momentum so it doesn't drift
-                vx = 0;
-                vy = 0;
+                // If we haven't locked in a gesture yet, check distance to see if it's a swipe
+                if (activeGesture === 'none') {
+                    const dist = Math.hypot(clientX - touchStartX, clientY - touchStartY);
+                    if (dist > 10) { 
+                        activeGesture = 'pan'; // Lock into panning
+                        modeIndicator.innerHTML = '👆 SWIPING';
+                        instructionText.innerText = 'Release to reset';
+                    }
+                }
+
+                // Only execute pan logic if the gesture locked to 'pan'
+                if (activeGesture === 'pan') {
+                    const dx = clientX - lastTouchX;
+                    const dy = clientY - lastTouchY;
+                    
+                    x += dx;
+                    y += dy;
+                    
+                    vx = 0;
+                    vy = 0;
+                }
 
                 lastTouchX = clientX;
                 lastTouchY = clientY;
-                
-                // Dynamically update the zoom epicenter if they are tilting while dragging
                 holdX = clientX;
                 holdY = clientY;
             }
@@ -276,6 +294,7 @@
 
         function handleTouchEnd() {
             isHolding = false;
+            activeGesture = null;
             lastTouchX = null;
             lastTouchY = null;
 
@@ -283,7 +302,6 @@
             modeIndicator.className = 'bg-emerald-500/20 border border-emerald-500 text-emerald-400 font-bold px-4 py-2 rounded-full backdrop-blur shadow-lg shadow-emerald-900/20 transition-colors duration-200';
             instructionText.innerText = panMode === 'swipe' ? 'Touch & Drag to Pan' : 'Press & hold to Zoom';
 
-            // Recalibrate tilt base on release to prevent sudden jumping
             if (curBeta !== null && curGamma !== null) {
                 baseBeta = curBeta;
                 baseGamma = curGamma;
@@ -291,12 +309,10 @@
             vx = 0; vy = 0; vs = 0;
         }
 
-        // Touch Listeners
         overlay.addEventListener('touchstart', (e) => { e.preventDefault(); handleTouchStart(e, e.touches[0].clientX, e.touches[0].clientY); });
         overlay.addEventListener('touchmove', (e) => { e.preventDefault(); handleTouchMove(e, e.touches[0].clientX, e.touches[0].clientY); });
         overlay.addEventListener('touchend', (e) => { e.preventDefault(); handleTouchEnd(); });
         
-        // Mouse Listeners (for desktop testing)
         overlay.addEventListener('mousedown', (e) => { handleTouchStart(e, e.clientX, e.clientY); });
         overlay.addEventListener('mousemove', (e) => { handleTouchMove(e, e.clientX, e.clientY); });
         overlay.addEventListener('mouseup', () => { handleTouchEnd(); });
@@ -341,30 +357,40 @@
                 }
 
                 if (isHolding) {
-                    // Zooming is active in both modes when holding
-                    vs += -activeBeta * (BASE_ZOOM_SPEED * zoomSensitivity);
+                    if (panMode === 'swipe') {
+                        // If they tilt the phone BEFORE dragging 10 pixels, lock into zoom
+                        if (activeGesture === 'none' && Math.abs(activeBeta) > 0) {
+                            activeGesture = 'zoom';
+                            modeIndicator.innerHTML = '🔍 ZOOMING';
+                            instructionText.innerText = 'Release to reset';
+                        }
+
+                        // Only zoom if we haven't locked into a swipe pan
+                        if (activeGesture === 'zoom' || activeGesture === 'none') {
+                            vs += -activeBeta * (BASE_ZOOM_SPEED * zoomSensitivity);
+                        }
+                    } else {
+                        // Standard tilt mode zoom
+                        vs += -activeBeta * (BASE_ZOOM_SPEED * zoomSensitivity);
+                    }
                 } else if (panMode === 'tilt') {
-                    // Tilt panning is ONLY active if not holding AND in tilt mode
+                    // Standard tilt mode pan
                     vx += (-activeGamma * (BASE_PAN_SPEED * panSensitivity)) / scale;
                     vy += (-activeBeta * (BASE_PAN_SPEED * panSensitivity)) / scale;
                 }
             }
 
-            // Apply friction
             vx *= FRICTION;
             vy *= FRICTION;
             vs *= FRICTION;
 
-            // CALCULATE ZOOM-TO-POINT TRANSLATION
             let oldScale = scale;
             scale += vs;
             
             const dynamicMinScale = Math.max(1.0, ww / baseW, wh / baseH);
             scale = Math.max(dynamicMinScale, Math.min(MAX_SCALE, scale));
-
             const scaleRatio = scale / oldScale;
 
-            // Shift X/Y to keep the image pinned under the zoom epicenter
             if (scaleRatio !== 1) {
                 const offsetX = holdX - (ww / 2);
                 const offsetY = holdY - (wh / 2);
@@ -372,11 +398,9 @@
                 y = y * scaleRatio + offsetY * (1 - scaleRatio);
             }
 
-            // Add standard pan momentum
             x += vx;
             y += vy;
 
-            // BOUNDARY CLAMPING
             const maxPanX = Math.max(0, (baseW * scale - ww) / 2);
             const maxPanY = Math.max(0, (baseH * scale - wh) / 2);
 
@@ -413,7 +437,6 @@
             setupScreen.classList.add('hidden');
             gameScreen.classList.remove('hidden');
             
-            // Set initial instruction text based on mode
             instructionText.innerText = panMode === 'swipe' ? 'Touch & Drag to Pan' : 'Press & hold to Zoom';
 
             calculateBaseSize();
