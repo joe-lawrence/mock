@@ -15,7 +15,7 @@
             background-color: #0f172a;
             color: #f8fafc;
             font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            touch-action: none; /* Prevent browser pull-to-refresh and scrolling */
+            touch-action: none; /* Prevent browser pull-to-refresh */
             user-select: none;
             -webkit-user-select: none;
         }
@@ -35,6 +35,10 @@
             transform-origin: center center;
             will-change: transform;
             pointer-events: none;
+            
+            /* CRITICAL FIX: Overrides Tailwind's default image crunching */
+            max-width: none !important;
+            max-height: none !important;
         }
 
         #touch-overlay {
@@ -58,7 +62,7 @@
 
     <!-- SETTINGS / START SCREEN -->
     <div id="setup-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-900 p-6">
-        <h1 class="text-3xl font-bold mb-2 text-indigo-400">Gyro Camera Prototype</h1>
+        <h1 class="text-3xl font-bold mb-2 text-indigo-400">Gyro Camera</h1>
         <p class="text-slate-400 mb-8 text-center max-w-md">Find your comfortable resting position, then hit start. The camera will use that exact angle as your "zero" point.</p>
         
         <div class="w-full max-w-sm space-y-6 bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl">
@@ -128,7 +132,6 @@
         const panSpeed = 0.6;
         const zoomSpeed = 0.005;
         const FRICTION = 0.82; 
-        const MIN_SCALE = 1.0; 
         const MAX_SCALE = 4.0; 
 
         let baseW = 0;
@@ -151,21 +154,19 @@
             deadzoneVal.innerText = `${deadzone.toFixed(1)}°`;
         });
 
-        // ENFORCE ASPECT RATIO AND NO-BLANK-SPACE SIZING
+        // 1. GUARANTEE PERFECT ASPECT RATIO ("object-fit: cover" math)
         function calculateBaseSize() {
-            if (!img.complete || img.naturalWidth === 0) return;
-            
-            const imgRatio = img.naturalWidth / img.naturalHeight;
-            const screenRatio = window.innerWidth / window.innerHeight;
-            
-            // This strictly mimics 'object-fit: cover' to ensure the screen is always filled at scale 1.0
-            if (imgRatio > screenRatio) {
-                baseH = window.innerHeight;
-                baseW = baseH * imgRatio;
-            } else {
-                baseW = window.innerWidth;
-                baseH = baseW / imgRatio;
+            if (!img.complete || img.naturalWidth === 0) {
+                // If image hasn't loaded yet, try again in 50ms
+                setTimeout(calculateBaseSize, 50);
+                return;
             }
+            
+            // Calculate scale required to cover the screen entirely
+            const scaleFit = Math.max(window.innerWidth / img.naturalWidth, window.innerHeight / img.naturalHeight);
+            
+            baseW = img.naturalWidth * scaleFit;
+            baseH = img.naturalHeight * scaleFit;
 
             img.style.width = `${baseW}px`;
             img.style.height = `${baseH}px`;
@@ -187,16 +188,12 @@
                 modeIndicator.className = 'bg-emerald-500/20 border border-emerald-500 text-emerald-400 font-bold px-4 py-2 rounded-full backdrop-blur shadow-lg shadow-emerald-900/20 transition-colors duration-200';
                 instructionText.innerText = 'Press & hold to Zoom';
 
-                // RECALIBRATE ON RELEASE: Reset zero-point to wherever the phone is currently resting
+                // 2. RECALIBRATE ON RELEASE: Prevents jumping when you finish zooming
                 if (curBeta !== null && curGamma !== null) {
                     baseBeta = curBeta;
                     baseGamma = curGamma;
                 }
-                
-                // Kill lingering momentum to prevent sudden jumps
-                vx = 0;
-                vy = 0;
-                vs = 0;
+                vx = 0; vy = 0; vs = 0;
             }
         }
 
@@ -223,11 +220,15 @@
         function gameLoop() {
             if (!isRunning) return;
 
+            // Live window dimensions (handles mobile URL bar hiding)
+            const ww = window.innerWidth;
+            const wh = window.innerHeight;
+
             if (baseBeta !== null && curBeta !== null) {
                 let dBeta = curBeta - baseBeta;
                 let dGamma = curGamma - baseGamma;
 
-                // Handle gimbal lock wrap-arounds
+                // Handle Gimbal Lock wrap-arounds
                 if (dBeta > 180) dBeta -= 360;
                 if (dBeta < -180) dBeta += 360;
                 if (dGamma > 90) dGamma -= 180;
@@ -244,11 +245,10 @@
                 }
 
                 if (isHolding) {
-                    // Zoom Mode: Beta only. 
+                    // Zoom Mode: Tilt forward/back to zoom. Ignored left/right.
                     vs += -activeBeta * zoomSpeed;
                 } else {
-                    // Pan Mode: Normalize pan speed by dividing by current scale 
-                    // (So panning at 3x zoom feels exactly as smooth as panning at 1x zoom)
+                    // 3. NORMALIZED PAN SENSITIVITY: Division by scale keeps speed feeling constant
                     vx += (-activeGamma * panSpeed) / scale;
                     vy += (-activeBeta * panSpeed) / scale;
                 }
@@ -263,18 +263,24 @@
             vy *= FRICTION;
             vs *= FRICTION;
 
-            // ENFORCE BOUNDARIES & NO BLANK SPACE
-            scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
+            // 4. DYNAMIC BOUNDARIES & NO BLANK SPACE
+            // Ensure minimum scale always covers screen, even if URL bar disappears
+            const minScaleW = ww / baseW;
+            const minScaleH = wh / baseH;
+            const dynamicMinScale = Math.max(1.0, minScaleW, minScaleH);
+            
+            scale = Math.max(dynamicMinScale, Math.min(MAX_SCALE, scale));
 
-            const maxPanX = Math.max(0, (baseW * scale - window.innerWidth) / 2);
-            const maxPanY = Math.max(0, (baseH * scale - window.innerHeight) / 2);
+            const maxPanX = Math.max(0, (baseW * scale - ww) / 2);
+            const maxPanY = Math.max(0, (baseH * scale - wh) / 2);
 
             x = Math.max(-maxPanX, Math.min(maxPanX, x));
             y = Math.max(-maxPanY, Math.min(maxPanY, y));
 
+            // Kill velocity upon hitting edges
             if (x === maxPanX || x === -maxPanX) vx = 0;
             if (y === maxPanY || y === -maxPanY) vy = 0;
-            if (scale === MIN_SCALE || scale === MAX_SCALE) vs = 0;
+            if (scale === dynamicMinScale || scale === MAX_SCALE) vs = 0;
 
             updateTransform();
             requestAnimationFrame(gameLoop);
