@@ -39,15 +39,13 @@ export function smoothedMissRate(wrong, attempts) {
 }
 
 /**
- * Deck progress = introduced / deck.
- * Hint dependence (HUD) = introduced still showing hints / deck.
- * Graduation rate = graduated / introduced.
- * Introduced = active ∪ graduated (never unseen). Entered play = seen as target.
+ * Introduced = active ∪ graduated (SRS seed). Entered play = seen as target.
+ * Skied = entered play with at least one correct/wrong attempt (HUD deck).
  *
- * Hint splits:
- * - introducedHintedNotPlayed = in active∪graduated with hint, never a ski target
- * - introducedHintedPlayed = hinted and actually served as target
- * - hintAmongPlayed = hinted among entered-play / entered-play
+ * HUD:
+ * - Deck = skied / deckTotal (0% until a gate/platform is resolved)
+ * - Hints = skied still showing hint / skied
+ *   (100% = all skied words still hinted; 0% = none hinted / nothing skied yet)
  *
  * @param {{
  *   words: object[],
@@ -75,6 +73,12 @@ export function progressSnapshot({ words, pools, seenByKey }) {
   const playedHinted = enteredPlayList.filter(
     (w) => w.showHint !== false
   ).length;
+  const skiedList = enteredPlayList.filter(
+    (w) => (w.correct || 0) + (w.wrong || 0) > 0
+  );
+  const skied = skiedList.length;
+  const skiedHinted = skiedList.filter((w) => w.showHint !== false).length;
+  const skiedNoHint = skied - skiedHinted;
   const activeNotPlayed = pools.activePool.filter(
     (w) => !seenByKey.has(wordKey(w))
   );
@@ -100,11 +104,15 @@ export function progressSnapshot({ words, pools, seenByKey }) {
     }
   }
 
+  // Report / SRS: introduced-based (unchanged meaning).
   const deckProgressPct = pct(introduced, deckTotal);
   const hintDependencePct = pct(introducedHinted, deckTotal);
   const hintAmongIntroducedPct = pct(introducedHinted, introduced);
   const hintAmongPlayedPct = pct(playedHinted, enteredPlay);
   const graduationRatePct = pct(graduated, introduced);
+  // HUD: skied targets only. Hints = still-hinted / skied (= 100% − no-hint share).
+  const hudDeckPct = pct(skied, deckTotal) ?? 0;
+  const hudHintsPct = skied ? pct(skiedHinted, skied) : 0;
 
   return {
     deckTotal,
@@ -117,6 +125,9 @@ export function progressSnapshot({ words, pools, seenByKey }) {
     introducedHintedNotPlayed,
     playedHinted,
     enteredPlay,
+    skied,
+    skiedHinted,
+    skiedNoHint,
     activeNotPlayed,
     deckProgressPct,
     hintDependencePct,
@@ -124,11 +135,11 @@ export function progressSnapshot({ words, pools, seenByKey }) {
     hintAmongPlayedPct,
     graduationRatePct,
     flags,
-    // HUD aliases (same denominators as above)
-    hintsPct: hintDependencePct,
-    deckPct: deckProgressPct,
-    hintedCount: introducedHinted,
-    inPlayCount: enteredPlay,
+    // HUD (skied-as-target)
+    hintsPct: hudHintsPct,
+    deckPct: hudDeckPct,
+    hintedCount: skiedHinted,
+    inPlayCount: skied,
   };
 }
 
@@ -245,12 +256,16 @@ export function buildGameReport({
         "Met current success threshold (streak); not durable mastery — still reviewed",
       introduced: "active ∪ graduated",
       enteredPlay: `Appeared at least once as the ${targetLabel}`,
-      deckProgress: "introduced / deckTotal",
+      skied: `Served as ${targetLabel} and resolved at least once (HUD deck)`,
+      deckProgress: "introduced / deckTotal (SRS; not HUD)",
+      hudDeck: "skied / deckTotal (HUD)",
       hintDependence:
-        "introduced with showHint / deckTotal (HUD; includes not-yet-played)",
+        "introduced with showHint / deckTotal (SRS; not HUD)",
       hintAmongIntroduced: "introduced with showHint / introduced",
       hintAmongPlayed:
-        "entered-play still showing hint / entered-play (actual target exposure)",
+        "entered-play still showing hint / entered-play",
+      hudHints:
+        "skied still showing hint / skied (HUD; 100% = all hinted, 0% = none)",
       introducedHintedNotPlayed:
         "introduced + hint, but never served as a ski/climber target",
       graduationRate: "graduated / introduced",
@@ -267,15 +282,21 @@ export function buildGameReport({
       poolSum: snap.unseen + snap.active + snap.graduated,
       introduced: snap.introduced,
       enteredPlay: snap.enteredPlay,
+      skied: snap.skied,
       activeNotYetPlayed: snap.activeNotPlayed.map((w) => w.word),
       deckProgress: {
         count: `${snap.introduced}/${snap.deckTotal}`,
         pct: snap.deckProgressPct,
+        note: "SRS introduced; HUD uses skied",
+      },
+      hudDeck: {
+        count: `${snap.skied}/${snap.deckTotal}`,
+        pct: snap.deckPct,
       },
       hintDependence: {
         count: `${snap.introducedHinted}/${snap.deckTotal}`,
         pct: snap.hintDependencePct,
-        note: "Includes introduced-but-not-played; see hintAmongPlayed for exposure",
+        note: "SRS introduced+hint; HUD uses skied hint share",
       },
       hintAmongIntroduced: {
         count: `${snap.introducedHinted}/${snap.introduced || 0}`,
@@ -284,7 +305,12 @@ export function buildGameReport({
       hintAmongPlayed: {
         count: `${snap.playedHinted}/${snap.enteredPlay || 0}`,
         pct: snap.hintAmongPlayedPct,
-        note: "Only words that were actual ski/climber targets",
+        note: "Entered-play targets (may include current with 0 attempts)",
+      },
+      hudHints: {
+        count: `${snap.skiedHinted}/${snap.skied || 0}`,
+        pct: snap.hintsPct,
+        note: "Still-hinted / skied (= 100% − no-hint share among skied)",
       },
       introducedHintedSplit: {
         played: snap.introducedHintedPlayed,
@@ -322,10 +348,12 @@ export function buildGameReport({
     "Pools (mutually exclusive; should sum to deck)",
     `Unseen ${snap.unseen} · Active ${snap.active} · Graduated ${snap.graduated} · sum ${snap.unseen + snap.active + snap.graduated} / deck ${snap.deckTotal}`,
     "",
-    `Deck progress ${snap.deckProgressPct ?? "—"}% (${snap.introduced}/${snap.deckTotal}) = introduced/deck`,
-    `Hint dependence ${snap.hintDependencePct ?? "—"}% (${snap.introducedHinted}/${snap.deckTotal}) = introduced+hint/deck (incl. not-yet-played)`,
+    `HUD deck ${snap.deckPct ?? 0}% (${snap.skied}/${snap.deckTotal}) = skied/deck`,
+    `HUD hints ${snap.hintsPct ?? 0}% (${snap.skiedHinted}/${snap.skied || 0}) = still-hinted/skied (no-hint ${snap.skiedNoHint})`,
+    `SRS deck (introduced) ${snap.deckProgressPct ?? "—"}% (${snap.introduced}/${snap.deckTotal})`,
+    `SRS hint dependence ${snap.hintDependencePct ?? "—"}% (${snap.introducedHinted}/${snap.deckTotal})`,
     `Hint among introduced ${snap.hintAmongIntroducedPct ?? "—"}% (${snap.introducedHinted}/${snap.introduced || 0})`,
-    `Hint among played ${snap.hintAmongPlayedPct ?? "—"}% (${snap.playedHinted}/${snap.enteredPlay || 0}) = hinted targets / targets`,
+    `Hint among played ${snap.hintAmongPlayedPct ?? "—"}% (${snap.playedHinted}/${snap.enteredPlay || 0})`,
     `Hinted introduced — played ${snap.introducedHintedPlayed} · not yet played ${snap.introducedHintedNotPlayed}`,
     `Graduation rate ${snap.graduationRatePct ?? "—"}% (${snap.graduated}/${snap.introduced || 0}) = graduated/introduced`,
     `Entered play (as ${targetLabel}) ${snap.enteredPlay}/${snap.deckTotal}`,

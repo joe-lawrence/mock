@@ -509,25 +509,21 @@ export function mountArtikelClimber(root, options = {}) {
 
   function updateProgressUi() {
     const snap = progressSnapshot();
+    const skied = snap.inPlayCount || 0;
     if (hintsPctEl) {
       hintsPctEl.textContent =
-        snap.hintDependencePct == null
-          ? "—"
-          : `${snap.hintDependencePct}% (${snap.introducedHinted}/${snap.deckTotal})`;
+        skied === 0
+          ? `0% (0/0)`
+          : `${snap.hintsPct}% (${snap.hintedCount}/${skied})`;
     }
     if (deckPctEl) {
-      deckPctEl.textContent =
-        snap.deckProgressPct == null
-          ? "0%"
-          : `${snap.deckProgressPct}% (${snap.introduced}/${snap.deckTotal})`;
+      deckPctEl.textContent = `${snap.deckPct}% (${skied}/${snap.deckTotal})`;
     }
     if (hintsBarEl) {
-      hintsBarEl.style.width =
-        snap.hintDependencePct == null ? "0%" : `${snap.hintDependencePct}%`;
+      hintsBarEl.style.width = `${snap.hintsPct ?? 0}%`;
     }
     if (deckBarEl) {
-      deckBarEl.style.width =
-        snap.deckProgressPct == null ? "0%" : `${snap.deckProgressPct}%`;
+      deckBarEl.style.width = `${snap.deckPct ?? 0}%`;
     }
   }
 

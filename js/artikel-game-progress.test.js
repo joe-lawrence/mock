@@ -44,6 +44,51 @@ describe("artikel-game-progress", () => {
     assert.ok(typeof snap.hintAmongPlayedPct === "number" || snap.hintAmongPlayedPct === null);
   });
 
+  it("HUD deck/hints use skied targets (0 until an attempt)", () => {
+    const words = [
+      word("Hund"),
+      word("Katze", "fem", "die"),
+      word("Kind", "neut", "das"),
+      word("Ball"),
+      word("Frau", "fem", "die"),
+    ];
+    const pools = initClimberPools(words.map((w) => ({ ...w, correct: 0, wrong: 0 })));
+    const seenByKey = new Map();
+    // Active seed alone must not move HUD deck.
+    let snap = progressSnapshot({ words, pools, seenByKey });
+    assert.equal(snap.introduced, 5);
+    assert.equal(snap.deckPct, 0);
+    assert.equal(snap.hintsPct, 0);
+    assert.equal(snap.skied, 0);
+
+    const a = pools.activePool[0];
+    const b = pools.activePool[1];
+    seenByKey.set(wordKey(a), a);
+    // Current target with no attempts still does not count as skied.
+    snap = progressSnapshot({ words, pools, seenByKey });
+    assert.equal(snap.enteredPlay, 1);
+    assert.equal(snap.skied, 0);
+    assert.equal(snap.deckPct, 0);
+
+    a.correct = 1;
+    a.showHint = true;
+    snap = progressSnapshot({ words, pools, seenByKey });
+    assert.equal(snap.skied, 1);
+    assert.equal(snap.deckPct, 20);
+    assert.equal(snap.hintsPct, 100);
+    assert.equal(snap.hintedCount, 1);
+
+    seenByKey.set(wordKey(b), b);
+    b.correct = 1;
+    b.showHint = false;
+    snap = progressSnapshot({ words, pools, seenByKey });
+    assert.equal(snap.skied, 2);
+    assert.equal(snap.skiedHinted, 1);
+    assert.equal(snap.skiedNoHint, 1);
+    assert.equal(snap.hintsPct, 50);
+    assert.equal(snap.deckPct, 40);
+  });
+
   it("smoothedMissRate down-ranks tiny samples vs larger ones", () => {
     assert.ok(smoothedMissRate(1, 1) < smoothedMissRate(4, 5));
     assert.ok(smoothedMissRate(0, 1) > smoothedMissRate(0, 5));

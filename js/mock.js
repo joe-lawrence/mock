@@ -212,10 +212,10 @@ import {
 import {
   caseSkiNounsFromVocab,
   climberWordsFromVocabUnits,
-} from "./artikel-climber-vocab.js?v=20261108-reset-track";
-import { mountArtikelClimber } from "./artikel-climber.js?v=20261108-reset-track";
-import { mountArtikelSkier } from "./artikel-skier.js?v=20261108-reset-track";
-import { loadSnowNomenConstructions } from "./artikel-skier-cases.js?v=20261108-reset-track";
+} from "./artikel-climber-vocab.js?v=20261108-hud-skied";
+import { mountArtikelClimber } from "./artikel-climber.js?v=20261108-hud-skied";
+import { mountArtikelSkier } from "./artikel-skier.js?v=20261108-hud-skied";
+import { loadSnowNomenConstructions } from "./artikel-skier-cases.js?v=20261108-hud-skied";
 import { keysSkippedByJump } from "./guided-jump.js";
 import {
   noteQuizNavEntry,
@@ -361,7 +361,7 @@ import {
   mountVocabularyPanel,
   topicHasVocabulary,
   vocabAreasFromCurriculumTopics,
-} from "./vocabulary-ui.js?v=20261108-reset-track";
+} from "./vocabulary-ui.js?v=20261108-hud-skied";
 import {
   vocabularyAreas,
   curriculumTopicToVocabArea,
