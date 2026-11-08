@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kitchen Gyro Camera Demo</title>
+    <title>Gyroscope Zoom & Pan Prototype</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body, html {
@@ -12,394 +12,189 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background-color: #0f172a; /* slate-900 */
-            color: #f8fafc; /* slate-50 */
-            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            touch-action: none; /* Prevent browser pull-to-refresh and scrolling */
+            background-color: #000;
         }
-        
-        #game-container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
+        #scene-container {
+            width: 100%;
+            height: 100%;
             display: flex;
-            justify-content: center;
             align-items: center;
-            overflow: hidden;
+            justify-content: center;
         }
-
-        #kitchen-img {
-            position: absolute;
+        #scene-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
             transform-origin: center center;
             will-change: transform;
-            pointer-events: none; /* Let touches pass through to the overlay */
-        }
-
-        /* The invisible layer that captures holding for zoom */
-        #touch-overlay {
-            position: absolute;
-            inset: 0;
-            z-index: 10;
-            cursor: crosshair;
-        }
-
-        .slider-thumb::-webkit-slider-thumb {
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            background: #6366f1;
-            border-radius: 50%;
-            cursor: pointer;
         }
     </style>
 </head>
-<body>
+<body class="text-white font-sans antialiased select-none">
 
-    <!-- SETTINGS / START SCREEN -->
-    <div id="setup-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-900 p-6">
-        <h1 class="text-3xl font-bold mb-2 text-indigo-400">Gyro Camera Prototype</h1>
-        <p class="text-slate-400 mb-8 text-center max-w-md">Find your comfortable resting position, then hit start. The camera will use that exact angle as your "zero" point.</p>
-        
-        <div class="w-full max-w-sm space-y-6 bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl">
-            
-            <!-- Deadzone Slider -->
-            <div>
-                <div class="flex justify-between mb-1">
-                    <label class="text-sm font-medium text-slate-300">Deadzone (Resting Area)</label>
-                    <span id="deadzone-val" class="text-sm text-indigo-400 font-bold">2.0°</span>
-                </div>
-                <input type="range" id="deadzone-slider" min="0" max="10" step="0.5" value="2" class="w-full h-2 bg-slate-700 rounded-lg appearance-none slider-thumb">
-                <p class="text-xs text-slate-500 mt-1">Angles smaller than this won't move the camera.</p>
-            </div>
-
-            <!-- Pan Speed Slider -->
-            <div>
-                <div class="flex justify-between mb-1">
-                    <label class="text-sm font-medium text-slate-300">Pan Speed</label>
-                    <span id="pan-val" class="text-sm text-indigo-400 font-bold">Medium</span>
-                </div>
-                <input type="range" id="pan-slider" min="0.1" max="1.5" step="0.1" value="0.5" class="w-full h-2 bg-slate-700 rounded-lg appearance-none slider-thumb">
-            </div>
-
-            <!-- Zoom Speed Slider -->
-            <div>
-                <div class="flex justify-between mb-1">
-                    <label class="text-sm font-medium text-slate-300">Zoom Speed</label>
-                    <span id="zoom-val" class="text-sm text-indigo-400 font-bold">Medium</span>
-                </div>
-                <input type="range" id="zoom-slider" min="0.001" max="0.02" step="0.001" value="0.005" class="w-full h-2 bg-slate-700 rounded-lg appearance-none slider-thumb">
-            </div>
-
-            <button id="start-btn" class="w-full py-3 mt-4 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold rounded-lg transition-colors">
-                Enable Gyro & Start
-            </button>
-        </div>
+    <!-- iOS Permission / Start Overlay -->
+    <div id="start-overlay" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/90 backdrop-blur-sm p-6 text-center">
+        <h1 class="text-2xl font-bold mb-4 text-amber-400">Gyroscope Tilt Demo</h1>
+        <ul class="text-gray-300 text-sm mb-8 space-y-2 text-left max-w-xs">
+            <li><span class="font-bold text-white">Tilt Forward:</span> Zoom In</li>
+            <li><span class="font-bold text-white">Tilt Backward:</span> Zoom Out</li>
+            <li><span class="font-bold text-white">Tilt Left/Right:</span> Pan Image</li>
+        </ul>
+        <button id="btn-start" onclick="requestGyroAccess()" class="bg-amber-500 hover:bg-amber-400 text-black font-bold py-3 px-8 rounded-full shadow-lg transition-transform active:scale-95">
+            Start Gyroscope
+        </button>
+        <p class="mt-4 text-xs text-gray-500">Required to enable motion sensors on iOS</p>
     </div>
 
-    <!-- GAME SCREEN -->
-    <div id="game-screen" class="hidden absolute inset-0">
-        <div id="game-container">
-            <img id="kitchen-img" src="new-kitchen_2.jpeg" alt="Kitchen Scene">
-            
-            <!-- Touch overlay for zoom state -->
-            <div id="touch-overlay"></div>
-        </div>
+    <!-- Main Scene -->
+    <div id="scene-container">
+        <!-- Using the kitchen image -->
+        <img id="scene-image" src="new-kitchen_2.jpeg" alt="Kitchen Scene">
+    </div>
 
-        <!-- HUD / UI Overlay -->
-        <div class="absolute top-0 left-0 w-full p-4 z-20 flex justify-between items-start pointer-events-none">
-            
-            <!-- Left side controls -->
-            <div class="flex flex-col gap-3 pointer-events-auto">
-                <button id="back-btn" class="bg-slate-800/80 backdrop-blur border border-slate-600 text-sm px-4 py-2 rounded-lg hover:bg-slate-700 transition">
-                    ← Settings
-                </button>
-                <button id="recalibrate-btn" class="bg-indigo-600/90 backdrop-blur border border-indigo-500 text-sm px-4 py-2 rounded-lg hover:bg-indigo-500 transition shadow-lg shadow-indigo-900/50">
-                    ⌖ Recalibrate Center
-                </button>
-            </div>
-
-            <!-- Mode Indicator -->
-            <div class="flex flex-col items-end">
-                <div id="mode-indicator" class="bg-emerald-500/20 border border-emerald-500 text-emerald-400 font-bold px-4 py-2 rounded-full backdrop-blur shadow-lg shadow-emerald-900/20 transition-colors duration-200">
-                    👁️ PAN MODE
-                </div>
-                <p id="instruction-text" class="text-xs text-slate-300 mt-2 bg-slate-900/50 px-2 py-1 rounded backdrop-blur">
-                    Hold screen to Zoom
-                </p>
-            </div>
-        </div>
+    <!-- Telemetry / Debug UI -->
+    <div id="debug-ui" class="absolute bottom-4 left-4 p-3 bg-black/70 rounded-lg text-xs font-mono text-amber-400 z-40 pointer-events-none hidden shadow-xl border border-gray-800">
+        <div class="font-bold text-white mb-1 uppercase tracking-widest text-[10px]">Telemetry</div>
+        <div>Beta (F/B): <span id="debug-beta">0</span>&deg;</div>
+        <div>Gamma (L/R): <span id="debug-gamma">0</span>&deg;</div>
+        <div class="h-px bg-gray-700 my-1"></div>
+        <div>Zoom: <span id="debug-zoom">1.00</span>x</div>
+        <div>Pan X: <span id="debug-pan">0.00</span>%</div>
     </div>
 
     <script>
         // --- State Variables ---
-        let isRunning = false;
-        let isHolding = false;
+        let isActive = false;
         
-        // Calibration
-        let baseBeta = null;
-        let baseGamma = null;
-        let curBeta = null;
-        let curGamma = null;
-
-        // Physics State
-        let x = 0;
-        let y = 0;
-        let scale = 1.3; // Start slightly zoomed in so panning works immediately
+        // Sensor values
+        let currentBeta = 45; // Default resting angle
+        let currentGamma = 0;
         
-        let vx = 0;
-        let vy = 0;
-        let vs = 0;
+        // Smooth interpolated values (LERP)
+        let lerpZoom = 1;
+        let lerpPanX = 0;
+        
+        // Target values calculated from sensors
+        let targetZoom = 1;
+        let targetPanX = 0;
 
-        // Configuration (Updated by sliders)
-        let deadzone = 2.0; 
-        let panSpeed = 0.5;
-        let zoomSpeed = 0.005;
-        const FRICTION = 0.82; // Determines how quickly movement glides to a stop
-        const MIN_SCALE = 1.0; // Fit to screen
-        const MAX_SCALE = 4.0; // Max zoom
+        // Constants
+        const MIN_ZOOM = 1;
+        const MAX_ZOOM = 2.8;
+        const LERP_FACTOR = 0.08; // Lower = smoother/slower, Higher = snappier/jittery
 
-        // Image Base Dimensions (calculated on load to fit screen properly)
-        let baseW = 0;
-        let baseH = 0;
+        // DOM Elements
+        const overlay = document.getElementById('start-overlay');
+        const debugUI = document.getElementById('debug-ui');
+        const img = document.getElementById('scene-image');
+        
+        const dbgBeta = document.getElementById('debug-beta');
+        const dbgGamma = document.getElementById('debug-gamma');
+        const dbgZoom = document.getElementById('debug-zoom');
+        const dbgPan = document.getElementById('debug-pan');
 
-        // --- DOM Elements ---
-        const setupScreen = document.getElementById('setup-screen');
-        const gameScreen = document.getElementById('game-screen');
-        const startBtn = document.getElementById('start-btn');
-        const backBtn = document.getElementById('back-btn');
-        const recalibrateBtn = document.getElementById('recalibrate-btn');
-        const overlay = document.getElementById('touch-overlay');
-        const img = document.getElementById('kitchen-img');
-        const modeIndicator = document.getElementById('mode-indicator');
-        const instructionText = document.getElementById('instruction-text');
-
-        // Sliders
-        const deadzoneSlider = document.getElementById('deadzone-slider');
-        const panSlider = document.getElementById('pan-slider');
-        const zoomSlider = document.getElementById('zoom-slider');
-        const deadzoneVal = document.getElementById('deadzone-val');
-        const panVal = document.getElementById('pan-val');
-        const zoomVal = document.getElementById('zoom-val');
-
-        // --- Settings Logic ---
-        deadzoneSlider.addEventListener('input', (e) => {
-            deadzone = parseFloat(e.target.value);
-            deadzoneVal.innerText = `${deadzone.toFixed(1)}°`;
-        });
-
-        panSlider.addEventListener('input', (e) => {
-            panSpeed = parseFloat(e.target.value);
-            panVal.innerText = panSpeed < 0.5 ? 'Slow' : (panSpeed > 1.0 ? 'Fast' : 'Medium');
-        });
-
-        zoomSlider.addEventListener('input', (e) => {
-            zoomSpeed = parseFloat(e.target.value);
-            zoomVal.innerText = zoomSpeed < 0.005 ? 'Slow' : (zoomSpeed > 0.015 ? 'Fast' : 'Medium');
-        });
-
-        // --- Image Sizing Logic ---
-        function calculateBaseSize() {
-            if (!img.complete || img.naturalWidth === 0) return;
-            
-            const imgRatio = img.naturalWidth / img.naturalHeight;
-            const screenRatio = window.innerWidth / window.innerHeight;
-            
-            // Calculate dimensions so the image completely covers the screen at scale 1.0 (object-fit: cover logic)
-            if (imgRatio > screenRatio) {
-                baseH = window.innerHeight;
-                baseW = baseH * imgRatio;
-            } else {
-                baseW = window.innerWidth;
-                baseH = baseW / imgRatio;
-            }
-
-            img.style.width = `${baseW}px`;
-            img.style.height = `${baseH}px`;
-            
-            // Reset position to center
-            x = 0;
-            y = 0;
-            updateTransform();
-        }
-
-        img.onload = calculateBaseSize;
-        window.addEventListener('resize', calculateBaseSize);
-
-        // --- Touch / Hold Logic ---
-        function setHoldState(holding) {
-            isHolding = holding;
-            if (holding) {
-                modeIndicator.innerHTML = '🔍 ZOOM MODE';
-                modeIndicator.className = 'bg-amber-500/20 border border-amber-500 text-amber-400 font-bold px-4 py-2 rounded-full backdrop-blur shadow-lg shadow-amber-900/20 transition-colors duration-200';
-                instructionText.innerText = 'Release to Pan';
-            } else {
-                modeIndicator.innerHTML = '👁️ PAN MODE';
-                modeIndicator.className = 'bg-emerald-500/20 border border-emerald-500 text-emerald-400 font-bold px-4 py-2 rounded-full backdrop-blur shadow-lg shadow-emerald-900/20 transition-colors duration-200';
-                instructionText.innerText = 'Hold screen to Zoom';
-            }
-        }
-
-        // Handle both touch and mouse for testing on desktop
-        overlay.addEventListener('touchstart', (e) => { e.preventDefault(); setHoldState(true); });
-        overlay.addEventListener('touchend', (e) => { e.preventDefault(); setHoldState(false); });
-        overlay.addEventListener('mousedown', () => { setHoldState(true); });
-        overlay.addEventListener('mouseup', () => { setHoldState(false); });
-        overlay.addEventListener('mouseleave', () => { setHoldState(false); });
-
-        // --- Gyroscope Logic ---
-        function handleOrientation(event) {
-            curBeta = event.beta;   // Front/Back tilt (-180 to 180)
-            curGamma = event.gamma; // Left/Right tilt (-90 to 90)
-
-            // Capture base position on the very first frame after starting/recalibrating
-            if (baseBeta === null || baseGamma === null) {
-                baseBeta = curBeta;
-                baseGamma = curGamma;
-            }
-        }
-
-        // --- The Physics Loop ---
-        function updateTransform() {
-            img.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
-        }
-
-        function gameLoop() {
-            if (!isRunning) return;
-
-            if (baseBeta !== null && curBeta !== null) {
-                // Calculate difference from rest position
-                let dBeta = curBeta - baseBeta;
-                let dGamma = curGamma - baseGamma;
-
-                // Simple wrap-around handling just in case they flip the phone weirdly
-                if (dBeta > 180) dBeta -= 360;
-                if (dBeta < -180) dBeta += 360;
-                if (dGamma > 90) dGamma -= 180;
-                if (dGamma < -90) dGamma += 180;
-
-                // Apply Deadzone
-                let activeBeta = 0;
-                if (Math.abs(dBeta) > deadzone) {
-                    activeBeta = dBeta > 0 ? dBeta - deadzone : dBeta + deadzone;
-                }
-
-                let activeGamma = 0;
-                if (Math.abs(dGamma) > deadzone) {
-                    activeGamma = dGamma > 0 ? dGamma - deadzone : dGamma + deadzone;
-                }
-
-                // Calculate Acceleration
-                // Gamma (Left/Right Tilt) always controls panning X
-                // Negative gamma (tilt left) moves image right (+X) to simulate looking left
-                vx += -activeGamma * panSpeed;
-
-                if (isHolding) {
-                    // Zoom Mode: Beta (Forward/Back) controls Scale
-                    // Negative beta (tilt top of phone forward) zooms in (+Scale)
-                    vs += -activeBeta * zoomSpeed;
-                } else {
-                    // Pan Mode: Beta (Forward/Back) controls Y
-                    // Negative beta (tilt top of phone forward) moves image down (+Y) to simulate looking up
-                    vy += -activeBeta * panSpeed;
-                }
-            }
-
-            // Apply velocities
-            x += vx;
-            y += vy;
-            scale += vs;
-
-            // Apply friction (damping)
-            vx *= FRICTION;
-            vy *= FRICTION;
-            vs *= FRICTION;
-
-            // --- Boundaries & Clamping ---
-            // 1. Clamp Scale
-            scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
-
-            // 2. Calculate Max Pan based on current scale
-            // The formula ensures the edge of the image never crosses the edge of the screen
-            const maxPanX = Math.max(0, (baseW * scale - window.innerWidth) / 2);
-            const maxPanY = Math.max(0, (baseH * scale - window.innerHeight) / 2);
-
-            // 3. Clamp X and Y
-            x = Math.max(-maxPanX, Math.min(maxPanX, x));
-            y = Math.max(-maxPanY, Math.min(maxPanY, y));
-
-            // 4. Kill velocity if we hit a wall so it doesn't "build up" and stick
-            if (x === maxPanX || x === -maxPanX) vx = 0;
-            if (y === maxPanY || y === -maxPanY) vy = 0;
-            if (scale === MIN_SCALE || scale === MAX_SCALE) vs = 0;
-
-            // Update DOM
-            updateTransform();
-
-            // Loop
-            requestAnimationFrame(gameLoop);
-        }
-
-        // --- App Flow Controls ---
-        async function initGyro() {
-            // iOS 13+ requires explicit permission via a user gesture
+        // --- iOS Permission Logic ---
+        async function requestGyroAccess() {
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                 try {
-                    const permissionState = await DeviceOrientationEvent.requestPermission();
-                    if (permissionState !== 'granted') {
-                        alert('Gyroscope permission was denied. The demo requires this to work.');
-                        return;
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    if (permission === 'granted') {
+                        startTracking();
+                    } else {
+                        alert("Gyroscope permission denied. Please allow it in settings to use this feature.");
                     }
                 } catch (error) {
-                    console.error('Error requesting device orientation permission:', error);
-                    alert('Error starting gyroscope. Make sure you are using HTTPS.');
-                    return;
+                    console.error("Error requesting DeviceOrientation:", error);
+                    alert("Error requesting gyroscope access.");
                 }
+            } else {
+                // Non-iOS devices usually don't require explicit permission
+                startTracking();
+            }
+        }
+
+        function startTracking() {
+            isActive = true;
+            overlay.classList.add('hidden');
+            debugUI.classList.remove('hidden');
+            
+            window.addEventListener('deviceorientation', handleOrientation, true);
+            requestAnimationFrame(animationLoop);
+        }
+
+        // --- Sensor Data Handling ---
+        function handleOrientation(event) {
+            if (!event.beta || !event.gamma) return;
+
+            // Beta: Front-to-back tilt [-180, 180]
+            // We expect ~20 (tilted back/flat) to ~80 (upright/forward)
+            currentBeta = event.beta;
+
+            // Gamma: Left-to-right tilt [-90, 90]
+            // We expect -40 (left) to +40 (right)
+            currentGamma = event.gamma;
+
+            calculateTargets();
+        }
+
+        function calculateTargets() {
+            // 1. Calculate Target Zoom (from Beta)
+            // Clamp beta between 20 (zoomed out) and 70 (zoomed in max)
+            let b = Math.max(20, Math.min(70, currentBeta));
+            
+            // Map 20->70 to 0.0->1.0
+            let zoomProgress = (b - 20) / 50; 
+            targetZoom = MIN_ZOOM + (zoomProgress * (MAX_ZOOM - MIN_ZOOM));
+
+            // 2. Calculate Target Pan (from Gamma)
+            // Clamp gamma between -45 and 45
+            let g = Math.max(-45, Math.min(45, currentGamma));
+            
+            // Map -45->45 to -1.0->1.0
+            let panProgress = g / 45; 
+
+            // Calculate the maximum allowed translation based on current zoom
+            // Example: At scale(2), we can translate up to 25% of the element's width 
+            // before revealing the edge of the screen.
+            let maxPanPct = 0;
+            if (targetZoom > 1) {
+                maxPanPct = 50 * ((targetZoom - 1) / targetZoom);
             }
 
-            // Reset calibration
-            baseBeta = null;
-            baseGamma = null;
-            
-            window.addEventListener('deviceorientation', handleOrientation);
-            
-            // Switch UI
-            setupScreen.classList.add('hidden');
-            gameScreen.classList.remove('hidden');
-            
-            // Ensure image is sized
-            calculateBaseSize();
-
-            // Start Loop
-            isRunning = true;
-            requestAnimationFrame(gameLoop);
+            // Invert the pan direction so tilting left (-gamma) moves the image right (+translateX)
+            targetPanX = -panProgress * maxPanPct;
         }
 
-        function stopGyro() {
-            isRunning = false;
-            window.removeEventListener('deviceorientation', handleOrientation);
+        // --- Smooth Animation Loop ---
+        function animationLoop() {
+            if (!isActive) return;
+
+            // Interpolate Zoom
+            lerpZoom += (targetZoom - lerpZoom) * LERP_FACTOR;
             
-            // Switch UI
-            gameScreen.classList.add('hidden');
-            setupScreen.classList.remove('hidden');
-        }
-
-        function recalibrate() {
-            // Nullifying these forces them to be recaptured on the next sensor update frame
-            baseBeta = null;
-            baseGamma = null;
+            // Interpolate Pan X
+            // We recalculate max pan based on *lerped* zoom to ensure we don't go out of bounds during the transition
+            let currentMaxPan = 0;
+            if (lerpZoom > 1) {
+                currentMaxPan = 50 * ((lerpZoom - 1) / lerpZoom);
+            }
             
-            // Small visual feedback
-            recalibrateBtn.classList.add('bg-indigo-400');
-            setTimeout(() => {
-                recalibrateBtn.classList.remove('bg-indigo-400');
-            }, 200);
+            // Constrain the target pan strictly within the current zoom bounds
+            let safeTargetPan = Math.max(-currentMaxPan, Math.min(currentMaxPan, targetPanX));
+            lerpPanX += (safeTargetPan - lerpPanX) * LERP_FACTOR;
+
+            // Apply CSS Transform
+            // Note: Applying scale then translateX(%) is handled correctly by the browser
+            img.style.transform = `scale(${lerpZoom}) translateX(${lerpPanX}%)`;
+
+            // Update Telemetry UI
+            dbgBeta.innerText = currentBeta.toFixed(1);
+            dbgGamma.innerText = currentGamma.toFixed(1);
+            dbgZoom.innerText = lerpZoom.toFixed(2);
+            dbgPan.innerText = lerpPanX.toFixed(2);
+
+            requestAnimationFrame(animationLoop);
         }
-
-        // Bind Buttons
-        startBtn.addEventListener('click', initGyro);
-        backBtn.addEventListener('click', stopGyro);
-        recalibrateBtn.addEventListener('click', recalibrate);
-
     </script>
 </body>
 </html>
