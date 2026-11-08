@@ -14,13 +14,14 @@
         }
         
         #game-container {
-            position: relative; width: 100vw; height: 100vh;
-            display: flex; justify-content: center; align-items: center; overflow: hidden;
+            position: relative; width: 100vw; height: 100vh; overflow: hidden;
         }
 
-        /* The wrapper moves, scales, and pans. Everything inside stays in perfect alignment. */
+        /* The wrapper is now explicitly centered via absolute positioning for perfect tap math */
         #world-wrapper {
             position: absolute;
+            left: 50%;
+            top: 50%;
             transform-origin: center center;
             will-change: transform;
         }
@@ -35,7 +36,7 @@
         #overlay-svg {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; /* Let taps fall through to the touch-overlay */
+            pointer-events: none; 
         }
 
         #touch-overlay {
@@ -49,7 +50,7 @@
 </head>
 <body>
 
-    <!-- SETTINGS / START SCREEN (Unchanged) -->
+    <!-- SETTINGS / START SCREEN -->
     <div id="setup-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-900 p-6">
         <h1 class="text-3xl font-bold mb-2 text-indigo-400">Gyro Camera + Selection</h1>
         <p class="text-slate-400 mb-8 text-center max-w-md">Find your comfortable resting position, then hit start.</p>
@@ -93,19 +94,15 @@
                 
                 <svg id="overlay-svg" preserveAspectRatio="none">
                     <defs>
-                        <!-- THE MAGIC GLOW FILTER -->
-                        <filter id="shape-glow" x="-10%" y="-10%" width="120%" height="120%">
-                            <!-- Heavily blur the solid shape -->
-                            <feGaussianBlur in="SourceGraphic" id="dynamic-blur" stdDeviation="30" result="blur" />
-                            <!-- Boost the intensity slightly -->
-                            <feComponentTransfer in="blur" result="boostedGlow">
-                                <feFuncA type="linear" slope="1.5"/>
-                            </feComponentTransfer>
-                            <!-- Clip the blurred glow exactly to the crisp boundaries of the original shape -->
-                            <feComposite in="boostedGlow" in2="SourceGraphic" operator="in" />
+                        <!-- PERFECT SHAPE GLOW FILTER -->
+                        <!-- A Gaussian Blur softens the solid fill, making it intense at the center and fading at the edge. 
+                             The Composite 'in' clips the blur perfectly to the boundaries of the weird polygon. -->
+                        <filter id="shape-glow" x="-20%" y="-20%" width="140%" height="140%">
+                            <feGaussianBlur in="SourceGraphic" id="dynamic-blur" stdDeviation="20" result="blur" />
+                            <feComposite in="blur" in2="SourceGraphic" operator="in" />
                         </filter>
                     </defs>
-                    <!-- Polygons will be injected here by JS -->
+                    <!-- Polygons injected here by JS -->
                 </svg>
             </div>
 
@@ -132,16 +129,15 @@
                     Press & hold to Zoom
                 </p>
                 <!-- SELECTION HUD -->
-                <div id="selection-hud" class="mt-4 opacity-0 transition-opacity bg-amber-500/90 text-slate-900 font-bold px-6 py-3 rounded-xl shadow-lg shadow-amber-900/50 backdrop-blur scale-105">
-                    Selected: <span id="selection-word"></span>
+                <div id="selection-hud" class="mt-4 opacity-0 transition-all duration-300 font-bold px-6 py-3 rounded-xl shadow-lg backdrop-blur scale-105">
+                    <span id="selection-word"></span>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // --- 1. SIMULATED FUTURE APP B JSON OUTPUT ---
-        // Coordinates are Normalized (0.0 to 1.0)
+        // --- 1. FUTURE APP B JSON OUTPUT ---
         const sceneData = {
             "scene_id": "scene.kueche",
             "targets": [
@@ -163,311 +159,4 @@
                 {
                     "target_id": "scene.kueche.target.fenster",
                     "label": "das Fenster",
-                    "polygons": [ [[0.82, 0.12], [0.95, 0.12], [0.95, 0.60], [0.82, 0.60]] ]
-                }
-            ]
-        };
-
-        // --- 2. GAME STATE ---
-        let isRunning = false;
-        let isHolding = false;
-        let panMode = 'tilt'; 
-        
-        let baseBeta = null; let baseGamma = null;
-        let curBeta = null; let curGamma = null;
-
-        let x = 0; let y = 0; let scale = 1.0; 
-        let vx = 0; let vy = 0; let vs = 0;
-
-        const BASE_PAN_SPEED = 0.6; const BASE_ZOOM_SPEED = 0.005; const FRICTION = 0.82; const MAX_SCALE = 4.0; 
-        let deadzone = 2.0; let panSensitivity = 1.0; let zoomSensitivity = 1.0;
-
-        let baseW = 0; let baseH = 0;
-        let holdX = window.innerWidth / 2; let holdY = window.innerHeight / 2;
-        
-        let activeGesture = null; 
-        let touchStartX = 0; let touchStartY = 0; let touchStartTime = 0;
-        let lastTouchX = null; let lastTouchY = null;
-
-        // --- 3. DOM ELEMENTS ---
-        const setupScreen = document.getElementById('setup-screen');
-        const gameScreen = document.getElementById('game-screen');
-        const overlay = document.getElementById('touch-overlay');
-        const img = document.getElementById('kitchen-img');
-        const wrapper = document.getElementById('world-wrapper');
-        const svg = document.getElementById('overlay-svg');
-        const modeIndicator = document.getElementById('mode-indicator');
-        const instructionText = document.getElementById('instruction-text');
-        const selectionHud = document.getElementById('selection-hud');
-        const selectionWord = document.getElementById('selection-word');
-
-        // Wiring Up Sliders & Buttons
-        document.getElementById('mode-tilt-btn').addEventListener('click', (e) => {
-            panMode = 'tilt';
-            e.target.className = 'flex-1 py-2 text-sm font-bold bg-indigo-600 text-white rounded-md shadow transition-colors';
-            document.getElementById('mode-swipe-btn').className = 'flex-1 py-2 text-sm font-medium text-slate-400 hover:text-slate-200 rounded-md transition-colors';
-            document.getElementById('pan-sensitivity-container').style.opacity = '1';
-        });
-
-        document.getElementById('mode-swipe-btn').addEventListener('click', (e) => {
-            panMode = 'swipe';
-            e.target.className = 'flex-1 py-2 text-sm font-bold bg-indigo-600 text-white rounded-md shadow transition-colors';
-            document.getElementById('mode-tilt-btn').className = 'flex-1 py-2 text-sm font-medium text-slate-400 hover:text-slate-200 rounded-md transition-colors';
-            document.getElementById('pan-sensitivity-container').style.opacity = '0.4';
-        });
-
-        document.getElementById('deadzone-slider').addEventListener('input', (e) => { deadzone = parseFloat(e.target.value); document.getElementById('deadzone-val').innerText = `${deadzone.toFixed(1)}°`; });
-        document.getElementById('pan-slider').addEventListener('input', (e) => { panSensitivity = parseFloat(e.target.value); document.getElementById('pan-val').innerText = `${panSensitivity.toFixed(1)}x`; });
-        
-        // --- 4. RENDER SVG POLYGONS FROM JSON ---
-        function renderPolygons() {
-            svg.setAttribute('viewBox', `0 0 ${baseW} ${baseH}`);
-            
-            // Set dynamic blur based on image size so glow looks consistent on all screens
-            document.getElementById('dynamic-blur').setAttribute('stdDeviation', baseW * 0.03); 
-
-            // Clear old polygons if resizing
-            svg.querySelectorAll('.hotspot-group').forEach(el => el.remove());
-
-            sceneData.targets.forEach(target => {
-                const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
-                group.classList.add('hotspot-group');
-                group.setAttribute('id', `group-${target.target_id}`);
-
-                target.polygons.forEach(poly => {
-                    const pointsStr = poly.map(pt => `${pt[0]*baseW},${pt[1]*baseH}`).join(" ");
-                    const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-                    polygon.setAttribute('points', pointsStr);
-                    polygon.setAttribute('fill', 'rgba(250, 204, 21, 1)'); // Tailwinds Amber 400
-                    polygon.setAttribute('filter', 'url(#shape-glow)');
-                    
-                    polygon.style.opacity = '0';
-                    polygon.style.transition = 'opacity 0.4s ease-out';
-                    
-                    group.appendChild(polygon);
-                });
-                svg.appendChild(group);
-            });
-        }
-
-        function calculateBaseSize() {
-            if (!img.complete || img.naturalWidth === 0) { setTimeout(calculateBaseSize, 50); return; }
-            const scaleFit = Math.max(window.innerWidth / img.naturalWidth, window.innerHeight / img.naturalHeight);
-            baseW = img.naturalWidth * scaleFit;
-            baseH = img.naturalHeight * scaleFit;
-            wrapper.style.width = `${baseW}px`;
-            wrapper.style.height = `${baseH}px`;
-            renderPolygons();
-            updateTransform();
-        }
-        img.onload = calculateBaseSize; window.addEventListener('resize', calculateBaseSize);
-
-        // --- 5. RAY-CASTING POINT IN POLYGON MATH ---
-        function pointInPolygon(point, vs) {
-            let x = point[0], y = point[1]; let inside = false;
-            for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-                let xi = vs[i][0], yi = vs[i][1]; let xj = vs[j][0], yj = vs[j][1];
-                let intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-                if (intersect) inside = !inside;
-            }
-            return inside;
-        }
-
-        function handleTapSelection(clientX, clientY) {
-            // 1. Find exact coordinates relative to the moving/scaling wrapper
-            const rect = wrapper.getBoundingClientRect();
-            const tapX = clientX - rect.left;
-            const tapY = clientY - rect.top;
-
-            // 2. Normalize to 0.0 - 1.0 (to match our JSON)
-            const normX = tapX / rect.width;
-            const normY = tapY / rect.height;
-
-            let foundTarget = null;
-
-            // 3. Check collision
-            sceneData.targets.forEach(target => {
-                target.polygons.forEach(poly => {
-                    if (pointInPolygon([normX, normY], poly)) {
-                        foundTarget = target;
-                    }
-                });
-            });
-
-            // 4. Update UI
-            svg.querySelectorAll('polygon').forEach(p => p.style.opacity = '0'); // Dim all
-            if (foundTarget) {
-                const targetGroup = document.getElementById(`group-${foundTarget.target_id}`);
-                targetGroup.querySelectorAll('polygon').forEach(p => p.style.opacity = '0.8'); // Glow selected
-                
-                selectionWord.innerText = foundTarget.label;
-                selectionHud.style.opacity = '1';
-                selectionHud.classList.remove('scale-105');
-                selectionHud.classList.add('scale-100');
-            } else {
-                selectionHud.style.opacity = '0';
-                selectionHud.classList.remove('scale-100');
-                selectionHud.classList.add('scale-105');
-            }
-        }
-
-        // --- 6. GESTURE & TOUCH HANDLING ---
-        function handleTouchStart(e, clientX, clientY) {
-            isHolding = true; activeGesture = 'none'; 
-            if (curBeta !== null) { baseBeta = curBeta; baseGamma = curGamma; }
-            vx = 0; vy = 0; vs = 0; 
-            
-            holdX = clientX; holdY = clientY;
-            touchStartX = clientX; touchStartY = clientY;
-            lastTouchX = clientX; lastTouchY = clientY;
-            touchStartTime = Date.now();
-
-            if (panMode === 'swipe') {
-                modeIndicator.innerHTML = '👆 TOUCHED'; instructionText.innerText = 'Drag to Pan / Tilt to Zoom';
-            } else {
-                modeIndicator.innerHTML = '🔍 ZOOM MODE';
-                modeIndicator.className = 'bg-amber-500/20 border border-amber-500 text-amber-400 font-bold px-4 py-2 rounded-full backdrop-blur shadow-lg shadow-amber-900/20';
-            }
-        }
-
-        function handleTouchMove(e, clientX, clientY) {
-            if (isHolding && panMode === 'swipe') {
-                if (activeGesture === 'none') {
-                    const dist = Math.hypot(clientX - touchStartX, clientY - touchStartY);
-                    if (dist > 10) { 
-                        activeGesture = 'pan'; 
-                        modeIndicator.innerHTML = '👆 SWIPING'; instructionText.innerText = 'Zoom Locked';
-                        vs = 0; 
-                    }
-                }
-                if (activeGesture === 'pan') {
-                    x += (clientX - lastTouchX); y += (clientY - lastTouchY);
-                    vx = 0; vy = 0; vs = 0; 
-                }
-                lastTouchX = clientX; lastTouchY = clientY;
-            }
-        }
-
-        function handleTouchEnd(e, clientX, clientY) {
-            isHolding = false;
-            
-            // Check if it was a quick tap for object selection
-            const dist = Math.hypot(clientX - touchStartX, clientY - touchStartY);
-            const time = Date.now() - touchStartTime;
-            if (dist < 10 && time < 350) {
-                handleTapSelection(clientX, clientY);
-            }
-
-            activeGesture = null; lastTouchX = null; lastTouchY = null;
-            modeIndicator.innerHTML = '👁️ PAN MODE';
-            modeIndicator.className = 'bg-emerald-500/20 border border-emerald-500 text-emerald-400 font-bold px-4 py-2 rounded-full backdrop-blur shadow-lg shadow-emerald-900/20';
-            instructionText.innerText = panMode === 'swipe' ? 'Touch & Drag to Pan' : 'Press & hold to Zoom';
-
-            if (curBeta !== null) { baseBeta = curBeta; baseGamma = curGamma; }
-            vx = 0; vy = 0; vs = 0;
-        }
-
-        overlay.addEventListener('touchstart', (e) => { e.preventDefault(); handleTouchStart(e, e.touches[0].clientX, e.touches[0].clientY); });
-        overlay.addEventListener('touchmove', (e) => { e.preventDefault(); handleTouchMove(e, e.touches[0].clientX, e.touches[0].clientY); });
-        overlay.addEventListener('touchend', (e) => { e.preventDefault(); handleTouchEnd(e, e.changedTouches[0].clientX, e.changedTouches[0].clientY); });
-        
-        overlay.addEventListener('mousedown', (e) => { handleTouchStart(e, e.clientX, e.clientY); });
-        overlay.addEventListener('mousemove', (e) => { handleTouchMove(e, e.clientX, e.clientY); });
-        overlay.addEventListener('mouseup', (e) => { handleTouchEnd(e, e.clientX, e.clientY); });
-        overlay.addEventListener('mouseleave', () => { if(isHolding) handleTouchEnd(null, lastTouchX, lastTouchY); });
-
-        // --- 7. PHYSICS & GYRO LOOP ---
-        function handleOrientation(event) {
-            curBeta = event.beta; curGamma = event.gamma; 
-            if (baseBeta === null) { baseBeta = curBeta; baseGamma = curGamma; }
-        }
-
-        function updateTransform() {
-            wrapper.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
-        }
-
-        function gameLoop() {
-            if (!isRunning) return;
-            const ww = window.innerWidth; const wh = window.innerHeight;
-
-            if (baseBeta !== null && curBeta !== null) {
-                let dBeta = curBeta - baseBeta; let dGamma = curGamma - baseGamma;
-                if (dBeta > 180) dBeta -= 360; if (dBeta < -180) dBeta += 360;
-                if (dGamma > 90) dGamma -= 180; if (dGamma < -90) dGamma += 180;
-
-                let activeBeta = 0; if (Math.abs(dBeta) > deadzone) activeBeta = dBeta > 0 ? dBeta - deadzone : dBeta + deadzone;
-                let activeGamma = 0; if (Math.abs(dGamma) > deadzone) activeGamma = dGamma > 0 ? dGamma - deadzone : dGamma + deadzone;
-
-                if (isHolding) {
-                    if (panMode === 'swipe') {
-                        if (activeGesture === 'none' && Math.abs(activeBeta) > 0) { activeGesture = 'zoom'; }
-                        if (activeGesture === 'zoom') { vs += -activeBeta * BASE_ZOOM_SPEED; vx = 0; vy = 0; } 
-                        else if (activeGesture === 'pan') { vs = 0; }
-                    } else {
-                        vs += -activeBeta * BASE_ZOOM_SPEED;
-                    }
-                } else if (panMode === 'tilt') {
-                    vx += (-activeGamma * (BASE_PAN_SPEED * panSensitivity)) / scale;
-                    vy += (-activeBeta * (BASE_PAN_SPEED * panSensitivity)) / scale;
-                }
-            }
-
-            vx *= FRICTION; vy *= FRICTION; vs *= FRICTION;
-
-            let oldScale = scale; scale += vs;
-            const dynamicMinScale = Math.max(1.0, ww / baseW, wh / baseH);
-            scale = Math.max(dynamicMinScale, Math.min(MAX_SCALE, scale));
-            const scaleRatio = scale / oldScale;
-
-            if (scaleRatio !== 1) {
-                const offsetX = holdX - (ww / 2); const offsetY = holdY - (wh / 2);
-                x = x * scaleRatio + offsetX * (1 - scaleRatio);
-                y = y * scaleRatio + offsetY * (1 - scaleRatio);
-            }
-
-            x += vx; y += vy;
-
-            const maxPanX = Math.max(0, (baseW * scale - ww) / 2);
-            const maxPanY = Math.max(0, (baseH * scale - wh) / 2);
-
-            x = Math.max(-maxPanX, Math.min(maxPanX, x));
-            y = Math.max(-maxPanY, Math.min(maxPanY, y));
-
-            if (x === maxPanX || x === -maxPanX) vx = 0;
-            if (y === maxPanY || y === -maxPanY) vy = 0;
-            if (scale === dynamicMinScale || scale === MAX_SCALE) vs = 0;
-
-            updateTransform(); requestAnimationFrame(gameLoop);
-        }
-
-        async function initGyro() {
-            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                try {
-                    const p = await DeviceOrientationEvent.requestPermission();
-                    if (p !== 'granted') return alert('Permission denied.');
-                } catch (e) { return alert('HTTPS required.'); }
-            }
-            baseBeta = null; baseGamma = null;
-            window.addEventListener('deviceorientation', handleOrientation);
-            setupScreen.classList.add('hidden'); gameScreen.classList.remove('hidden');
-            instructionText.innerText = panMode === 'swipe' ? 'Touch & Drag to Pan' : 'Press & hold to Zoom';
-            calculateBaseSize(); isRunning = true; requestAnimationFrame(gameLoop);
-        }
-
-        function stopGyro() {
-            isRunning = false; window.removeEventListener('deviceorientation', handleOrientation);
-            gameScreen.classList.add('hidden'); setupScreen.classList.remove('hidden');
-        }
-
-        function recalibrate() {
-            baseBeta = curBeta; baseGamma = curGamma; vx = 0; vy = 0; vs = 0;
-            document.getElementById('recalibrate-btn').classList.add('bg-indigo-400');
-            setTimeout(() => document.getElementById('recalibrate-btn').classList.remove('bg-indigo-400'), 200);
-        }
-
-        document.getElementById('start-btn').addEventListener('click', initGyro);
-        document.getElementById('back-btn').addEventListener('click', stopGyro);
-        document.getElementById('recalibrate-btn').addEventListener('click', recalibrate);
-    </script>
-</body>
-</html>
+                    "polygons": [ [[0.82, 0.12], [0.95
