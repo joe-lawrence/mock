@@ -65,19 +65,30 @@
         
         <div class="w-full max-w-sm space-y-6 bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl">
             
+            <!-- Mode Toggle -->
+            <div>
+                <div class="flex justify-between mb-2">
+                    <label class="text-sm font-medium text-slate-300">Pan Control Mode</label>
+                </div>
+                <div class="flex gap-2 bg-slate-900 p-1 rounded-lg border border-slate-700">
+                    <button id="mode-tilt-btn" class="flex-1 py-2 text-sm font-bold bg-indigo-600 text-white rounded-md shadow transition-colors">Tilt to Pan</button>
+                    <button id="mode-swipe-btn" class="flex-1 py-2 text-sm font-medium text-slate-400 hover:text-slate-200 rounded-md transition-colors">Swipe to Pan</button>
+                </div>
+            </div>
+
             <!-- Deadzone Slider -->
             <div>
                 <div class="flex justify-between mb-1">
-                    <label class="text-sm font-medium text-slate-300">Deadzone (Resting Area)</label>
+                    <label class="text-sm font-medium text-slate-300">Tilt Deadzone</label>
                     <span id="deadzone-val" class="text-sm text-indigo-400 font-bold">2.0°</span>
                 </div>
                 <input type="range" id="deadzone-slider" min="0" max="10" step="0.5" value="2" class="w-full h-2 bg-slate-700 rounded-lg appearance-none slider-thumb">
             </div>
 
             <!-- Pan Sensitivity Slider -->
-            <div>
+            <div id="pan-sensitivity-container">
                 <div class="flex justify-between mb-1">
-                    <label class="text-sm font-medium text-slate-300">Pan Sensitivity</label>
+                    <label class="text-sm font-medium text-slate-300">Tilt Pan Sensitivity</label>
                     <span id="pan-val" class="text-sm text-indigo-400 font-bold">1.0x</span>
                 </div>
                 <input type="range" id="pan-slider" min="0.1" max="2.5" step="0.1" value="1.0" class="w-full h-2 bg-slate-700 rounded-lg appearance-none slider-thumb">
@@ -92,7 +103,7 @@
                 <input type="range" id="zoom-slider" min="0.1" max="2.5" step="0.1" value="1.0" class="w-full h-2 bg-slate-700 rounded-lg appearance-none slider-thumb">
             </div>
 
-            <button id="start-btn" class="w-full py-3 mt-4 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold rounded-lg transition-colors">
+            <button id="start-btn" class="w-full py-3 mt-4 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold rounded-lg transition-colors shadow-lg">
                 Enable Gyro & Start
             </button>
         </div>
@@ -130,6 +141,7 @@
     <script>
         let isRunning = false;
         let isHolding = false;
+        let panMode = 'tilt'; // 'tilt' or 'swipe'
         
         let baseBeta = null;
         let baseGamma = null;
@@ -160,6 +172,8 @@
         let baseH = 0;
         let holdX = window.innerWidth / 2;
         let holdY = window.innerHeight / 2;
+        let lastTouchX = null;
+        let lastTouchY = null;
 
         // DOM Elements
         const setupScreen = document.getElementById('setup-screen');
@@ -168,6 +182,27 @@
         const img = document.getElementById('kitchen-img');
         const modeIndicator = document.getElementById('mode-indicator');
         const instructionText = document.getElementById('instruction-text');
+        
+        const modeTiltBtn = document.getElementById('mode-tilt-btn');
+        const modeSwipeBtn = document.getElementById('mode-swipe-btn');
+        const panSensitivityContainer = document.getElementById('pan-sensitivity-container');
+
+        // Mode Toggles
+        modeTiltBtn.addEventListener('click', () => {
+            panMode = 'tilt';
+            modeTiltBtn.className = 'flex-1 py-2 text-sm font-bold bg-indigo-600 text-white rounded-md shadow transition-colors';
+            modeSwipeBtn.className = 'flex-1 py-2 text-sm font-medium text-slate-400 hover:text-slate-200 rounded-md transition-colors';
+            panSensitivityContainer.style.opacity = '1';
+            panSensitivityContainer.style.pointerEvents = 'auto';
+        });
+
+        modeSwipeBtn.addEventListener('click', () => {
+            panMode = 'swipe';
+            modeSwipeBtn.className = 'flex-1 py-2 text-sm font-bold bg-indigo-600 text-white rounded-md shadow transition-colors';
+            modeTiltBtn.className = 'flex-1 py-2 text-sm font-medium text-slate-400 hover:text-slate-200 rounded-md transition-colors';
+            panSensitivityContainer.style.opacity = '0.4';
+            panSensitivityContainer.style.pointerEvents = 'none'; // Swipe is 1:1, so tilt sensitivity doesn't apply
+        });
 
         // Wiring Up Sliders
         document.getElementById('deadzone-slider').addEventListener('input', (e) => {
@@ -183,7 +218,6 @@
             document.getElementById('zoom-val').innerText = `${zoomSensitivity.toFixed(1)}x`;
         });
 
-        // 1. GUARANTEE PERFECT ASPECT RATIO ("object-fit: cover" math)
         function calculateBaseSize() {
             if (!img.complete || img.naturalWidth === 0) {
                 setTimeout(calculateBaseSize, 50);
@@ -200,46 +234,73 @@
         img.onload = calculateBaseSize;
         window.addEventListener('resize', calculateBaseSize);
 
-        // 2. TARGETED ZOOM (Capture finger coordinates on touch)
-        function setHoldState(holding, e) {
-            isHolding = holding;
-            if (holding) {
-                // Save where the user touched to use as the zoom epicenter
-                if (e) {
-                    if (e.touches && e.touches.length > 0) {
-                        holdX = e.touches[0].clientX;
-                        holdY = e.touches[0].clientY;
-                    } else {
-                        holdX = e.clientX;
-                        holdY = e.clientY;
-                    }
-                } else {
-                    holdX = window.innerWidth / 2;
-                    holdY = window.innerHeight / 2;
-                }
+        // TOUCH HANDLING
+        function handleTouchStart(e, clientX, clientY) {
+            isHolding = true;
+            holdX = clientX;
+            holdY = clientY;
+            lastTouchX = clientX;
+            lastTouchY = clientY;
 
+            if (panMode === 'swipe') {
+                modeIndicator.innerHTML = '👆 SWIPE & TILT';
+                instructionText.innerText = 'Drag to Pan / Tilt to Zoom';
+            } else {
                 modeIndicator.innerHTML = '🔍 ZOOM MODE';
                 modeIndicator.className = 'bg-amber-500/20 border border-amber-500 text-amber-400 font-bold px-4 py-2 rounded-full backdrop-blur shadow-lg shadow-amber-900/20 transition-colors duration-200';
                 instructionText.innerText = 'Release to Pan';
-            } else {
-                modeIndicator.innerHTML = '👁️ PAN MODE';
-                modeIndicator.className = 'bg-emerald-500/20 border border-emerald-500 text-emerald-400 font-bold px-4 py-2 rounded-full backdrop-blur shadow-lg shadow-emerald-900/20 transition-colors duration-200';
-                instructionText.innerText = 'Press & hold to Zoom';
-
-                // Recalibrate on release
-                if (curBeta !== null && curGamma !== null) {
-                    baseBeta = curBeta;
-                    baseGamma = curGamma;
-                }
-                vx = 0; vy = 0; vs = 0;
             }
         }
 
-        overlay.addEventListener('touchstart', (e) => { e.preventDefault(); setHoldState(true, e); });
-        overlay.addEventListener('touchend', (e) => { e.preventDefault(); setHoldState(false, null); });
-        overlay.addEventListener('mousedown', (e) => { setHoldState(true, e); });
-        overlay.addEventListener('mouseup', (e) => { setHoldState(false, null); });
-        overlay.addEventListener('mouseleave', (e) => { setHoldState(false, null); });
+        function handleTouchMove(e, clientX, clientY) {
+            if (isHolding && panMode === 'swipe') {
+                const dx = clientX - lastTouchX;
+                const dy = clientY - lastTouchY;
+                
+                // Directly drag the image
+                x += dx;
+                y += dy;
+                
+                // Kill momentum so it doesn't drift
+                vx = 0;
+                vy = 0;
+
+                lastTouchX = clientX;
+                lastTouchY = clientY;
+                
+                // Dynamically update the zoom epicenter if they are tilting while dragging
+                holdX = clientX;
+                holdY = clientY;
+            }
+        }
+
+        function handleTouchEnd() {
+            isHolding = false;
+            lastTouchX = null;
+            lastTouchY = null;
+
+            modeIndicator.innerHTML = '👁️ PAN MODE';
+            modeIndicator.className = 'bg-emerald-500/20 border border-emerald-500 text-emerald-400 font-bold px-4 py-2 rounded-full backdrop-blur shadow-lg shadow-emerald-900/20 transition-colors duration-200';
+            instructionText.innerText = panMode === 'swipe' ? 'Touch & Drag to Pan' : 'Press & hold to Zoom';
+
+            // Recalibrate tilt base on release to prevent sudden jumping
+            if (curBeta !== null && curGamma !== null) {
+                baseBeta = curBeta;
+                baseGamma = curGamma;
+            }
+            vx = 0; vy = 0; vs = 0;
+        }
+
+        // Touch Listeners
+        overlay.addEventListener('touchstart', (e) => { e.preventDefault(); handleTouchStart(e, e.touches[0].clientX, e.touches[0].clientY); });
+        overlay.addEventListener('touchmove', (e) => { e.preventDefault(); handleTouchMove(e, e.touches[0].clientX, e.touches[0].clientY); });
+        overlay.addEventListener('touchend', (e) => { e.preventDefault(); handleTouchEnd(); });
+        
+        // Mouse Listeners (for desktop testing)
+        overlay.addEventListener('mousedown', (e) => { handleTouchStart(e, e.clientX, e.clientY); });
+        overlay.addEventListener('mousemove', (e) => { handleTouchMove(e, e.clientX, e.clientY); });
+        overlay.addEventListener('mouseup', () => { handleTouchEnd(); });
+        overlay.addEventListener('mouseleave', () => { handleTouchEnd(); });
 
         function handleOrientation(event) {
             curBeta = event.beta;   
@@ -280,8 +341,10 @@
                 }
 
                 if (isHolding) {
+                    // Zooming is active in both modes when holding
                     vs += -activeBeta * (BASE_ZOOM_SPEED * zoomSensitivity);
-                } else {
+                } else if (panMode === 'tilt') {
+                    // Tilt panning is ONLY active if not holding AND in tilt mode
                     vx += (-activeGamma * (BASE_PAN_SPEED * panSensitivity)) / scale;
                     vy += (-activeBeta * (BASE_PAN_SPEED * panSensitivity)) / scale;
                 }
@@ -292,7 +355,7 @@
             vy *= FRICTION;
             vs *= FRICTION;
 
-            // 3. CALCULATE ZOOM-TO-POINT TRANSLATION
+            // CALCULATE ZOOM-TO-POINT TRANSLATION
             let oldScale = scale;
             scale += vs;
             
@@ -301,7 +364,7 @@
 
             const scaleRatio = scale / oldScale;
 
-            // Shift X/Y to keep the image perfectly pinned under the finger while scaling
+            // Shift X/Y to keep the image pinned under the zoom epicenter
             if (scaleRatio !== 1) {
                 const offsetX = holdX - (ww / 2);
                 const offsetY = holdY - (wh / 2);
@@ -313,7 +376,7 @@
             x += vx;
             y += vy;
 
-            // 4. BOUNDARY CLAMPING
+            // BOUNDARY CLAMPING
             const maxPanX = Math.max(0, (baseW * scale - ww) / 2);
             const maxPanY = Math.max(0, (baseH * scale - wh) / 2);
 
@@ -350,6 +413,9 @@
             setupScreen.classList.add('hidden');
             gameScreen.classList.remove('hidden');
             
+            // Set initial instruction text based on mode
+            instructionText.innerText = panMode === 'swipe' ? 'Touch & Drag to Pan' : 'Press & hold to Zoom';
+
             calculateBaseSize();
             isRunning = true;
             requestAnimationFrame(gameLoop);
