@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gyroscope Zoom & Pan Prototype</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+        }
+        #scene-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #scene-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform-origin: center center;
+            will-change: transform;
+        }
+    </style>
+</head>
+<body class="text-white font-sans antialiased select-none">
+
+    <!-- iOS Permission / Start Overlay -->
+    <div id="start-overlay" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/90 backdrop-blur-sm p-6 text-center">
+        <h1 class="text-2xl font-bold mb-4 text-amber-400">Gyroscope Tilt Demo</h1>
+        <ul class="text-gray-300 text-sm mb-8 space-y-2 text-left max-w-xs">
+            <li><span class="font-bold text-white">Tilt Forward:</span> Zoom In</li>
+            <li><span class="font-bold text-white">Tilt Backward:</span> Zoom Out</li>
+            <li><span class="font-bold text-white">Tilt Left/Right:</span> Pan Image</li>
+        </ul>
+        <button id="btn-start" onclick="requestGyroAccess()" class="bg-amber-500 hover:bg-amber-400 text-black font-bold py-3 px-8 rounded-full shadow-lg transition-transform active:scale-95">
+            Start Gyroscope
+        </button>
+        <p class="mt-4 text-xs text-gray-500">Required to enable motion sensors on iOS</p>
+    </div>
+
+    <!-- Main Scene -->
+    <div id="scene-container">
+        <!-- Using the kitchen image -->
+        <img id="scene-image" src="new-kitchen_2.jpeg" alt="Kitchen Scene">
+    </div>
+
+    <!-- Telemetry / Debug UI -->
+    <div id="debug-ui" class="absolute bottom-4 left-4 p-3 bg-black/70 rounded-lg text-xs font-mono text-amber-400 z-40 pointer-events-none hidden shadow-xl border border-gray-800">
+        <div class="font-bold text-white mb-1 uppercase tracking-widest text-[10px]">Telemetry</div>
+        <div>Beta (F/B): <span id="debug-beta">0</span>&deg;</div>
+        <div>Gamma (L/R): <span id="debug-gamma">0</span>&deg;</div>
+        <div class="h-px bg-gray-700 my-1"></div>
+        <div>Zoom: <span id="debug-zoom">1.00</span>x</div>
+        <div>Pan X: <span id="debug-pan">0.00</span>%</div>
+    </div>
+
+    <script>
+        // --- State Variables ---
+        let isActive = false;
+        
+        // Sensor values
+        let currentBeta = 45; // Default resting angle
+        let currentGamma = 0;
+        
+        // Smooth interpolated values (LERP)
+        let lerpZoom = 1;
+        let lerpPanX = 0;
+        
+        // Target values calculated from sensors
+        let targetZoom = 1;
+        let targetPanX = 0;
+
+        // Constants
+        const MIN_ZOOM = 1;
+        const MAX_ZOOM = 2.8;
+        const LERP_FACTOR = 0.08; // Lower = smoother/slower, Higher = snappier/jittery
+
+        // DOM Elements
+        const overlay = document.getElementById('start-overlay');
+        const debugUI = document.getElementById('debug-ui');
+        const img = document.getElementById('scene-image');
+        
+        const dbgBeta = document.getElementById('debug-beta');
+        const dbgGamma = document.getElementById('debug-gamma');
+        const dbgZoom = document.getElementById('debug-zoom');
+        const dbgPan = document.getElementById('debug-pan');
+
+        // --- iOS Permission Logic ---
+        async function requestGyroAccess() {
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    if (permission === 'granted') {
+                        startTracking();
+                    } else {
+                        alert("Gyroscope permission denied. Please allow it in settings to use this feature.");
+                    }
+                } catch (error) {
+                    console.error("Error requesting DeviceOrientation:", error);
+                    alert("Error requesting gyroscope access.");
+                }
+            } else {
+                // Non-iOS devices usually don't require explicit permission
+                startTracking();
+            }
+        }
+
+        function startTracking() {
+            isActive = true;
+            overlay.classList.add('hidden');
+            debugUI.classList.remove('hidden');
+            
+            window.addEventListener('deviceorientation', handleOrientation, true);
+            requestAnimationFrame(animationLoop);
+        }
+
+        // --- Sensor Data Handling ---
+        function handleOrientation(event) {
+            if (!event.beta || !event.gamma) return;
+
+            // Beta: Front-to-back tilt [-180, 180]
+            // We expect ~20 (tilted back/flat) to ~80 (upright/forward)
+            currentBeta = event.beta;
+
+            // Gamma: Left-to-right tilt [-90, 90]
+            // We expect -40 (left) to +40 (right)
+            currentGamma = event.gamma;
+
+            calculateTargets();
+        }
+
+        function calculateTargets() {
+            // 1. Calculate Target Zoom (from Beta)
+            // Clamp beta between 20 (zoomed out) and 70 (zoomed in max)
+            let b = Math.max(20, Math.min(70, currentBeta));
+            
+            // Map 20->70 to 0.0->1.0
+            let zoomProgress = (b - 20) / 50; 
+            targetZoom = MIN_ZOOM + (zoomProgress * (MAX_ZOOM - MIN_ZOOM));
+
+            // 2. Calculate Target Pan (from Gamma)
+            // Clamp gamma between -45 and 45
+            let g = Math.max(-45, Math.min(45, currentGamma));
+            
+            // Map -45->45 to -1.0->1.0
+            let panProgress = g / 45; 
+
+            // Calculate the maximum allowed translation based on current zoom
+            // Example: At scale(2), we can translate up to 25% of the element's width 
+            // before revealing the edge of the screen.
+            let maxPanPct = 0;
+            if (targetZoom > 1) {
+                maxPanPct = 50 * ((targetZoom - 1) / targetZoom);
+            }
+
+            // Invert the pan direction so tilting left (-gamma) moves the image right (+translateX)
+            targetPanX = -panProgress * maxPanPct;
+        }
+
+        // --- Smooth Animation Loop ---
+        function animationLoop() {
+            if (!isActive) return;
+
+            // Interpolate Zoom
+            lerpZoom += (targetZoom - lerpZoom) * LERP_FACTOR;
+            
+            // Interpolate Pan X
+            // We recalculate max pan based on *lerped* zoom to ensure we don't go out of bounds during the transition
+            let currentMaxPan = 0;
+            if (lerpZoom > 1) {
+                currentMaxPan = 50 * ((lerpZoom - 1) / lerpZoom);
+            }
+            
+            // Constrain the target pan strictly within the current zoom bounds
+            let safeTargetPan = Math.max(-currentMaxPan, Math.min(currentMaxPan, targetPanX));
+            lerpPanX += (safeTargetPan - lerpPanX) * LERP_FACTOR;
+
+            // Apply CSS Transform
+            // Note: Applying scale then translateX(%) is handled correctly by the browser
+            img.style.transform = `scale(${lerpZoom}) translateX(${lerpPanX}%)`;
+
+            // Update Telemetry UI
+            dbgBeta.innerText = currentBeta.toFixed(1);
+            dbgGamma.innerText = currentGamma.toFixed(1);
+            dbgZoom.innerText = lerpZoom.toFixed(2);
+            dbgPan.innerText = lerpPanX.toFixed(2);
+
+            requestAnimationFrame(animationLoop);
+        }
+    </script>
+</body>
+</html>
