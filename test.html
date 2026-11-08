@@ -15,7 +15,7 @@
             background-color: #0f172a;
             color: #f8fafc;
             font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            touch-action: none; /* Prevent browser pull-to-refresh */
+            touch-action: none; 
             user-select: none;
             -webkit-user-select: none;
         }
@@ -35,8 +35,6 @@
             transform-origin: center center;
             will-change: transform;
             pointer-events: none;
-            
-            /* CRITICAL FIX: Overrides Tailwind's default image crunching */
             max-width: none !important;
             max-height: none !important;
         }
@@ -63,17 +61,35 @@
     <!-- SETTINGS / START SCREEN -->
     <div id="setup-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-900 p-6">
         <h1 class="text-3xl font-bold mb-2 text-indigo-400">Gyro Camera</h1>
-        <p class="text-slate-400 mb-8 text-center max-w-md">Find your comfortable resting position, then hit start. The camera will use that exact angle as your "zero" point.</p>
+        <p class="text-slate-400 mb-8 text-center max-w-md">Find your comfortable resting position, then hit start. The camera will use that angle as your "zero" point.</p>
         
         <div class="w-full max-w-sm space-y-6 bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl">
             
             <!-- Deadzone Slider -->
             <div>
                 <div class="flex justify-between mb-1">
-                    <label class="text-sm font-medium text-slate-300">Deadzone</label>
+                    <label class="text-sm font-medium text-slate-300">Deadzone (Resting Area)</label>
                     <span id="deadzone-val" class="text-sm text-indigo-400 font-bold">2.0°</span>
                 </div>
                 <input type="range" id="deadzone-slider" min="0" max="10" step="0.5" value="2" class="w-full h-2 bg-slate-700 rounded-lg appearance-none slider-thumb">
+            </div>
+
+            <!-- Pan Sensitivity Slider -->
+            <div>
+                <div class="flex justify-between mb-1">
+                    <label class="text-sm font-medium text-slate-300">Pan Sensitivity</label>
+                    <span id="pan-val" class="text-sm text-indigo-400 font-bold">1.0x</span>
+                </div>
+                <input type="range" id="pan-slider" min="0.1" max="2.5" step="0.1" value="1.0" class="w-full h-2 bg-slate-700 rounded-lg appearance-none slider-thumb">
+            </div>
+
+            <!-- Zoom Sensitivity Slider -->
+            <div>
+                <div class="flex justify-between mb-1">
+                    <label class="text-sm font-medium text-slate-300">Zoom Sensitivity</label>
+                    <span id="zoom-val" class="text-sm text-indigo-400 font-bold">1.0x</span>
+                </div>
+                <input type="range" id="zoom-slider" min="0.1" max="2.5" step="0.1" value="1.0" class="w-full h-2 bg-slate-700 rounded-lg appearance-none slider-thumb">
             </div>
 
             <button id="start-btn" class="w-full py-3 mt-4 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold rounded-lg transition-colors">
@@ -92,7 +108,7 @@
         <!-- HUD -->
         <div class="absolute top-0 left-0 w-full p-4 z-20 flex justify-between items-start pointer-events-none">
             <div class="flex flex-col gap-3 pointer-events-auto">
-                <button id="back-btn" class="bg-slate-800/80 backdrop-blur border border-slate-600 text-sm px-4 py-2 rounded-lg hover:bg-slate-700 transition">
+                <button id="back-btn" class="bg-slate-800/80 backdrop-blur border border-slate-600 text-sm px-4 py-2 rounded-lg hover:bg-slate-700 transition shadow-lg">
                     ← Settings
                 </button>
                 <button id="recalibrate-btn" class="bg-indigo-600/90 backdrop-blur border border-indigo-500 text-sm px-4 py-2 rounded-lg hover:bg-indigo-500 transition shadow-lg shadow-indigo-900/50">
@@ -101,10 +117,10 @@
             </div>
 
             <div class="flex flex-col items-end">
-                <div id="mode-indicator" class="bg-emerald-500/20 border border-emerald-500 text-emerald-400 font-bold px-4 py-2 rounded-full backdrop-blur transition-colors duration-200">
+                <div id="mode-indicator" class="bg-emerald-500/20 border border-emerald-500 text-emerald-400 font-bold px-4 py-2 rounded-full backdrop-blur transition-colors duration-200 shadow-lg">
                     👁️ PAN MODE
                 </div>
-                <p id="instruction-text" class="text-xs text-slate-300 mt-2 bg-slate-900/50 px-2 py-1 rounded backdrop-blur">
+                <p id="instruction-text" class="text-xs text-slate-300 mt-2 bg-slate-900/60 px-2 py-1 rounded backdrop-blur">
                     Press & hold to Zoom
                 </p>
             </div>
@@ -120,66 +136,88 @@
         let curBeta = null;
         let curGamma = null;
 
+        // Physics State
         let x = 0;
         let y = 0;
         let scale = 1.0; 
-        
         let vx = 0;
         let vy = 0;
         let vs = 0;
 
-        let deadzone = 2.0; 
-        const panSpeed = 0.6;
-        const zoomSpeed = 0.005;
+        // Base Tuning Config
+        const BASE_PAN_SPEED = 0.6;
+        const BASE_ZOOM_SPEED = 0.005;
         const FRICTION = 0.82; 
         const MAX_SCALE = 4.0; 
 
+        // User Settings 
+        let deadzone = 2.0; 
+        let panSensitivity = 1.0;
+        let zoomSensitivity = 1.0;
+
+        // Image & Touch Data
         let baseW = 0;
         let baseH = 0;
+        let holdX = window.innerWidth / 2;
+        let holdY = window.innerHeight / 2;
 
+        // DOM Elements
         const setupScreen = document.getElementById('setup-screen');
         const gameScreen = document.getElementById('game-screen');
-        const startBtn = document.getElementById('start-btn');
-        const backBtn = document.getElementById('back-btn');
-        const recalibrateBtn = document.getElementById('recalibrate-btn');
         const overlay = document.getElementById('touch-overlay');
         const img = document.getElementById('kitchen-img');
         const modeIndicator = document.getElementById('mode-indicator');
         const instructionText = document.getElementById('instruction-text');
-        const deadzoneSlider = document.getElementById('deadzone-slider');
-        const deadzoneVal = document.getElementById('deadzone-val');
 
-        deadzoneSlider.addEventListener('input', (e) => {
+        // Wiring Up Sliders
+        document.getElementById('deadzone-slider').addEventListener('input', (e) => {
             deadzone = parseFloat(e.target.value);
-            deadzoneVal.innerText = `${deadzone.toFixed(1)}°`;
+            document.getElementById('deadzone-val').innerText = `${deadzone.toFixed(1)}°`;
+        });
+        document.getElementById('pan-slider').addEventListener('input', (e) => {
+            panSensitivity = parseFloat(e.target.value);
+            document.getElementById('pan-val').innerText = `${panSensitivity.toFixed(1)}x`;
+        });
+        document.getElementById('zoom-slider').addEventListener('input', (e) => {
+            zoomSensitivity = parseFloat(e.target.value);
+            document.getElementById('zoom-val').innerText = `${zoomSensitivity.toFixed(1)}x`;
         });
 
         // 1. GUARANTEE PERFECT ASPECT RATIO ("object-fit: cover" math)
         function calculateBaseSize() {
             if (!img.complete || img.naturalWidth === 0) {
-                // If image hasn't loaded yet, try again in 50ms
                 setTimeout(calculateBaseSize, 50);
                 return;
             }
-            
-            // Calculate scale required to cover the screen entirely
             const scaleFit = Math.max(window.innerWidth / img.naturalWidth, window.innerHeight / img.naturalHeight);
-            
             baseW = img.naturalWidth * scaleFit;
             baseH = img.naturalHeight * scaleFit;
-
             img.style.width = `${baseW}px`;
             img.style.height = `${baseH}px`;
-            
             updateTransform();
         }
 
         img.onload = calculateBaseSize;
         window.addEventListener('resize', calculateBaseSize);
 
-        function setHoldState(holding) {
+        // 2. TARGETED ZOOM (Capture finger coordinates on touch)
+        function setHoldState(holding, e) {
             isHolding = holding;
             if (holding) {
+                // Save where the user touched to use as the zoom epicenter
+                if (e) {
+                    if (e.touches && e.touches.length > 0) {
+                        holdX = e.touches[0].clientX;
+                        holdY = e.touches[0].clientY;
+                    } else {
+                        holdX = e.clientX;
+                        holdY = e.clientY;
+                    }
+                } else {
+                    holdX = window.innerWidth / 2;
+                    holdY = window.innerHeight / 2;
+                }
+
                 modeIndicator.innerHTML = '🔍 ZOOM MODE';
                 modeIndicator.className = 'bg-amber-500/20 border border-amber-500 text-amber-400 font-bold px-4 py-2 rounded-full backdrop-blur shadow-lg shadow-amber-900/20 transition-colors duration-200';
                 instructionText.innerText = 'Release to Pan';
@@ -188,7 +226,7 @@
                 modeIndicator.className = 'bg-emerald-500/20 border border-emerald-500 text-emerald-400 font-bold px-4 py-2 rounded-full backdrop-blur shadow-lg shadow-emerald-900/20 transition-colors duration-200';
                 instructionText.innerText = 'Press & hold to Zoom';
 
-                // 2. RECALIBRATE ON RELEASE: Prevents jumping when you finish zooming
+                // Recalibrate on release
                 if (curBeta !== null && curGamma !== null) {
                     baseBeta = curBeta;
                     baseGamma = curGamma;
@@ -197,16 +235,15 @@
             }
         }
 
-        overlay.addEventListener('touchstart', (e) => { e.preventDefault(); setHoldState(true); });
-        overlay.addEventListener('touchend', (e) => { e.preventDefault(); setHoldState(false); });
-        overlay.addEventListener('mousedown', () => { setHoldState(true); });
-        overlay.addEventListener('mouseup', () => { setHoldState(false); });
-        overlay.addEventListener('mouseleave', () => { setHoldState(false); });
+        overlay.addEventListener('touchstart', (e) => { e.preventDefault(); setHoldState(true, e); });
+        overlay.addEventListener('touchend', (e) => { e.preventDefault(); setHoldState(false, null); });
+        overlay.addEventListener('mousedown', (e) => { setHoldState(true, e); });
+        overlay.addEventListener('mouseup', (e) => { setHoldState(false, null); });
+        overlay.addEventListener('mouseleave', (e) => { setHoldState(false, null); });
 
         function handleOrientation(event) {
             curBeta = event.beta;   
             curGamma = event.gamma; 
-
             if (baseBeta === null || baseGamma === null) {
                 baseBeta = curBeta;
                 baseGamma = curGamma;
@@ -220,7 +257,6 @@
         function gameLoop() {
             if (!isRunning) return;
 
-            // Live window dimensions (handles mobile URL bar hiding)
             const ww = window.innerWidth;
             const wh = window.innerHeight;
 
@@ -228,7 +264,6 @@
                 let dBeta = curBeta - baseBeta;
                 let dGamma = curGamma - baseGamma;
 
-                // Handle Gimbal Lock wrap-arounds
                 if (dBeta > 180) dBeta -= 360;
                 if (dBeta < -180) dBeta += 360;
                 if (dGamma > 90) dGamma -= 180;
@@ -245,39 +280,46 @@
                 }
 
                 if (isHolding) {
-                    // Zoom Mode: Tilt forward/back to zoom. Ignored left/right.
-                    vs += -activeBeta * zoomSpeed;
+                    vs += -activeBeta * (BASE_ZOOM_SPEED * zoomSensitivity);
                 } else {
-                    // 3. NORMALIZED PAN SENSITIVITY: Division by scale keeps speed feeling constant
-                    vx += (-activeGamma * panSpeed) / scale;
-                    vy += (-activeBeta * panSpeed) / scale;
+                    vx += (-activeGamma * (BASE_PAN_SPEED * panSensitivity)) / scale;
+                    vy += (-activeBeta * (BASE_PAN_SPEED * panSensitivity)) / scale;
                 }
             }
 
-            x += vx;
-            y += vy;
-            scale += vs;
-
-            // Apply friction damping
+            // Apply friction
             vx *= FRICTION;
             vy *= FRICTION;
             vs *= FRICTION;
 
-            // 4. DYNAMIC BOUNDARIES & NO BLANK SPACE
-            // Ensure minimum scale always covers screen, even if URL bar disappears
-            const minScaleW = ww / baseW;
-            const minScaleH = wh / baseH;
-            const dynamicMinScale = Math.max(1.0, minScaleW, minScaleH);
+            // 3. CALCULATE ZOOM-TO-POINT TRANSLATION
+            let oldScale = scale;
+            scale += vs;
             
+            const dynamicMinScale = Math.max(1.0, ww / baseW, wh / baseH);
             scale = Math.max(dynamicMinScale, Math.min(MAX_SCALE, scale));
 
+            const scaleRatio = scale / oldScale;
+
+            // Shift X/Y to keep the image perfectly pinned under the finger while scaling
+            if (scaleRatio !== 1) {
+                const offsetX = holdX - (ww / 2);
+                const offsetY = holdY - (wh / 2);
+                x = x * scaleRatio + offsetX * (1 - scaleRatio);
+                y = y * scaleRatio + offsetY * (1 - scaleRatio);
+            }
+
+            // Add standard pan momentum
+            x += vx;
+            y += vy;
+
+            // 4. BOUNDARY CLAMPING
             const maxPanX = Math.max(0, (baseW * scale - ww) / 2);
             const maxPanY = Math.max(0, (baseH * scale - wh) / 2);
 
             x = Math.max(-maxPanX, Math.min(maxPanX, x));
             y = Math.max(-maxPanY, Math.min(maxPanY, y));
 
-            // Kill velocity upon hitting edges
             if (x === maxPanX || x === -maxPanX) vx = 0;
             if (y === maxPanY || y === -maxPanY) vy = 0;
             if (scale === dynamicMinScale || scale === MAX_SCALE) vs = 0;
@@ -303,14 +345,12 @@
 
             baseBeta = null;
             baseGamma = null;
-            
             window.addEventListener('deviceorientation', handleOrientation);
             
             setupScreen.classList.add('hidden');
             gameScreen.classList.remove('hidden');
             
             calculateBaseSize();
-
             isRunning = true;
             requestAnimationFrame(gameLoop);
         }
@@ -325,16 +365,14 @@
         function recalibrate() {
             baseBeta = curBeta;
             baseGamma = curGamma;
-            
             vx = 0; vy = 0; vs = 0;
-            
-            recalibrateBtn.classList.add('bg-indigo-400');
-            setTimeout(() => recalibrateBtn.classList.remove('bg-indigo-400'), 200);
+            document.getElementById('recalibrate-btn').classList.add('bg-indigo-400');
+            setTimeout(() => document.getElementById('recalibrate-btn').classList.remove('bg-indigo-400'), 200);
         }
 
-        startBtn.addEventListener('click', initGyro);
-        backBtn.addEventListener('click', stopGyro);
-        recalibrateBtn.addEventListener('click', recalibrate);
+        document.getElementById('start-btn').addEventListener('click', initGyro);
+        document.getElementById('back-btn').addEventListener('click', stopGyro);
+        document.getElementById('recalibrate-btn').addEventListener('click', recalibrate);
 
     </script>
 </body>
