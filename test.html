@@ -243,6 +243,7 @@
             isHolding = true;
             activeGesture = 'none'; 
             
+            // Lock the epicenter immediately
             holdX = clientX;
             holdY = clientY;
             touchStartX = clientX;
@@ -263,17 +264,18 @@
         function handleTouchMove(e, clientX, clientY) {
             if (isHolding && panMode === 'swipe') {
                 
-                // If we haven't locked in a gesture yet, check distance to see if it's a swipe
+                // 1. Detect if the user is intending to swipe (moved > 10px)
                 if (activeGesture === 'none') {
                     const dist = Math.hypot(clientX - touchStartX, clientY - touchStartY);
                     if (dist > 10) { 
-                        activeGesture = 'pan'; // Lock into panning
+                        activeGesture = 'pan'; // Lock into Pan
                         modeIndicator.innerHTML = '👆 SWIPING';
-                        instructionText.innerText = 'Release to reset';
+                        instructionText.innerText = 'Zoom Locked';
+                        vs = 0; // Hard kill any accidental zoom momentum
                     }
                 }
 
-                // Only execute pan logic if the gesture locked to 'pan'
+                // 2. Only execute Pan logic if strictly locked to 'pan'
                 if (activeGesture === 'pan') {
                     const dx = clientX - lastTouchX;
                     const dy = clientY - lastTouchY;
@@ -281,14 +283,17 @@
                     x += dx;
                     y += dy;
                     
+                    // Kill all momentum so it stops instantly on release
                     vx = 0;
                     vy = 0;
+                    vs = 0; 
                 }
 
                 lastTouchX = clientX;
                 lastTouchY = clientY;
-                holdX = clientX;
-                holdY = clientY;
+                
+                // Notice we are NO LONGER updating holdX/holdY here. 
+                // The zoom epicenter remains locked to the initial touch.
             }
         }
 
@@ -302,6 +307,7 @@
             modeIndicator.className = 'bg-emerald-500/20 border border-emerald-500 text-emerald-400 font-bold px-4 py-2 rounded-full backdrop-blur shadow-lg shadow-emerald-900/20 transition-colors duration-200';
             instructionText.innerText = panMode === 'swipe' ? 'Touch & Drag to Pan' : 'Press & hold to Zoom';
 
+            // Recalibrate tilt base on release to prevent sudden jumping
             if (curBeta !== null && curGamma !== null) {
                 baseBeta = curBeta;
                 baseGamma = curGamma;
@@ -358,32 +364,37 @@
 
                 if (isHolding) {
                     if (panMode === 'swipe') {
-                        // If they tilt the phone BEFORE dragging 10 pixels, lock into zoom
+                        // 1. Lock into Zoom if they tilt the phone BEFORE dragging 10 pixels
                         if (activeGesture === 'none' && Math.abs(activeBeta) > 0) {
                             activeGesture = 'zoom';
                             modeIndicator.innerHTML = '🔍 ZOOMING';
-                            instructionText.innerText = 'Release to reset';
+                            instructionText.innerText = 'Pan Locked';
                         }
 
-                        // Only zoom if we haven't locked into a swipe pan
-                        if (activeGesture === 'zoom' || activeGesture === 'none') {
+                        // 2. Execute Zoom only if locked to Zoom (strictly mutually exclusive from Pan)
+                        if (activeGesture === 'zoom') {
                             vs += -activeBeta * (BASE_ZOOM_SPEED * zoomSensitivity);
+                            vx = 0; vy = 0; // Hard kill pan momentum
+                        } else if (activeGesture === 'pan') {
+                            vs = 0; // Hard kill zoom momentum if swiping
                         }
                     } else {
-                        // Standard tilt mode zoom
+                        // Standard Tilt Mode Zoom
                         vs += -activeBeta * (BASE_ZOOM_SPEED * zoomSensitivity);
                     }
                 } else if (panMode === 'tilt') {
-                    // Standard tilt mode pan
+                    // Standard Tilt Mode Pan
                     vx += (-activeGamma * (BASE_PAN_SPEED * panSensitivity)) / scale;
                     vy += (-activeBeta * (BASE_PAN_SPEED * panSensitivity)) / scale;
                 }
             }
 
+            // Apply friction
             vx *= FRICTION;
             vy *= FRICTION;
             vs *= FRICTION;
 
+            // CALCULATE ZOOM-TO-POINT TRANSLATION
             let oldScale = scale;
             scale += vs;
             
@@ -401,6 +412,7 @@
             x += vx;
             y += vy;
 
+            // BOUNDARY CLAMPING
             const maxPanX = Math.max(0, (baseW * scale - ww) / 2);
             const maxPanY = Math.max(0, (baseH * scale - wh) / 2);
 
