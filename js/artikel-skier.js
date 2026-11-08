@@ -26,8 +26,8 @@ import { genderMarkHtml } from "./gender-marks.js";
 const MAX_LIVES = 3;
 const BASE_MIN_SPEED = 3.5;
 const BASE_MAX_SPEED = 7.5;
-/** Cases slope reads denser prompts — keep it slower than Nouns. */
-const CASES_SPEED_FACTOR = 0.74;
+/** Both slopes share this base speed scale (UI speed still multiplies). */
+const SLOPE_SPEED_FACTOR = 0.74;
 /** Vertical distance between gate rows (world units down-slope). */
 const GATE_GAP_NOUNS = 600;
 const GATE_GAP_CASES = 760;
@@ -403,9 +403,20 @@ export function mountArtikelSkier(root, options = {}) {
     ghostText = null;
   }
 
+  /** Canvas-friendly gloss (experiment — may undo). */
+  function ghostGlossText(raw) {
+    const s = String(raw || "")
+      .trim()
+      .replace(/\s+/g, " ");
+    if (!s) return "";
+    if (s.length <= 36) return s;
+    return `${s.slice(0, 34).trimEnd()}…`;
+  }
+
   /**
    * Canvas fade for the resolved answer (Cases: trigger + article; Nouns: article).
    * Case trials use `correctArticle`; noun flashes pass `article`.
+   * Optional `gloss` / definition under the noun (experiment).
    * @param {{
    *   trigger?: string,
    *   article?: string,
@@ -413,6 +424,7 @@ export function mountArtikelSkier(root, options = {}) {
    *   noun: string,
    *   tint?: string,
    *   gender?: string,
+   *   gloss?: string,
    * }} trial
    */
   function spawnGhostText(trial) {
@@ -421,14 +433,17 @@ export function mountArtikelSkier(root, options = {}) {
     ).trim();
     const noun = String(trial?.noun || "").trim();
     if (!article || !noun) return;
+    const gloss = ghostGlossText(trial?.gloss);
     ghostText = {
       trigger: String(trial.trigger || "").trim(),
       article,
       noun,
+      gloss,
       tint: trial.tint || trial.gender || "masc",
       born: performance.now(),
-      ruleMs: 1500,
-      nounMs: 980,
+      ruleMs: gloss ? 1700 : 1500,
+      nounMs: gloss ? 1200 : 980,
+      glossMs: gloss ? 1300 : 0,
       /** One glow pulse on phrase + article at reveal. */
       glowMs: 480,
     };
@@ -1111,11 +1126,35 @@ export function mountArtikelSkier(root, options = {}) {
     }
   }
 
+  /** Wipe SRS / answer tracking / case logs / report (Restart). */
+  function clearSessionStats() {
+    score = 0;
+    pools = { unseenPool: [], activePool: [], graduatedPool: [] };
+    seenByKey.clear();
+    caseStats.def.correct = 0;
+    caseStats.def.wrong = 0;
+    caseStats.indef.correct = 0;
+    caseStats.indef.wrong = 0;
+    caseComboLog = [];
+    caseTrial = null;
+    recentAnswers = [];
+    recentCaseArticles = [];
+    upcomingWord = null;
+    gateMissStreak = 0;
+    lastReportText = "";
+    lastReportJson = "";
+    player.targetWord = null;
+    setScoreDisplay(0);
+    setProgressVisible(false);
+    updateProgressUi();
+  }
+
   function showStartScreen() {
     gameState = "start";
     clearKeys();
     clearCorrectFlash();
     clearGhostText();
+    clearSessionStats();
     setProgressVisible(false);
     closeReportSheet();
     syncCourseUi();
@@ -1131,9 +1170,8 @@ export function mountArtikelSkier(root, options = {}) {
 
   function applySpeedFromUi() {
     const scale = Number(speedEl?.value) || 1;
-    const courseFactor = isCasesCourse() ? CASES_SPEED_FACTOR : 1;
-    minSpeed = BASE_MIN_SPEED * scale * courseFactor;
-    maxSpeed = BASE_MAX_SPEED * scale * courseFactor;
+    minSpeed = BASE_MIN_SPEED * scale * SLOPE_SPEED_FACTOR;
+    maxSpeed = BASE_MAX_SPEED * scale * SLOPE_SPEED_FACTOR;
   }
 
   function resize() {
@@ -1559,7 +1597,7 @@ export function mountArtikelSkier(root, options = {}) {
 
   /**
    * Resume after game over: refill lives, zero the run score.
-   * Word ✓/✗, SRS pools, and report stats keep accruing until Restart.
+   * Word ✓/✗, SRS pools, and report stats keep accruing (Restart clears them).
    */
   function continueGame() {
     if (!deckWords().length) {
@@ -1806,7 +1844,10 @@ export function mountArtikelSkier(root, options = {}) {
             const landed = player.targetWord;
             noteCaseAttempt("correct");
             if (isCasesCourse() && caseTrial) {
-              spawnGhostText(caseTrial);
+              spawnGhostText({
+                ...caseTrial,
+                gloss: landed.gloss,
+              });
               // Cases TTS: only the case-forcing phrase + article (e.g. "mit dem").
               if (audioOn) speak(caseTrial.ruleText);
             } else {
@@ -1814,6 +1855,7 @@ export function mountArtikelSkier(root, options = {}) {
                 article: landed.article,
                 noun: landed.word,
                 tint: landed.gender || "masc",
+                gloss: landed.gloss,
               });
               speakWord(landed.article, landed.word);
             }
@@ -2089,16 +2131,23 @@ export function mountArtikelSkier(root, options = {}) {
   function drawGhostText(colors) {
     if (!ghostText) return;
     const age = performance.now() - ghostText.born;
-    const maxLife = Math.max(ghostText.ruleMs, ghostText.nounMs);
+    const glossMs = ghostText.glossMs || 0;
+    const maxLife = Math.max(
+      ghostText.ruleMs,
+      ghostText.nounMs,
+      glossMs || 0
+    );
     if (age >= maxLife) {
       ghostText = null;
       return;
     }
     const ruleT = Math.min(1, age / ghostText.ruleMs);
     const nounT = Math.min(1, age / ghostText.nounMs);
+    const glossT = glossMs ? Math.min(1, age / glossMs) : 1;
     // Ease out — noun dies faster (higher t sooner → lower alpha).
     const ruleAlpha = Math.max(0, 1 - ruleT * ruleT);
     const nounAlpha = Math.max(0, 1 - nounT * nounT * (0.85 + nounT));
+    const glossAlpha = Math.max(0, 1 - glossT * glossT);
     const scale = 0.92 + Math.min(1, age / 280) * 0.28;
     const tint = colors[ghostText.tint] || colors.masc;
     const cx = width / 2;
@@ -2106,10 +2155,13 @@ export function mountArtikelSkier(root, options = {}) {
     const artUp = String(ghostText.article || "").toUpperCase();
     const trigger = String(ghostText.trigger || "").trim();
     const ruleLeft = trigger ? `${trigger} ` : "";
+    const gloss = String(ghostText.gloss || "").trim();
     const theme =
       document.documentElement.getAttribute("data-theme") || "light";
     const nounColor =
       theme === "dark" ? "rgba(148,163,184,1)" : "rgba(100,116,139,1)";
+    const glossColor =
+      theme === "dark" ? "rgba(148,163,184,0.92)" : "rgba(100,116,139,0.92)";
     const glowMs = ghostText.glowMs || 0;
     const glow =
       glowMs > 0 && age < glowMs
@@ -2152,6 +2204,13 @@ export function mountArtikelSkier(root, options = {}) {
     ctx.font = displayFont(500, 22);
     ctx.textAlign = "center";
     ctx.fillText(ghostText.noun, 0, 34);
+
+    if (gloss) {
+      ctx.globalAlpha = glossAlpha * 0.7;
+      ctx.fillStyle = glossColor;
+      ctx.font = displayFont(500, 15);
+      ctx.fillText(gloss, 0, 58);
+    }
 
     ctx.restore();
     ctx.globalAlpha = 1;

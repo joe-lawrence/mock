@@ -18,7 +18,13 @@ const GENDER_SHORT = Object.freeze({
 
 /**
  * @param {object} item — generated vocabulary item
- * @returns {{ word: string, article: string, gender: "masc"|"fem"|"neut", vocabId: string }|null}
+ * @returns {{
+ *   word: string,
+ *   article: string,
+ *   gender: "masc"|"fem"|"neut",
+ *   vocabId: string,
+ *   gloss: string,
+ * }|null}
  */
 export function climberWordFromItem(item) {
   if (!item) return null;
@@ -33,6 +39,7 @@ export function climberWordFromItem(item) {
     article,
     gender: short,
     vocabId: String(item.id || ""),
+    gloss: String(facts.gloss || "").trim(),
   };
 }
 
@@ -116,6 +123,7 @@ export function climberWordsFromIds(ids) {
  *   article: string,
  *   gender: "masc"|"fem"|"neut",
  *   vocabId: string,
+ *   gloss: string,
  *   plural: string|null,
  * }[]}
  */

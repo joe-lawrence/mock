@@ -866,11 +866,13 @@ export function mountArtikelClimber(root, options = {}) {
     clouds.forEach(fillCloudShape);
   }
 
-  /** Wipe run + report stats (Restart). Next Start begins a fresh session. */
+  /** Wipe SRS / answer tracking / report (Restart). Next Start is a fresh session. */
   function clearSessionStats() {
     score = 0;
     pools = { unseenPool: [], activePool: [], graduatedPool: [] };
     seenByKey.clear();
+    recentAnswers = [];
+    upcomingWord = null;
     lastReportText = "";
     lastReportJson = "";
     player.targetWord = null;

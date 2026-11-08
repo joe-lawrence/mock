@@ -1895,7 +1895,7 @@ export const vocabulary = {
     "surface": "Botschaft",
     "type": "noun",
     "topic": "nouns",
-    "gloss": "embassy / message",
+    "gloss": "message",
     "sense": "",
     "level": null,
     "area": null,
@@ -1912,7 +1912,7 @@ export const vocabulary = {
     "derived": {
       "gender": "feminine",
       "article": "die",
-      "gloss": "embassy / message",
+      "gloss": "message",
       "plural": "Botschaften"
     },
     "status": "active",
@@ -2293,35 +2293,6 @@ export const vocabulary = {
       "article": "die",
       "gloss": "ability",
       "plural": "Fähigkeiten"
-    },
-    "status": "active",
-    "source": "content/vocabulary/nouns-gender.md"
-  },
-  "vocab.nouns.findling": {
-    "id": "vocab.nouns.findling",
-    "heading": "der Findling",
-    "surface": "Findling",
-    "type": "noun",
-    "topic": "nouns",
-    "gloss": "foundling / glacial boulder",
-    "sense": "",
-    "level": null,
-    "area": null,
-    "introduced_by": [
-      "nouns.suffixes"
-    ],
-    "reference": [
-      "nouns.suffix.masculine"
-    ],
-    "engine": {
-      "lemma": "Findling"
-    },
-    "engineJoin": "engine-backed",
-    "derived": {
-      "gender": "masculine",
-      "article": "der",
-      "gloss": "foundling / glacial boulder",
-      "plural": "Findlinge"
     },
     "status": "active",
     "source": "content/vocabulary/nouns-gender.md"
@@ -4402,7 +4373,7 @@ export const vocabulary = {
     "surface": "Kino",
     "type": "noun",
     "topic": "nouns",
-    "gloss": "cinema / movie theater",
+    "gloss": "cinema",
     "sense": "",
     "level": null,
     "area": null,
@@ -4419,7 +4390,7 @@ export const vocabulary = {
     "derived": {
       "gender": "neuter",
       "article": "das",
-      "gloss": "cinema / movie theater",
+      "gloss": "cinema",
       "plural": null
     },
     "status": "active",
@@ -4605,7 +4576,7 @@ export const vocabulary = {
     "surface": "Narzisse",
     "type": "noun",
     "topic": "nouns",
-    "gloss": "daffodil / narcissus",
+    "gloss": "daffodil",
     "sense": "",
     "level": null,
     "area": null,
@@ -4622,7 +4593,7 @@ export const vocabulary = {
     "derived": {
       "gender": "feminine",
       "article": "die",
-      "gloss": "daffodil / narcissus",
+      "gloss": "daffodil",
       "plural": null
     },
     "status": "active",
@@ -6049,7 +6020,6 @@ export const vocabularyByTopic = {
     "vocab.nouns.faehigkeit",
     "vocab.nouns.fahrer",
     "vocab.nouns.februar",
-    "vocab.nouns.findling",
     "vocab.nouns.fluechtling",
     "vocab.nouns.fraeulein",
     "vocab.nouns.freiheit",

@@ -351,7 +351,7 @@ export const LEXICON = Object.freeze({
   }),
   Botschaft: Object.freeze({
     gender: "feminine",
-    gloss: "embassy / message",
+    gloss: "message",
     plural: Object.freeze({ form: "Botschaften", stem: "Botschaft", ending: "en" }),
   }),
 
@@ -417,11 +417,6 @@ export const LEXICON = Object.freeze({
     gender: "masculine",
     gloss: "refugee",
     plural: Object.freeze({ form: "Flüchtlinge", stem: "Flüchtling", ending: "e" }),
-  }),
-  Findling: Object.freeze({
-    gender: "masculine",
-    gloss: "foundling / glacial boulder",
-    plural: Object.freeze({ form: "Findlinge", stem: "Findling", ending: "e" }),
   }),
   Schmetterling: Object.freeze({
     gender: "masculine",
@@ -635,7 +630,7 @@ export const LEXICON = Object.freeze({
   Tulpe: Object.freeze({ gender: "feminine", gloss: "tulip" }),
   Lilie: Object.freeze({ gender: "feminine", gloss: "lily" }),
   Nelke: Object.freeze({ gender: "feminine", gloss: "carnation" }),
-  Narzisse: Object.freeze({ gender: "feminine", gloss: "daffodil / narcissus" }),
+  Narzisse: Object.freeze({ gender: "feminine", gloss: "daffodil" }),
   Sonnenblume: Object.freeze({
     gender: "feminine",
     gloss: "sunflower",
@@ -659,7 +654,7 @@ export const LEXICON = Object.freeze({
   Hotel: Object.freeze({ gender: "neuter", gloss: "hotel" }),
   Café: Object.freeze({ gender: "neuter", gloss: "café" }),
   Restaurant: Object.freeze({ gender: "neuter", gloss: "restaurant" }),
-  Kino: Object.freeze({ gender: "neuter", gloss: "cinema / movie theater" }),
+  Kino: Object.freeze({ gender: "neuter", gloss: "cinema" }),
   Museum: Object.freeze({ gender: "neuter", gloss: "museum" }),
   Theater: Object.freeze({
     gender: "neuter",
