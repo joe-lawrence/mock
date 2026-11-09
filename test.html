@@ -96,18 +96,13 @@
                 
                 <svg id="overlay-svg" preserveAspectRatio="none">
                     <defs>
-                        <!-- EQUALIZED BLUR FILTER -->
                         <filter id="shape-glow" x="-50%" y="-50%" width="200%" height="200%">
-                            <!-- 1. Outer blur for edges -->
                             <feGaussianBlur in="SourceGraphic" id="dynamic-blur-outer" stdDeviation="40" result="outer-blur" />
-                            <!-- 2. Inner blur for core -->
                             <feGaussianBlur in="SourceGraphic" id="dynamic-blur-inner" stdDeviation="10" result="inner-blur" />
-                            <!-- 3. Merge them -->
                             <feMerge result="merged-blurs">
                                 <feMergeNode in="outer-blur" />
                                 <feMergeNode in="inner-blur" />
                             </feMerge>
-                            <!-- 4. Boost the alpha channel slope to artificially brighten small, over-diluted shapes -->
                             <feComponentTransfer in="merged-blurs" result="boosted-glow">
                                 <feFuncA type="linear" slope="3" />
                             </feComponentTransfer>
@@ -193,7 +188,7 @@
         let sceneData = null;
         let activeTargetType = 'noun';
 
-        // Visual Styling State
+        // Visual Styling State (Updated Defaults)
         let visualStyle = {
             color: '#facc15', 
             baseOpacity: 0.0,  
@@ -346,6 +341,9 @@
         let activeGesture = null; let touchStartX = 0; let touchStartY = 0; let touchStartTime = 0;
         let lastTouchX = null; let lastTouchY = null;
         let clearSelectionTimeout = null;
+        
+        // Strict Mutual Exclusivity Tracker
+        let hasZoomedThisTouch = false;
 
         // --- 5. DOM ELEMENTS ---
         const setupScreen = document.getElementById('setup-screen');
@@ -426,25 +424,10 @@
             }
             return inside;
         }
-        
-        function createDebugDot(x, y) {
-            const dot = document.createElement('div');
-            dot.style.position = 'absolute'; dot.style.left = x + 'px'; dot.style.top = y + 'px';
-            dot.style.width = '12px'; dot.style.height = '12px';
-            dot.style.backgroundColor = 'rgba(239, 68, 68, 0.8)'; 
-            dot.style.borderRadius = '50%'; dot.style.transform = 'translate(-50%, -50%)';
-            dot.style.pointerEvents = 'none'; dot.style.zIndex = '9999';
-            dot.style.transition = 'opacity 0.5s ease-in';
-            document.body.appendChild(dot);
-            setTimeout(() => { dot.style.opacity = '0'; }, 100);
-            setTimeout(() => { dot.remove(); }, 600);
-        }
 
         function handleTapSelection(clientX, clientY) {
             if (!sceneData || !sceneData.targets) return;
             
-            createDebugDot(clientX, clientY);
-
             const rect = wrapper.getBoundingClientRect();
             const tapX = clientX - rect.left;
             const tapY = clientY - rect.top;
@@ -514,7 +497,7 @@
         }
 
         function handleTouchStart(e, clientX, clientY) {
-            isHolding = true; activeGesture = 'none'; 
+            isHolding = true; activeGesture = 'none'; hasZoomedThisTouch = false;
             if (curBeta !== null) { baseBeta = curBeta; baseGamma = curGamma; }
             vx = 0; vy = 0; vs = 0; 
             holdX = clientX; holdY = clientY;
@@ -554,7 +537,8 @@
             const dist = Math.hypot(clientX - touchStartX, clientY - touchStartY);
             const time = Date.now() - touchStartTime;
             
-            if (dist < 20 && time < 500 && !isUIElement(e)) { 
+            // STRICT MUTUAL EXCLUSIVITY: Tap only works if no zoom was triggered during the hold
+            if (dist < 20 && time < 500 && !isUIElement(e) && !hasZoomedThisTouch) { 
                 try { handleTapSelection(clientX, clientY); } catch(err) { console.error("Selection crashed:", err); }
             }
             
@@ -607,9 +591,10 @@
                 if (isHolding) {
                     if (panMode === 'swipe') {
                         if (activeGesture === 'none' && Math.abs(activeBeta) > 0) { activeGesture = 'zoom'; }
-                        if (activeGesture === 'zoom') { vs += -activeBeta * (BASE_ZOOM_SPEED * zoomSensitivity); vx = 0; vy = 0; } 
+                        if (activeGesture === 'zoom') { vs += -activeBeta * (BASE_ZOOM_SPEED * zoomSensitivity); vx = 0; vy = 0; hasZoomedThisTouch = true; } 
                         else if (activeGesture === 'pan') { vs = 0; }
                     } else {
+                        if (Math.abs(activeBeta) > 0) hasZoomedThisTouch = true;
                         vs += -activeBeta * (BASE_ZOOM_SPEED * zoomSensitivity);
                     }
                 } else if (panMode === 'tilt') {
@@ -624,7 +609,15 @@
             const dynamicMinScale = Math.min(ww / baseW, wh / baseH);
             const dynamicMaxScale = Math.max(scaleCover * 4.0, 4.0); 
             
-            scale = Math.max(dynamicMinScale, Math.min(dynamicMaxScale, scale));
+            // CLEAN ZOOM-OUT GLITCH FIX: Stop velocity perfectly at the boundaries before math is applied
+            if (scale < dynamicMinScale) {
+                scale = dynamicMinScale;
+                vs = 0; 
+            } else if (scale > dynamicMaxScale) {
+                scale = dynamicMaxScale;
+                vs = 0; 
+            }
+            
             const scaleRatio = scale / oldScale;
 
             if (scaleRatio !== 1) {
@@ -640,10 +633,6 @@
 
             x = Math.max(-maxPanX, Math.min(maxPanX, x));
             y = Math.max(-maxPanY, Math.min(maxPanY, y));
-
-            if (x === maxPanX || x === -maxPanX) vx = 0;
-            if (y === maxPanY || y === -maxPanY) vy = 0;
-            if (scale === dynamicMinScale || scale === dynamicMaxScale) vs = 0;
 
             updateTransform(); requestAnimationFrame(gameLoop);
         }
