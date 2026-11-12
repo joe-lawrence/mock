@@ -297,6 +297,7 @@ export function createVocabularyQuestion(item, type, scope = {}) {
         choiceKind: "grid",
         revealDe: `${frame.trigger} ${frame.phrase}`,
         revealKaraoke: "sentence",
+        revealLemma: frame.noun,
         revealEn: `After ${frame.trigger}, ${frame.noun} is in the ${frame.caseLong} (${frame.phrase}).`,
         revealArticle: frame.article,
         revealGender: frame.genderLong,
@@ -328,6 +329,7 @@ export function createVocabularyQuestion(item, type, scope = {}) {
         choiceKind: "articles",
         revealDe: `${frame.trigger} ${frame.phrase}`,
         revealKaraoke: "sentence",
+        revealLemma: frame.noun,
         revealEn: `${frame.trigger} takes the ${frame.caseLong} → ${frame.phrase}.`,
         revealArticle: frame.article,
         revealGender: frame.genderLong,
@@ -408,20 +410,39 @@ export function displayForm(item) {
 
 /**
  * Colored article + lemma HTML for answer-key DE line (quiz parity).
+ * Tints the article in place when it already appears in revealDe
+ * (e.g. "für den Mann" / "mit dem Kind") so framed case answers are not
+ * rewritten as "den für den Mann".
  * @param {object} question
  */
 export function revealDeHtml(question) {
-  const word = question?.revealDe || "";
-  const article = question?.revealArticle;
+  const word = String(question?.revealDe || "");
+  const article = String(question?.revealArticle || "").trim();
   const gender = question?.revealGender;
   if (!article || !word) return escapeHtml(word);
 
   const tint = articleTintClass(article, gender);
-  const lemma = word.replace(new RegExp(`^${article}\\s+`, "i"), "");
-  const artHtml = tint
-    ? `<span class="answer-art ${tint}">${escapeHtml(article)}</span>`
-    : escapeHtml(article);
-  return `${artHtml} <span class="answer-lemma">${escapeHtml(lemma)}</span>`;
+  const artClass = tint ? `answer-art ${tint}` : "answer-art";
+  const artSpan = (surface) =>
+    `<span class="${artClass}">${escapeHtml(surface)}</span>`;
+
+  const re = new RegExp(`^(.*?)\\b(${escapeRegExp(article)})\\b(.*)$`, "i");
+  const m = word.match(re);
+  if (m) {
+    const [, before, art, after] = m;
+    if (!before.trim() && /^\s/.test(after)) {
+      return `${artSpan(art)} <span class="answer-lemma">${escapeHtml(
+        after.trim()
+      )}</span>`;
+    }
+    return `${escapeHtml(before)}${artSpan(art)}<span class="answer-lemma">${escapeHtml(
+      after
+    )}</span>`;
+  }
+
+  return `${artSpan(article)} <span class="answer-lemma">${escapeHtml(
+    word
+  )}</span>`;
 }
 
 /** "accusative" or "accusative and the dative". */
@@ -498,9 +519,30 @@ function shuffle(arr) {
 }
 
 function articleTintClass(article, gender) {
-  if (gender === "masculine" || article === "der") return "art-color-masc";
-  if (gender === "feminine" || article === "die") return "art-color-fem";
-  if (gender === "neuter" || article === "das") return "art-color-neut";
+  if (gender === "masculine") return "art-color-masc";
+  if (gender === "feminine") return "art-color-fem";
+  if (gender === "neuter") return "art-color-neut";
+  const a = String(article || "").toLowerCase();
+  // Declined forms: dem/einem are masc|neut — leave uncolored without gender.
+  if (
+    a === "der" ||
+    a === "den" ||
+    a === "einen" ||
+    a === "kein" ||
+    a === "keinen"
+  ) {
+    return "art-color-masc";
+  }
+  if (
+    a === "die" ||
+    a === "eine" ||
+    a === "einer" ||
+    a === "keine" ||
+    a === "keiner"
+  ) {
+    return "art-color-fem";
+  }
+  if (a === "das") return "art-color-neut";
   return "";
 }
 
@@ -557,4 +599,8 @@ function escapeHtml(s) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function escapeRegExp(s) {
+  return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

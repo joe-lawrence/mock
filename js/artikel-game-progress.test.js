@@ -54,11 +54,11 @@ describe("artikel-game-progress", () => {
     ];
     const pools = initClimberPools(words.map((w) => ({ ...w, correct: 0, wrong: 0 })));
     const seenByKey = new Map();
-    // Active seed alone must not move HUD deck.
+    // Active seed alone must not move HUD deck; hints start at 100%.
     let snap = progressSnapshot({ words, pools, seenByKey });
     assert.equal(snap.introduced, 5);
     assert.equal(snap.deckPct, 0);
-    assert.equal(snap.hintsPct, 0);
+    assert.equal(snap.hintsPct, 100);
     assert.equal(snap.skied, 0);
 
     const a = pools.activePool[0];

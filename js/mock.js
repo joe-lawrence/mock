@@ -212,10 +212,10 @@ import {
 import {
   caseSkiNounsFromVocab,
   climberWordsFromVocabUnits,
-} from "./artikel-climber-vocab.js?v=20261108-hud-skied";
-import { mountArtikelClimber } from "./artikel-climber.js?v=20261108-hud-skied";
-import { mountArtikelSkier } from "./artikel-skier.js?v=20261108-hud-skied";
-import { loadSnowNomenConstructions } from "./artikel-skier-cases.js?v=20261108-hud-skied";
+} from "./artikel-climber-vocab.js?v=20261109-hint-start";
+import { mountArtikelClimber } from "./artikel-climber.js?v=20261109-hint-start";
+import { mountArtikelSkier } from "./artikel-skier.js?v=20261109-hint-start";
+import { loadSnowNomenConstructions } from "./artikel-skier-cases.js?v=20261109-hint-start";
 import { keysSkippedByJump } from "./guided-jump.js";
 import {
   noteQuizNavEntry,
@@ -361,7 +361,7 @@ import {
   mountVocabularyPanel,
   topicHasVocabulary,
   vocabAreasFromCurriculumTopics,
-} from "./vocabulary-ui.js?v=20261108-hud-skied";
+} from "./vocabulary-ui.js?v=20261109-dem-den";
 import {
   vocabularyAreas,
   curriculumTopicToVocabArea,
@@ -1948,13 +1948,14 @@ function isUsefulPhonGuide(text, guide) {
   return g.toLowerCase() !== t.toLowerCase();
 }
 
-/** Nominative article guides shared across Numbers / Nouns karaoke. */
+/** Article guides shared across Numbers / Nouns / Cases karaoke (incl. dem/den). */
 const ARTICLE_PHON_GUIDES = Object.freeze({
   der: { guide: "dair" },
   die: { guide: "dee" },
   das: { guide: "dahs" },
   den: { guide: "dane" },
   dem: { guide: "dame" },
+  des: { guide: "dess" },
   ein: { guide: "ine" },
   eine: { guide: "INE-uh", stress: true },
   einen: { guide: "INE-en", stress: true },
@@ -1966,6 +1967,10 @@ const ARTICLE_PHON_GUIDES = Object.freeze({
   keinem: { guide: "KINE-em", stress: true },
   keiner: { guide: "KINE-er", stress: true },
 });
+
+/** Leading article beat to strip from curated lemma tables (citation → body). */
+const ARTICLE_BEAT_RE =
+  /^(der|die|das|den|dem|des|ein|eine|einen|einem|einer|kein|keine|keinen|keinem|keiner)$/i;
 
 /** High-frequency sentence frame words for category validation karaoke. */
 const SENTENCE_FRAME_GUIDES = Object.freeze({
@@ -2182,9 +2187,7 @@ function resolvePhonToken(token) {
   if (cal?.length) return cal.map((p) => ({ ...p, source: "calendar" }));
   const curated = NOUN_SINGULAR_PARTS[text];
   if (curated?.length) {
-    const body = curated.filter(
-      (p) => !/^(der|die|das|ein|eine|einen|einem|einer|kein|keine|keinen|keinem|keiner)$/i.test(p.text)
-    );
+    const body = curated.filter((p) => !ARTICLE_BEAT_RE.test(p.text));
     if (body.length) {
       return body.map((p) => ({
         ...p,
@@ -4424,12 +4427,7 @@ function lemmaBodyAnswerParts(lemma) {
     NOUN_SINGULAR_PARTS[lemma] ||
     (LEXICON[lemma] ? fallbackSingularParts(lemma) : []);
   if (!full.length) return resolvePhonToken(lemma);
-  return full.filter(
-    (p) =>
-      !/^(der|die|das|ein|eine|einen|einem|einer|kein|keine|keinen|keinem|keiner)$/i.test(
-        String(p.text || "")
-      )
-  );
+  return full.filter((p) => !ARTICLE_BEAT_RE.test(String(p.text || "")));
 }
 
 /**
@@ -6870,9 +6868,29 @@ function startStreakFireballs(_prefix, root) {
 
 /** Color-only tint for answer-key articles (no gender formatting). */
 function articleColorClass(article, gender) {
-  if (gender === "masculine" || article === "der") return "art-color-masc";
-  if (gender === "feminine" || article === "die") return "art-color-fem";
-  if (gender === "neuter" || article === "das") return "art-color-neut";
+  if (gender === "masculine") return "art-color-masc";
+  if (gender === "feminine") return "art-color-fem";
+  if (gender === "neuter") return "art-color-neut";
+  const a = String(article || "").toLowerCase();
+  if (
+    a === "der" ||
+    a === "den" ||
+    a === "einen" ||
+    a === "kein" ||
+    a === "keinen"
+  ) {
+    return "art-color-masc";
+  }
+  if (
+    a === "die" ||
+    a === "eine" ||
+    a === "einer" ||
+    a === "keine" ||
+    a === "keiner"
+  ) {
+    return "art-color-fem";
+  }
+  if (a === "das") return "art-color-neut";
   return "";
 }
 
@@ -9620,7 +9638,8 @@ function renderVocabularyPanel(territoryId) {
       syncDifficultyControl();
     },
     answerPartsForItem: vocabAnswerParts,
-    sentenceAnswerParts: (sentence) => sentenceAnswerParts(sentence),
+    sentenceAnswerParts: (sentence, lemma) =>
+      sentenceAnswerParts(sentence, lemma),
     resolvePronunciation: resolveAnswerPronunciation,
     playFeedback: playFeedbackSound,
     playReveal: (spoken, parts, nodes, onDone) => {
@@ -17414,9 +17433,21 @@ function genderClass(g) {
  * Articles only — plural endings stay plain so they don’t clash with die (always F).
  */
 function chipGenderClass(text) {
-  if (text === "der" || text === "den" || text === "einen") return "g-masc";
-  if (text === "die" || text === "eine" || text === "einer") return "g-fem";
-  if (text === "das") return "g-neut";
+  const t = String(text || "").toLowerCase();
+  // dem/einem are masc|neut — leave plain without a gender channel.
+  if (t === "der" || t === "den" || t === "einen" || t === "keinen") {
+    return "g-masc";
+  }
+  if (
+    t === "die" ||
+    t === "eine" ||
+    t === "einer" ||
+    t === "keine" ||
+    t === "keiner"
+  ) {
+    return "g-fem";
+  }
+  if (t === "das") return "g-neut";
   return "";
 }
 

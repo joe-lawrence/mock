@@ -513,7 +513,7 @@ export function mountArtikelClimber(root, options = {}) {
     if (hintsPctEl) {
       hintsPctEl.textContent =
         skied === 0
-          ? `0% (0/0)`
+          ? `100% (0/0)`
           : `${snap.hintsPct}% (${snap.hintedCount}/${skied})`;
     }
     if (deckPctEl) {

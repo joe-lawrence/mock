@@ -21,7 +21,7 @@ import {
   pickQuestionType,
   questionTypesForItem,
   revealDeHtml,
-} from "./vocabulary-practice.js?v=20261107-case-lib";
+} from "./vocabulary-practice.js?v=20261109-dem-den";
 import { choiceSecondChanceOpen } from "./answer-shells.js?v=20261027-retry";
 import { flaggedCueHtml } from "./lang-flags.js?v=20261030-langflag";
 
@@ -482,7 +482,7 @@ export function mountVocabularyPanel(root, opts) {
       const spoken = q.revealDe || "";
       const sentenceParts =
         q.revealKaraoke === "sentence" && spoken
-          ? opts.sentenceAnswerParts?.(spoken)
+          ? opts.sentenceAnswerParts?.(spoken, q.revealLemma || null)
           : null;
       const rawParts =
         (sentenceParts && sentenceParts.length ? sentenceParts : null) ||

@@ -10,6 +10,7 @@ import {
   pickQuestionType,
   questionTypesForItem,
   resetCaseExampleCursor,
+  revealDeHtml,
 } from "./vocabulary-practice.js";
 import { vocabularyForScope } from "./generated/vocabulary.js";
 import { flaggedCueHtml } from "./lang-flags.js";
@@ -428,5 +429,54 @@ describe("Case vocabulary words", () => {
       "correct"
     );
     assert.throws(() => createVocabularyQuestion(mann, "case", { topic: "case" }));
+  });
+
+  it("tints dem/den in place for framed case reveals (karaoke speak string unchanged)", () => {
+    const accusative = vocabularyForScope("case", {
+      introducedBy: ["case.accusative"],
+    });
+    const mann = accusative.find((item) => item.surface === "Mann");
+    assert.ok(mann);
+
+    let denArt = null;
+    for (let i = 0; i < 40 && !denArt; i++) {
+      const q = createVocabularyQuestion(mann, "caseArticle", {
+        topic: "case",
+        peers: accusative,
+      });
+      if (q.expect === "den" || q.expect === "dem") denArt = q;
+    }
+    assert.ok(denArt, "expected a dem/den caseArticle sample");
+    assert.equal(denArt.revealLemma, "Mann");
+    assert.match(denArt.revealDe, /\b(dem|den)\b/);
+    assert.equal(
+      denArt.revealDe.startsWith(denArt.expect),
+      false,
+      "framed reveal keeps trigger before article"
+    );
+
+    const html = revealDeHtml(denArt);
+    assert.match(
+      html,
+      new RegExp(
+        `<span class="answer-art art-color-masc">${denArt.expect}</span>`
+      )
+    );
+    assert.equal(
+      html.startsWith(`<span class="answer-art art-color-masc">${denArt.expect}</span>`),
+      false,
+      "must not prefix dem/den ahead of für/mit/…"
+    );
+    assert.match(html, /answer-lemma/);
+
+    const citation = revealDeHtml({
+      revealDe: "der Mann",
+      revealArticle: "der",
+      revealGender: "masculine",
+    });
+    assert.equal(
+      citation,
+      '<span class="answer-art art-color-masc">der</span> <span class="answer-lemma">Mann</span>'
+    );
   });
 });

@@ -111,8 +111,9 @@ export function progressSnapshot({ words, pools, seenByKey }) {
   const hintAmongPlayedPct = pct(playedHinted, enteredPlay);
   const graduationRatePct = pct(graduated, introduced);
   // HUD: skied targets only. Hints = still-hinted / skied (= 100% − no-hint share).
+  // Before any gate: treat as fully hint-dependent (100%), not 0%.
   const hudDeckPct = pct(skied, deckTotal) ?? 0;
-  const hudHintsPct = skied ? pct(skiedHinted, skied) : 0;
+  const hudHintsPct = skied ? pct(skiedHinted, skied) : 100;
 
   return {
     deckTotal,
