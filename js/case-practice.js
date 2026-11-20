@@ -62,7 +62,7 @@ export function caseHubHtml() {
   return `
     <section class="numbers-browse" aria-label="Case">
       <h2 class="numbers-browse-title">Case</h2>
-      <p class="numbers-step-blurb">Accusative constructions first, then dative, then mixed sentences. The table is a lookup. Practice judges a sentence, then picks, builds, hears, or types the form.</p>
+      <p class="numbers-step-blurb">Chart first, then OFUDGE accusative constructions, Blue Danube dative, then mixed sentences. Practice judges a sentence, then picks, builds, hears, or types the form.</p>
       <div class="numbers-step-actions">
         <button type="button" class="btn" data-case-review data-source="path">Review path</button>
         <button type="button" class="btn" data-case-review data-source="list">My list</button>
@@ -112,7 +112,7 @@ export function caseChartHtml(referenceId) {
  */
 export function caseLearnHtml(step) {
   const unitHtml = step?.referenceId ? renderLearnReadingHtml(step.referenceId) : "";
-  const chartId = step?.chartId || "case.chart.definite";
+  const chartId = step?.chartId || "case.chart";
   const tableHtml =
     chartId && step?.referenceId !== chartId ? renderChartLookupHtml(chartId) : "";
   return `<div class="chart-scroll">${unitHtml}${tableHtml}</div>`;

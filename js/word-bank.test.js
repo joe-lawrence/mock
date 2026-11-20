@@ -17,7 +17,7 @@ import {
 
 describe("word bank and input", () => {
   it("keeps a user gloss card out of Case frames and sentences", () => {
-    let bank = introduceUnit(emptyWordBank(), "case.acc.masc");
+    let bank = introduceUnit(emptyWordBank(), "case.chart");
     bank = addUserCard(bank, "Blitz", "lightning");
     bank = addUserCard(bank, "Hund", "hound");
     const user = bank.cards["user:Blitz"];
@@ -33,16 +33,18 @@ describe("word bank and input", () => {
     assert.deepEqual(userHund.evidenceIds, []);
   });
 
-  it("drops constructions the learner has not opened", () => {
+  it("migrates old unit ids and drops constructions the learner has not opened", () => {
     const acc = introduceUnit(emptyWordBank(), "case.acc.masc");
+    assert.deepEqual(acc.introducedUnits, ["case.chart"]);
     const accTexts = provedInputSentences(acc).map((sentence) => sentence.text);
     assert.ok(accTexts.every((text) => text.startsWith("Ich sehe ") || text.startsWith("Ich habe ")));
     assert.ok(!accTexts.some((text) => /helfe|mit |warte|danke|gefällt|gibt|zeigt/.test(text)));
 
     const withHelp = introduceUnit(acc, "case.dat.helfen");
+    assert.ok(withHelp.introducedUnits.includes("case.verbs.dat"));
     const helped = provedInputSentences(withHelp);
     assert.ok(helped.some((sentence) => sentence.text.startsWith("Ich helfe ")));
-    assert.ok(!helped.some((sentence) => sentence.unitId === "case.prep.mit"));
+    assert.ok(!helped.some((sentence) => sentence.unitId === "case.prep.dat"));
     assert.ok(!helped.some((sentence) => sentence.text.includes("Zeitung")));
   });
 
@@ -53,7 +55,7 @@ describe("word bank and input", () => {
       source: "curriculum",
       lemma: "Hund",
       gloss: "dog",
-      unitId: "case.acc.masc",
+      unitId: "case.chart",
       introducedAt: 1,
       missedAt: null,
     };
@@ -63,13 +65,12 @@ describe("word bank and input", () => {
     ]);
     assert.equal(buildReviewQuestion(bare.cards["curriculum:Hund"], bare).correct, "der");
 
-    let bank = introduceUnit(emptyWordBank(), "case.acc.masc", 10);
+    let bank = introduceUnit(emptyWordBank(), "case.chart", 10);
     assert.equal(buildReviewQuestion(bank.cards["curriculum:Hund"], bank).correct, "den");
-    bank = introduceUnit(bank, "case.dat.helfen", 20);
+    bank = introduceUnit(bank, "case.verbs.dat", 20);
     assert.equal(buildReviewQuestion(bank.cards["curriculum:Mann"], bank).correct, "dem");
-    bank = introduceUnit(bank, "case.dat.indef", 30);
-    assert.equal(buildReviewQuestion(bank.cards["curriculum:Frau"], bank).kind, "dative-indef");
-    assert.equal(buildReviewQuestion(bank.cards["curriculum:Frau"], bank).correct, "einer");
+    assert.equal(buildReviewQuestion(bank.cards["curriculum:Frau"], bank).kind, "dative");
+    assert.equal(buildReviewQuestion(bank.cards["curriculum:Frau"], bank).correct, "der");
 
     const missed = recordReviewResult(bank, "curriculum:Hund", false, 50);
     assert.deepEqual(missed.evidenceIds, []);
@@ -80,8 +81,8 @@ describe("word bank and input", () => {
   });
 
   it("builds a passage only from proved sentences and ignores comprehension taps", () => {
-    let bank = introduceUnit(emptyWordBank(), "case.acc.masc");
-    bank = introduceUnit(bank, "case.dat.helfen");
+    let bank = introduceUnit(emptyWordBank(), "case.chart");
+    bank = introduceUnit(bank, "case.verbs.dat");
     const passage = composeInputPassage(bank);
     assert.ok(passage.length > 0);
     assert.ok(passage.length <= 4);

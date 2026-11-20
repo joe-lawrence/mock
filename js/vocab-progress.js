@@ -25,7 +25,7 @@ const REFERENCE_DEAL_KEYS = Object.freeze({
 });
 
 /**
- * @param {string} unitId — case step unit id, e.g. case.prep.fuer
+ * @param {string} unitId — case step unit id, e.g. case.prep.acc
  */
 function caseDealKeyForUnitId(unitId) {
   for (const topic of CASE_TOPICS) {

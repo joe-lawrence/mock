@@ -285,7 +285,7 @@ const REQUIREMENTS = [
     cue: "",
     answerCue,
     help: "Pick the case this familiar construction requires for the phrase named here.",
-    referenceId: name === "gefallen" ? "case.verb.gefallen" : "",
+    referenceId: name === "gefallen" ? "case.verbs.dat" : "",
     interaction: CHOOSE_VALUE,
   });
 });
@@ -462,7 +462,7 @@ const GEFALLEN = pairs(
       roleCue: "Das Buch is the grammatical subject. The book pleases the man.",
       caseCue: "Das Buch is nominative because it is the subject.",
       help: GEFALLEN_HELP,
-      referenceId: "case.verb.gefallen",
+      referenceId: "case.verbs.dat",
     },
     {
       id: "gefaellt-mann",
@@ -475,7 +475,7 @@ const GEFALLEN = pairs(
       roleCue: "dem Mann is the dative object, the person who likes the book.",
       caseCue: "dem Mann is dative. English makes this person the subject of “like,” but the German subject is Das Buch.",
       help: GEFALLEN_HELP,
-      referenceId: "case.verb.gefallen",
+      referenceId: "case.verbs.dat",
     },
   ],
   "gefallen"

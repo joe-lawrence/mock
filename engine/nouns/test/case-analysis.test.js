@@ -151,7 +151,7 @@ describe("sentence analysis deck", () => {
   it("places gefallen last with an explanation and the reference page", () => {
     const cards = deck.filter((card) => card.stage === "gefallen");
     assert.equal(cards.length, 4);
-    assert.ok(cards.every((card) => card.referenceId === "case.verb.gefallen"));
+    assert.ok(cards.every((card) => card.referenceId === "case.verbs.dat"));
     assert.ok(cards.every((card) => /grammatical subject|person who likes the book/.test(card.help)));
     assert.equal(cards[0].correct, "Subject");
     assert.equal(cards[1].correct, "Nominative");

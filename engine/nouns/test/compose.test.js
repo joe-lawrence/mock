@@ -283,9 +283,9 @@ describe("practice composer", () => {
   });
 
   it("composes listed dative frames and keeps geben closed", () => {
-    assert.equal(composeCaseFrameItems("case.dat.helfen").length, 0);
+    assert.equal(composeCaseFrameItems("case.verbs.dat").length, 0);
     assert.equal(
-      composeCaseFrameItems("case.dat.helfen", {
+      composeCaseFrameItems("case.verbs.dat", {
         concepts: CATEGORIES_PRACTICE_CONCEPTS,
       }).length,
       0
@@ -304,10 +304,10 @@ describe("practice composer", () => {
       ["Kind", "Ball"]
     );
 
-    const helfen = composeCaseFrameItems("case.dat.helfen", {
-      concepts: CASE_FRAME_UNITS["case.dat.helfen"].concepts,
+    const helfen = composeCaseFrameItems("case.verbs.dat", {
+      concepts: CASE_FRAME_UNITS["case.verbs.dat"].concepts,
       lemmas: ["Mann", "Frau", "Kind", "Bus", "Zeitung"],
-    });
+    }).filter((item) => item.construction === "helfen");
     const definite = helfen.filter((item) => item.articleKind === "definite");
     assert.deepEqual(
       definite.map((item) => item.lemma),
@@ -319,16 +319,16 @@ describe("practice composer", () => {
     assert.ok(helfen.some((item) => item.articleKind === "indefinite" && item.lemma === "Kind"));
     assert.ok(!helfen.some((item) => item.lemma === "Bus" || item.lemma === "Zeitung"));
 
-    const indef = composeCaseFrameItems("case.dat.indef", {
-      concepts: CASE_FRAME_UNITS["case.dat.indef"].concepts,
-    });
+    const indef = composeCaseFrameItems("case.verbs.dat", {
+      concepts: CASE_FRAME_UNITS["case.verbs.dat"].concepts,
+    }).filter((item) => item.construction === "helfen" && item.articleKind === "indefinite");
     assert.equal(indef.find((item) => item.lemma === "Frau").correct, "einer");
     assert.equal(indef.find((item) => item.lemma === "Mann").correct, "einem");
     assert.ok(!indef.some((item) => item.correct === "dem"));
 
-    const mit = composeCaseFrameItems("case.prep.mit", {
-      concepts: CASE_FRAME_UNITS["case.prep.mit"].concepts,
-    });
+    const mit = composeCaseFrameItems("case.prep.dat", {
+      concepts: CASE_FRAME_UNITS["case.prep.dat"].concepts,
+    }).filter((item) => item.construction === "mit");
     assert.equal(
       mit.find((item) => item.lemma === "Bus").sentence,
       "Ich fahre mit dem Bus."
@@ -339,10 +339,10 @@ describe("practice composer", () => {
     );
     assert.ok(!mit.some((item) => item.lemma === "Mann" || item.lemma === "Zeitung"));
 
-    const gefallen = composeCaseFrameItems("case.verb.gefallen", {
-      concepts: CASE_FRAME_UNITS["case.verb.gefallen"].concepts,
-    });
-    assert.equal(CASE_FRAME_UNITS["case.verb.gefallen"].frames[0].closed, true);
+    const gefallen = composeCaseFrameItems("case.verbs.dat", {
+      concepts: CASE_FRAME_UNITS["case.verbs.dat"].concepts,
+    }).filter((item) => item.construction === "gefallen");
+    assert.ok(CASE_FRAME_UNITS["case.verbs.dat"].frames.some((f) => f.construction === "gefallen" && f.closed));
     assert.ok(gefallen.every((item) => item.sentence.startsWith("Das Buch gefällt ")));
     assert.deepEqual(
       gefallen.map((item) => item.lemma),

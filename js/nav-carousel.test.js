@@ -7,6 +7,7 @@ import {
   curriculumUnitsMirroredBy,
   guidedBoundKeysForUnits,
   guidedEligibleUnits,
+  learnEligibleUnits,
   practiceUnitsForSelection,
   selectionAfterToggle,
   unitMatchesPlayCaps,
@@ -63,8 +64,8 @@ describe("Vocabulary shortcut", () => {
     const vocabs = vocabularyUnitsIn(buildNavTree());
     const accusative = vocabs.find((unit) => unit.id === "vocabulary:case:accusative");
     assert.equal(accusative.kicker, "Case");
-    assert.equal(accusative.title, "Accusative");
-    assert.ok(accusative.mirrorUnitIds.includes("case:accusative:masc"));
+    assert.equal(accusative.title, "Case words · Accusative");
+    assert.ok(accusative.mirrorUnitIds.includes("case:accusative:prep-acc"));
     const units = indexUnits(buildNavTree());
     for (const id of accusative.mirrorUnitIds) {
       assert.equal(unitMatchesPlayCaps(units.get(id)), true);
@@ -75,9 +76,20 @@ describe("Vocabulary shortcut", () => {
     assert.deepEqual(practiceUnitsForSelection([accusative, ...mirrored]).map((unit) => unit.id), [
       accusative.id,
     ]);
+    assert.deepEqual(
+      learnEligibleUnits([accusative, ...mirrored])
+        .map((unit) => unit.id)
+        .sort(),
+      accusative.mirrorUnitIds.slice().sort()
+    );
     assert.equal(
       vocabs.some((unit) => unit.id === "vocabulary:case:declension"),
       false
+    );
+    assert.ok(vocabs.some((unit) => unit.id === "vocabulary:case:chart"));
+    assert.equal(
+      vocabs.find((unit) => unit.id === "vocabulary:case:chart").title,
+      "Case words · Chart"
     );
     assert.ok(vocabs.some((unit) => unit.id === "vocabulary:case:dative"));
     assert.ok(vocabs.some((unit) => unit.id === "vocabulary:case:mixed"));
@@ -89,14 +101,44 @@ describe("Vocabulary shortcut", () => {
     assert.deepEqual(
       caseNode.children[0].children.map((unit) => unit.id),
       [
+        "vocabulary:case:chart",
         "vocabulary:case:accusative",
         "vocabulary:case:dative",
         "vocabulary:case:mixed",
       ]
     );
+    assert.deepEqual(
+      caseNode.children[0].children.map((unit) => unit.title),
+      [
+        "Case words · Chart",
+        "Case words · Accusative",
+        "Case words · Dative",
+        "Case words · Mixed",
+      ]
+    );
     assert.equal(
-      caseNode.children.some((node) => node.topicId === "declension"),
+      caseNode.children.some((node) => node.topicId === "chart"),
       true
+    );
+    assert.equal(
+      caseNode.children.find((node) => node.topicId === "chart")?.title,
+      "The Case Chart"
+    );
+  });
+
+  it("Learn prefers curriculum when a Case vocab card is mirrored", () => {
+    const tree = buildNavTree();
+    const units = indexUnits(tree);
+    const vocabs = vocabularyUnitsIn(tree);
+    const chartVocab = vocabs.find((unit) => unit.id === "vocabulary:case:chart");
+    const selectedIds = selectionAfterToggle(new Set(), [chartVocab.id], true, vocabs);
+    const selected = [...selectedIds].map((id) => units.get(id)).filter(Boolean);
+    const learn = learnEligibleUnits(selected);
+    assert.equal(learn.some((unit) => unit.kind === "vocabulary"), false);
+    assert.ok(learn.some((unit) => unit.id === "case:chart:chart"));
+    assert.deepEqual(
+      practiceUnitsForSelection(selected).map((unit) => unit.id),
+      [chartVocab.id]
     );
   });
 });
@@ -125,7 +167,7 @@ describe("Guided start", () => {
       false
     );
     assert.ok(guided.some((unit) => unit.topicId === "time" && unit.stepId === "time-words"));
-    assert.ok(guided.some((unit) => unit.topicId === "accusative" && unit.stepId === "masc"));
+    assert.ok(guided.some((unit) => unit.topicId === "accusative" && unit.stepId === "prep-acc"));
     assert.equal(
       guided.some((unit) => unit.topicId === "mixed"),
       false
@@ -183,7 +225,7 @@ describe("Play caps for Case", () => {
     assert.equal(units.filter((unit) => unitMatchesPlayCaps(unit, caps)).length, units.length);
     const writeOnly = { keyboard: "only", audio: true };
     const listenOnly = { keyboard: true, audio: "only" };
-    const tableUnits = new Set(["case.table.definite", "case.table.indefinite"]);
+    const tableUnits = new Set(["case.chart"]);
     assert.ok(
       units
         .filter((unit) => !tableUnits.has(unit.unitId))
@@ -199,7 +241,7 @@ describe("Play caps for Case", () => {
       heard.map((unit) => unit.unitId).sort(),
       units
         .map((unit) => unit.unitId)
-        .filter((id) => id !== "case.analysis" && !tableUnits.has(id))
+        .filter((id) => !tableUnits.has(id))
         .sort()
     );
   });

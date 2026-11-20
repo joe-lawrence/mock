@@ -167,7 +167,8 @@ function vocabularyNavBranch() {
     if (!group || !mirrorUnitIds.length) continue;
     children.push({
       id: `vocabulary:case:${topic.topicId}`,
-      title: topic.title,
+      // Distinct from curriculum topic titles so Learn/Play cards are not confused.
+      title: caseVocabCardTitle(topic.topicId),
       kicker: "Case",
       type: "unit",
       territory: "case",
@@ -224,14 +225,11 @@ export function selectionAfterToggle(selected, toggledIds, turningOn, vocabUnits
 }
 
 /**
- * Guided walks curriculum units. A vocabulary card stays checked with the
- * units it mirrors, and those units are the route. Vocabulary is the quiz
- * only when no curriculum unit is selected.
+ * Curriculum units that Learn/Guided can open (not vocabulary cards).
  * @param {object[]} units
  */
-export function guidedEligibleUnits(units) {
-  const list = Array.isArray(units) ? units.filter(Boolean) : [];
-  const curriculum = list.filter((u) => {
+export function curriculumEligibleUnits(units) {
+  return (Array.isArray(units) ? units : []).filter((u) => {
     if (!u || u.playable === false) return false;
     if (u.kind === "vocabulary" || u.vocabTopic) return false;
     if (u.territory === "numbers" && u.topicId && u.stepId) return true;
@@ -239,13 +237,35 @@ export function guidedEligibleUnits(units) {
     if (u.territory === "case" && u.topicId && u.stepId) return true;
     return false;
   });
+}
+
+/**
+ * Guided walks curriculum units. A vocabulary card stays checked with the
+ * units it mirrors, and those units are the route. Vocabulary is the quiz
+ * only when no curriculum unit is selected.
+ * @param {object[]} units
+ */
+export function guidedEligibleUnits(units) {
+  const list = Array.isArray(units) ? units.filter(Boolean) : [];
+  const curriculum = curriculumEligibleUnits(list);
   if (curriculum.length) return curriculum;
   return list.filter((u) => u.kind === "vocabulary" || u.vocabTopic);
 }
 
 /**
+ * Learn prefers curriculum readings/charts when any curriculum unit is
+ * selected (including mirrors checked with a vocab card). Vocabulary Learn
+ * only when the selection is vocab-only.
+ * @param {object[]} units
+ */
+export function learnEligibleUnits(units) {
+  return guidedEligibleUnits(units);
+}
+
+/**
  * A vocab card means the session is those words.
  * Mirrored curriculum units stay checked, and they are not the quiz.
+ * Play keeps this vocab-wins rule; Learn uses learnEligibleUnits instead.
  * @param {object[]} units
  */
 export function practiceUnitsForSelection(units) {
@@ -253,6 +273,17 @@ export function practiceUnitsForSelection(units) {
   const vocab = list.filter((u) => u.kind === "vocabulary" || u.vocabTopic);
   if (vocab.length) return vocab;
   return list;
+}
+
+/** Short Case vocab labels — must not match curriculum topic titles. */
+function caseVocabCardTitle(topicId) {
+  const short = {
+    chart: "Chart",
+    accusative: "Accusative",
+    dative: "Dative",
+    mixed: "Mixed",
+  };
+  return `Case words · ${short[topicId] || topicId}`;
 }
 
 /**
@@ -648,7 +679,7 @@ export function mountNavCarousel(container, options = {}) {
       return climberEligibleUnits();
     }
     const raw = selectedUnits();
-    if (state.mode === "learn") return practiceUnitsForSelection(raw);
+    if (state.mode === "learn") return learnEligibleUnits(raw);
     if (state.mode === "guided") {
       const curriculum = guidedEligibleUnits(raw).filter(
         (u) => unitBoundsGuided(u) && unitMatchesCaps(u)

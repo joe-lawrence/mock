@@ -159,7 +159,7 @@ describe("freeform placeholders", () => {
     assert.equal(caseTypedAnswerMatches(indef, "ein"), false);
     assert.equal(caseTypedAnswerMatches(indef, "ein Ball"), false);
 
-    const frau = buildCasePlayDeck(buildCaseUnitQuestions("case.prep.fuer")).find(
+    const frau = buildCasePlayDeck(buildCaseUnitQuestions("case.prep.acc")).find(
       (card) =>
         card.quizType === "sentence-type" &&
         card.sentence === "Das Geschenk ist für die Frau."

@@ -179,7 +179,7 @@ describe("answer shells (Slice 2)", () => {
     assert.equal(p.playable, true);
   });
 
-  it("adds visual-freeform on Time / Fractions; cloze removed (142 cells)", () => {
+  it("adds visual-freeform on Time / Fractions; cloze removed (144 cells)", () => {
     assert.ok(
       modesForStep("time", "minutes").some((m) => m.id === "visual-freeform")
     );
@@ -193,8 +193,7 @@ describe("answer shells (Slice 2)", () => {
         }
       }
     }
-    // 136 prior cells + 6 support-word sentence units
-    assert.equal(n, 142);
+    assert.equal(n, 144);
   });
 
   it("mountPartSlots shows Part captions and a pick replaces the caption", () => {

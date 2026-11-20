@@ -3,7 +3,7 @@
  * Lexical gender/plural are authoritative; patterns are predictive only.
  */
 
-export const DATA_VERSION = "0.5.4";
+export const DATA_VERSION = "0.5.5";
 
 export const ARTICLES = Object.freeze({
   masculine: "der",
@@ -559,6 +559,7 @@ export const LEXICON = Object.freeze({
 
   // —— Calendar / time categories (Gender Shortcuts — Categories) ——
   Montag: Object.freeze({ gender: "masculine", gloss: "Monday" }),
+  Morgen: Object.freeze({ gender: "masculine", gloss: "morning" }),
   Dienstag: Object.freeze({ gender: "masculine", gloss: "Tuesday" }),
   Mittwoch: Object.freeze({ gender: "masculine", gloss: "Wednesday" }),
   Donnerstag: Object.freeze({ gender: "masculine", gloss: "Thursday" }),
@@ -767,6 +768,14 @@ export const LEXICON = Object.freeze({
   Jacke: Object.freeze({ gender: "feminine", gloss: "jacket" }),
   Farbe: Object.freeze({ gender: "feminine", gloss: "color" }),
   Kleid: Object.freeze({ gender: "neuter", gloss: "dress" }),
+  Hilfe: Object.freeze({ gender: "feminine", gloss: "help" }),
+  Park: Object.freeze({ gender: "masculine", gloss: "park" }),
+  Husten: Object.freeze({ gender: "masculine", gloss: "cough" }),
+  Schmerz: Object.freeze({
+    gender: "masculine",
+    gloss: "pain",
+    plural: Object.freeze({ form: "Schmerzen", stem: "Schmerz", ending: "en" }),
+  }),
 });
 
 /**

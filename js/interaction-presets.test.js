@@ -76,8 +76,7 @@ describe("interaction presets (Slice 0–1)", () => {
         }
       }
     }
-    // 136 prior cells + 6 support-word sentence units
-    assert.equal(n, 142);
+    assert.equal(n, 144);
   });
 
   it("normalizeLaunchInteraction uses preset= / stimulus×response (not mode=)", () => {

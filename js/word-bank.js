@@ -8,12 +8,17 @@
 import { articleForm, nounAnalysis } from "../engine/nouns/noun.js";
 import {
   CASE_ACCUSATIVE_CONCEPTS,
-  CASE_ACC_MASC_GENDERS,
-  CASE_ACC_UNCHANGED_GENDERS,
   CASE_FRAME_UNITS,
   composeCaseAccusativeItems,
   composeCaseFrameItems,
 } from "../engine/nouns/practice-compose.js";
+import {
+  caseAccusativeUnlocked,
+  caseDativeUnlocked,
+  migrateCaseUnitIds,
+  resolveCaseUnitId,
+} from "../engine/nouns/case-unit-ids.js";
+import { CASE_CHART_ID } from "../engine/nouns/declension-table.js";
 
 export function emptyWordBank() {
   return { introducedUnits: [], cards: {} };
@@ -25,9 +30,11 @@ export function emptyWordBank() {
 export function normalizeWordBank(raw) {
   if (!raw || typeof raw !== "object") return emptyWordBank();
   const src = /** @type {Record<string, unknown>} */ (raw);
-  const introducedUnits = Array.isArray(src.introducedUnits)
-    ? src.introducedUnits.filter((id) => typeof id === "string")
-    : [];
+  const introducedUnits = migrateCaseUnitIds(
+    Array.isArray(src.introducedUnits)
+      ? src.introducedUnits.filter((id) => typeof id === "string")
+      : []
+  );
   /** @type {Record<string, object>} */
   const cards = {};
   const rawCards =
@@ -42,7 +49,7 @@ export function normalizeWordBank(raw) {
       source: card.source,
       lemma: String(card.lemma),
       gloss: String(card.gloss || ""),
-      unitId: card.unitId ? String(card.unitId) : null,
+      unitId: card.unitId ? resolveCaseUnitId(String(card.unitId)) : null,
       introducedAt: Number(card.introducedAt) || 0,
       missedAt: card.missedAt == null ? null : Number(card.missedAt),
     };
@@ -59,19 +66,16 @@ function cloneBank(bank) {
  * @param {string} unitId
  */
 export function lemmasIntroducedByUnit(unitId) {
+  const canonical = resolveCaseUnitId(unitId);
   /** @type {string[]} */
   let lemmas = [];
-  if (unitId === "case.acc.masc" || unitId === "case.acc.unchanged") {
+  if (canonical === CASE_CHART_ID) {
     const items = composeCaseAccusativeItems({
       concepts: CASE_ACCUSATIVE_CONCEPTS,
-      genders:
-        unitId === "case.acc.masc"
-          ? CASE_ACC_MASC_GENDERS
-          : CASE_ACC_UNCHANGED_GENDERS,
     });
     lemmas = [...new Set(items.map((item) => item.lemma))];
   } else {
-    const unit = CASE_FRAME_UNITS[unitId];
+    const unit = CASE_FRAME_UNITS[canonical];
     if (!unit) return [];
     for (const frame of unit.frames) {
       for (const entry of frame.lemmas) {
@@ -92,9 +96,11 @@ export function lemmasIntroducedByUnit(unitId) {
  * @param {number} [now]
  */
 export function introduceUnit(bank, unitId, now = Date.now()) {
+  const canonical = resolveCaseUnitId(unitId);
   const next = cloneBank(bank);
-  if (!next.introducedUnits.includes(unitId)) next.introducedUnits.push(unitId);
-  for (const lemma of lemmasIntroducedByUnit(unitId)) {
+  if (!next.introducedUnits.includes(canonical)) next.introducedUnits.push(canonical);
+  next.introducedUnits = migrateCaseUnitIds(next.introducedUnits);
+  for (const lemma of lemmasIntroducedByUnit(canonical)) {
     const id = `curriculum:${lemma}`;
     if (next.cards[id]) continue;
     const analysis = nounAnalysis(lemma);
@@ -103,7 +109,7 @@ export function introduceUnit(bank, unitId, now = Date.now()) {
       source: "curriculum",
       lemma,
       gloss: analysis.gloss || "",
-      unitId,
+      unitId: canonical,
       introducedAt: now,
       missedAt: null,
     };
@@ -164,24 +170,22 @@ export function reviewQueue(bank, source) {
 
 /**
  * Question kinds unlocked for this card. A gloss-only user card stays gloss.
+ * H.8: ACC after case.chart / Topic 2; DAT after Topic 3.
  * @param {object} card
  * @param {readonly string[]} introducedUnits
  */
 export function reviewKinds(card, introducedUnits) {
   if (!card) return [];
   if (card.source === "user") return card.gloss ? ["gloss"] : [];
-  const units = new Set(introducedUnits || []);
+  const units = migrateCaseUnitIds(introducedUnits || []);
   /** @type {string[]} */
   const kinds = [];
   if (card.gloss) kinds.push("gloss");
   const analysis = nounAnalysis(card.lemma);
   if (!analysis.known || !analysis.gender) return kinds;
   kinds.push("nominative");
-  const accUnit =
-    analysis.gender === "masculine" ? "case.acc.masc" : "case.acc.unchanged";
-  if (units.has(accUnit)) kinds.push("accusative");
-  if (units.has("case.dat.indef")) kinds.push("dative-indef");
-  else if (units.has("case.dat.helfen")) kinds.push("dative");
+  if (caseAccusativeUnlocked(units)) kinds.push("accusative");
+  if (caseDativeUnlocked(units)) kinds.push("dative");
   return kinds;
 }
 
@@ -232,19 +236,11 @@ export function buildReviewQuestion(card, bank) {
       choices: ["den", "die", "das"],
     };
   }
-  if (kind === "dative") {
-    return {
-      ...base,
-      prompt: card.lemma,
-      correct: articleForm(analysis.gender, { kind: "definite", case: "dative" }),
-      choices: ["dem", "der", "den"],
-    };
-  }
   return {
     ...base,
     prompt: card.lemma,
-    correct: articleForm(analysis.gender, { kind: "indefinite", case: "dative" }),
-    choices: ["einem", "einer", "einen"],
+    correct: articleForm(analysis.gender, { kind: "definite", case: "dative" }),
+    choices: ["dem", "der", "den"],
   };
 }
 
@@ -267,13 +263,6 @@ function curriculumLemmas(bank) {
     .map((card) => card.lemma);
 }
 
-function unitIdForContext(contextId) {
-  for (const [unitId, unit] of Object.entries(CASE_FRAME_UNITS)) {
-    if (unit.frames.some((frame) => frame.id === contextId)) return unitId;
-  }
-  return null;
-}
-
 /**
  * Every proved sentence from introduced frames and curriculum lemmas.
  * User cards are ignored. Anything the composer cannot prove is absent.
@@ -286,13 +275,9 @@ export function provedInputSentences(bank) {
   if (!lemmas.length || !introduced.size) return [];
   /** @type {object[]} */
   const out = [];
-  const genders = [];
-  if (introduced.has("case.acc.masc")) genders.push("masculine");
-  if (introduced.has("case.acc.unchanged")) genders.push("feminine", "neuter");
-  if (genders.length) {
+  if (caseAccusativeUnlocked(introduced) || introduced.has(CASE_CHART_ID)) {
     const items = composeCaseAccusativeItems({
       concepts: CASE_ACCUSATIVE_CONCEPTS,
-      genders,
       lemmas,
     });
     for (const item of items) {
@@ -305,7 +290,7 @@ export function provedInputSentences(bank) {
         lemma: item.lemma,
         gloss: analysis.gloss || "",
         contextId: item.contextId,
-        unitId: item.gender === "masculine" ? "case.acc.masc" : "case.acc.unchanged",
+        unitId: CASE_CHART_ID,
       });
     }
   }
@@ -320,7 +305,6 @@ export function provedInputSentences(bank) {
       if (!lemmas.includes(item.lemma)) continue;
       const analysis = nounAnalysis(item.lemma);
       if (!analysis.known || !analysis.gender) continue;
-      if (unitIdForContext(item.contextId) !== unitId) continue;
       out.push({
         id: `${item.contextId}.${item.lemma}`,
         text: item.sentence,
@@ -335,24 +319,21 @@ export function provedInputSentences(bank) {
 }
 
 /**
- * A short passage: up to two proved sentences from each introduced unit.
+ * At most two proved sentences per introduced unit.
  * @param {object} bank
- * @param {{ limitPerUnit?: number }} [opts]
  */
-export function composeInputPassage(bank, opts = {}) {
-  const limit = opts.limitPerUnit ?? 2;
-  const counts = new Map();
-  const passage = [];
+export function composeInputPassage(bank) {
+  const byUnit = new Map();
   for (const sentence of provedInputSentences(bank)) {
-    const used = counts.get(sentence.unitId) || 0;
-    if (used >= limit) continue;
-    counts.set(sentence.unitId, used + 1);
-    passage.push(sentence);
+    const list = byUnit.get(sentence.unitId) || [];
+    if (list.length >= 2) continue;
+    list.push(sentence);
+    byUnit.set(sentence.unitId, list);
   }
-  return passage;
+  return [...byUnit.values()].flat();
 }
 
-/** A comprehension tap writes no grammar skill. */
+/** Comprehension taps write no grammar skill. */
 export function comprehensionTap() {
   return { evidenceIds: [] };
 }

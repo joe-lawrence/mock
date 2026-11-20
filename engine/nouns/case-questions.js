@@ -22,14 +22,19 @@ import {
   composeCaseAccusativeItems,
   composeCaseFrameItems,
   CASE_ACCUSATIVE_CONCEPTS,
-  CASE_ACC_MASC_GENDERS,
-  CASE_ACC_UNCHANGED_GENDERS,
   CASE_FRAME_UNITS,
 } from "./practice-compose.js";
 import { articleForm, nounAnalysis } from "./noun.js";
 import { buildCaseAnalysisDeck, CASE_ANALYSIS_UNIT } from "./case-analysis.js";
+import {
+  CASE_CHART_ID,
+  declensionDeck,
+  declensionModes,
+  isDeclensionUnit,
+} from "./declension-table.js";
+import { resolveCaseUnitId } from "./case-unit-ids.js";
 
-export { buildCaseAnalysisDeck, CASE_ANALYSIS_UNIT };
+export { buildCaseAnalysisDeck, CASE_ANALYSIS_UNIT, CASE_CHART_ID };
 
 export const CASE_PROMPT = Object.freeze({
   RECOGNIZE: "recognize",
@@ -50,11 +55,6 @@ const PROMPT_ORDER = Object.freeze({
   recognize: 0,
   guided: 1,
   unguided: 2,
-});
-
-const UNIT_GENDERS = Object.freeze({
-  "case.acc.masc": CASE_ACC_MASC_GENDERS,
-  "case.acc.unchanged": CASE_ACC_UNCHANGED_GENDERS,
 });
 
 const TARGET_ORDER = Object.freeze({
@@ -144,19 +144,20 @@ function followupProbes(question) {
 
 /**
  * Questions for one playable unit, recognition then guided then unguided.
+ * Chart incidental sehen/haben frames use all genders; construction units
+ * read CASE_FRAME_UNITS.
  * @param {string} unitId
  */
 function itemsForUnit(unitId) {
-  const genders = UNIT_GENDERS[unitId];
-  if (genders) {
+  const canonical = resolveCaseUnitId(unitId);
+  if (canonical === CASE_CHART_ID) {
     return composeCaseAccusativeItems({
       concepts: CASE_ACCUSATIVE_CONCEPTS,
-      genders,
     });
   }
-  const spec = CASE_FRAME_UNITS[unitId];
+  const spec = CASE_FRAME_UNITS[canonical];
   if (!spec) return [];
-  return composeCaseFrameItems(unitId, { concepts: spec.concepts });
+  return composeCaseFrameItems(canonical, { concepts: spec.concepts });
 }
 
 export function buildCaseUnitQuestions(unitId) {
@@ -778,16 +779,47 @@ export function buildCasePlayDeck(questions) {
  * @param {string} unitId
  */
 export function caseUnitModes(unitId) {
+  // Analysis remains a callable deck for fixtures; curriculum no longer lists it.
+  if (unitId === CASE_ANALYSIS_UNIT) {
+    const ids = [];
+    for (const card of buildCaseAnalysisDeck()) {
+      const id = card.interaction?.presetId;
+      if (id && !ids.includes(id)) ids.push(id);
+    }
+    return ids;
+  }
+  const canonical = resolveCaseUnitId(unitId);
+  if (isDeclensionUnit(canonical)) {
+    return [...declensionModes()];
+  }
   const ids = [];
-  const cards =
-    unitId === CASE_ANALYSIS_UNIT
-      ? buildCaseAnalysisDeck()
-      : buildCasePlayDeck(buildCaseUnitQuestions(unitId));
-  for (const card of cards) {
+  for (const card of buildCasePlayDeck(buildCaseUnitQuestions(canonical))) {
     const id = card.interaction?.presetId;
     if (id && !ids.includes(id)) ids.push(id);
   }
   return ids;
+}
+
+/**
+ * Practice deck for a Case unit: chart combines grid check + sehen/haben
+ * incidental sentences; other units use frames or (legacy) analysis.
+ * @param {string} unitId
+ * @param {string|null|undefined} presetId
+ */
+export function casePracticeDeckForUnit(unitId, presetId) {
+  if (unitId === CASE_ANALYSIS_UNIT) {
+    return caseDeckForPreset(buildCaseAnalysisDeck(), presetId);
+  }
+  const canonical = resolveCaseUnitId(unitId);
+  if (canonical === CASE_CHART_ID) {
+    const table = declensionDeck(CASE_CHART_ID);
+    const sentences = buildCasePlayDeck(buildCaseUnitQuestions(CASE_CHART_ID));
+    return caseDeckForPreset([...table, ...sentences], presetId);
+  }
+  if (isDeclensionUnit(canonical)) {
+    return caseDeckForPreset(declensionDeck(canonical), presetId);
+  }
+  return caseDeckForPreset(buildCasePlayDeck(buildCaseUnitQuestions(canonical)), presetId);
 }
 
 /**

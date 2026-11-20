@@ -1,8 +1,10 @@
 /**
- * Declension-table quizzes. Two units sit in front of the Case sentence arc:
- * definite articles, then indefinite articles with the plural kein column.
+ * Declension-table quizzes for `case.chart`.
+ * Unified definite + indefinite grid across nominative, accusative, and dative.
  * Genitive is not asked.
  */
+
+export const CASE_CHART_ID = "case.chart";
 
 const CASES = Object.freeze([
   { id: "nominative", label: "Nominative" },
@@ -37,22 +39,22 @@ const INDEFINITE_FORMS = Object.freeze([
   ["einem", "einer", "einem", "keinen"],
 ]);
 
-const TABLES = Object.freeze({
-  "case.table.definite": {
+const TABLE_SPECS = Object.freeze([
+  Object.freeze({
     kind: "definite",
     family: "Definite",
     columns: DEFINITE_COLUMNS,
     forms: DEFINITE_FORMS,
     pool: Object.freeze(["der", "die", "das", "den", "dem"]),
-  },
-  "case.table.indefinite": {
+  }),
+  Object.freeze({
     kind: "indefinite",
     family: "Indefinite",
     columns: INDEFINITE_COLUMNS,
     forms: INDEFINITE_FORMS,
     pool: Object.freeze(["ein", "eine", "keine", "einen", "einem", "einer", "keinen"]),
-  },
-});
+  }),
+]);
 
 const BUILD = Object.freeze({
   presetId: "build",
@@ -66,8 +68,11 @@ const CHOOSE = Object.freeze({
   response: "multi-select",
 });
 
+/**
+ * @param {string} unitId
+ */
 export function isDeclensionUnit(unitId) {
-  return Object.prototype.hasOwnProperty.call(TABLES, unitId);
+  return unitId === CASE_CHART_ID || unitId === "case.table.definite" || unitId === "case.table.indefinite";
 }
 
 export function declensionModes() {
@@ -106,12 +111,22 @@ function shuffle(list, seed) {
   return out;
 }
 
+/**
+ * @param {string} unitId
+ */
+function tablesForUnit(unitId) {
+  if (unitId === CASE_CHART_ID) return TABLE_SPECS;
+  if (unitId === "case.table.definite") return [TABLE_SPECS[0]];
+  if (unitId === "case.table.indefinite") return [TABLE_SPECS[1]];
+  return [];
+}
+
 function cellsOf(table) {
   const cells = [];
   CASES.forEach((row, rowIndex) => {
     table.columns.forEach((column, columnIndex) => {
       cells.push({
-        id: `${row.id}:${column.id}`,
+        id: `${table.kind}:${row.id}:${column.id}`,
         caseId: row.id,
         caseLabel: row.label,
         columnId: column.id,
@@ -131,7 +146,7 @@ function byCaseCard(unitId, table, rowIndex) {
     table.columns.map((column, columnIndex) => {
       const form = table.forms[rowIndex][columnIndex];
       return {
-        id: `${row.id}:${column.id}`,
+        id: `${table.kind}:${row.id}:${column.id}`,
         mark: column.id,
         label: column.label,
         form,
@@ -159,7 +174,7 @@ function byColumnCard(unitId, table, columnIndex) {
   const column = table.columns[columnIndex];
   const slots = shuffle(
     CASES.map((row, rowIndex) => ({
-      id: `${row.id}:${column.id}`,
+      id: `${table.kind}:${row.id}:${column.id}`,
       mark: "",
       label: row.label,
       form: table.forms[rowIndex][columnIndex],
@@ -218,14 +233,20 @@ function byArticleCard(unitId, table, form) {
   });
 }
 
-/** Every by-case, by-gender, and by-article card for one table unit. */
-export function declensionDeck(unitId) {
-  const table = TABLES[unitId];
-  if (!table) return Object.freeze([]);
+function deckForTable(unitId, table) {
   const cards = [];
   CASES.forEach((_, index) => cards.push(byCaseCard(unitId, table, index)));
   table.columns.forEach((_, index) => cards.push(byColumnCard(unitId, table, index)));
   for (const form of table.pool) cards.push(byArticleCard(unitId, table, form));
+  return cards;
+}
+
+/** Every by-case, by-gender, and by-article card for the chart unit. */
+export function declensionDeck(unitId) {
+  const tables = tablesForUnit(unitId);
+  if (!tables.length) return Object.freeze([]);
+  const cards = [];
+  for (const table of tables) cards.push(...deckForTable(unitId, table));
   return Object.freeze(cards);
 }
 

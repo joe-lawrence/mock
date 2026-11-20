@@ -326,7 +326,10 @@ export function mountVocabularyPanel(root, opts) {
       return;
     }
     if (session.mode === "learn") {
-      if (session.index <= 0) return;
+      if (session.index <= 0) {
+        opts.onLearnSeriesBack?.();
+        return;
+      }
       session.index -= 1;
       render();
       return;
@@ -343,6 +346,14 @@ export function mountVocabularyPanel(root, opts) {
     if (fwd === "history" || fwd === "leave") return;
     if (session.mode === "learn") {
       if (!session.deck.length) return;
+      const pos = session.index % session.deck.length;
+      if (
+        session.index >= session.deck.length - 1 &&
+        pos >= session.deck.length - 1 &&
+        opts.onLearnSeriesForward?.()
+      ) {
+        return;
+      }
       session.index += 1;
       render();
       return;

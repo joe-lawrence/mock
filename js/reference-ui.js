@@ -6,8 +6,13 @@ import {
   getReference,
   reference,
   referenceNav,
-} from "./generated/reference.js?v=20261027-casegroup";
-import { escapeHtml as esc, renderInline, renderProse } from "./md-lite.js";
+} from "./generated/reference.js?v=20261120-tune3";
+import { escapeHtml as esc, renderInline, renderProse } from "./md-lite.js?v=20261120-arrow3";
+import {
+  bindTuneData,
+  mountReferenceTunes,
+  renderTuneCardHtml,
+} from "./reference-tune.js?v=20261120-tune3";
 
 function examplesTableHtml(rows) {
   if (!Array.isArray(rows) || !rows.length) return "";
@@ -55,7 +60,8 @@ function examplesBlock(unit) {
 }
 
 /**
- * Full curriculum reading: summary, Pattern, Rule, Examples, Limitations, Notes.
+ * Full curriculum reading: optional Tune card, then summary / Pattern / Rule / …
+ * Tune is Learn-only (not on the compact Reference card or Help).
  * @param {string} id
  */
 export function renderLearnReadingHtml(id) {
@@ -64,6 +70,7 @@ export function renderLearnReadingHtml(id) {
   return `
     <article class="ref-entry" data-ref-id="${esc(u.id)}" data-ref-view="learn">
       <h3 class="ref-title">${esc(u.title)}</h3>
+      ${u.tune ? renderTuneCardHtml(u.tune) : ""}
       ${summaryHtml(u)}
       ${learnSummaryHtml(u)}
       ${sectionBlock("Pattern", u.sections?.pattern)}
@@ -72,6 +79,34 @@ export function renderLearnReadingHtml(id) {
       ${sectionBlock("Limitations", u.sections?.limitations)}
       ${sectionBlock("Notes", u.sections?.notes)}
     </article>`;
+}
+
+/**
+ * After Learn HTML is in the DOM, bind tune data and wire Play / key clicks.
+ * @param {HTMLElement|null} root
+ * @param {string} [referenceId]
+ */
+export function mountLearnReferenceChrome(root, referenceId) {
+  if (!root) return;
+  const id =
+    referenceId ||
+    root.querySelector("article.ref-entry[data-ref-view='learn']")?.getAttribute(
+      "data-ref-id"
+    );
+  if (id) {
+    const tune = getReference(id)?.tune || null;
+    bindTuneData(root, tune);
+  }
+  // Case Learn may stack unit + chart articles; bind each Learn article's tune.
+  root.querySelectorAll("article.ref-entry[data-ref-view='learn']").forEach((article) => {
+    const rid = article.getAttribute("data-ref-id");
+    const tune = rid ? getReference(rid)?.tune || null : null;
+    if (tune) {
+      const card = article.querySelector("[data-ref-tune]");
+      if (card) card.__tuneData = tune;
+    }
+  });
+  mountReferenceTunes(root);
 }
 
 /**
@@ -174,16 +209,22 @@ export function renderReferenceLandingHtml(territoryId = null) {
  * @param {{ openId: (id: string) => void, openTerritory: (id: string) => void, openHome: () => void }} nav
  */
 export function wireReferenceNav(root, nav) {
-  root.querySelectorAll("[data-ref-id]").forEach((btn) => {
-    btn.addEventListener("click", () => nav.openId(btn.getAttribute("data-ref-id")));
+  if (!root || !nav) return;
+  // Only .ref-link controls — not article[data-ref-id] wrappers.
+  root.querySelectorAll(".ref-link[data-ref-id]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      nav.openId?.(btn.getAttribute("data-ref-id"));
+    });
   });
   root.querySelectorAll("[data-ref-territory]").forEach((btn) => {
     btn.addEventListener("click", () =>
-      nav.openTerritory(btn.getAttribute("data-ref-territory"))
+      nav.openTerritory?.(btn.getAttribute("data-ref-territory"))
     );
   });
   root.querySelectorAll("[data-ref-home]").forEach((btn) => {
-    btn.addEventListener("click", () => nav.openHome());
+    btn.addEventListener("click", () => nav.openHome?.());
   });
 }
 

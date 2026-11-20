@@ -20,13 +20,13 @@ export const vocabulary = {
     "level": null,
     "area": null,
     "introduced_by": [
-      "case.accusative"
+      "case.chart"
     ],
     "governs": [
       "accusative"
     ],
     "reference": [
-      "case.acc.masc"
+      "case.chart"
     ],
     "engine": null,
     "engineJoin": "content-only",
@@ -45,13 +45,13 @@ export const vocabulary = {
     "level": null,
     "area": null,
     "introduced_by": [
-      "case.accusative"
+      "case.chart"
     ],
     "governs": [
       "accusative"
     ],
     "reference": [
-      "case.acc.masc"
+      "case.chart"
     ],
     "engine": null,
     "engineJoin": "content-only",
@@ -76,7 +76,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.prep.fuer"
+      "case.prep.acc"
     ],
     "engine": null,
     "engineJoin": "content-only",
@@ -101,7 +101,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.prep.ohne"
+      "case.prep.acc"
     ],
     "engine": null,
     "engineJoin": "content-only",
@@ -126,7 +126,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.verbs"
+      "case.verbs.acc"
     ],
     "engine": null,
     "engineJoin": "content-only",
@@ -151,7 +151,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.verbs"
+      "case.verbs.acc"
     ],
     "engine": null,
     "engineJoin": "content-only",
@@ -176,7 +176,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.verbs"
+      "case.verbs.acc"
     ],
     "engine": null,
     "engineJoin": "content-only",
@@ -201,7 +201,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.verbs"
+      "case.verbs.acc"
     ],
     "engine": null,
     "engineJoin": "content-only",
@@ -251,7 +251,7 @@ export const vocabulary = {
       "dative"
     ],
     "reference": [
-      "case.dat.helfen"
+      "case.verbs.dat"
     ],
     "engine": null,
     "engineJoin": "content-only",
@@ -276,7 +276,7 @@ export const vocabulary = {
       "dative"
     ],
     "reference": [
-      "case.prep.mit"
+      "case.prep.dat"
     ],
     "engine": null,
     "engineJoin": "content-only",
@@ -301,7 +301,7 @@ export const vocabulary = {
       "dative"
     ],
     "reference": [
-      "case.prep.aus"
+      "case.prep.dat"
     ],
     "engine": null,
     "engineJoin": "content-only",
@@ -326,7 +326,7 @@ export const vocabulary = {
       "dative"
     ],
     "reference": [
-      "case.verb.danken"
+      "case.verbs.dat"
     ],
     "engine": null,
     "engineJoin": "content-only",
@@ -351,7 +351,7 @@ export const vocabulary = {
       "dative"
     ],
     "reference": [
-      "case.verb.gefallen"
+      "case.verbs.dat"
     ],
     "engine": null,
     "engineJoin": "content-only",
@@ -376,7 +376,7 @@ export const vocabulary = {
       "dative"
     ],
     "reference": [
-      "case.prep.passen-zu"
+      "case.prep.dat"
     ],
     "engine": null,
     "engineJoin": "content-only",
@@ -453,7 +453,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.unchanged"
+      "case.chart"
     ],
     "engine": {
       "lemma": "Auto"
@@ -485,7 +485,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.masc"
+      "case.chart"
     ],
     "engine": {
       "lemma": "Ball"
@@ -517,7 +517,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.unchanged"
+      "case.chart"
     ],
     "engine": {
       "lemma": "Buch"
@@ -549,7 +549,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.masc"
+      "case.chart"
     ],
     "engine": {
       "lemma": "Bus"
@@ -581,7 +581,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.unchanged"
+      "case.chart"
     ],
     "engine": {
       "lemma": "Frau"
@@ -613,7 +613,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.unchanged"
+      "case.chart"
     ],
     "engine": {
       "lemma": "Geschenk"
@@ -645,7 +645,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.unchanged"
+      "case.chart"
     ],
     "engine": {
       "lemma": "Hemd"
@@ -677,7 +677,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.masc"
+      "case.chart"
     ],
     "engine": {
       "lemma": "Hund"
@@ -709,7 +709,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.unchanged"
+      "case.chart"
     ],
     "engine": {
       "lemma": "Jacke"
@@ -741,7 +741,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.unchanged"
+      "case.chart"
     ],
     "engine": {
       "lemma": "Katze"
@@ -773,7 +773,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.unchanged"
+      "case.chart"
     ],
     "engine": {
       "lemma": "Kind"
@@ -805,7 +805,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.masc"
+      "case.chart"
     ],
     "engine": {
       "lemma": "Mann"
@@ -837,7 +837,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.masc"
+      "case.chart"
     ],
     "engine": {
       "lemma": "Schlüssel"
@@ -869,7 +869,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.unchanged"
+      "case.chart"
     ],
     "engine": {
       "lemma": "Stadt"
@@ -901,7 +901,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.masc"
+      "case.chart"
     ],
     "engine": {
       "lemma": "Stift"
@@ -933,7 +933,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.unchanged"
+      "case.chart"
     ],
     "engine": {
       "lemma": "Tasche"
@@ -965,7 +965,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.unchanged"
+      "case.chart"
     ],
     "engine": {
       "lemma": "Ticket"
@@ -997,7 +997,7 @@ export const vocabulary = {
       "accusative"
     ],
     "reference": [
-      "case.acc.masc"
+      "case.chart"
     ],
     "engine": {
       "lemma": "Zug"
@@ -1029,7 +1029,7 @@ export const vocabulary = {
       "dative"
     ],
     "reference": [
-      "case.dat.indef"
+      "case.prep.dat"
     ],
     "engine": {
       "lemma": "Haus"
@@ -1061,7 +1061,7 @@ export const vocabulary = {
       "dative"
     ],
     "reference": [
-      "case.dat.indef"
+      "case.prep.dat"
     ],
     "engine": {
       "lemma": "Kleid"
@@ -1071,6 +1071,402 @@ export const vocabulary = {
       "gender": "neuter",
       "article": "das",
       "gloss": "dress",
+      "plural": null
+    },
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.um": {
+    "id": "vocab.case.um",
+    "heading": "um",
+    "surface": "um",
+    "type": "function_word",
+    "topic": "case",
+    "gloss": "around / for",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.accusative"
+    ],
+    "governs": [
+      "accusative"
+    ],
+    "reference": [
+      "case.prep.acc"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.durch": {
+    "id": "vocab.case.durch",
+    "heading": "durch",
+    "surface": "durch",
+    "type": "function_word",
+    "topic": "case",
+    "gloss": "through",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.accusative"
+    ],
+    "governs": [
+      "accusative"
+    ],
+    "reference": [
+      "case.prep.acc"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.gegen": {
+    "id": "vocab.case.gegen",
+    "heading": "gegen",
+    "surface": "gegen",
+    "type": "function_word",
+    "topic": "case",
+    "gloss": "against",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.accusative"
+    ],
+    "governs": [
+      "accusative"
+    ],
+    "reference": [
+      "case.prep.acc"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.ausser": {
+    "id": "vocab.case.ausser",
+    "heading": "außer",
+    "surface": "außer",
+    "type": "function_word",
+    "topic": "case",
+    "gloss": "except",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.dative"
+    ],
+    "governs": [
+      "dative"
+    ],
+    "reference": [
+      "case.prep.dat"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.bei": {
+    "id": "vocab.case.bei",
+    "heading": "bei",
+    "surface": "bei",
+    "type": "function_word",
+    "topic": "case",
+    "gloss": "at / with",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.dative"
+    ],
+    "governs": [
+      "dative"
+    ],
+    "reference": [
+      "case.prep.dat"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.nach": {
+    "id": "vocab.case.nach",
+    "heading": "nach",
+    "surface": "nach",
+    "type": "function_word",
+    "topic": "case",
+    "gloss": "after / to",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.dative"
+    ],
+    "governs": [
+      "dative"
+    ],
+    "reference": [
+      "case.prep.dat"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.seit": {
+    "id": "vocab.case.seit",
+    "heading": "seit",
+    "surface": "seit",
+    "type": "function_word",
+    "topic": "case",
+    "gloss": "since",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.dative"
+    ],
+    "governs": [
+      "dative"
+    ],
+    "reference": [
+      "case.prep.dat"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.von": {
+    "id": "vocab.case.von",
+    "heading": "von",
+    "surface": "von",
+    "type": "function_word",
+    "topic": "case",
+    "gloss": "from / of",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.dative"
+    ],
+    "governs": [
+      "dative"
+    ],
+    "reference": [
+      "case.prep.dat"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.zu": {
+    "id": "vocab.case.zu",
+    "heading": "zu",
+    "surface": "zu",
+    "type": "function_word",
+    "topic": "case",
+    "gloss": "to",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.dative"
+    ],
+    "governs": [
+      "dative"
+    ],
+    "reference": [
+      "case.prep.dat"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.antworten": {
+    "id": "vocab.case.antworten",
+    "heading": "antworten",
+    "surface": "antworten",
+    "type": "verb",
+    "topic": "case",
+    "gloss": "to answer",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.dative"
+    ],
+    "governs": [
+      "dative"
+    ],
+    "reference": [
+      "case.verbs.dat"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.gehoeren": {
+    "id": "vocab.case.gehoeren",
+    "heading": "gehören",
+    "surface": "gehören",
+    "type": "verb",
+    "topic": "case",
+    "gloss": "to belong to",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.dative"
+    ],
+    "governs": [
+      "dative"
+    ],
+    "reference": [
+      "case.verbs.dat"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.passen": {
+    "id": "vocab.case.passen",
+    "heading": "passen",
+    "surface": "passen",
+    "type": "verb",
+    "topic": "case",
+    "gloss": "to fit (someone)",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.dative"
+    ],
+    "governs": [
+      "dative"
+    ],
+    "reference": [
+      "case.verbs.dat"
+    ],
+    "engine": null,
+    "engineJoin": "content-only",
+    "derived": null,
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.hilfe": {
+    "id": "vocab.case.hilfe",
+    "heading": "die Hilfe",
+    "surface": "Hilfe",
+    "type": "noun",
+    "topic": "case",
+    "gloss": "help",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.accusative"
+    ],
+    "governs": [
+      "accusative"
+    ],
+    "reference": [
+      "case.prep.acc"
+    ],
+    "engine": {
+      "lemma": "Hilfe"
+    },
+    "engineJoin": "engine-backed",
+    "derived": {
+      "gender": "feminine",
+      "article": "die",
+      "gloss": "help",
+      "plural": null
+    },
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.park": {
+    "id": "vocab.case.park",
+    "heading": "der Park",
+    "surface": "Park",
+    "type": "noun",
+    "topic": "case",
+    "gloss": "park",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.accusative"
+    ],
+    "governs": [
+      "accusative"
+    ],
+    "reference": [
+      "case.prep.acc"
+    ],
+    "engine": {
+      "lemma": "Park"
+    },
+    "engineJoin": "engine-backed",
+    "derived": {
+      "gender": "masculine",
+      "article": "der",
+      "gloss": "park",
+      "plural": null
+    },
+    "status": "active",
+    "source": "content/vocabulary/case.md"
+  },
+  "vocab.case.husten": {
+    "id": "vocab.case.husten",
+    "heading": "der Husten",
+    "surface": "Husten",
+    "type": "noun",
+    "topic": "case",
+    "gloss": "cough",
+    "sense": "",
+    "level": null,
+    "area": null,
+    "introduced_by": [
+      "case.accusative"
+    ],
+    "governs": [
+      "accusative"
+    ],
+    "reference": [
+      "case.prep.acc"
+    ],
+    "engine": {
+      "lemma": "Husten"
+    },
+    "engineJoin": "engine-backed",
+    "derived": {
+      "gender": "masculine",
+      "article": "der",
+      "gloss": "cough",
       "plural": null
     },
     "status": "active",
@@ -6127,42 +6523,57 @@ export const vocabularyByTopic = {
     "vocab.nouns.zwilling"
   ],
   "case": [
+    "vocab.case.antworten",
     "vocab.case.aus",
+    "vocab.case.ausser",
     "vocab.case.auto",
     "vocab.case.ball",
+    "vocab.case.bei",
     "vocab.case.brauchen",
     "vocab.case.buch",
     "vocab.case.bus",
     "vocab.case.danken",
+    "vocab.case.durch",
     "vocab.case.finden",
     "vocab.case.frau",
     "vocab.case.fuer",
     "vocab.case.geben",
     "vocab.case.gefallen",
+    "vocab.case.gegen",
+    "vocab.case.gehoeren",
     "vocab.case.geschenk",
     "vocab.case.haben",
     "vocab.case.haus",
     "vocab.case.helfen",
     "vocab.case.hemd",
+    "vocab.case.hilfe",
     "vocab.case.hund",
+    "vocab.case.husten",
     "vocab.case.jacke",
     "vocab.case.katze",
     "vocab.case.kind",
     "vocab.case.kleid",
     "vocab.case.mann",
     "vocab.case.mit",
+    "vocab.case.nach",
     "vocab.case.nehmen",
     "vocab.case.ohne",
+    "vocab.case.park",
+    "vocab.case.passen",
     "vocab.case.passen-zu",
     "vocab.case.schluessel",
     "vocab.case.sehen",
+    "vocab.case.seit",
     "vocab.case.stadt",
     "vocab.case.stift",
     "vocab.case.suchen",
     "vocab.case.tasche",
     "vocab.case.ticket",
+    "vocab.case.um",
+    "vocab.case.von",
     "vocab.case.warten-auf",
     "vocab.case.zeigen",
+    "vocab.case.zu",
     "vocab.case.zug"
   ]
 };

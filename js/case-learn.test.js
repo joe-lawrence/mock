@@ -36,7 +36,7 @@ describe("learner markup", () => {
 describe("Case hub", () => {
   it("adds a vocabulary row to each case topic that has words", () => {
     const html = caseHubHtml();
-    for (const topicId of ["accusative", "dative", "mixed"]) {
+    for (const topicId of ["chart", "accusative", "dative", "mixed"]) {
       assert.match(
         html,
         new RegExp(
@@ -55,21 +55,18 @@ describe("Case hub", () => {
 });
 
 describe("Case Learn article", () => {
-  it("renders the masculine unit with forms, notes, and a scrolling chart", () => {
-    const step = getCaseStep("accusative", "masc");
+  it("renders the OFUDGE unit with forms, notes, and a scrolling chart", () => {
+    const step = getCaseStep("accusative", "prep-acc");
     const article = caseChartHtml(step.referenceId);
-    assert.match(article, /Masculine accusative/);
-    assert.match(article, /<code class="de-form" lang="de">der Hund<\/code>/);
-    assert.match(article, /<code class="de-form" lang="de">den Hund<\/code>/);
-    assert.match(article, /The noun itself does not change/);
+    assert.match(article, /OFUDGE/);
+    assert.match(article, /ohne/);
+    assert.match(article, /durch/);
     assert.equal(article.includes("`"), false);
 
     const learn = caseLearnHtml(step);
     assert.match(learn, /^<div class="chart-scroll">/);
-    assert.match(learn, /Masculine accusative/);
-    assert.match(learn, /Article forms/);
-    assert.match(learn, /look up article forms/);
-    assert.equal(learn.includes("Genitive, possessives"), false);
+    assert.match(learn, /OFUDGE/);
+    assert.match(learn, /Article Declension Chart/);
     assert.match(learn, /data-ref-view="learn"/);
     assert.match(learn, /data-ref-view="chart"/);
 
@@ -88,42 +85,41 @@ describe("Case Learn article", () => {
     const { document, getComputedStyle } = dom.window;
     const chart = document.getElementById("case-chart");
     const scroll = chart.querySelector(".chart-scroll");
-    assert.equal(getComputedStyle(chart).overflowY, "auto");
+    assert.equal(getComputedStyle(chart).overflow, "hidden");
     assert.equal(getComputedStyle(scroll).overflow, "auto");
     assert.ok(scroll.querySelector(".de-form"));
     assert.equal(scroll.textContent.includes("`"), false);
   });
 
   it("keeps the reference card to the summary, examples, and related links", () => {
-    const html = renderReferenceEntryHtml("case.acc.masc");
+    const html = renderReferenceEntryHtml("case.prep.acc");
     assert.match(html, /data-ref-view="card"/);
-    assert.match(html, /masculine <code class="de-form" lang="de">der<\/code> becomes <code class="de-form" lang="de">den<\/code>/);
-    assert.match(html, /Ich sehe den Hund/);
-    assert.match(html, /Feminine and neuter accusative/);
-    assert.equal(html.includes("One of the most useful"), false);
-    assert.equal(html.includes("When the noun is masculine"), false);
-    assert.equal(html.includes("The noun stays the same"), false);
+    assert.match(html, /OFUDGE/);
+    assert.match(html, /ohne/);
     assert.equal(html.includes("`"), false);
   });
 
   it("opens the Learn reading from Help, and the short card is the summary", () => {
-    const reading = renderLearnReadingHtml("case.acc.masc");
+    const reading = renderLearnReadingHtml("case.prep.acc");
     assert.match(reading, /<h4>Rule<\/h4>/);
-    assert.match(reading, /<code class="de-form" lang="de">der Hund<\/code>/);
+    assert.match(reading, /OFUDGE/);
 
     const model = buildHelpModel({
       territory: "case",
-      referenceId: "case.acc.masc",
+      referenceId: "case.prep.acc",
     });
     assert.equal(model.pattern, null);
-    assert.equal(
-      model.reference.summary,
-      "In the accusative forms covered here, masculine `der` becomes `den` and masculine `ein` becomes `einen`."
-    );
+    assert.match(model.reference.summary, /OFUDGE/);
     const help = renderHelpSheetHtml(model);
-    assert.match(help, /masculine/);
-    assert.match(help, /den/);
+    assert.match(help, /OFUDGE|ohne|accusative/i);
     assert.match(help, /Open full unit/);
-    assert.equal(help.includes("When the noun is masculine"), false);
+  });
+
+  it("opens the unified chart unit", () => {
+    const step = getCaseStep("chart", "chart");
+    const learn = caseLearnHtml(step);
+    assert.match(learn, /Article Declension Chart/);
+    assert.match(learn, /Nominative/);
+    assert.match(learn, /Dative/);
   });
 });

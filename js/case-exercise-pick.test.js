@@ -16,7 +16,7 @@ import {
 } from "./case-exercise-pick.js";
 
 const dealKey = "case:accusative:masc";
-const play = buildCasePlayDeck(buildCaseUnitQuestions("case.acc.masc"));
+const play = buildCasePlayDeck(buildCaseUnitQuestions("case.prep.acc"));
 const proof = caseDeckForPreset(play, "proofread");
 const sentence = caseDeckForPreset(play, "sentence");
 

@@ -113,13 +113,14 @@ import {
   CASE_ANALYSIS_UNIT,
   caseAttemptEvidence,
   caseDeckForPreset,
+  casePracticeDeckForUnit,
   pickNextCaseQuestion,
-} from "../engine/nouns/case-questions.js?v=20261027-casetype";
+} from "../engine/nouns/case-questions.js?v=20261119-casearc";
 import {
   declensionDeck,
   gradeDeclensionAnswer,
   isDeclensionUnit,
-} from "../engine/nouns/declension-table.js?v=20261030-caseorder";
+} from "../engine/nouns/declension-table.js?v=20261119-casearc";
 import { genderMarkHtml } from "./gender-marks.js?v=20261030-genderstack";
 import { FLAG_DE_SVG, FLAG_EN_SVG } from "./lang-flags.js?v=20261030-langflag";
 import {
@@ -208,7 +209,7 @@ import {
   curriculumUnitsMirroredBy,
   guidedBoundKeysForUnits,
   mountNavCarousel,
-} from "./nav-carousel.js?v=20261105-playkind-fit";
+} from "./nav-carousel.js?v=20261119-phon-case";
 import {
   caseSkiNounsFromVocab,
   climberWordsFromVocabUnits,
@@ -257,12 +258,13 @@ import {
   wireReferenceNav,
   referenceIdForPracticeContext,
   getReference,
-} from "./reference-ui.js?v=20261102-zahl-first";
+  mountLearnReferenceChrome,
+} from "./reference-ui.js?v=20261120-arrow4";
 import {
   buildHelpModel,
   renderHelpSheetHtml,
   wireHelpSheet,
-} from "./help-sheet.js?v=20261102-vocabfix";
+} from "./help-sheet.js?v=20261120-arrow3";
 import {
   freshSupportVector,
   climbHelpRung,
@@ -361,7 +363,7 @@ import {
   mountVocabularyPanel,
   topicHasVocabulary,
   vocabAreasFromCurriculumTopics,
-} from "./vocabulary-ui.js?v=20261109-dem-den";
+} from "./vocabulary-ui.js?v=20261119-learn-series";
 import {
   vocabularyAreas,
   curriculumTopicToVocabArea,
@@ -735,7 +737,8 @@ const territories = [
   {
     id: "case",
     name: "Case",
-    blurb: "Accusative and dative articles in a few constructions, then mixed sentences. The table is a lookup.",
+    blurb:
+      "Nominative, accusative, and dative articles in core prepositional and verbal constructions. Chart first, then OFUDGE and Blue Danube.",
     status: "playable",
     statusLabel: "Playable",
   },
@@ -770,7 +773,7 @@ const territories = [
 ];
 
 const comingCopy = {
-  case: "Visible masculine accusative first — then the quieter cells.",
+  case: "Chart grid first, then OFUDGE accusative constructions — dative follows.",
   phrases: "Energy Transfer visualization without becoming the grammar model.",
   syntax: "Sentence pieces that snap into V2-legal orders.",
   fluency: "Generalization exercises once Nouns and Case are real.",
@@ -3719,7 +3722,56 @@ const NOUN_SINGULAR_PARTS = {
     { text: "Kat", guide: "KAT", stress: true },
     { text: "ze", guide: "tsuh" },
   ],
+  // Feminine -e lexical nouns (no productive suffix) + Case chart lemmas.
+  Hilfe: [
+    { text: "die", guide: "dee" },
+    { text: "Hil", guide: "HIL", stress: true },
+    { text: "fe", guide: "fuh" },
+  ],
+  Husten: [
+    { text: "der", guide: "dair" },
+    { text: "Hus", guide: "HOOS", stress: true },
+    { text: "ten", guide: "ten" },
+  ],
+  Park: [
+    { text: "der", guide: "dair" },
+    { text: "Park", guide: "PARK", stress: true },
+  ],
+  // Case prepositions / verbs missing from earlier curated Case rows.
+  durch: [{ text: "durch", guide: "doorch", stress: true }],
+  gegen: [
+    { text: "ge", guide: "GAY", stress: true },
+    { text: "gen", guide: "gen" },
+  ],
+  außer: [
+    { text: "au", guide: "OW", stress: true },
+    { text: "ßer", guide: "sser" },
+  ],
+  bei: [{ text: "bei", guide: "bye", stress: true }],
+  seit: [{ text: "seit", guide: "zite", stress: true }],
+  um: [{ text: "um", guide: "oom", stress: true }],
+  von: [{ text: "von", guide: "fon", stress: true }],
+  zu: [{ text: "zu", guide: "tsoo", stress: true }],
+  nach: [{ text: "nach", guide: "nahkh", stress: true }],
+  antworten: [
+    { text: "ant", guide: "ahnt" },
+    { text: "wor", guide: "VOR", stress: true },
+    { text: "ten", guide: "ten" },
+  ],
+  gehören: [
+    { text: "ge", guide: "guh" },
+    { text: "hö", guide: "HUR", stress: true },
+    { text: "ren", guide: "ren" },
+  ],
+  passen: [
+    { text: "pas", guide: "PAHS", stress: true },
+    { text: "sen", guide: "en" },
+  ],
   // Numbers vocabulary that is not on a chart row.
+  Zeit: [
+    { text: "die", guide: "dee" },
+    { text: "Zeit", guide: "TSITE", stress: true },
+  ],
   Anzahl: [
     { text: "die", guide: "dee" },
     { text: "An", guide: "AHN", stress: true },
@@ -9614,13 +9666,18 @@ function renderVocabularyPanel(territoryId) {
         vocabSnap: snap,
       });
     },
-    onBackNav: () => quizNavBack(),
+    onBackNav: () => {
+      if (quizNavBack()) return;
+      stepLearnSeries(-1);
+    },
     onForward: () => {
       if (finishGuidedVocabIfReady()) return "leave";
       return quizNavForward();
     },
+    onLearnSeriesBack: () => stepLearnSeries(-1),
+    onLearnSeriesForward: () => stepLearnSeries(1),
     onAttempt: (question, result) => recordVocabOnAssociateUnit(question, result),
-    backDisabled: () => quizNavBackDisabled(),
+    backDisabled: () => quizNavBackDisabled() && learnSeriesBackDisabled(),
     onBack: () => {
       stopSpeech({ keepAdvance: true });
       destroyVocabMount();
@@ -9974,6 +10031,9 @@ function renderCaseChart() {
   if (!root) return;
   const step = getCaseStep(state.caseTopic, state.caseStep);
   root.innerHTML = caseLearnHtml(step);
+  mountLearnSeriesNav(root);
+  wireLearnChartRefLinks(root);
+  mountLearnReferenceChrome(root, step?.referenceId);
 }
 
 function caseAssistShowsHint() {
@@ -9981,12 +10041,7 @@ function caseAssistShowsHint() {
 }
 
 function casePracticeDeck(unitId, presetId) {
-  const deck = isDeclensionUnit(unitId)
-    ? declensionDeck(unitId)
-    : unitId === CASE_ANALYSIS_UNIT
-      ? buildCaseAnalysisDeck()
-      : buildCasePlayDeck(buildCaseUnitQuestions(unitId));
-  return caseDeckForPreset(deck, presetId);
+  return casePracticeDeckForUnit(unitId, presetId);
 }
 
 function caseHintShown(question) {
@@ -11596,6 +11651,7 @@ function renderNumbersChart() {
       renderNumbersChart();
     });
   });
+  mountLearnSeriesNav(root);
 }
 
 function renderNounsChart() {
@@ -11690,6 +11746,7 @@ function renderNounsChart() {
       renderNounsChart();
     });
   });
+  mountLearnSeriesNav(root);
 }
 
 function isVocabNavUnit(u) {
@@ -14244,6 +14301,86 @@ function clearCrossTerritoryMix() {
 
 function clearLearnSeries() {
   state.learnSeries = null;
+}
+
+function learnSeriesLength() {
+  return state.learnSeries?.units?.length || 0;
+}
+
+/** Multi-unit Learn from the hub — needs bottom < > to move between items. */
+function learnSeriesNavActive() {
+  return learnSeriesLength() > 1;
+}
+
+function learnSeriesBackDisabled() {
+  return !learnSeriesNavActive() || (state.learnSeries?.cursor ?? 0) <= 0;
+}
+
+function learnSeriesForwardDisabled() {
+  if (!learnSeriesNavActive()) return true;
+  const series = state.learnSeries;
+  return (series?.cursor ?? 0) >= series.units.length - 1;
+}
+
+/**
+ * Step the Learn series cursor and open that unit.
+ * @param {number} delta
+ * @returns {boolean}
+ */
+function stepLearnSeries(delta) {
+  if (!learnSeriesNavActive()) return false;
+  const series = state.learnSeries;
+  const next = (series.cursor ?? 0) + delta;
+  if (next < 0 || next >= series.units.length) return false;
+  series.cursor = next;
+  openLearnSeriesUnit();
+  return true;
+}
+
+function learnSeriesNavHtml() {
+  if (!learnSeriesNavActive()) return "";
+  const series = state.learnSeries;
+  const at = (series.cursor ?? 0) + 1;
+  const total = series.units.length;
+  return `
+    <div class="actions actions-nav" data-learn-series-nav>
+      <button
+        type="button"
+        class="btn btn-icon"
+        data-learn-series-back
+        data-icon="chevronLeft"
+        aria-label="Back"
+        title="Back"
+        ${learnSeriesBackDisabled() ? "disabled" : ""}
+      ></button>
+      <div class="actions-mid">
+        <span class="learn-series-progress" aria-live="polite">${at} / ${total}</span>
+      </div>
+      <button
+        type="button"
+        class="btn btn-icon"
+        data-learn-series-forward
+        data-icon="chevronRight"
+        aria-label="Forward"
+        title="Forward — next Learn item"
+        ${learnSeriesForwardDisabled() ? "disabled" : ""}
+      ></button>
+    </div>`;
+}
+
+/** Pin familiar bottom chevrons on Learn charts when several units are queued. */
+function mountLearnSeriesNav(root) {
+  if (!root || !learnSeriesNavActive()) return;
+  root.insertAdjacentHTML("beforeend", learnSeriesNavHtml());
+  hydrateIconButtons(root);
+  root.querySelector("[data-learn-series-back]")?.addEventListener("click", () => {
+    stopSpeech();
+    stepLearnSeries(-1);
+  });
+  root.querySelector("[data-learn-series-forward]")?.addEventListener("click", () => {
+    stopSpeech();
+    stepLearnSeries(1);
+  });
 }
 
 /**
@@ -21438,9 +21575,15 @@ function openSessionHelp(opts) {
     lexicon: LEXICON,
   });
   openSheet("Help", renderHelpSheetHtml(model));
-  wireHelpSheet(document.getElementById("sheet-body"), {
+  const helpBody = document.getElementById("sheet-body");
+  wireHelpSheet(helpBody, {
     onOpenFullReference: (id) => openLearnReading(id),
     onRungOpen: (kind) => noteHelpRungClimb(kind),
+  });
+  wireReferenceNav(helpBody, {
+    openId: (rid) => openLearnReading(rid),
+    openTerritory: (tid) => openReferenceBrowse({ territory: tid }),
+    openHome: () => openReferenceBrowse({}),
   });
 }
 
@@ -21898,8 +22041,8 @@ function openCaseHelp() {
   const step = getCaseStep(state.caseTopic, state.caseStep);
   const referenceId =
     state.caseMode === "practice"
-      ? question?.referenceId || step?.referenceId || "case.chart.definite"
-      : "case.chart.definite";
+      ? question?.referenceId || step?.referenceId || "case.chart"
+      : "case.chart";
   openSessionHelp({
     territory: "case",
     exercise: question?.lemma
@@ -21920,6 +22063,22 @@ function openCaseHelp() {
 function openLearnReading(id) {
   const title = getReference(id)?.title || "Learn";
   openSheet(title, renderLearnReadingHtml(id));
+  const body = document.getElementById("sheet-body");
+  wireReferenceNav(body, {
+    openId: (rid) => openLearnReading(rid),
+    openTerritory: (tid) => openReferenceBrowse({ territory: tid }),
+    openHome: () => openReferenceBrowse({}),
+  });
+  mountLearnReferenceChrome(body, id);
+}
+
+/** Wire prose [label](unit.id) links inside an on-screen Learn chart. */
+function wireLearnChartRefLinks(root) {
+  wireReferenceNav(root, {
+    openId: (rid) => openLearnReading(rid),
+    openTerritory: (tid) => openReferenceBrowse({ territory: tid }),
+    openHome: () => openReferenceBrowse({}),
+  });
 }
 
 /** Open Reference browse/entry in the sheet without touching Practice state. */

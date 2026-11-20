@@ -14,8 +14,8 @@ describe("vocabulary associate unit", () => {
   });
 
   it("credits case, numbers, and nouns words to the unit that introduces them", () => {
-    assert.equal(associateDealKey(vocabulary["vocab.case.sehen"]), "case:accusative:masc");
-    assert.equal(associateDealKey(vocabulary["vocab.case.fuer"]), "case:accusative:fuer");
+    assert.equal(associateDealKey(vocabulary["vocab.case.sehen"]), "case:chart:chart");
+    assert.equal(associateDealKey(vocabulary["vocab.case.fuer"]), "case:accusative:prep-acc");
     assert.equal(
       associateDealKey(vocabulary["vocab.case.geben"]),
       "case:mixed:sentences"
@@ -42,11 +42,19 @@ describe("vocabulary associate unit", () => {
     const ids = vocabItemIdsForDecks([
       {
         vocabTopic: "case",
-        vocabIntroducedBy: ["case.accusative"],
+        vocabIntroducedBy: ["case.chart"],
       },
     ]);
     assert.ok(ids.includes("vocab.case.sehen"));
-    assert.ok(ids.includes("vocab.case.fuer"));
+    assert.ok(ids.includes("vocab.case.haben"));
     assert.equal(ids.includes("vocab.case.helfen"), false);
+    const acc = vocabItemIdsForDecks([
+      {
+        vocabTopic: "case",
+        vocabIntroducedBy: ["case.accusative"],
+      },
+    ]);
+    assert.ok(acc.includes("vocab.case.fuer"));
+    assert.equal(acc.includes("vocab.case.helfen"), false);
   });
 });

@@ -14,7 +14,7 @@ function guided(unitId, sentence, lemma) {
 
 describe("case listen frame", () => {
   it("blanks the article and shows the noun", () => {
-    const fuer = guided("case.prep.fuer", "Das Geschenk ist für die Frau.", "Frau");
+    const fuer = guided("case.prep.acc", "Das Geschenk ist für die Frau.", "Frau");
     assert.equal(
       caseListenFrameText(fuer),
       "Das Geschenk ist für [ article ] Frau."
