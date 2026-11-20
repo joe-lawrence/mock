@@ -298,6 +298,45 @@ describe("case mixed questions", () => {
     assert.equal(subject.correct, "Der");
     assert.equal(subject.sentence, "Der Mann sieht den Hund.");
   });
+
+  it("Build prompts keep the sentence frame for subject-initial sehen/helfen", () => {
+    const play = buildCasePlayDeck(buildCaseUnitQuestions("case.mixed"));
+    const sehenHund = play.find(
+      (q) =>
+        q.quizType === "build" &&
+        q.contextId === "sehen_hund_mann" &&
+        q.lemma === "Hund"
+    );
+    const sehenMann = play.find(
+      (q) =>
+        q.quizType === "build" &&
+        q.contextId === "sehen_mann_hund" &&
+        q.lemma === "Mann"
+    );
+    assert.ok(sehenHund);
+    assert.equal(sehenHund.prompt, "___ sieht den Mann.");
+    assert.equal(sehenHund.correct, "Der Hund");
+    assert.equal(sehenHund.prompt.includes("sehen"), false);
+    assert.ok(sehenMann);
+    assert.equal(sehenMann.prompt, "___ sieht den Hund.");
+    assert.equal(sehenMann.correct, "Der Mann");
+
+    const geben = play.find(
+      (q) => q.quizType === "build" && q.contextId === "geben_kind_ball" && q.lemma === "Kind"
+    );
+    assert.ok(geben);
+    assert.equal(geben.prompt, "Ich gebe ___ den Ball.");
+    assert.equal(geben.correct, "dem Kind");
+
+    // helfen subject is the same empty-before shape; if Build is dealt, frame it.
+    const helfenQ = buildCaseUnitQuestions("case.mixed").find(
+      (q) =>
+        q.contextId === "helfen_lehrer_schueler" &&
+        q.lemma === "Lehrer" &&
+        q.promptKind === "guided"
+    );
+    assert.equal(helfenQ?.prompt, "___ Lehrer hilft dem Schüler.");
+  });
 });
 
 describe("case play deck", () => {

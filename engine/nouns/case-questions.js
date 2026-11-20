@@ -448,6 +448,32 @@ function buildSpec(question) {
 }
 
 /**
+ * Prompt for a Build card. Phrase builds (article + noun) keep the sentence
+ * frame with ___ for the whole NP — not a bare construction name like
+ * "sehen", which made subject-initial mixed items unreadable.
+ * @param {object} question
+ * @param {{ spaced?: boolean }} spec
+ */
+function buildFramePrompt(question, spec) {
+  const before = String(question?.before || "");
+  if (question?.target === "noun" || !spec?.spaced) {
+    return before.trim() || String(question?.construction || "").trim() || "";
+  }
+  const noun = String(question?.nounForm || question?.lemma || "").trim();
+  let after = String(question?.after || "");
+  if (noun) {
+    after = after.replace(
+      new RegExp(`^(\\s*)${noun.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=\\s|[.,!?]|$)`),
+      "$1"
+    );
+  }
+  const left = before.trimEnd();
+  const right = after.replace(/^\s*/, " ");
+  if (!left) return `___${right}`.trimEnd();
+  return `${left} ___${right}`.replace(/ \n/g, " ").trimEnd();
+}
+
+/**
  * The second ask on an item. Article slots are judged, selected, heard, or
  * built — not typed from the citation form (der Hund → den), which added
  * little beyond sentence-type / listen-type. Noun targets (dative plural)
@@ -649,7 +675,7 @@ function buildCard(slot) {
     quizType: "build",
     promptKind: CASE_PROMPT.UNGUIDED,
     assesses: slot.unguidedQuestion?.assesses || base.assesses,
-    prompt: String(base.before || "").trim() || base.construction || "",
+    prompt: buildFramePrompt(base, spec),
     cue: "",
     answerCue: slot.guidedQuestion?.cue || "",
     choices: Object.freeze(spec.chips),

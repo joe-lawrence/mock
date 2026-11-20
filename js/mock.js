@@ -2019,12 +2019,23 @@ const SENTENCE_FRAME_GUIDES = Object.freeze({
   gefällt: { guide: "guh-FELT", stress: true },
   kommt: { guide: "kohmt" },
   komme: { guide: "KOH-muh", stress: true },
+  kommen: { guide: "KOM-en", stress: true },
   aus: { guide: "ows" },
   für: { guide: "fuer" },
   zeigt: { guide: "tsaykt" },
   sieht: { guide: "zeet" },
   gebe: { guide: "GAY-buh", stress: true },
   hilft: { guide: "hylft" },
+  // Case OFUDGE / Blue Danube / dative-verb sentence frames
+  Wir: { guide: "veer" },
+  gehen: { guide: "GAY-en", stress: true },
+  bitten: { guide: "BIT-en", stress: true },
+  wohne: { guide: "VOH-nuh", stress: true },
+  gehört: { guide: "guh-HURT", stress: true },
+  antworte: { guide: "ahnt-VOR-tuh", stress: true },
+  fragen: { guide: "FRAH-gen", stress: true },
+  Alle: { guide: "AH-luh", stress: true },
+  sind: { guide: "zint" },
 });
 
 /** Lazy morph→guide index from Numbers chart + articles + calendar tables. */
@@ -3732,6 +3743,22 @@ const NOUN_SINGULAR_PARTS = {
     { text: "der", guide: "dair" },
     { text: "Hus", guide: "HOOS", stress: true },
     { text: "ten", guide: "ten" },
+  ],
+  Schmerz: [
+    { text: "der", guide: "dair" },
+    { text: "Schmerz", guide: "SHMERTS", stress: true },
+  ],
+  Medikament: [
+    { text: "das", guide: "dahs" },
+    { text: "Me", guide: "meh" },
+    { text: "di", guide: "dee" },
+    { text: "ka", guide: "kah" },
+    { text: "ment", guide: "MENT", stress: true },
+  ],
+  Morgen: [
+    { text: "der", guide: "dair" },
+    { text: "Mor", guide: "MOR", stress: true },
+    { text: "gen", guide: "gen" },
   ],
   Park: [
     { text: "der", guide: "dair" },
