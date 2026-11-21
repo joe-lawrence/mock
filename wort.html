@@ -1,0 +1,1789 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="WortMatch" />
+  <meta name="theme-color" content="#F8F7F4" />
+  <title>WortMatch — German Grammar Sort</title>
+
+  <!-- Inline PWA Web App Manifest via Data URI -->
+  <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22WortMatch%20-%20German%20Grammar%20Sort%22%2C%22short_name%22%3A%22WortMatch%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23F8F7F4%22%2C%22theme_color%22%3A%22%23F8F7F4%22%7D" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            paper: '#F8F7F4',
+            card: '#FFFFFF',
+            ink: '#18181B',
+            muted: '#71717A',
+          },
+          boxShadow: {
+            'card': '0 12px 32px -6px rgba(24, 24, 27, 0.08), 0 4px 10px -2px rgba(24, 24, 27, 0.04)',
+            'card-drag': '0 22px 44px -8px rgba(24, 24, 27, 0.16), 0 8px 16px -4px rgba(24, 24, 27, 0.08)',
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    /* Prevent pull-to-refresh and accidental text selection during touch swipes */
+    html, body {
+      overscroll-behavior: none;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: pan-y;
+      background-color: #F8F7F4;
+      color: #18181B;
+      height: 100%;
+    }
+
+    .sortable-pill {
+      touch-action: none;
+      will-change: transform;
+    }
+
+    .pill-spring {
+      transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s ease;
+    }
+
+    .pill-dragging {
+      position: relative;
+      z-index: 60 !important;
+      box-shadow: 0 18px 36px -6px rgba(24, 24, 27, 0.24), 0 6px 14px -3px rgba(24, 24, 27, 0.12);
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.94) translateY(8px); opacity: 0; }
+      100% { transform: scale(1) translateY(0); opacity: 1; }
+    }
+
+    @keyframes slideFromLeft {
+      0% { transform: translateX(-85%) scale(0.95); opacity: 0.35; }
+      65% { transform: translateX(4%) scale(1.02); opacity: 1; }
+      100% { transform: translateX(0) scale(1); opacity: 1; }
+    }
+
+    @keyframes slideFromRight {
+      0% { transform: translateX(85%) scale(0.95); opacity: 0.35; }
+      65% { transform: translateX(-4%) scale(1.02); opacity: 1; }
+      100% { transform: translateX(0) scale(1); opacity: 1; }
+    }
+
+    @keyframes toastPop {
+      0% { transform: translate(-50%, 10px) scale(0.94); opacity: 0; }
+      100% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+    }
+
+    .animate-pop-in {
+      animation: popIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    .animate-move-from-left {
+      position: relative;
+      z-index: 55;
+      animation: slideFromLeft 0.48s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    .animate-move-from-right {
+      position: relative;
+      z-index: 55;
+      animation: slideFromRight 0.48s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    .animate-toast-pop {
+      animation: toastPop 0.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    #translation-popover {
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+
+    /* Custom subtle scrollbar for Word Bank modal */
+    .thin-scroll::-webkit-scrollbar {
+      width: 5px;
+    }
+    .thin-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .thin-scroll::-webkit-scrollbar-thumb {
+      background: #D4D4D8;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="flex flex-col min-h-dvh max-w-md mx-auto px-4 pt-safe pb-safe overflow-hidden">
+
+  <!-- ======================================================================= -->
+  <!-- VIEW 1: GAME INTRO / SETUP SCREEN                                       -->
+  <!-- ======================================================================= -->
+  <section id="intro-screen" class="flex-1 flex flex-col justify-between py-4 sm:py-6 overflow-y-auto thin-scroll animate-pop-in">
+    <!-- Title & Concise Rule Summary -->
+    <div class="text-center space-y-2 pt-1">
+      <div class="w-11 h-11 rounded-2xl bg-zinc-900 text-white flex items-center justify-center font-extrabold text-base tracking-tight shadow-md mx-auto">
+        WM
+      </div>
+      <div>
+        <h1 class="text-2xl font-extrabold tracking-tight text-zinc-900">WortMatch</h1>
+        <p id="intro-streak-badge" class="text-xs font-semibold text-zinc-500 mt-0.5">Streak: 0 · Best: 0</p>
+      </div>
+      <p class="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-[335px] mx-auto">
+        Sort each word into its matching column using the color-coded anchor at the top. Tap any word for its translation, then tap <span class="font-semibold text-zinc-900">Check</span>.
+      </p>
+    </div>
+
+    <!-- Setup Configuration Card -->
+    <div class="bg-white rounded-3xl p-4 sm:p-5 border border-zinc-200/90 shadow-card space-y-3.5 my-2.5">
+      <!-- 1. Grammatical Round Mode Selector (2 Curriculum Domains) -->
+      <div class="space-y-1.5">
+        <label class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Curriculum Word Bank</label>
+        <div class="grid grid-cols-2 gap-1.5 bg-zinc-100 p-1 rounded-2xl">
+          <button id="mode-nouns" class="py-2 px-1.5 rounded-xl text-xs font-bold transition bg-white text-zinc-900 shadow-2xs flex flex-col items-center gap-0.5">
+            <span>Gender</span>
+            <span class="text-[10px] font-medium text-zinc-400">der · die · das</span>
+          </button>
+          <button id="mode-case" class="py-2 px-1.5 rounded-xl text-xs font-bold transition text-zinc-500 hover:text-zinc-800 flex flex-col items-center gap-0.5">
+            <span>Case</span>
+            <span class="text-[10px] font-medium text-zinc-400">Akk · Dat</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. Round Composition Controls (2 Learning Anchors + Adjustable Learned & Mastered) -->
+      <div class="space-y-2 pt-1 border-t border-zinc-100">
+        <div class="flex items-center justify-between">
+          <label class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Round Composition</label>
+          <span id="intro-card-total-pill" class="text-[11px] font-mono font-semibold text-zinc-500">4 words to sort</span>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center">
+          <!-- Fixed Learning Anchors -->
+          <div class="bg-zinc-50 rounded-2xl p-2.5 border border-zinc-200/70 flex flex-col justify-between">
+            <span class="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Learning</span>
+            <span class="font-mono font-extrabold text-base text-zinc-900 my-1">2</span>
+            <span class="text-[10px] text-zinc-400">Column headers</span>
+          </div>
+
+          <!-- Adjustable Learned Slot -->
+          <div class="bg-zinc-50 rounded-2xl p-2.5 border border-zinc-200/70 flex flex-col justify-between">
+            <span class="text-[10px] font-bold uppercase tracking-wide text-zinc-500">Learned</span>
+            <div class="flex items-center justify-center gap-2 my-1">
+              <button id="dec-learned" aria-label="Decrease Learned words" class="w-6 h-6 rounded-lg bg-white border border-zinc-300 flex items-center justify-center font-bold text-zinc-700 hover:bg-zinc-100 active:scale-90 transition">-</button>
+              <span id="val-learned" class="font-mono font-extrabold text-base text-zinc-900 w-3">2</span>
+              <button id="inc-learned" aria-label="Increase Learned words" class="w-6 h-6 rounded-lg bg-white border border-zinc-300 flex items-center justify-center font-bold text-zinc-700 hover:bg-zinc-100 active:scale-90 transition">+</button>
+            </div>
+            <span class="text-[10px] text-zinc-400">To sort</span>
+          </div>
+
+          <!-- Adjustable Mastered Slot -->
+          <div class="bg-zinc-50 rounded-2xl p-2.5 border border-zinc-200/70 flex flex-col justify-between">
+            <span class="text-[10px] font-bold uppercase tracking-wide text-zinc-500">Mastered</span>
+            <div class="flex items-center justify-center gap-2 my-1">
+              <button id="dec-mastered" aria-label="Decrease Mastered words" class="w-6 h-6 rounded-lg bg-white border border-zinc-300 flex items-center justify-center font-bold text-zinc-700 hover:bg-zinc-100 active:scale-90 transition">-</button>
+              <span id="val-mastered" class="font-mono font-extrabold text-base text-zinc-900 w-3">2</span>
+              <button id="inc-mastered" aria-label="Increase Mastered words" class="w-6 h-6 rounded-lg bg-white border border-zinc-300 flex items-center justify-center font-bold text-zinc-700 hover:bg-zinc-100 active:scale-90 transition">+</button>
+            </div>
+            <span class="text-[10px] text-zinc-400">To sort</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Audio FX & German TTS Toggles -->
+      <div class="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-100">
+        <button id="btn-sound" class="py-2.5 px-3 rounded-2xl bg-zinc-50 border border-zinc-200/80 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 active:scale-95 transition flex items-center justify-between">
+          <span class="flex items-center gap-1.5">
+            <span id="sound-icon-slot"></span>
+            <span>Sound FX</span>
+          </span>
+          <span id="sound-status-text" class="text-[10px] font-mono font-bold text-emerald-600">ON</span>
+        </button>
+
+        <button id="btn-speech" class="py-2.5 px-3 rounded-2xl bg-zinc-50 border border-zinc-200/80 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 active:scale-95 transition flex items-center justify-between">
+          <span class="flex items-center gap-1.5">
+            <span class="font-mono font-bold text-[11px] text-zinc-500">DE</span>
+            <span>Voice TTS</span>
+          </span>
+          <span id="speech-status-text" class="text-[10px] font-mono font-bold text-emerald-600">ON</span>
+        </button>
+      </div>
+
+      <!-- 4. Pool Progress Summary & Word Bank Trigger -->
+      <div class="pt-2 border-t border-zinc-100 flex items-center justify-between gap-2">
+        <div class="text-xs">
+          <p class="font-semibold text-zinc-800">Deck Mastery Pool</p>
+          <p id="intro-pool-breakdown" class="text-[11px] font-mono text-zinc-500">12 Mastered · 12 Learned · 12 New</p>
+        </div>
+        <button id="btn-bank-intro" class="px-3 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200/80 text-zinc-800 text-xs font-bold active:scale-95 transition shrink-0">
+          Word Bank
+        </button>
+      </div>
+    </div>
+
+    <!-- Primary Start Game CTA -->
+    <div class="pb-1">
+      <button id="btn-start-game" class="w-full py-4 rounded-2xl bg-zinc-900 hover:bg-zinc-800 text-white font-extrabold text-base tracking-tight shadow-lg active:scale-[0.98] transition flex items-center justify-center gap-2">
+        <span>Start Game</span>
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+      </button>
+    </div>
+  </section>
+
+  <!-- ======================================================================= -->
+  <!-- VIEW 2: DISTRACTION-FREE TWO-COLUMN SORTING GAME MODE                   -->
+  <!-- ======================================================================= -->
+  <div id="game-screen" class="hidden flex-1 flex flex-col min-h-0">
+    <!-- Minimal Top HUD (Compact for iPhone SE 375x667) -->
+    <header class="pt-2 pb-1 flex items-center justify-between shrink-0">
+      <button id="btn-back-setup" class="px-2.5 py-1 rounded-xl bg-white border border-zinc-200/80 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 active:scale-95 transition flex items-center gap-1 shadow-2xs">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        <span>Setup</span>
+      </button>
+
+      <div class="text-center">
+        <p id="combo-badge" class="text-xs font-bold text-zinc-800">Streak: 0 · Best: 0</p>
+      </div>
+
+      <button id="btn-bank-game" class="px-2 py-1 rounded-xl bg-white border border-zinc-200/80 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 active:scale-95 transition flex items-center gap-1 shadow-2xs">
+        <span>Words</span>
+        <span id="tier-summary-pill" class="px-1.5 py-0.5 rounded-md bg-zinc-100 text-zinc-700 text-[10px] font-mono font-bold">12/12/12</span>
+      </button>
+    </header>
+
+    <!-- Subtle Domain & Set Status Bar -->
+    <div class="flex items-center justify-between px-1 py-0.5 text-[11px] text-zinc-500 shrink-0">
+      <span id="active-domain-tag" class="font-semibold text-zinc-600">Noun Gender</span>
+      <span id="combo-pool-status" class="font-mono text-[10px] text-zinc-400">Unique set</span>
+    </div>
+
+    <!-- Main Two-Column + Center Queue Board -->
+    <main class="flex-1 flex flex-col gap-2 my-1 min-h-0 overflow-hidden">
+      <!-- Top Two Columns (Left & Right Buckets with Learning Anchors) -->
+      <div class="grid grid-cols-2 gap-2 flex-1 min-h-0">
+        <!-- LEFT COLUMN -->
+        <section id="col-left" class="relative bg-white rounded-2xl border border-zinc-200/90 shadow-card p-2 flex flex-col min-h-0 transition-colors">
+          <div id="col-left-header" class="pb-1.5 mb-1.5 border-b border-zinc-100 shrink-0">
+            <!-- Populated with Left Trait Header + Learning Anchor -->
+          </div>
+          <div id="col-left-items" class="flex-1 overflow-y-auto thin-scroll space-y-1 pr-0.5">
+            <!-- Sorted pills placed into Left Column -->
+          </div>
+        </section>
+
+        <!-- RIGHT COLUMN -->
+        <section id="col-right" class="relative bg-white rounded-2xl border border-zinc-200/90 shadow-card p-2 flex flex-col min-h-0 transition-colors">
+          <div id="col-right-header" class="pb-1.5 mb-1.5 border-b border-zinc-100 shrink-0">
+            <!-- Populated with Right Trait Header + Learning Anchor -->
+          </div>
+          <div id="col-right-items" class="flex-1 overflow-y-auto thin-scroll space-y-1 pr-0.5">
+            <!-- Sorted pills placed into Right Column -->
+          </div>
+        </section>
+      </div>
+
+      <!-- Center Unsorted Queue Deck -->
+      <section id="unsorted-tray" class="relative bg-white/95 rounded-2xl border border-zinc-200/90 shadow-card p-2.5 shrink-0">
+        <div class="flex items-center justify-between mb-1.5 px-1">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Unsorted</span>
+          <span id="remaining-count-label" class="text-[10px] font-mono font-semibold text-zinc-500">4 left</span>
+        </div>
+        <div id="unsorted-list" class="space-y-1.5 max-h-[146px] overflow-y-auto thin-scroll">
+          <!-- Swipeable top word row + queued preview rows -->
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Final Check / Next Round Action Footer -->
+    <footer class="py-2 shrink-0 flex flex-col items-center gap-1.5">
+      <div id="round-result-banner" class="hidden w-full px-3 py-1.5 rounded-xl text-xs font-bold flex items-center justify-between">
+        <span id="round-result-text">4/4 Sorted Correctly!</span>
+        <span id="round-result-xp" class="font-mono">+4 Net</span>
+      </div>
+
+      <button id="btn-check-round" disabled class="w-full py-3 px-4 rounded-2xl bg-zinc-900 disabled:bg-zinc-300 disabled:text-zinc-500 text-white font-extrabold text-sm tracking-tight shadow-md active:scale-[0.98] transition flex items-center justify-center gap-2 whitespace-nowrap">
+        <span id="btn-check-label" class="inline-flex items-center gap-1.5 whitespace-nowrap">Sort all words to Check</span>
+      </button>
+    </footer>
+  </div>
+
+  <!-- Translation Popover (Appears when clicking/tapping any word without dragging) -->
+  <div id="translation-popover" class="hidden opacity-100 fixed bottom-20 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-[360px] bg-zinc-900/95 backdrop-blur-md text-white px-4 py-3 rounded-2xl shadow-2xl border border-zinc-700/80 animate-toast-pop">
+    <div class="flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2">
+          <span id="trans-pop-word" class="text-base font-extrabold text-white truncate">Zeitung</span>
+          <span id="trans-pop-pos" class="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 text-[10px] font-mono uppercase">noun</span>
+        </div>
+        <p id="trans-pop-gloss" class="text-sm text-emerald-300 font-semibold mt-0.5 truncate">newspaper</p>
+        <p id="trans-pop-note" class="text-[11px] text-zinc-400 mt-0.5 truncate hidden"></p>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button id="trans-pop-speak" type="button" aria-label="Pronounce German word" class="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 active:scale-90 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072M11 5L6 9H2v6h4l5 4V5z"/></svg>
+        </button>
+        <button id="trans-pop-close" type="button" aria-label="Close translation" class="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white active:scale-90 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Word Bank & Stats Modal -->
+  <div id="bank-modal" class="hidden fixed inset-0 z-50 bg-zinc-900/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-paper w-full max-w-md h-[86dvh] sm:h-[80dvh] rounded-t-3xl sm:rounded-3xl shadow-2xl border border-zinc-200 flex flex-col overflow-hidden animate-pop-in">
+      <!-- Modal Header -->
+      <div class="px-5 py-4 bg-white border-b border-zinc-200/80 flex items-center justify-between shrink-0">
+        <div>
+          <h2 class="text-base font-bold text-zinc-900">Vocabulary & Mastery</h2>
+          <p id="bank-stats-subtitle" class="text-xs text-zinc-500">Score 0–2 Learning · 3–5 Learned · 6+ Mastered</p>
+        </div>
+        <button id="btn-close-bank" class="p-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Tier Filter Tabs -->
+      <div class="px-4 py-2.5 bg-white border-b border-zinc-100 flex items-center gap-1.5 shrink-0 text-xs font-semibold">
+        <button data-bank-filter="all" class="bank-filter-btn px-3 py-1.5 rounded-lg bg-zinc-900 text-white">All</button>
+        <button data-bank-filter="learning" class="bank-filter-btn px-3 py-1.5 rounded-lg bg-zinc-100 text-zinc-600">Learning</button>
+        <button data-bank-filter="learned" class="bank-filter-btn px-3 py-1.5 rounded-lg bg-zinc-100 text-zinc-600">Learned</button>
+        <button data-bank-filter="mastered" class="bank-filter-btn px-3 py-1.5 rounded-lg bg-zinc-100 text-zinc-600">Mastered</button>
+      </div>
+
+      <!-- Word List -->
+      <div id="bank-list-container" class="flex-1 overflow-y-auto p-4 space-y-2 thin-scroll">
+        <!-- Populated dynamically -->
+      </div>
+
+      <!-- Modal Footer Actions -->
+      <div class="px-5 py-3.5 bg-white border-t border-zinc-200/80 flex items-center justify-between gap-2 shrink-0">
+        <button id="btn-clear-combos" class="px-3 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-xs font-semibold text-zinc-700 transition">
+          Clear Seen Pairs (<span id="seen-combos-count">0</span>)
+        </button>
+        <button id="btn-reset-progress" class="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-xs font-semibold text-rose-600 border border-rose-200 transition">
+          Reset Starter Deck
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmation Toast / Mini Dialog (replaces confirm()) -->
+  <div id="confirm-toast" class="hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-zinc-900 text-white px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 text-xs font-medium max-w-[92vw]">
+    <span id="confirm-toast-text">Reset all word scores to starter tiers?</span>
+    <button id="confirm-toast-yes" class="px-2.5 py-1 rounded-lg bg-rose-500 hover:bg-rose-600 font-bold text-white shrink-0">Reset</button>
+    <button id="confirm-toast-no" class="px-2.5 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 shrink-0">Cancel</button>
+  </div>
+
+  <script>
+    /**
+     * WortMatch — German Grammar Sort PWA
+     * Built from curriculum markdown word banks:
+     * - nouns-gender.md (Masculine / Feminine / Neuter nouns)
+     * - case.md (Accusative vs. Dative verbs, prepositions, & governed nouns)
+     * - numbers.md (Time, Money, Measurement, Calendar & Core Quantity)
+     */
+
+    // =========================================================================
+    // 1. CURRICULUM VOCABULARY DATASET (From nouns-gender.md, case.md, numbers.md)
+    // =========================================================================
+    const VOCAB_DATA = [
+      // -----------------------------------------------------------------------
+      // DOMAIN 1: NOUN GENDER (nouns-gender.md + gendered nouns from case.md & numbers.md)
+      // -----------------------------------------------------------------------
+      // Feminine (die)
+      { id: 'vocab.nouns.zeitung', domain: 'nouns', pos: 'noun', word: 'Zeitung', trait: 'die', meaning: 'newspaper', initialScore: 6 },
+      { id: 'vocab.nouns.wohnung', domain: 'nouns', pos: 'noun', word: 'Wohnung', trait: 'die', meaning: 'apartment', initialScore: 6 },
+      { id: 'vocab.nouns.rechnung', domain: 'nouns', pos: 'noun', word: 'Rechnung', trait: 'die', meaning: 'bill / invoice', initialScore: 6 },
+      { id: 'vocab.nouns.meinung', domain: 'nouns', pos: 'noun', word: 'Meinung', trait: 'die', meaning: 'opinion', initialScore: 6 },
+      { id: 'vocab.nouns.pruefung', domain: 'nouns', pos: 'noun', word: 'Prüfung', trait: 'die', meaning: 'exam / test', initialScore: 3 },
+      { id: 'vocab.nouns.gesundheit', domain: 'nouns', pos: 'noun', word: 'Gesundheit', trait: 'die', meaning: 'health', initialScore: 3 },
+      { id: 'vocab.nouns.freundlichkeit', domain: 'nouns', pos: 'noun', word: 'Freundlichkeit', trait: 'die', meaning: 'friendliness', initialScore: 3 },
+      { id: 'vocab.nouns.mannschaft', domain: 'nouns', pos: 'noun', word: 'Mannschaft', trait: 'die', meaning: 'team', initialScore: 3 },
+      { id: 'vocab.nouns.tradition', domain: 'nouns', pos: 'noun', word: 'Tradition', trait: 'die', meaning: 'tradition', initialScore: 0 },
+      { id: 'vocab.nouns.sonnenblume', domain: 'nouns', pos: 'noun', word: 'Sonnenblume', trait: 'die', meaning: 'sunflower', initialScore: 3 },
+      { id: 'vocab.nouns.aktion', domain: 'nouns', pos: 'noun', word: 'Aktion', trait: 'die', meaning: 'action / special offer', initialScore: 0 },
+      { id: 'vocab.nouns.bedeutung', domain: 'nouns', pos: 'noun', word: 'Bedeutung', trait: 'die', meaning: 'meaning', initialScore: 0 },
+      { id: 'vocab.nouns.bewegung', domain: 'nouns', pos: 'noun', word: 'Bewegung', trait: 'die', meaning: 'movement', initialScore: 0 },
+      { id: 'vocab.nouns.botschaft', domain: 'nouns', pos: 'noun', word: 'Botschaft', trait: 'die', meaning: 'message', initialScore: 0 },
+      { id: 'vocab.nouns.diskussion', domain: 'nouns', pos: 'noun', word: 'Diskussion', trait: 'die', meaning: 'discussion', initialScore: 3 },
+      { id: 'vocab.nouns.ehrlichkeit', domain: 'nouns', pos: 'noun', word: 'Ehrlichkeit', trait: 'die', meaning: 'honesty', initialScore: 0 },
+      { id: 'vocab.nouns.einheit', domain: 'nouns', pos: 'noun', word: 'Einheit', trait: 'die', meaning: 'unit / unity', initialScore: 0 },
+      { id: 'vocab.nouns.einladung', domain: 'nouns', pos: 'noun', word: 'Einladung', trait: 'die', meaning: 'invitation', initialScore: 3 },
+      { id: 'vocab.nouns.erfahrung', domain: 'nouns', pos: 'noun', word: 'Erfahrung', trait: 'die', meaning: 'experience', initialScore: 0 },
+      { id: 'vocab.nouns.erzaehlung', domain: 'nouns', pos: 'noun', word: 'Erzählung', trait: 'die', meaning: 'story / narrative', initialScore: 0 },
+      { id: 'vocab.nouns.faehigkeit', domain: 'nouns', pos: 'noun', word: 'Fähigkeit', trait: 'die', meaning: 'ability', initialScore: 0 },
+      { id: 'vocab.nouns.freiheit', domain: 'nouns', pos: 'noun', word: 'Freiheit', trait: 'die', meaning: 'freedom', initialScore: 6 },
+      { id: 'vocab.nouns.freundschaft', domain: 'nouns', pos: 'noun', word: 'Freundschaft', trait: 'die', meaning: 'friendship', initialScore: 3 },
+      { id: 'vocab.nouns.geschwindigkeit', domain: 'nouns', pos: 'noun', word: 'Geschwindigkeit', trait: 'die', meaning: 'speed', initialScore: 0 },
+      { id: 'vocab.nouns.gesellschaft', domain: 'nouns', pos: 'noun', word: 'Gesellschaft', trait: 'die', meaning: 'society', initialScore: 0 },
+      { id: 'vocab.nouns.hoffnung', domain: 'nouns', pos: 'noun', word: 'Hoffnung', trait: 'die', meaning: 'hope', initialScore: 3 },
+      { id: 'vocab.nouns.information', domain: 'nouns', pos: 'noun', word: 'Information', trait: 'die', meaning: 'information', initialScore: 6 },
+      { id: 'vocab.nouns.klarheit', domain: 'nouns', pos: 'noun', word: 'Klarheit', trait: 'die', meaning: 'clarity', initialScore: 0 },
+      { id: 'vocab.nouns.krankheit', domain: 'nouns', pos: 'noun', word: 'Krankheit', trait: 'die', meaning: 'illness', initialScore: 3 },
+      { id: 'vocab.nouns.landschaft', domain: 'nouns', pos: 'noun', word: 'Landschaft', trait: 'die', meaning: 'landscape', initialScore: 0 },
+      { id: 'vocab.nouns.loesung', domain: 'nouns', pos: 'noun', word: 'Lösung', trait: 'die', meaning: 'solution', initialScore: 3 },
+      { id: 'vocab.nouns.million', domain: 'nouns', pos: 'noun', word: 'Million', trait: 'die', meaning: 'million', initialScore: 6 },
+      { id: 'vocab.nouns.moeglichkeit', domain: 'nouns', pos: 'noun', word: 'Möglichkeit', trait: 'die', meaning: 'possibility', initialScore: 0 },
+      { id: 'vocab.nouns.nation', domain: 'nouns', pos: 'noun', word: 'Nation', trait: 'die', meaning: 'nation', initialScore: 3 },
+      { id: 'vocab.nouns.partnerschaft', domain: 'nouns', pos: 'noun', word: 'Partnerschaft', trait: 'die', meaning: 'partnership', initialScore: 0 },
+      { id: 'vocab.nouns.region', domain: 'nouns', pos: 'noun', word: 'Region', trait: 'die', meaning: 'region', initialScore: 3 },
+      { id: 'vocab.nouns.richtung', domain: 'nouns', pos: 'noun', word: 'Richtung', trait: 'die', meaning: 'direction', initialScore: 0 },
+      { id: 'vocab.nouns.schoenheit', domain: 'nouns', pos: 'noun', word: 'Schönheit', trait: 'die', meaning: 'beauty', initialScore: 0 },
+      { id: 'vocab.nouns.schwierigkeit', domain: 'nouns', pos: 'noun', word: 'Schwierigkeit', trait: 'die', meaning: 'difficulty', initialScore: 0 },
+      { id: 'vocab.nouns.sicherheit', domain: 'nouns', pos: 'noun', word: 'Sicherheit', trait: 'die', meaning: 'safety / security', initialScore: 3 },
+      { id: 'vocab.nouns.situation', domain: 'nouns', pos: 'noun', word: 'Situation', trait: 'die', meaning: 'situation', initialScore: 6 },
+      { id: 'vocab.nouns.station', domain: 'nouns', pos: 'noun', word: 'Station', trait: 'die', meaning: 'station', initialScore: 6 },
+      { id: 'vocab.nouns.uebung', domain: 'nouns', pos: 'noun', word: 'Übung', trait: 'die', meaning: 'exercise / practice', initialScore: 3 },
+      { id: 'vocab.nouns.wahrheit', domain: 'nouns', pos: 'noun', word: 'Wahrheit', trait: 'die', meaning: 'truth', initialScore: 0 },
+      { id: 'vocab.nouns.wirklichkeit', domain: 'nouns', pos: 'noun', word: 'Wirklichkeit', trait: 'die', meaning: 'reality', initialScore: 0 },
+      { id: 'vocab.nouns.wirtschaft', domain: 'nouns', pos: 'noun', word: 'Wirtschaft', trait: 'die', meaning: 'economy', initialScore: 0 },
+      { id: 'vocab.nouns.wissenschaft', domain: 'nouns', pos: 'noun', word: 'Wissenschaft', trait: 'die', meaning: 'science', initialScore: 0 },
+      { id: 'vocab.nouns.lilie', domain: 'nouns', pos: 'noun', word: 'Lilie', trait: 'die', meaning: 'lily', initialScore: 0 },
+      { id: 'vocab.nouns.narzisse', domain: 'nouns', pos: 'noun', word: 'Narzisse', trait: 'die', meaning: 'daffodil', initialScore: 0 },
+      { id: 'vocab.nouns.nelke', domain: 'nouns', pos: 'noun', word: 'Nelke', trait: 'die', meaning: 'carnation', initialScore: 0 },
+      { id: 'vocab.nouns.orchidee', domain: 'nouns', pos: 'noun', word: 'Orchidee', trait: 'die', meaning: 'orchid', initialScore: 0 },
+      { id: 'vocab.nouns.rose', domain: 'nouns', pos: 'noun', word: 'Rose', trait: 'die', meaning: 'rose', initialScore: 6 },
+      { id: 'vocab.nouns.tulpe', domain: 'nouns', pos: 'noun', word: 'Tulpe', trait: 'die', meaning: 'tulip', initialScore: 3 },
+      { id: 'vocab.nouns.frau_g', domain: 'nouns', pos: 'noun', word: 'Frau', trait: 'die', meaning: 'woman', initialScore: 0 },
+      { id: 'vocab.nouns.jacke_g', domain: 'nouns', pos: 'noun', word: 'Jacke', trait: 'die', meaning: 'jacket', initialScore: 3 },
+      { id: 'vocab.nouns.katze_g', domain: 'nouns', pos: 'noun', word: 'Katze', trait: 'die', meaning: 'cat', initialScore: 6 },
+      { id: 'vocab.nouns.stadt_g', domain: 'nouns', pos: 'noun', word: 'Stadt', trait: 'die', meaning: 'city', initialScore: 6 },
+      { id: 'vocab.nouns.tasche_g', domain: 'nouns', pos: 'noun', word: 'Tasche', trait: 'die', meaning: 'bag', initialScore: 3 },
+
+      // Masculine (der)
+      { id: 'vocab.nouns.lehrer', domain: 'nouns', pos: 'noun', word: 'Lehrer', trait: 'der', meaning: 'teacher', initialScore: 6 },
+      { id: 'vocab.nouns.fahrer', domain: 'nouns', pos: 'noun', word: 'Fahrer', trait: 'der', meaning: 'driver', initialScore: 6 },
+      { id: 'vocab.nouns.baecker', domain: 'nouns', pos: 'noun', word: 'Bäcker', trait: 'der', meaning: 'baker', initialScore: 6 },
+      { id: 'vocab.nouns.schmetterling', domain: 'nouns', pos: 'noun', word: 'Schmetterling', trait: 'der', meaning: 'butterfly', initialScore: 3 },
+      { id: 'vocab.nouns.zwilling', domain: 'nouns', pos: 'noun', word: 'Zwilling', trait: 'der', meaning: 'twin', initialScore: 0 },
+      { id: 'vocab.nouns.montag', domain: 'nouns', pos: 'noun', word: 'Montag', trait: 'der', meaning: 'Monday', initialScore: 6 },
+      { id: 'vocab.nouns.sturm', domain: 'nouns', pos: 'noun', word: 'Sturm', trait: 'der', meaning: 'storm', initialScore: 3 },
+      { id: 'vocab.nouns.kellner', domain: 'nouns', pos: 'noun', word: 'Kellner', trait: 'der', meaning: 'waiter', initialScore: 3 },
+      { id: 'vocab.nouns.arbeiter', domain: 'nouns', pos: 'noun', word: 'Arbeiter', trait: 'der', meaning: 'worker', initialScore: 3 },
+      { id: 'vocab.nouns.dezember', domain: 'nouns', pos: 'noun', word: 'Dezember', trait: 'der', meaning: 'December', initialScore: 6 },
+      { id: 'vocab.nouns.donner', domain: 'nouns', pos: 'noun', word: 'Donner', trait: 'der', meaning: 'thunder', initialScore: 0 },
+      { id: 'vocab.nouns.fluechtling', domain: 'nouns', pos: 'noun', word: 'Flüchtling', trait: 'der', meaning: 'refugee', initialScore: 0 },
+      { id: 'vocab.nouns.fruehling', domain: 'nouns', pos: 'noun', word: 'Frühling', trait: 'der', meaning: 'spring (season)', initialScore: 3 },
+      { id: 'vocab.nouns.gaertner', domain: 'nouns', pos: 'noun', word: 'Gärtner', trait: 'der', meaning: 'gardener', initialScore: 0 },
+      { id: 'vocab.nouns.journalismus', domain: 'nouns', pos: 'noun', word: 'Journalismus', trait: 'der', meaning: 'journalism', initialScore: 0 },
+      { id: 'vocab.nouns.kapitalismus', domain: 'nouns', pos: 'noun', word: 'Kapitalismus', trait: 'der', meaning: 'capitalism', initialScore: 0 },
+      { id: 'vocab.nouns.lehrling', domain: 'nouns', pos: 'noun', word: 'Lehrling', trait: 'der', meaning: 'apprentice', initialScore: 0 },
+      { id: 'vocab.nouns.liebling', domain: 'nouns', pos: 'noun', word: 'Liebling', trait: 'der', meaning: 'favorite / darling', initialScore: 3 },
+      { id: 'vocab.nouns.november', domain: 'nouns', pos: 'noun', word: 'November', trait: 'der', meaning: 'November', initialScore: 6 },
+      { id: 'vocab.nouns.oktober', domain: 'nouns', pos: 'noun', word: 'Oktober', trait: 'der', meaning: 'October', initialScore: 6 },
+      { id: 'vocab.nouns.optimismus', domain: 'nouns', pos: 'noun', word: 'Optimismus', trait: 'der', meaning: 'optimism', initialScore: 0 },
+      { id: 'vocab.nouns.partner', domain: 'nouns', pos: 'noun', word: 'Partner', trait: 'der', meaning: 'partner', initialScore: 6 },
+      { id: 'vocab.nouns.rentner', domain: 'nouns', pos: 'noun', word: 'Rentner', trait: 'der', meaning: 'retiree', initialScore: 0 },
+      { id: 'vocab.nouns.schueler', domain: 'nouns', pos: 'noun', word: 'Schüler', trait: 'der', meaning: 'student / pupil', initialScore: 6 },
+      { id: 'vocab.nouns.september', domain: 'nouns', pos: 'noun', word: 'September', trait: 'der', meaning: 'September', initialScore: 6 },
+      { id: 'vocab.nouns.sommer', domain: 'nouns', pos: 'noun', word: 'Sommer', trait: 'der', meaning: 'summer', initialScore: 6 },
+      { id: 'vocab.nouns.tourismus', domain: 'nouns', pos: 'noun', word: 'Tourismus', trait: 'der', meaning: 'tourism', initialScore: 3 },
+      { id: 'vocab.nouns.verkaeufer', domain: 'nouns', pos: 'noun', word: 'Verkäufer', trait: 'der', meaning: 'salesperson', initialScore: 3 },
+      { id: 'vocab.nouns.winter', domain: 'nouns', pos: 'noun', word: 'Winter', trait: 'der', meaning: 'winter', initialScore: 6 },
+      { id: 'vocab.nouns.april', domain: 'nouns', pos: 'noun', word: 'April', trait: 'der', meaning: 'April', initialScore: 6 },
+      { id: 'vocab.nouns.arzt', domain: 'nouns', pos: 'noun', word: 'Arzt', trait: 'der', meaning: 'doctor', initialScore: 6 },
+      { id: 'vocab.nouns.august', domain: 'nouns', pos: 'noun', word: 'August', trait: 'der', meaning: 'August', initialScore: 6 },
+      { id: 'vocab.nouns.dienstag', domain: 'nouns', pos: 'noun', word: 'Dienstag', trait: 'der', meaning: 'Tuesday', initialScore: 3 },
+      { id: 'vocab.nouns.donnerstag', domain: 'nouns', pos: 'noun', word: 'Donnerstag', trait: 'der', meaning: 'Thursday', initialScore: 3 },
+      { id: 'vocab.nouns.februar', domain: 'nouns', pos: 'noun', word: 'Februar', trait: 'der', meaning: 'February', initialScore: 3 },
+      { id: 'vocab.nouns.freitag', domain: 'nouns', pos: 'noun', word: 'Freitag', trait: 'der', meaning: 'Friday', initialScore: 6 },
+      { id: 'vocab.nouns.frost', domain: 'nouns', pos: 'noun', word: 'Frost', trait: 'der', meaning: 'frost', initialScore: 0 },
+      { id: 'vocab.nouns.hagel', domain: 'nouns', pos: 'noun', word: 'Hagel', trait: 'der', meaning: 'hail', initialScore: 0 },
+      { id: 'vocab.nouns.herbst', domain: 'nouns', pos: 'noun', word: 'Herbst', trait: 'der', meaning: 'autumn / fall', initialScore: 3 },
+      { id: 'vocab.nouns.januar', domain: 'nouns', pos: 'noun', word: 'Januar', trait: 'der', meaning: 'January', initialScore: 6 },
+      { id: 'vocab.nouns.juli', domain: 'nouns', pos: 'noun', word: 'Juli', trait: 'der', meaning: 'July', initialScore: 6 },
+      { id: 'vocab.nouns.juni', domain: 'nouns', pos: 'noun', word: 'Juni', trait: 'der', meaning: 'June', initialScore: 6 },
+      { id: 'vocab.nouns.koch', domain: 'nouns', pos: 'noun', word: 'Koch', trait: 'der', meaning: 'cook / chef', initialScore: 3 },
+      { id: 'vocab.nouns.mai', domain: 'nouns', pos: 'noun', word: 'Mai', trait: 'der', meaning: 'May', initialScore: 6 },
+      { id: 'vocab.nouns.maerz', domain: 'nouns', pos: 'noun', word: 'März', trait: 'der', meaning: 'March', initialScore: 3 },
+      { id: 'vocab.nouns.mittwoch', domain: 'nouns', pos: 'noun', word: 'Mittwoch', trait: 'der', meaning: 'Wednesday', initialScore: 3 },
+      { id: 'vocab.nouns.nebel', domain: 'nouns', pos: 'noun', word: 'Nebel', trait: 'der', meaning: 'fog', initialScore: 0 },
+      { id: 'vocab.nouns.norden', domain: 'nouns', pos: 'noun', word: 'Norden', trait: 'der', meaning: 'north', initialScore: 3 },
+      { id: 'vocab.nouns.osten', domain: 'nouns', pos: 'noun', word: 'Osten', trait: 'der', meaning: 'east', initialScore: 3 },
+      { id: 'vocab.nouns.regen', domain: 'nouns', pos: 'noun', word: 'Regen', trait: 'der', meaning: 'rain', initialScore: 6 },
+      { id: 'vocab.nouns.samstag', domain: 'nouns', pos: 'noun', word: 'Samstag', trait: 'der', meaning: 'Saturday', initialScore: 6 },
+      { id: 'vocab.nouns.schnee', domain: 'nouns', pos: 'noun', word: 'Schnee', trait: 'der', meaning: 'snow', initialScore: 6 },
+      { id: 'vocab.nouns.sonntag', domain: 'nouns', pos: 'noun', word: 'Sonntag', trait: 'der', meaning: 'Sunday', initialScore: 6 },
+      { id: 'vocab.nouns.sueden', domain: 'nouns', pos: 'noun', word: 'Süden', trait: 'der', meaning: 'south', initialScore: 3 },
+      { id: 'vocab.nouns.westen', domain: 'nouns', pos: 'noun', word: 'Westen', trait: 'der', meaning: 'west', initialScore: 3 },
+      { id: 'vocab.nouns.wind', domain: 'nouns', pos: 'noun', word: 'Wind', trait: 'der', meaning: 'wind', initialScore: 6 },
+      { id: 'vocab.nouns.mann_g', domain: 'nouns', pos: 'noun', word: 'Mann', trait: 'der', meaning: 'man', initialScore: 0 },
+      { id: 'vocab.nouns.hund_g', domain: 'nouns', pos: 'noun', word: 'Hund', trait: 'der', meaning: 'dog', initialScore: 3 },
+
+      // Neuter (das)
+      { id: 'vocab.nouns.kaetzchen', domain: 'nouns', pos: 'noun', word: 'Kätzchen', trait: 'das', meaning: 'kitten', initialScore: 3 },
+      { id: 'vocab.nouns.element', domain: 'nouns', pos: 'noun', word: 'Element', trait: 'das', meaning: 'element', initialScore: 3 },
+      { id: 'vocab.nouns.theater', domain: 'nouns', pos: 'noun', word: 'Theater', trait: 'das', meaning: 'theater', initialScore: 6 },
+      { id: 'vocab.nouns.krankenhaus', domain: 'nouns', pos: 'noun', word: 'Krankenhaus', trait: 'das', meaning: 'hospital', initialScore: 6 },
+      { id: 'vocab.nouns.argument', domain: 'nouns', pos: 'noun', word: 'Argument', trait: 'das', meaning: 'argument', initialScore: 3 },
+      { id: 'vocab.nouns.bluemlein', domain: 'nouns', pos: 'noun', word: 'Blümlein', trait: 'das', meaning: 'little flower', initialScore: 0 },
+      { id: 'vocab.nouns.broetchen', domain: 'nouns', pos: 'noun', word: 'Brötchen', trait: 'das', meaning: 'bread roll', initialScore: 6 },
+      { id: 'vocab.nouns.buechlein', domain: 'nouns', pos: 'noun', word: 'Büchlein', trait: 'das', meaning: 'booklet', initialScore: 0 },
+      { id: 'vocab.nouns.dokument', domain: 'nouns', pos: 'noun', word: 'Dokument', trait: 'das', meaning: 'document', initialScore: 3 },
+      { id: 'vocab.nouns.experiment', domain: 'nouns', pos: 'noun', word: 'Experiment', trait: 'das', meaning: 'experiment', initialScore: 3 },
+      { id: 'vocab.nouns.fraeulein', domain: 'nouns', pos: 'noun', word: 'Fräulein', trait: 'das', meaning: 'young woman (dated)', initialScore: 0 },
+      { id: 'vocab.nouns.haeuschen', domain: 'nouns', pos: 'noun', word: 'Häuschen', trait: 'das', meaning: 'little house', initialScore: 0 },
+      { id: 'vocab.nouns.haeuslein', domain: 'nouns', pos: 'noun', word: 'Häuslein', trait: 'das', meaning: 'little house', initialScore: 0 },
+      { id: 'vocab.nouns.huendchen', domain: 'nouns', pos: 'noun', word: 'Hündchen', trait: 'das', meaning: 'puppy / little dog', initialScore: 0 },
+      { id: 'vocab.nouns.instrument', domain: 'nouns', pos: 'noun', word: 'Instrument', trait: 'das', meaning: 'instrument', initialScore: 6 },
+      { id: 'vocab.nouns.kaninchen', domain: 'nouns', pos: 'noun', word: 'Kaninchen', trait: 'das', meaning: 'rabbit', initialScore: 3 },
+      { id: 'vocab.nouns.kindlein', domain: 'nouns', pos: 'noun', word: 'Kindlein', trait: 'das', meaning: 'little child', initialScore: 0 },
+      { id: 'vocab.nouns.maedchen', domain: 'nouns', pos: 'noun', word: 'Mädchen', trait: 'das', meaning: 'girl', initialScore: 6 },
+      { id: 'vocab.nouns.maerchen', domain: 'nouns', pos: 'noun', word: 'Märchen', trait: 'das', meaning: 'fairy tale', initialScore: 3 },
+      { id: 'vocab.nouns.medikament', domain: 'nouns', pos: 'noun', word: 'Medikament', trait: 'das', meaning: 'medication', initialScore: 0 },
+      { id: 'vocab.nouns.monument', domain: 'nouns', pos: 'noun', word: 'Monument', trait: 'das', meaning: 'monument', initialScore: 0 },
+      { id: 'vocab.nouns.buero', domain: 'nouns', pos: 'noun', word: 'Büro', trait: 'das', meaning: 'office', initialScore: 6 },
+      { id: 'vocab.nouns.caf', domain: 'nouns', pos: 'noun', word: 'Café', trait: 'das', meaning: 'café', initialScore: 6 },
+      { id: 'vocab.nouns.hotel', domain: 'nouns', pos: 'noun', word: 'Hotel', trait: 'das', meaning: 'hotel', initialScore: 6 },
+      { id: 'vocab.nouns.kino', domain: 'nouns', pos: 'noun', word: 'Kino', trait: 'das', meaning: 'cinema', initialScore: 6 },
+      { id: 'vocab.nouns.museum', domain: 'nouns', pos: 'noun', word: 'Museum', trait: 'das', meaning: 'museum', initialScore: 6 },
+      { id: 'vocab.nouns.restaurant', domain: 'nouns', pos: 'noun', word: 'Restaurant', trait: 'das', meaning: 'restaurant', initialScore: 6 },
+      { id: 'vocab.nouns.auto_g', domain: 'nouns', pos: 'noun', word: 'Auto', trait: 'das', meaning: 'car', initialScore: 6 },
+      { id: 'vocab.nouns.buch_g', domain: 'nouns', pos: 'noun', word: 'Buch', trait: 'das', meaning: 'book', initialScore: 6 },
+      { id: 'vocab.nouns.geschenk_g', domain: 'nouns', pos: 'noun', word: 'Geschenk', trait: 'das', meaning: 'gift', initialScore: 3 },
+      { id: 'vocab.nouns.kind_g', domain: 'nouns', pos: 'noun', word: 'Kind', trait: 'das', meaning: 'child', initialScore: 3 },
+
+      // -----------------------------------------------------------------------
+      // DOMAIN 2: CASE GOVERNANCE (case.md — Accusative vs. Dative)
+      // -----------------------------------------------------------------------
+      // Accusative
+      { id: 'vocab.case.sehen', domain: 'case', pos: 'verb', word: 'sehen', trait: 'akk', meaning: 'to see', note: 'Governs Accusative', initialScore: 6 },
+      { id: 'vocab.case.haben', domain: 'case', pos: 'verb', word: 'haben', trait: 'akk', meaning: 'to have', note: 'Governs Accusative', initialScore: 6 },
+      { id: 'vocab.case.fuer', domain: 'case', pos: 'prep', word: 'für', trait: 'akk', meaning: 'for', note: 'Accusative preposition', initialScore: 6 },
+      { id: 'vocab.case.ohne', domain: 'case', pos: 'prep', word: 'ohne', trait: 'akk', meaning: 'without', note: 'Accusative preposition', initialScore: 6 },
+      { id: 'vocab.case.brauchen', domain: 'case', pos: 'verb', word: 'brauchen', trait: 'akk', meaning: 'to need', note: 'Governs Accusative', initialScore: 3 },
+      { id: 'vocab.case.suchen', domain: 'case', pos: 'verb', word: 'suchen', trait: 'akk', meaning: 'to look for', note: 'Governs Accusative', initialScore: 3 },
+      { id: 'vocab.case.nehmen', domain: 'case', pos: 'verb', word: 'nehmen', trait: 'akk', meaning: 'to take', note: 'Governs Accusative', initialScore: 3 },
+      { id: 'vocab.case.finden', domain: 'case', pos: 'verb', word: 'finden', trait: 'akk', meaning: 'to find', note: 'Governs Accusative', initialScore: 3 },
+      { id: 'vocab.case.warten-auf', domain: 'case', pos: 'verb + prep', word: 'warten auf', trait: 'akk', meaning: 'to wait for', note: 'Governs Accusative', initialScore: 0 },
+      { id: 'vocab.case.um', domain: 'case', pos: 'prep', word: 'um', trait: 'akk', meaning: 'around / for', note: 'Accusative preposition', initialScore: 3 },
+      { id: 'vocab.case.durch', domain: 'case', pos: 'prep', word: 'durch', trait: 'akk', meaning: 'through', note: 'Accusative preposition', initialScore: 6 },
+      { id: 'vocab.case.gegen', domain: 'case', pos: 'prep', word: 'gegen', trait: 'akk', meaning: 'against', note: 'Accusative preposition', initialScore: 0 },
+
+      // Dative
+      { id: 'vocab.case.helfen', domain: 'case', pos: 'verb', word: 'helfen', trait: 'dat', meaning: 'to help', note: 'Governs Dative', initialScore: 6 },
+      { id: 'vocab.case.mit', domain: 'case', pos: 'prep', word: 'mit', trait: 'dat', meaning: 'with', note: 'Dative preposition', initialScore: 6 },
+      { id: 'vocab.case.aus', domain: 'case', pos: 'prep', word: 'aus', trait: 'dat', meaning: 'out of', note: 'Dative preposition', initialScore: 6 },
+      { id: 'vocab.case.danken', domain: 'case', pos: 'verb', word: 'danken', trait: 'dat', meaning: 'to thank', note: 'Governs Dative', initialScore: 3 },
+      { id: 'vocab.case.gefallen', domain: 'case', pos: 'verb', word: 'gefallen', trait: 'dat', meaning: 'to be pleasing', note: 'Governs Dative', initialScore: 0 },
+      { id: 'vocab.case.passen-zu', domain: 'case', pos: 'verb + prep', word: 'passen zu', trait: 'dat', meaning: 'to fit with', note: 'Governs Dative', initialScore: 0 },
+      { id: 'vocab.case.ausser', domain: 'case', pos: 'prep', word: 'außer', trait: 'dat', meaning: 'except', note: 'Dative preposition', initialScore: 0 },
+      { id: 'vocab.case.bei', domain: 'case', pos: 'prep', word: 'bei', trait: 'dat', meaning: 'at / with', note: 'Dative preposition', initialScore: 3 },
+      { id: 'vocab.case.nach', domain: 'case', pos: 'prep', word: 'nach', trait: 'dat', meaning: 'after / to', note: 'Dative preposition', initialScore: 6 },
+      { id: 'vocab.case.seit', domain: 'case', pos: 'prep', word: 'seit', trait: 'dat', meaning: 'since', note: 'Dative preposition', initialScore: 3 },
+      { id: 'vocab.case.von', domain: 'case', pos: 'prep', word: 'von', trait: 'dat', meaning: 'from / of', note: 'Dative preposition', initialScore: 6 },
+      { id: 'vocab.case.zu', domain: 'case', pos: 'prep', word: 'zu', trait: 'dat', meaning: 'to', note: 'Dative preposition', initialScore: 6 },
+      { id: 'vocab.case.antworten', domain: 'case', pos: 'verb', word: 'antworten', trait: 'dat', meaning: 'to answer', note: 'Governs Dative', initialScore: 3 },
+      { id: 'vocab.case.gehoeren', domain: 'case', pos: 'verb', word: 'gehören', trait: 'dat', meaning: 'to belong to', note: 'Governs Dative', initialScore: 0 },
+      { id: 'vocab.case.passen', domain: 'case', pos: 'verb', word: 'passen', trait: 'dat', meaning: 'to fit (someone)', note: 'Governs Dative', initialScore: 3 }
+    ];
+
+    // Visual styling tokens per grammatical trait (Blue=Masc/Akk, Red=Fem/Dat, Green=Neut)
+    const TRAIT_STYLES = {
+      // Noun Genders
+      der: {
+        badge: 'der',
+        name: 'Masculine',
+        bg: 'bg-sky-50',
+        border: 'border-sky-300',
+        text: 'text-sky-900',
+        pillBg: 'bg-sky-600 text-white'
+      },
+      die: {
+        badge: 'die',
+        name: 'Feminine',
+        bg: 'bg-rose-50',
+        border: 'border-rose-300',
+        text: 'text-rose-900',
+        pillBg: 'bg-rose-600 text-white'
+      },
+      das: {
+        badge: 'das',
+        name: 'Neuter',
+        bg: 'bg-emerald-50',
+        border: 'border-emerald-300',
+        text: 'text-emerald-900',
+        pillBg: 'bg-emerald-600 text-white'
+      },
+      // Case Governance (case.md)
+      akk: {
+        badge: 'Akk',
+        name: 'Accusative',
+        bg: 'bg-emerald-50',
+        border: 'border-emerald-300',
+        text: 'text-emerald-900',
+        pillBg: 'bg-emerald-600 text-white'
+      },
+      dat: {
+        badge: 'Dat',
+        name: 'Dative',
+        bg: 'bg-sky-50',
+        border: 'border-sky-300',
+        text: 'text-sky-900',
+        pillBg: 'bg-sky-600 text-white'
+      }
+    };
+
+    const DOMAIN_CONFIG = {
+      nouns: {
+        label: 'Noun Gender',
+        traits: ['der', 'die', 'das']
+      },
+      case: {
+        label: 'Case Governance',
+        traits: ['akk', 'dat']
+      }
+    };
+
+    // =========================================================================
+    // 2. PERSISTENT STATE & SCORING ENGINE
+    // =========================================================================
+    const STORAGE_KEY = 'wortmatch_sort_pwa_v2';
+    const MAX_SCORE = 8;
+
+    let appState = {
+      domain: 'nouns',          // 'nouns' | 'case'
+      learnedCount: 2,          // 1..3
+      masteredCount: 2,         // 1..3
+      soundEnabled: true,
+      speechEnabled: true,
+      streak: 0,
+      bestStreak: 0,
+      scores: {},               // { [wordId]: number (0..8) }
+      seenCombinations: []      // Array of sorted ID strings
+    };
+
+    let currentRound = null;
+    let isChecked = false;
+    let bankFilter = 'all';
+    let activeScreen = 'intro'; // 'intro' | 'game'
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          appState = { ...appState, ...parsed };
+        }
+      } catch (e) {
+        console.warn('Could not load saved state:', e);
+      }
+
+      if (!DOMAIN_CONFIG[appState.domain]) {
+        appState.domain = 'nouns';
+      }
+
+      VOCAB_DATA.forEach(item => {
+        if (typeof appState.scores[item.id] !== 'number') {
+          appState.scores[item.id] = item.initialScore;
+        }
+      });
+      saveState();
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+      } catch (e) {
+        console.warn('Could not save state:', e);
+      }
+    }
+
+    function getTier(score) {
+      if (score >= 6) return 'mastered';
+      if (score >= 3) return 'learned';
+      return 'learning';
+    }
+
+    // =========================================================================
+    // 3. WEB AUDIO SYNTHESIZER & GERMAN PRONUNCIATION
+    // =========================================================================
+    let audioCtx = null;
+    let cachedGermanVoice = null;
+
+    function resolveGermanVoice() {
+      if (!('speechSynthesis' in window)) return null;
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices || voices.length === 0) return null;
+      return (
+        voices.find(v => v.lang === 'de-DE' && !v.localService) ||
+        voices.find(v => v.lang === 'de-DE') ||
+        voices.find(v => v.lang && v.lang.toLowerCase().startsWith('de')) ||
+        null
+      );
+    }
+
+    if ('speechSynthesis' in window) {
+      cachedGermanVoice = resolveGermanVoice();
+      window.speechSynthesis.onvoiceschanged = () => {
+        cachedGermanVoice = resolveGermanVoice();
+      };
+    }
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playSound(type) {
+      if (!appState.soundEnabled) return;
+      initAudio();
+      if (!audioCtx) return;
+
+      const now = audioCtx.currentTime;
+
+      if (type === 'swipe') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(340, now);
+        osc.frequency.exponentialRampToValueAtTime(520, now + 0.08);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.09);
+      } else if (type === 'correct') {
+        [523.25, 659.25, 783.99].forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+          gain.gain.setValueAtTime(0.14, now + idx * 0.06);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.25);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + idx * 0.06);
+          osc.stop(now + idx * 0.06 + 0.26);
+        });
+      } else if (type === 'wrong') {
+        [220, 185].forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+          gain.gain.setValueAtTime(0.08, now + idx * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.2);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + idx * 0.08);
+          osc.stop(now + idx * 0.08 + 0.21);
+        });
+      }
+    }
+
+    function formatSpokenPhrase(wordObj, revealArticle = isChecked) {
+      if (!wordObj) return '';
+      if (!revealArticle) return wordObj.word;
+      if (wordObj.domain === 'nouns') {
+        return `${wordObj.trait} ${wordObj.word}`;
+      }
+      const traitName = TRAIT_STYLES[wordObj.trait]?.name || '';
+      return traitName ? `${traitName}: ${wordObj.word}` : wordObj.word;
+    }
+
+    function speakPhraseQueue(phrases, onAllComplete = null) {
+      if (!appState.speechEnabled || !('speechSynthesis' in window) || !phrases || phrases.length === 0) {
+        if (onAllComplete) onAllComplete();
+        return;
+      }
+
+      try {
+        window.speechSynthesis.cancel();
+        if (!cachedGermanVoice) {
+          cachedGermanVoice = resolveGermanVoice();
+        }
+
+        let index = 0;
+        const speakNext = () => {
+          if (index >= phrases.length) {
+            if (onAllComplete) onAllComplete();
+            return;
+          }
+          const text = phrases[index++];
+          const utter = new SpeechSynthesisUtterance(text);
+          utter.lang = 'de-DE';
+          if (cachedGermanVoice) {
+            utter.voice = cachedGermanVoice;
+          }
+          utter.rate = 0.94;
+          utter.onend = () => speakNext();
+          utter.onerror = () => speakNext();
+          window.speechSynthesis.speak(utter);
+        };
+
+        speakNext();
+      } catch (e) {
+        if (onAllComplete) onAllComplete();
+      }
+    }
+
+    function speakGermanWord(wordObj, revealArticle = isChecked, onComplete = null) {
+      if (!wordObj) {
+        if (onComplete) onComplete();
+        return;
+      }
+      const phrase = formatSpokenPhrase(wordObj, revealArticle);
+      speakPhraseQueue([phrase], onComplete);
+    }
+
+    // =========================================================================
+    // 3B. TRANSLATION POPUP (CLICK / TAP WITHOUT DRAGGING)
+    // =========================================================================
+    const elTransPopover = document.getElementById('translation-popover');
+    let transPopoverTimer = null;
+    let transPopoverFadeTimer = null;
+    let activePopoverWord = null;
+    let activePopoverRevealed = false;
+
+    function fadeOutTranslationPopup() {
+      elTransPopover.classList.remove('opacity-100');
+      elTransPopover.classList.add('opacity-0');
+      if (transPopoverFadeTimer) clearTimeout(transPopoverFadeTimer);
+      transPopoverFadeTimer = setTimeout(() => {
+        hideTranslationPopup();
+      }, 360);
+    }
+
+    function showTranslationPopup(wordObj, allowAnswerReveal = isChecked) {
+      if (!wordObj) return;
+      activePopoverWord = wordObj;
+      activePopoverRevealed = allowAnswerReveal;
+
+      if (transPopoverTimer) clearTimeout(transPopoverTimer);
+      if (transPopoverFadeTimer) clearTimeout(transPopoverFadeTimer);
+
+      document.getElementById('trans-pop-word').textContent = wordObj.word;
+      document.getElementById('trans-pop-gloss').textContent = wordObj.meaning;
+
+      const elPos = document.getElementById('trans-pop-pos');
+      const elNote = document.getElementById('trans-pop-note');
+
+      if (allowAnswerReveal) {
+        const st = TRAIT_STYLES[wordObj.trait];
+        elPos.textContent = st ? st.badge : (wordObj.pos || wordObj.domain);
+        elPos.classList.remove('hidden');
+
+        if (wordObj.note) {
+          elNote.textContent = wordObj.note;
+          elNote.classList.remove('hidden');
+        } else {
+          elNote.classList.add('hidden');
+        }
+      } else {
+        // Masked mode: do not reveal gender, case, or grammatical notes
+        elPos.classList.add('hidden');
+        elNote.classList.add('hidden');
+      }
+
+      elTransPopover.classList.remove('hidden', 'opacity-0');
+      elTransPopover.classList.add('opacity-100');
+
+      // Keep popup visible for at least MIN_READ_MS AND until TTS finishes
+      const MIN_READ_MS = 2400;
+      let minTimeElapsed = false;
+      let ttsFinished = false;
+
+      const tryFadeOut = () => {
+        if (minTimeElapsed && ttsFinished) {
+          fadeOutTranslationPopup();
+        }
+      };
+
+      transPopoverTimer = setTimeout(() => {
+        minTimeElapsed = true;
+        tryFadeOut();
+      }, MIN_READ_MS);
+
+      speakGermanWord(wordObj, allowAnswerReveal, () => {
+        ttsFinished = true;
+        tryFadeOut();
+      });
+    }
+
+    function hideTranslationPopup() {
+      elTransPopover.classList.add('hidden');
+      elTransPopover.classList.remove('opacity-0');
+      elTransPopover.classList.add('opacity-100');
+      if (transPopoverTimer) {
+        clearTimeout(transPopoverTimer);
+        transPopoverTimer = null;
+      }
+      if (transPopoverFadeTimer) {
+        clearTimeout(transPopoverFadeTimer);
+        transPopoverFadeTimer = null;
+      }
+    }
+
+    document.getElementById('trans-pop-close').addEventListener('click', (e) => {
+      e.stopPropagation();
+      hideTranslationPopup();
+    });
+
+    document.getElementById('trans-pop-speak').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (activePopoverWord) {
+        speakGermanWord(activePopoverWord, activePopoverRevealed);
+      }
+    });
+
+    // =========================================================================
+    // 4. TWO-COLUMN SORTING ROUND GENERATOR WITH DEDUPLICATION
+    // =========================================================================
+    function pickRandom(arr, excludeIds = new Set()) {
+      const filtered = arr.filter(item => !excludeIds.has(item.id));
+      if (filtered.length === 0) return null;
+      return filtered[Math.floor(Math.random() * filtered.length)];
+    }
+
+    function shuffleArray(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function generateRound() {
+      const domainItems = VOCAB_DATA.filter(w => w.domain === appState.domain);
+      const traits = DOMAIN_CONFIG[appState.domain].traits;
+      const seenSet = new Set(appState.seenCombinations);
+
+      const getBucket = (tier, trait) => {
+        const tierAndTrait = domainItems.filter(w => w.trait === trait && getTier(appState.scores[w.id]) === tier);
+        if (tierAndTrait.length > 0) return tierAndTrait;
+        return domainItems.filter(w => w.trait === trait);
+      };
+
+      let bestRound = null;
+      let isUnique = false;
+
+      // Try up to 25 attempts to avoid repeating exact word sets
+      for (let attempt = 0; attempt < 25; attempt++) {
+        // Pick 2 distinct traits for Left and Right columns
+        const shuffledTraits = shuffleArray(traits);
+        const leftTrait = shuffledTraits[0];
+        const rightTrait = shuffledTraits[1];
+        const pairTraits = [leftTrait, rightTrait];
+
+        const usedIds = new Set();
+
+        // 1 Learning Anchor for Left Column, 1 Learning Anchor for Right Column
+        const leftAnchor = pickRandom(getBucket('learning', leftTrait), usedIds);
+        if (leftAnchor) usedIds.add(leftAnchor.id);
+
+        const rightAnchor = pickRandom(getBucket('learning', rightTrait), usedIds);
+        if (rightAnchor) usedIds.add(rightAnchor.id);
+
+        const sortableWords = [];
+
+        // Add N Learned words with independent random column assignment
+        for (let i = 0; i < appState.learnedCount; i++) {
+          const targetTrait = pairTraits[Math.floor(Math.random() * 2)];
+          const w = pickRandom(getBucket('learned', targetTrait), usedIds);
+          if (w) {
+            usedIds.add(w.id);
+            sortableWords.push({
+              ...w,
+              displayTier: 'learned',
+              assignedSide: null, // null | 'left' | 'right'
+              isCorrect: null,
+              movedFromSide: null
+            });
+          }
+        }
+
+        // Add M Mastered words with independent random column assignment
+        for (let i = 0; i < appState.masteredCount; i++) {
+          const targetTrait = pairTraits[Math.floor(Math.random() * 2)];
+          const w = pickRandom(getBucket('mastered', targetTrait), usedIds);
+          if (w) {
+            usedIds.add(w.id);
+            sortableWords.push({
+              ...w,
+              displayTier: 'mastered',
+              assignedSide: null,
+              isCorrect: null,
+              movedFromSide: null
+            });
+          }
+        }
+
+        const allIds = [leftAnchor?.id, rightAnchor?.id, ...sortableWords.map(w => w.id)].filter(Boolean).sort();
+        const comboKey = allIds.join('|');
+
+        bestRound = {
+          leftTrait,
+          rightTrait,
+          leftAnchor,
+          rightAnchor,
+          items: shuffleArray(sortableWords),
+          comboKey
+        };
+
+        if (!seenSet.has(comboKey)) {
+          isUnique = true;
+          break;
+        }
+      }
+
+      if (bestRound && !seenSet.has(bestRound.comboKey)) {
+        appState.seenCombinations.push(bestRound.comboKey);
+        if (appState.seenCombinations.length > 400) {
+          appState.seenCombinations.shift();
+        }
+        saveState();
+      }
+
+      document.getElementById('combo-pool-status').textContent = isUnique
+        ? 'Unique set'
+        : 'Recycled set';
+
+      return bestRound;
+    }
+
+    // =========================================================================
+    // 5. TWO-COLUMN SORTING UI RENDERING & INTERACTIONS
+    // =========================================================================
+    const elIntroScreen = document.getElementById('intro-screen');
+    const elGameScreen = document.getElementById('game-screen');
+    const elColLeftHeader = document.getElementById('col-left-header');
+    const elColRightHeader = document.getElementById('col-right-header');
+    const elColLeftItems = document.getElementById('col-left-items');
+    const elColRightItems = document.getElementById('col-right-items');
+    const elUnsortedTray = document.getElementById('unsorted-tray');
+    const elUnsortedList = document.getElementById('unsorted-list');
+    const elBtnCheck = document.getElementById('btn-check-round');
+    const elBtnCheckLabel = document.getElementById('btn-check-label');
+    const elResultBanner = document.getElementById('round-result-banner');
+
+    function renderColumnHeader(el, trait, anchorWord) {
+      const st = TRAIT_STYLES[trait];
+      el.innerHTML = `
+        <div class="flex items-center justify-between mb-1.5 px-0.5">
+          <span class="text-xs font-extrabold tracking-tight ${st.text}">${st.name}</span>
+        </div>
+        ${anchorWord ? `
+          <div data-anchor-id="${anchorWord.id}" class="px-2.5 py-1.5 rounded-xl border-2 ${st.bg} ${st.border} cursor-pointer active:scale-[0.98] transition flex items-center gap-1.5">
+            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 ${st.pillBg}">${st.badge}</span>
+            <span class="text-xs sm:text-sm font-extrabold ${st.text} truncate">${anchorWord.word}</span>
+          </div>
+        ` : ''}
+      `;
+
+      if (anchorWord) {
+        const anchorNode = el.querySelector('[data-anchor-id]');
+        if (anchorNode) {
+          anchorNode.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showTranslationPopup(anchorWord, true);
+          });
+        }
+      }
+    }
+
+    function renderSortedColumnList(el, side) {
+      const items = currentRound.items.filter(item => item.assignedSide === side);
+      if (items.length === 0) {
+        el.innerHTML = '';
+        return;
+      }
+
+      el.innerHTML = items.map(item => {
+        if (!isChecked) {
+          return `
+            <div data-sorted-id="${item.id}" data-current-side="${side}" class="sortable-pill pill-spring px-2.5 py-1.5 rounded-xl border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 cursor-grab active:cursor-grabbing transition flex items-center justify-between gap-1 select-none">
+              <p class="text-xs sm:text-sm font-bold text-zinc-900 truncate pointer-events-none">${item.word}</p>
+            </div>
+          `;
+        } else {
+          // Post-Check reveal: grammatical pill BEFORE the word + green check / red X
+          const st = TRAIT_STYLES[item.trait];
+          const ok = item.isCorrect;
+          const statusIcon = ok ? '✓' : '✗';
+          const statusColor = ok ? 'text-emerald-600' : 'text-rose-600';
+          const newScore = appState.scores[item.id];
+          const moveAnimClass = item.movedFromSide === 'left'
+            ? 'animate-move-from-left'
+            : item.movedFromSide === 'right'
+              ? 'animate-move-from-right'
+              : '';
+
+          return `
+            <div data-revealed-id="${item.id}" class="px-2.5 py-1.5 rounded-xl border-2 ${st.bg} ${st.border} ${moveAnimClass} cursor-pointer active:scale-[0.98] transition flex items-center justify-between gap-1.5">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 ${st.pillBg}">${st.badge}</span>
+                <span class="text-xs sm:text-sm font-extrabold ${st.text} truncate">${item.word}</span>
+              </div>
+              <div class="flex items-center gap-1 shrink-0">
+                <span class="text-[10px] font-mono text-zinc-600">${newScore}/${MAX_SCORE}</span>
+                <span class="text-xs font-extrabold ${statusColor}">${statusIcon}</span>
+              </div>
+            </div>
+          `;
+        }
+      }).join('');
+
+      // Selection mode: swipe left/right moves between columns; click removes back to unsorted
+      // Answer mode: click opens full translation popup
+      if (!isChecked) {
+        el.querySelectorAll('[data-sorted-id]').forEach(node => {
+          attachSortedColumnSwipePhysics(node, node.dataset.sortedId, node.dataset.currentSide);
+        });
+      } else {
+        el.querySelectorAll('[data-revealed-id]').forEach(node => {
+          node.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const wordObj = currentRound.items.find(i => i.id === node.dataset.revealedId);
+            showTranslationPopup(wordObj, true);
+          });
+        });
+      }
+    }
+
+    function attachSortedColumnSwipePhysics(el, itemId, currentSide) {
+      let dragging = false;
+      let moved = false;
+      let startX = 0;
+      let deltaX = 0;
+
+      el.addEventListener('pointerdown', (e) => {
+        if (isChecked || e.target.closest('button')) return;
+        dragging = true;
+        moved = false;
+        startX = e.clientX;
+        deltaX = 0;
+        el.classList.remove('pill-spring');
+        el.classList.add('pill-dragging');
+        const parentCol = el.closest('section');
+        const parentList = el.parentElement;
+        if (parentCol) parentCol.style.zIndex = '40';
+        if (parentList) parentList.style.overflow = 'visible';
+        el.setPointerCapture(e.pointerId);
+      });
+
+      el.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        deltaX = e.clientX - startX;
+        if (Math.abs(deltaX) > 6) {
+          moved = true;
+        }
+        const rot = deltaX * 0.03;
+        el.style.transform = `translate3d(${deltaX}px, 0, 0) rotate(${rot}deg)`;
+
+        const colLeft = document.getElementById('col-left');
+        const colRight = document.getElementById('col-right');
+        colLeft.classList.toggle('ring-2', deltaX < -32 && currentSide === 'right');
+        colLeft.classList.toggle('ring-zinc-400', deltaX < -32 && currentSide === 'right');
+        colRight.classList.toggle('ring-2', deltaX > 32 && currentSide === 'left');
+        colRight.classList.toggle('ring-zinc-400', deltaX > 32 && currentSide === 'left');
+      });
+
+      const finish = (e) => {
+        if (!dragging) return;
+        dragging = false;
+        el.classList.remove('pill-dragging');
+        const parentCol = el.closest('section');
+        const parentList = el.parentElement;
+        if (parentCol) parentCol.style.zIndex = '';
+        if (parentList) parentList.style.overflow = '';
+        document.getElementById('col-left').classList.remove('ring-2', 'ring-zinc-400');
+        document.getElementById('col-right').classList.remove('ring-2', 'ring-zinc-400');
+
+        if (e && e.pointerId !== undefined && el.hasPointerCapture(e.pointerId)) {
+          el.releasePointerCapture(e.pointerId);
+        }
+
+        const threshold = 48;
+        if (deltaX <= -threshold && currentSide === 'right') {
+          assignItemSide(itemId, 'left');
+        } else if (deltaX >= threshold && currentSide === 'left') {
+          assignItemSide(itemId, 'right');
+        } else if (!moved) {
+          // Clicking a masked column word removes it back to the unsorted tray
+          assignItemSide(itemId, null);
+        } else {
+          el.classList.add('pill-spring');
+          el.style.transform = 'translate3d(0, 0, 0) rotate(0deg)';
+        }
+      };
+
+      el.addEventListener('pointerup', finish);
+      el.addEventListener('pointercancel', finish);
+    }
+
+    function renderUnsortedQueue() {
+      const unsorted = currentRound.items.filter(item => item.assignedSide === null);
+      document.getElementById('remaining-count-label').textContent = `${unsorted.length} left`;
+
+      if (unsorted.length === 0) {
+        elUnsortedTray.classList.add('hidden');
+        return;
+      }
+
+      const leftStyle = TRAIT_STYLES[currentRound.leftTrait];
+      const rightStyle = TRAIT_STYLES[currentRound.rightTrait];
+
+      elUnsortedTray.classList.remove('hidden');
+      elUnsortedList.innerHTML = unsorted.map((item, idx) => {
+        if (idx === 0) {
+          // Only the topmost word is selectable/swipeable and shows the left/right pills
+          return `
+            <div data-unsorted-id="${item.id}" class="sortable-pill pill-spring relative flex items-center justify-between px-2 py-2 rounded-xl border-2 border-zinc-300 bg-white shadow-xs cursor-grab active:cursor-grabbing select-none">
+              <button type="button" data-quick-side="left" data-word-id="${item.id}" aria-label="Move to ${leftStyle.name}" class="px-2 py-1.5 rounded-lg bg-zinc-50 border border-zinc-200 flex items-center gap-1 text-zinc-700 hover:bg-zinc-100 active:scale-90 transition shrink-0">
+                <svg class="w-3.5 h-3.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${leftStyle.pillBg}">${leftStyle.badge}</span>
+              </button>
+
+              <div class="px-2 text-center min-w-0 flex-1 pointer-events-none">
+                <p class="text-sm font-extrabold text-zinc-900 truncate">${item.word}</p>
+              </div>
+
+              <button type="button" data-quick-side="right" data-word-id="${item.id}" aria-label="Move to ${rightStyle.name}" class="px-2 py-1.5 rounded-lg bg-zinc-50 border border-zinc-200 flex items-center gap-1 text-zinc-700 hover:bg-zinc-100 active:scale-90 transition shrink-0">
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${rightStyle.pillBg}">${rightStyle.badge}</span>
+                <svg class="w-3.5 h-3.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+              </button>
+            </div>
+          `;
+        }
+
+        // Subsequent queued words are non-interactive previews without pills
+        return `
+          <div class="px-3 py-1.5 rounded-xl border border-zinc-200/70 bg-zinc-50/70 text-center opacity-70 pointer-events-none select-none">
+            <p class="text-xs font-semibold text-zinc-500 truncate">${item.word}</p>
+          </div>
+        `;
+      }).join('');
+
+      elUnsortedList.querySelectorAll('[data-quick-side]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          assignItemSide(btn.dataset.wordId, btn.dataset.quickSide);
+        });
+      });
+
+      const activeRow = elUnsortedList.querySelector('[data-unsorted-id]');
+      if (activeRow) {
+        attachUnsortedRowSwipePhysics(activeRow, activeRow.dataset.unsortedId);
+      }
+    }
+
+    function attachUnsortedRowSwipePhysics(el, itemId) {
+      let dragging = false;
+      let moved = false;
+      let startX = 0;
+      let deltaX = 0;
+
+      el.addEventListener('pointerdown', (e) => {
+        if (isChecked || e.target.closest('button')) return;
+        dragging = true;
+        moved = false;
+        startX = e.clientX;
+        deltaX = 0;
+        el.classList.remove('pill-spring');
+        el.classList.add('pill-dragging');
+        elUnsortedTray.style.zIndex = '40';
+        elUnsortedList.style.overflow = 'visible';
+        el.setPointerCapture(e.pointerId);
+      });
+
+      el.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        deltaX = e.clientX - startX;
+        if (Math.abs(deltaX) > 6) {
+          moved = true;
+        }
+        const rot = deltaX * 0.03;
+        el.style.transform = `translate3d(${deltaX}px, 0, 0) rotate(${rot}deg)`;
+
+        const colLeft = document.getElementById('col-left');
+        const colRight = document.getElementById('col-right');
+        colLeft.classList.toggle('ring-2', deltaX < -36);
+        colLeft.classList.toggle('ring-zinc-400', deltaX < -36);
+        colRight.classList.toggle('ring-2', deltaX > 36);
+        colRight.classList.toggle('ring-zinc-400', deltaX > 36);
+      });
+
+      const finish = (e) => {
+        if (!dragging) return;
+        dragging = false;
+        el.classList.remove('pill-dragging');
+        elUnsortedTray.style.zIndex = '';
+        elUnsortedList.style.overflow = '';
+        document.getElementById('col-left').classList.remove('ring-2', 'ring-zinc-400');
+        document.getElementById('col-right').classList.remove('ring-2', 'ring-zinc-400');
+
+        if (e && e.pointerId !== undefined && el.hasPointerCapture(e.pointerId)) {
+          el.releasePointerCapture(e.pointerId);
+        }
+
+        const threshold = 54;
+        if (deltaX <= -threshold) {
+          assignItemSide(itemId, 'left');
+        } else if (deltaX >= threshold) {
+          assignItemSide(itemId, 'right');
+        } else if (!moved) {
+          // Clean click (not dragging) shows translation popup without revealing answer
+          const wordObj = currentRound.items.find(i => i.id === itemId);
+          showTranslationPopup(wordObj, false);
+        } else {
+          el.classList.add('pill-spring');
+          el.style.transform = 'translate3d(0, 0, 0) rotate(0deg)';
+        }
+      };
+
+      el.addEventListener('pointerup', finish);
+      el.addEventListener('pointercancel', finish);
+    }
+
+    function assignItemSide(itemId, side) {
+      if (isChecked || !currentRound) return;
+      const target = currentRound.items.find(i => i.id === itemId);
+      if (!target) return;
+
+      hideTranslationPopup();
+      target.assignedSide = side;
+      if (side) {
+        playSound('swipe');
+      }
+      renderBoard();
+    }
+
+    function renderBoard() {
+      const cfg = DOMAIN_CONFIG[appState.domain];
+      document.getElementById('active-domain-tag').textContent = cfg.label;
+
+      renderColumnHeader(elColLeftHeader, currentRound.leftTrait, currentRound.leftAnchor);
+      renderColumnHeader(elColRightHeader, currentRound.rightTrait, currentRound.rightAnchor);
+      renderSortedColumnList(elColLeftItems, 'left');
+      renderSortedColumnList(elColRightItems, 'right');
+      renderUnsortedQueue();
+
+      // Elevate whichever column contains animated correction pills so they slide in front of the opposite column
+      const colLeft = document.getElementById('col-left');
+      const colRight = document.getElementById('col-right');
+      colLeft.style.zIndex = (isChecked && currentRound.items.some(i => i.assignedSide === 'left' && i.movedFromSide)) ? '30' : '';
+      colRight.style.zIndex = (isChecked && currentRound.items.some(i => i.assignedSide === 'right' && i.movedFromSide)) ? '30' : '';
+
+      const unsortedCount = currentRound.items.filter(i => i.assignedSide === null).length;
+
+      if (!isChecked) {
+        elResultBanner.classList.add('hidden');
+        elBtnCheck.disabled = unsortedCount > 0;
+        elBtnCheck.className = unsortedCount === 0
+          ? 'w-full py-3 px-4 rounded-2xl bg-zinc-900 hover:bg-zinc-800 text-white font-extrabold text-sm tracking-tight shadow-md active:scale-[0.98] transition flex items-center justify-center gap-2 whitespace-nowrap'
+          : 'w-full py-3 px-4 rounded-2xl bg-zinc-200 text-zinc-500 font-bold text-sm tracking-tight cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap';
+        elBtnCheckLabel.textContent = unsortedCount === 0
+          ? 'Check Answers'
+          : `Sort ${unsortedCount} more word${unsortedCount === 1 ? '' : 's'} to Check`;
+      } else {
+        elBtnCheck.disabled = false;
+        elBtnCheck.className = 'w-full py-3 px-4 rounded-2xl bg-zinc-900 hover:bg-zinc-800 text-white font-extrabold text-sm tracking-tight shadow-md active:scale-[0.98] transition flex items-center justify-center gap-2 whitespace-nowrap';
+        elBtnCheckLabel.innerHTML = `<span class="inline-flex items-center gap-1.5 whitespace-nowrap"><span>Next Round</span><svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></span>`;
+      }
+    }
+
+    function evaluateRound() {
+      if (isChecked || !currentRound) return;
+      const unsortedCount = currentRound.items.filter(i => i.assignedSide === null).length;
+      if (unsortedCount > 0) return;
+
+      hideTranslationPopup();
+      isChecked = true;
+      let correctCount = 0;
+
+      currentRound.items.forEach(item => {
+        const expectedSide = item.trait === currentRound.leftTrait ? 'left' : 'right';
+        const ok = item.assignedSide === expectedSide;
+        item.isCorrect = ok;
+        if (ok) {
+          correctCount++;
+          item.movedFromSide = null;
+        } else {
+          // Record previous side for slide animation and move into true column
+          item.movedFromSide = item.assignedSide;
+          item.assignedSide = expectedSide;
+        }
+
+        const delta = ok ? 1 : -1;
+        const prevScore = appState.scores[item.id] ?? item.initialScore;
+        appState.scores[item.id] = Math.max(0, Math.min(MAX_SCORE, prevScore + delta));
+      });
+
+      // Also reward the two Learning anchors if the round was sorted cleanly
+      const total = currentRound.items.length;
+      const allCorrect = correctCount === total;
+
+      if (allCorrect) {
+        [currentRound.leftAnchor, currentRound.rightAnchor].forEach(anchor => {
+          if (anchor) {
+            const prev = appState.scores[anchor.id] ?? anchor.initialScore;
+            appState.scores[anchor.id] = Math.min(MAX_SCORE, prev + 1);
+          }
+        });
+        appState.streak++;
+        if (appState.streak > appState.bestStreak) {
+          appState.bestStreak = appState.streak;
+        }
+        playSound('correct');
+      } else {
+        appState.streak = 0;
+        playSound('wrong');
+      }
+
+      saveState();
+      updateHeaderAndLegend();
+
+      // Announce the two learning anchor words including their articles/case pills
+      const anchorPhrases = [currentRound.leftAnchor, currentRound.rightAnchor]
+        .filter(Boolean)
+        .map(anchor => formatSpokenPhrase(anchor, true));
+      if (anchorPhrases.length > 0) {
+        setTimeout(() => {
+          speakPhraseQueue(anchorPhrases);
+        }, 280);
+      }
+
+      // Show summary banner above Next Round button
+      elResultBanner.classList.remove('hidden');
+      const netDelta = correctCount - (total - correctCount);
+      const deltaStr = netDelta >= 0 ? `+${netDelta} Net` : `${netDelta} Net`;
+
+      if (allCorrect) {
+        elResultBanner.className = 'w-full px-3.5 py-2 rounded-2xl text-xs font-bold flex items-center justify-between bg-zinc-900 text-white';
+        document.getElementById('round-result-text').innerHTML = `<span class="text-emerald-400">✓</span> Perfect! ${correctCount}/${total} sorted right`;
+        document.getElementById('round-result-xp').textContent = deltaStr;
+      } else {
+        elResultBanner.className = 'w-full px-3.5 py-2 rounded-2xl text-xs font-bold flex items-center justify-between bg-zinc-900 text-white';
+        document.getElementById('round-result-text').innerHTML = `${correctCount}/${total} right · <span class="text-rose-400">✗</span> lost -1 score`;
+        document.getElementById('round-result-xp').textContent = deltaStr;
+      }
+
+      renderBoard();
+    }
+
+    function startNewRound() {
+      hideTranslationPopup();
+      isChecked = false;
+      currentRound = generateRound();
+      renderBoard();
+    }
+
+    elBtnCheck.addEventListener('click', () => {
+      if (!isChecked) {
+        evaluateRound();
+      } else {
+        startNewRound();
+      }
+    });
+
+    // Keyboard shortcuts: Left/Right arrows sort the top unsorted word; Enter/Space checks or advances
+    document.addEventListener('keydown', (e) => {
+      if (!document.getElementById('bank-modal').classList.contains('hidden')) return;
+      if (activeScreen !== 'game' || !currentRound) return;
+
+      const nextUnsorted = currentRound.items.find(i => i.assignedSide === null);
+      if (e.key === 'ArrowLeft' && !isChecked && nextUnsorted) {
+        e.preventDefault();
+        assignItemSide(nextUnsorted.id, 'left');
+      } else if (e.key === 'ArrowRight' && !isChecked && nextUnsorted) {
+        e.preventDefault();
+        assignItemSide(nextUnsorted.id, 'right');
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        if (!elBtnCheck.disabled) {
+          e.preventDefault();
+          if (!isChecked) evaluateRound();
+          else startNewRound();
+        }
+      }
+    });
+
+    // =========================================================================
+    // 6. VIEW NAVIGATION, CONTROLS & WORD BANK MODAL
+    // =========================================================================
+    function showScreen(screenName) {
+      activeScreen = screenName;
+      hideTranslationPopup();
+      if (screenName === 'intro') {
+        elGameScreen.classList.add('hidden');
+        elIntroScreen.classList.remove('hidden');
+        updateHeaderAndLegend();
+      } else {
+        elIntroScreen.classList.add('hidden');
+        elGameScreen.classList.remove('hidden');
+        updateHeaderAndLegend();
+        startNewRound();
+      }
+    }
+
+    function updateHeaderAndLegend() {
+      const domainItems = VOCAB_DATA.filter(w => w.domain === appState.domain);
+      let mCount = 0, lCount = 0, nCount = 0;
+      domainItems.forEach(w => {
+        const t = getTier(appState.scores[w.id]);
+        if (t === 'mastered') mCount++;
+        else if (t === 'learned') lCount++;
+        else nCount++;
+      });
+
+      const streakText = `Streak: ${appState.streak} · Best: ${appState.bestStreak}`;
+      document.getElementById('combo-badge').textContent = streakText;
+      document.getElementById('intro-streak-badge').textContent = streakText;
+      document.getElementById('tier-summary-pill').textContent = `${mCount}/${lCount}/${nCount}`;
+      document.getElementById('intro-pool-breakdown').textContent = `${mCount} Mastered · ${lCount} Learned · ${nCount} Learning`;
+
+      document.getElementById('val-learned').textContent = appState.learnedCount;
+      document.getElementById('val-mastered').textContent = appState.masteredCount;
+      const totalSortable = appState.learnedCount + appState.masteredCount;
+      document.getElementById('intro-card-total-pill').textContent = `${totalSortable} words to sort`;
+
+      // Domain toggle button styles on Intro screen (Gender / Case)
+      const domainBtnMap = {
+        nouns: document.getElementById('mode-nouns'),
+        case: document.getElementById('mode-case')
+      };
+
+      Object.entries(domainBtnMap).forEach(([key, btn]) => {
+        if (!btn) return;
+        btn.className = appState.domain === key
+          ? 'py-2 px-1.5 rounded-xl text-xs font-bold transition bg-white text-zinc-900 shadow-2xs flex flex-col items-center gap-0.5'
+          : 'py-2 px-1.5 rounded-xl text-xs font-bold transition text-zinc-500 hover:text-zinc-800 flex flex-col items-center gap-0.5';
+      });
+
+      // Sound & Speech toggle UI on Intro screen
+      const soundSlot = document.getElementById('sound-icon-slot');
+      const soundStatus = document.getElementById('sound-status-text');
+      if (appState.soundEnabled) {
+        soundSlot.innerHTML = `<svg class="w-4 h-4 text-zinc-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M11 5L6 9H2v6h4l5 4V5z"/></svg>`;
+        soundStatus.textContent = 'ON';
+        soundStatus.className = 'text-[10px] font-mono font-bold text-emerald-600';
+      } else {
+        soundSlot.innerHTML = `<svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>`;
+        soundStatus.textContent = 'OFF';
+        soundStatus.className = 'text-[10px] font-mono font-bold text-zinc-400';
+      }
+
+      const speechStatus = document.getElementById('speech-status-text');
+      if (appState.speechEnabled) {
+        speechStatus.textContent = 'ON';
+        speechStatus.className = 'text-[10px] font-mono font-bold text-emerald-600';
+      } else {
+        speechStatus.textContent = 'OFF';
+        speechStatus.className = 'text-[10px] font-mono font-bold text-zinc-400';
+      }
+    }
+
+    // Intro / Setup Controls
+    document.getElementById('btn-start-game').addEventListener('click', () => {
+      initAudio();
+      showScreen('game');
+    });
+
+    document.getElementById('btn-back-setup').addEventListener('click', () => {
+      showScreen('intro');
+    });
+
+    document.getElementById('mode-nouns').addEventListener('click', () => {
+      appState.domain = 'nouns';
+      saveState();
+      updateHeaderAndLegend();
+    });
+
+    document.getElementById('mode-case').addEventListener('click', () => {
+      appState.domain = 'case';
+      saveState();
+      updateHeaderAndLegend();
+    });
+
+    document.getElementById('dec-learned').addEventListener('click', () => {
+      if (appState.learnedCount > 1) {
+        appState.learnedCount--;
+        saveState();
+        updateHeaderAndLegend();
+      }
+    });
+
+    document.getElementById('inc-learned').addEventListener('click', () => {
+      if (appState.learnedCount < 3) {
+        appState.learnedCount++;
+        saveState();
+        updateHeaderAndLegend();
+      }
+    });
+
+    document.getElementById('dec-mastered').addEventListener('click', () => {
+      if (appState.masteredCount > 1) {
+        appState.masteredCount--;
+        saveState();
+        updateHeaderAndLegend();
+      }
+    });
+
+    document.getElementById('inc-mastered').addEventListener('click', () => {
+      if (appState.masteredCount < 3) {
+        appState.masteredCount++;
+        saveState();
+        updateHeaderAndLegend();
+      }
+    });
+
+    document.getElementById('btn-sound').addEventListener('click', () => {
+      appState.soundEnabled = !appState.soundEnabled;
+      saveState();
+      updateHeaderAndLegend();
+      if (appState.soundEnabled) playSound('swipe');
+    });
+
+    document.getElementById('btn-speech').addEventListener('click', () => {
+      appState.speechEnabled = !appState.speechEnabled;
+      saveState();
+      updateHeaderAndLegend();
+    });
+
+    // Word Bank Modal
+    const elBankModal = document.getElementById('bank-modal');
+    const elBankList = document.getElementById('bank-list-container');
+    const elConfirmToast = document.getElementById('confirm-toast');
+
+    function openWordBank() {
+      elBankModal.classList.remove('hidden');
+      renderWordBank();
+    }
+
+    document.getElementById('btn-bank-intro').addEventListener('click', openWordBank);
+    document.getElementById('btn-bank-game').addEventListener('click', openWordBank);
+
+    document.getElementById('btn-close-bank').addEventListener('click', () => {
+      elBankModal.classList.add('hidden');
+      elConfirmToast.classList.add('hidden');
+    });
+
+    elBankModal.addEventListener('click', (e) => {
+      if (e.target === elBankModal) {
+        elBankModal.classList.add('hidden');
+        elConfirmToast.classList.add('hidden');
+      }
+    });
+
+    document.querySelectorAll('.bank-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        bankFilter = btn.dataset.bankFilter;
+        document.querySelectorAll('.bank-filter-btn').forEach(b => {
+          const active = b.dataset.bankFilter === bankFilter;
+          b.className = active
+            ? 'bank-filter-btn px-3 py-1.5 rounded-lg bg-zinc-900 text-white'
+            : 'bank-filter-btn px-3 py-1.5 rounded-lg bg-zinc-100 text-zinc-600';
+        });
+        renderWordBank();
+      });
+    });
+
+    function renderWordBank() {
+      const domainItems = VOCAB_DATA.filter(w => w.domain === appState.domain);
+      document.getElementById('seen-combos-count').textContent = appState.seenCombinations.length;
+
+      const filtered = domainItems.filter(w => {
+        if (bankFilter === 'all') return true;
+        return getTier(appState.scores[w.id]) === bankFilter;
+      });
+
+      elBankList.innerHTML = filtered.map(w => {
+        const score = appState.scores[w.id] ?? w.initialScore;
+        const tier = getTier(score);
+        const st = TRAIT_STYLES[w.trait];
+        const pct = Math.round((score / MAX_SCORE) * 100);
+
+        const tierBadge = tier === 'mastered'
+          ? '<span class="px-2 py-0.5 rounded-md bg-zinc-900 text-white text-[10px] font-bold">Mastered</span>'
+          : tier === 'learned'
+            ? '<span class="px-2 py-0.5 rounded-md bg-zinc-200 text-zinc-800 text-[10px] font-bold">Learned</span>'
+            : `<span class="px-2 py-0.5 rounded-md ${st.pillBg} text-[10px] font-bold">Learning</span>`;
+
+        return `
+          <div class="bg-white rounded-2xl p-3 border border-zinc-200/80 flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="px-1.5 py-0.5 rounded text-[11px] font-bold ${st.pillBg}">${st.badge}</span>
+                <span class="font-bold text-zinc-900 text-sm truncate">${w.word}</span>
+                <span class="text-xs text-zinc-400 truncate">— ${w.meaning}</span>
+              </div>
+              <div class="mt-2 flex items-center gap-2">
+                <div class="w-28 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                  <div class="h-full bg-zinc-800 rounded-full transition-all" style="width: ${pct}%"></div>
+                </div>
+                <span class="text-[11px] font-mono text-zinc-500">${score}/${MAX_SCORE}</span>
+              </div>
+            </div>
+            <div class="shrink-0">
+              ${tierBadge}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    document.getElementById('btn-clear-combos').addEventListener('click', () => {
+      appState.seenCombinations = [];
+      saveState();
+      renderWordBank();
+      document.getElementById('combo-pool-status').textContent = 'Unique set';
+    });
+
+    document.getElementById('btn-reset-progress').addEventListener('click', () => {
+      elConfirmToast.classList.remove('hidden');
+    });
+
+    document.getElementById('confirm-toast-no').addEventListener('click', () => {
+      elConfirmToast.classList.add('hidden');
+    });
+
+    document.getElementById('confirm-toast-yes').addEventListener('click', () => {
+      VOCAB_DATA.forEach(item => {
+        appState.scores[item.id] = item.initialScore;
+      });
+      appState.seenCombinations = [];
+      appState.streak = 0;
+      saveState();
+      elConfirmToast.classList.add('hidden');
+      updateHeaderAndLegend();
+      renderWordBank();
+      if (activeScreen === 'game') {
+        startNewRound();
+      }
+    });
+
+    // =========================================================================
+    // 7. BOOTSTRAP
+    // =========================================================================
+    window.addEventListener('DOMContentLoaded', () => {
+      loadState();
+      showScreen('intro');
+    });
+  </script>
+</body>
+</html>
