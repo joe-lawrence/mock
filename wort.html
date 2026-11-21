@@ -594,7 +594,140 @@
       { id: 'vocab.case.passen', domain: 'case', pos: 'verb', word: 'passen', trait: 'dat', meaning: 'to fit (someone)', note: 'Governs Dative', initialScore: 3 }
     ];
 
-    // Visual styling tokens per grammatical trait (Blue=Masc/Akk, Red=Fem/Dat, Green=Neut)
+    // Deduplicated Scene Vocabulary Nouns (Added as unlearned: initialScore = 0)
+    const SCENE_NOUN_ENTRIES = [
+      // Scene 1: Street / Town Square
+      ['die', 'Stadt', 'city'], ['die', 'Straße', 'street'], ['die', 'Fußgängerzone', 'pedestrian zone'],
+      ['die', 'Kreuzung', 'intersection'], ['die', 'Ampel', 'traffic light'], ['der', 'Zebrastreifen', 'crosswalk'],
+      ['der', 'Bürgersteig', 'sidewalk'], ['das', 'Fahrrad', 'bicycle'], ['die', 'Straßenbahn', 'tram'],
+      ['die', 'Haltestelle', 'stop / station'], ['das', 'Taxi', 'taxi'], ['das', 'Geschäft', 'shop / store'],
+      ['die', 'Buchhandlung', 'bookstore'], ['das', 'Schaufenster', 'shop window'], ['der', 'Kiosk', 'kiosk'],
+      ['der', 'Briefkasten', 'mailbox'], ['das', 'Schild', 'sign'], ['der', 'Mülleimer', 'trash can'],
+      ['der', 'Hund', 'dog'], ['der', 'Fußgänger', 'pedestrian'], ['die', 'Tür', 'door'],
+      ['der', 'Eingang', 'entrance'], ['der', 'Ausgang', 'exit'], ['die', 'Bank', 'bench / bank'],
+      ['die', 'Laterne', 'streetlamp'],
+      // Scene 2: Train Station
+      ['der', 'Bahnhof', 'train station'], ['der', 'Zug', 'train'], ['das', 'Gleis', 'track / platform'],
+      ['der', 'Bahnsteig', 'railway platform'], ['die', 'Fahrkarte', 'ticket'], ['der', 'Fahrkartenautomat', 'ticket machine'],
+      ['die', 'Abfahrtstafel', 'departure board'], ['die', 'Verspätung', 'delay'], ['der', 'Aufzug', 'elevator'],
+      ['die', 'Treppe', 'stairs'], ['der', 'Koffer', 'suitcase'], ['der', 'Rucksack', 'backpack'],
+      ['die', 'Tasche', 'bag'], ['das', 'Gepäck', 'luggage'], ['der', 'Fahrgast', 'passenger'],
+      ['der', 'Schaffner', 'conductor'], ['die', 'Toilette', 'restroom'], ['die', 'Information', 'information'],
+      ['das', 'Smartphone', 'smartphone'], ['die', 'Uhr', 'clock / watch'], ['das', 'Gleisschild', 'platform sign'],
+      // Scene 3: Café
+      ['das', 'Café', 'café'], ['der', 'Tisch', 'table'], ['der', 'Stuhl', 'chair'],
+      ['die', 'Theke', 'counter'], ['der', 'Barhocker', 'bar stool'], ['die', 'Speisekarte', 'menu'],
+      ['die', 'Tasse', 'cup'], ['der', 'Teller', 'plate'], ['das', 'Glas', 'glass'],
+      ['das', 'Besteck', 'cutlery'], ['der', 'Löffel', 'spoon'], ['die', 'Gabel', 'fork'],
+      ['das', 'Messer', 'knife'], ['der', 'Kaffee', 'coffee'], ['der', 'Kuchen', 'cake'],
+      ['das', 'Croissant', 'croissant'], ['die', 'Rechnung', 'bill'], ['die', 'Kasse', 'cash register / checkout'],
+      ['der', 'Gast', 'guest'], ['der', 'Kellner', 'waiter'], ['die', 'Kellnerin', 'waitress'],
+      ['die', 'Zeitung', 'newspaper'], ['das', 'Fenster', 'window'], ['die', 'Espressomaschine', 'espresso machine'],
+      // Scene 4: Supermarket
+      ['der', 'Supermarkt', 'supermarket'], ['der', 'Einkaufswagen', 'shopping cart'], ['der', 'Einkaufskorb', 'shopping basket'],
+      ['die', 'Einkaufstasche', 'shopping bag'], ['das', 'Kassenband', 'conveyor belt'], ['die', 'Kassenkraft', 'cashier'],
+      ['das', 'Regal', 'shelf'], ['der', 'Gang', 'aisle'], ['das', 'Brot', 'bread'],
+      ['die', 'Milch', 'milk'], ['der', 'Käse', 'cheese'], ['der', 'Apfel', 'apple'],
+      ['die', 'Banane', 'banana'], ['die', 'Kartoffel', 'potato'], ['die', 'Karotte', 'carrot'],
+      ['die', 'Flasche', 'bottle'], ['das', 'Angebot', 'special offer'], ['die', 'Schlange', 'queue / line'],
+      ['das', 'Geld', 'money'], ['die', 'Tüte', 'bag / pouch'], ['die', 'Dose', 'can / tin'],
+      ['der', 'Joghurt', 'yogurt'], ['die', 'Tiefkühltruhe', 'chest freezer'],
+      // Scene 5: Hotel
+      ['das', 'Hotel', 'hotel'], ['die', 'Rezeption', 'reception'], ['das', 'Zimmer', 'room'],
+      ['der', 'Schlüssel', 'key'], ['die', 'Schlüsselkarte', 'key card'], ['das', 'Bett', 'bed'],
+      ['der', 'Schrank', 'wardrobe / cabinet'], ['das', 'Badezimmer', 'bathroom'], ['die', 'Dusche', 'shower'],
+      ['das', 'Handtuch', 'towel'], ['der', 'Spiegel', 'mirror'], ['der', 'Kofferwagen', 'luggage cart'],
+      ['die', 'Rezeptionistin', 'receptionist'], ['die', 'Lampe', 'lamp'], ['der', 'Nachttisch', 'nightstand'],
+      ['die', 'Minibar', 'minibar'],
+      // Scene 6: Pub / Kneipe
+      ['die', 'Kneipe', 'pub'], ['der', 'Tresen', 'bar counter'], ['die', 'Zapfanlage', 'beer tap system'],
+      ['der', 'Bierkrug', 'beer mug'], ['das', 'Bier', 'beer'], ['der', 'Bierdeckel', 'beer coaster'],
+      ['die', 'Brezel', 'pretzel'], ['die', 'Wurst', 'sausage'], ['die', 'Getränkekarte', 'drinks menu'],
+      ['der', 'Wirt', 'innkeeper / landlord'], ['der', 'Stammtisch', 'regulars’ table'], ['die', 'Kreidetafel', 'chalkboard'],
+      ['der', 'Hocker', 'stool'], ['die', 'Serviette', 'napkin'], ['der', 'Garderobenhaken', 'coat hook'],
+      // Scene 7: Farmers' Market
+      ['der', 'Wochenmarkt', 'weekly market'], ['der', 'Marktstand', 'market stall'], ['der', 'Verkäufer', 'vendor'],
+      ['die', 'Verkäuferin', 'female vendor'], ['der', 'Korb', 'basket'], ['die', 'Waage', 'scale'],
+      ['die', 'Kiste', 'crate'], ['die', 'Birne', 'pear'], ['die', 'Tomate', 'tomato'],
+      ['die', 'Zwiebel', 'onion'], ['die', 'Blume', 'flower'], ['der', 'Blumenstrauß', 'bouquet'],
+      ['der', 'Preis', 'price'], ['der', 'Sonnenschirm', 'parasol / sun umbrella'], ['das', 'Zelt', 'tent'],
+      ['die', 'Traube', 'grape'], ['der', 'Kürbis', 'pumpkin'], ['die', 'Münze', 'coin'],
+      // Scene 8: Airport
+      ['der', 'Flughafen', 'airport'], ['das', 'Terminal', 'terminal'], ['der', 'Check-in-Schalter', 'check-in counter'],
+      ['das', 'Gate', 'gate'], ['die', 'Anzeige', 'display board'], ['der', 'Abflug', 'departure'],
+      ['die', 'Ankunft', 'arrival'], ['die', 'Sicherheitskontrolle', 'security check'], ['die', 'Passkontrolle', 'passport control'],
+      ['die', 'Gepäckabgabe', 'baggage drop'], ['das', 'Handgepäck', 'carry-on luggage'], ['die', 'Bordkarte', 'boarding pass'],
+      ['der', 'Reisepass', 'passport'], ['der', 'Gepäckwagen', 'luggage trolley'], ['das', 'Flugzeug', 'airplane'],
+      ['der', 'Sitzplatz', 'seat'], ['das', 'Förderband', 'conveyor belt'],
+      // Scene 9: Kitchen
+      ['die', 'Küche', 'kitchen'], ['der', 'Kühlschrank', 'refrigerator'], ['der', 'Herd', 'stove'],
+      ['der', 'Backofen', 'oven'], ['die', 'Spüle', 'sink'], ['der', 'Wasserhahn', 'faucet'],
+      ['die', 'Schublade', 'drawer'], ['die', 'Arbeitsplatte', 'countertop'], ['der', 'Topf', 'pot'],
+      ['die', 'Pfanne', 'pan'], ['das', 'Schneidebrett', 'cutting board'], ['der', 'Wasserkocher', 'electric kettle'],
+      ['das', 'Geschirrtuch', 'dish towel'], ['die', 'Schüssel', 'bowl'],
+      // Scene 10: City Park & Beer Garden
+      ['der', 'Stadtpark', 'city park'], ['der', 'Biergarten', 'beer garden'], ['der', 'Baum', 'tree'],
+      ['die', 'Parkbank', 'park bench'], ['der', 'Brunnen', 'fountain'], ['der', 'Parkweg', 'park path'],
+      ['der', 'Spielplatz', 'playground'], ['die', 'Schaukel', 'swing'], ['die', 'Rutsche', 'slide'],
+      ['der', 'Parkplan', 'park map'], ['der', 'Ball', 'ball'], ['die', 'Decke', 'blanket / ceiling'],
+      // Scene 11: Bakery
+      ['die', 'Bäckerei', 'bakery'], ['der', 'Bäcker', 'baker'], ['die', 'Bäckerin', 'female baker'],
+      ['das', 'Brötchen', 'bread roll'], ['der', 'Laib', 'loaf'], ['das', 'Gebäck', 'pastry'],
+      ['die', 'Auslage', 'display case'], ['das', 'Backblech', 'baking sheet'], ['der', 'Ofen', 'oven'],
+      ['das', 'Mehl', 'flour'], ['der', 'Teig', 'dough'], ['die', 'Zange', 'tongs'],
+      ['die', 'Papiertüte', 'paper bag'], ['der', 'Kunde', 'customer'],
+      // Scene 12: Pharmacy
+      ['die', 'Apotheke', 'pharmacy'], ['der', 'Apotheker', 'pharmacist'], ['die', 'Apothekerin', 'female pharmacist'],
+      ['das', 'Medikament', 'medication'], ['die', 'Tablette', 'tablet / pill'], ['die', 'Packung', 'package'],
+      ['die', 'Salbe', 'ointment'], ['das', 'Pflaster', 'band-aid / plaster'], ['der', 'Verband', 'bandage'],
+      ['das', 'Thermometer', 'thermometer'], ['die', 'Creme', 'cream'], ['der', 'Hustensaft', 'cough syrup'],
+      ['die', 'Schachtel', 'box'], ['das', 'Rezept', 'prescription'], ['die', 'Kundin', 'female customer'],
+      ['der', 'Beipackzettel', 'package leaflet'],
+      // Scene 13: Bus / Tram Stop
+      ['die', 'Bushaltestelle', 'bus stop'], ['die', 'Straßenbahnhaltestelle', 'tram stop'], ['der', 'Bus', 'bus'],
+      ['der', 'Fahrer', 'driver'], ['die', 'Fahrerin', 'female driver'], ['der', 'Fahrplan', 'timetable'],
+      ['die', 'Linie', 'line / route'], ['die', 'Sitzbank', 'bench'], ['das', 'Wartehäuschen', 'bus shelter'],
+      ['das', 'Dach', 'roof'], ['der', 'Knopf', 'button'], ['die', 'Haltestange', 'handrail'],
+      ['der', 'Kinderwagen', 'stroller'], ['der', 'Regenschirm', 'umbrella'],
+      // Scene 14: Apartment Building
+      ['das', 'Wohnhaus', 'apartment building'], ['das', 'Gebäude', 'building'], ['die', 'Wohnung', 'apartment'],
+      ['die', 'Haustür', 'front door'], ['die', 'Klingel', 'doorbell'], ['der', 'Flur', 'hallway'],
+      ['das', 'Treppenhaus', 'stairwell'], ['der', 'Balkon', 'balcony'], ['die', 'Fußmatte', 'doormat'],
+      ['der', 'Hof', 'courtyard'], ['die', 'Mülltonne', 'trash bin'], ['der', 'Nachbar', 'neighbor'],
+      ['die', 'Nachbarin', 'female neighbor'], ['die', 'Pflanze', 'plant'], ['das', 'Paket', 'package'],
+      // Scene 15: Museum
+      ['das', 'Museum', 'museum'], ['die', 'Ausstellung', 'exhibition'], ['das', 'Bild', 'picture'],
+      ['das', 'Gemälde', 'painting'], ['der', 'Bilderrahmen', 'picture frame'], ['die', 'Skulptur', 'sculpture'],
+      ['die', 'Statue', 'statue'], ['der', 'Sockel', 'pedestal'], ['die', 'Vitrine', 'display case'],
+      ['der', 'Text', 'text'], ['die', 'Eintrittskarte', 'admission ticket'], ['der', 'Saal', 'hall / gallery'],
+      ['die', 'Wand', 'wall'], ['der', 'Boden', 'floor'], ['der', 'Besucher', 'visitor'],
+      ['die', 'Besucherin', 'female visitor'], ['der', 'Führer', 'guide'], ['die', 'Führerin', 'female guide']
+    ];
+
+    (() => {
+      const existingNounKeys = new Set(
+        VOCAB_DATA.filter(w => w.domain === 'nouns').map(w => `${w.trait}:${w.word.toLowerCase()}`)
+      );
+      SCENE_NOUN_ENTRIES.forEach(([trait, word, meaning], idx) => {
+        const key = `${trait}:${word.toLowerCase()}`;
+        if (existingNounKeys.has(key)) return;
+        existingNounKeys.add(key);
+        const slug = word.toLowerCase()
+          .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+          .replace(/[^a-z0-9]+/g, '-');
+        VOCAB_DATA.push({
+          id: `vocab.scene.${slug}.${idx}`,
+          domain: 'nouns',
+          pos: 'noun',
+          word,
+          trait,
+          meaning,
+          initialScore: 0
+        });
+      });
+    })();
+
+    // Visual styling tokens per grammatical trait (Blue=Masc, Red=Fem, Green=Neut, Green=Akk, Blue=Dat)
     const TRAIT_STYLES = {
       // Noun Genders
       der: {
