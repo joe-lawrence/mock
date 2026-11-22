@@ -1,0 +1,3310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#18181b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="WortMatch" />
+  <title>WortMatch — German Grammar Sort PWA</title>
+
+  <!-- Inline Web App Manifest for PWA installability -->
+  <link rel="manifest" href="data:application/manifest+json,{&quot;name&quot;:&quot;WortMatch German Grammar Sort&quot;,&quot;short_name&quot;:&quot;WortMatch&quot;,&quot;start_url&quot;:&quot;.&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%23f4f4f5&quot;,&quot;theme_color&quot;:&quot;%2318181b&quot;}" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          boxShadow: {
+            'card': '0 10px 28px -6px rgba(24, 24, 27, 0.10), 0 4px 10px -3px rgba(24, 24, 27, 0.05)',
+            'pill': '0 2px 6px rgba(24, 24, 27, 0.07)',
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    /* Prevent pull-to-refresh and accidental text selection during touch swipes */
+    html, body {
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    /* Custom subtle scrollbars */
+    .thin-scroll::-webkit-scrollbar {
+      width: 3px;
+    }
+    .thin-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .thin-scroll::-webkit-scrollbar-thumb {
+      background: rgba(161, 161, 170, 0.45);
+      border-radius: 9999px;
+    }
+
+    /* Smooth spring-back and swipe-out transitions for word rows */
+    .word-row-spring {
+      transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+    }
+    .word-row-dragging {
+      transition: none !important;
+      z-index: 90 !important;
+      position: relative;
+      box-shadow: 0 12px 24px -4px rgba(24, 24, 27, 0.22);
+    }
+
+    /* Column slot entry animation */
+    @keyframes slotPopIn {
+      0% { opacity: 0; transform: scale(0.92) translateY(4px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .slot-enter {
+      animation: slotPopIn 0.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    /* Animated cross-column correction slide after pressing Check */
+    @keyframes slideFromLeftToRight {
+      0% { opacity: 0.7; transform: translateX(-115%) scale(0.94); }
+      65% { opacity: 1; transform: translateX(4%) scale(1.02); }
+      100% { opacity: 1; transform: translateX(0) scale(1); }
+    }
+    @keyframes slideFromRightToLeft {
+      0% { opacity: 0.7; transform: translateX(115%) scale(0.94); }
+      65% { opacity: 1; transform: translateX(-4%) scale(1.02); }
+      100% { opacity: 1; transform: translateX(0) scale(1); }
+    }
+    .animate-fix-to-right {
+      position: relative;
+      z-index: 80;
+      animation: slideFromLeftToRight 0.46s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    .animate-fix-to-left {
+      position: relative;
+      z-index: 80;
+      animation: slideFromRightToLeft 0.46s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    /* Subtle lift when a column anchor is being introduced or re-announced */
+    .col-intro-highlight {
+      transform: translateY(-1px);
+    }
+
+    /* Individual word card lift during TTS readout */
+    .word-announce-highlight {
+      transform: scale(1.025);
+      z-index: 30;
+    }
+  </style>
+</head>
+<body class="bg-zinc-100 text-zinc-900 font-sans h-[100dvh] w-screen overflow-hidden flex flex-col items-center justify-between">
+
+  <!-- ===================================================================== -->
+  <!-- SCREEN 1: INTRO / SETUP SCREEN (Optimized for iPhone SE 375x667)      -->
+  <!-- ===================================================================== -->
+  <section id="intro-screen" class="w-full max-w-md h-full flex flex-col justify-between px-4 py-3 overflow-y-auto thin-scroll">
+    <!-- Top Brand Header -->
+    <div class="flex items-center justify-between pt-0.5 shrink-0">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-xl bg-zinc-900 text-white flex items-center justify-center font-extrabold text-sm shadow-xs">
+          WM
+        </div>
+        <div>
+          <h1 class="text-base font-extrabold tracking-tight text-zinc-900 leading-none">WortMatch</h1>
+          <p class="text-[10px] font-medium text-zinc-500 mt-0.5">German Grammar Sort</p>
+        </div>
+      </div>
+
+      <span id="intro-streak-badge" class="text-[11px] font-mono font-semibold text-zinc-700 bg-white border border-zinc-200 px-2.5 py-1 rounded-full shadow-2xs">
+        Streak: 0
+      </span>
+    </div>
+
+    <!-- Setup Configuration Card -->
+    <div class="bg-white rounded-2xl border border-zinc-200/90 shadow-card p-3.5 my-2 space-y-3.5 shrink-0">
+      <!-- Concise How-to-Play Summary -->
+      <div class="bg-zinc-50 border border-zinc-200/80 rounded-xl p-2.5">
+        <p class="text-xs text-zinc-700 leading-snug">
+          Match uncolored words to the two color-coded <span class="font-semibold text-zinc-900">anchor words</span> at the top of each column.
+        </p>
+      </div>
+
+      <!-- 1. Grammatical Domain Selector -->
+      <div class="space-y-1.5">
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-zinc-400">Grammatical Domain</label>
+        <div class="grid grid-cols-2 gap-1.5" role="group" aria-label="Grammatical Domain">
+          <button id="domain-nouns" type="button" class="domain-btn py-2 px-2.5 rounded-xl border text-left transition flex flex-col justify-between">
+            <span class="text-xs font-bold">Noun Gender</span>
+            <span class="text-[10px] opacity-75 mt-0.5">der · die · das</span>
+          </button>
+          <button id="domain-case" type="button" class="domain-btn py-2 px-2.5 rounded-xl border text-left transition flex flex-col justify-between">
+            <span class="text-xs font-bold">Case Governance</span>
+            <span class="text-[10px] opacity-75 mt-0.5">Akkusativ · Dativ</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 1B. Multi-Select Balanced Packs added to the Active Game Set -->
+      <div class="space-y-2 pt-2.5 border-t border-zinc-100">
+        <div class="flex items-center justify-between gap-2">
+          <label class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Active Packs</label>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span id="pack-selection-summary" class="text-[11px] font-mono font-semibold text-zinc-600">1/17 Packs</span>
+            <button id="btn-packs-all" type="button" class="px-2 py-0.5 rounded bg-zinc-100 hover:bg-zinc-200 text-[10px] font-bold text-zinc-700 transition">All</button>
+            <button id="btn-packs-none" type="button" class="px-2 py-0.5 rounded bg-zinc-100 hover:bg-zinc-200 text-[10px] font-bold text-zinc-700 transition">1st</button>
+          </div>
+        </div>
+        <div id="pack-grid" class="grid grid-cols-3 gap-1.5 max-h-[112px] overflow-y-auto thin-scroll p-1 bg-zinc-50/80 rounded-xl border border-zinc-200/70">
+          <!-- Populated dynamically with balanced ~18-word multi-select pack toggles -->
+        </div>
+      </div>
+
+      <!-- 2. Round Composition Controls (2 Learning Anchors + Adjustable Learned & Mastered) -->
+      <div class="space-y-2 pt-2.5 border-t border-zinc-100">
+        <div class="flex items-center justify-between gap-2">
+          <label class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Words to Sort per Round</label>
+          <span id="total-words-badge" class="text-[11px] font-mono font-semibold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-md shrink-0">4 words</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <!-- Learned Count Stepper -->
+          <div class="flex items-center justify-between bg-zinc-50 border border-zinc-200/75 rounded-xl px-2.5 py-1.5">
+            <span class="text-xs font-semibold text-zinc-800">Learned</span>
+            <div class="flex items-center gap-1.5">
+              <button id="btn-learned-dec" type="button" class="w-6 h-6 rounded-lg bg-white border border-zinc-200 hover:bg-zinc-100 active:scale-95 text-zinc-700 font-bold text-sm flex items-center justify-center transition" aria-label="Decrease learned words">−</button>
+              <span id="val-learned" class="w-4 text-center text-xs font-mono font-bold text-zinc-900">2</span>
+              <button id="btn-learned-inc" type="button" class="w-6 h-6 rounded-lg bg-white border border-zinc-200 hover:bg-zinc-100 active:scale-95 text-zinc-700 font-bold text-sm flex items-center justify-center transition" aria-label="Increase learned words">+</button>
+            </div>
+          </div>
+
+          <!-- Mastered Count Stepper -->
+          <div class="flex items-center justify-between bg-zinc-50 border border-zinc-200/75 rounded-xl px-2.5 py-1.5">
+            <span class="text-xs font-semibold text-zinc-800">Mastered</span>
+            <div class="flex items-center gap-1.5">
+              <button id="btn-mastered-dec" type="button" class="w-6 h-6 rounded-lg bg-white border border-zinc-200 hover:bg-zinc-100 active:scale-95 text-zinc-700 font-bold text-sm flex items-center justify-center transition" aria-label="Decrease mastered words">−</button>
+              <span id="val-mastered" class="w-4 text-center text-xs font-mono font-bold text-zinc-900">2</span>
+              <button id="btn-mastered-inc" type="button" class="w-6 h-6 rounded-lg bg-white border border-zinc-200 hover:bg-zinc-100 active:scale-95 text-zinc-700 font-bold text-sm flex items-center justify-center transition" aria-label="Increase mastered words">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Audio Toggles & Word Bank Link -->
+      <div class="pt-2.5 border-t border-zinc-100 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-1.5">
+          <button id="toggle-sound" type="button" class="px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition flex items-center gap-1">
+            <span id="sound-icon">🔊</span>
+            <span>SFX</span>
+          </button>
+          <button id="toggle-speech" type="button" class="px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition flex items-center gap-1">
+            <span id="speech-icon">🗣️</span>
+            <span>TTS</span>
+          </button>
+        </div>
+
+        <button id="btn-open-bank-intro" type="button" class="px-2.5 py-1.5 rounded-xl bg-zinc-100 hover:bg-zinc-200/80 active:scale-95 text-xs font-semibold text-zinc-700 transition flex items-center gap-1.5">
+          <span>Words</span>
+          <span id="tier-summary-pill" class="font-mono text-[10px] bg-white px-1.5 py-0.5 rounded border border-zinc-200">0/0/0</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Primary Start CTA & Bootstrap Sprint Trigger -->
+    <div class="pb-1 space-y-1.5">
+      <div class="flex items-center gap-2">
+        <button id="btn-start-game" type="button" class="flex-1 py-3 px-4 rounded-2xl bg-zinc-900 hover:bg-zinc-800 active:scale-[0.99] text-white font-bold text-sm shadow-lg shadow-zinc-900/15 transition flex items-center justify-center gap-2 whitespace-nowrap">
+          <span id="btn-start-label">Start Game</span>
+          <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+        <button id="btn-bootstrap-intro" type="button" title="Quickly classify unlearned words to seed Learned anchors" class="py-3 px-3 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-bold text-xs shadow-xs active:scale-[0.98] transition flex items-center justify-center gap-1 whitespace-nowrap">
+          <span>⚡ Sprint</span>
+        </button>
+      </div>
+      <p id="intro-pool-breakdown" class="text-center text-[10px] text-zinc-400">
+        0 Mastered · 0 Learned · 0 New
+      </p>
+    </div>
+  </section>
+
+  <!-- ===================================================================== -->
+  <!-- SCREEN 1B: BOOTSTRAP SPRINT (RAPID ONE-BY-ONE COLD-START CALIBRATION) -->
+  <!-- ===================================================================== -->
+  <section id="sprint-screen" class="hidden w-full max-w-md h-full flex flex-col justify-between px-3.5 py-3 overflow-hidden">
+    <!-- Top Bar -->
+    <header class="flex items-center justify-between shrink-0">
+      <button id="btn-sprint-exit" type="button" class="px-2.5 py-1 rounded-xl bg-white border border-zinc-200 hover:bg-zinc-50 active:scale-95 text-xs font-semibold text-zinc-700 shadow-2xs transition flex items-center gap-1">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        <span>Setup</span>
+      </button>
+
+      <div class="flex items-center gap-1.5">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-amber-700 bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded-full">
+          ⚡ Sprint
+        </span>
+        <span id="sprint-counter" class="text-[11px] font-mono font-bold text-zinc-700 bg-white border border-zinc-200 px-2 py-0.5 rounded-full">
+          1 / 12
+        </span>
+      </div>
+
+      <button id="btn-sprint-skip-all" type="button" class="px-2.5 py-1 rounded-xl bg-white border border-zinc-200 hover:bg-zinc-50 active:scale-95 text-xs font-semibold text-zinc-600 shadow-2xs transition">
+        Sort →
+      </button>
+    </header>
+
+    <!-- Center Calibration Card -->
+    <main class="flex-1 flex flex-col items-center justify-center my-2 min-h-0">
+      <div id="sprint-card" class="w-full max-w-[320px] bg-white rounded-3xl border-2 border-zinc-200 shadow-card p-6 text-center space-y-2 transition-all">
+        <span id="sprint-level-tag" class="inline-block text-[10px] font-bold uppercase tracking-wider text-zinc-400 bg-zinc-100 px-2 py-0.5 rounded-full">
+          Pack 1
+        </span>
+        <h2 id="sprint-word" class="text-2xl font-extrabold tracking-tight text-zinc-900 pt-1">
+          Zeitung
+        </h2>
+        <p id="sprint-feedback-line" class="h-5 text-xs font-bold text-transparent transition-colors">
+          —
+        </p>
+      </div>
+    </main>
+    <!-- Bottom Trait Choice Buttons (2 or 3 buttons depending on domain) + Don't Know -->
+    <footer class="shrink-0 pb-1 space-y-2">
+      <div id="sprint-buttons" class="grid grid-cols-3 gap-2">
+        <!-- Populated dynamically -->
+      </div>
+      <button id="btn-sprint-dont-know" type="button" class="w-full py-2.5 px-3 rounded-2xl bg-zinc-200/80 hover:bg-zinc-200 active:scale-[0.99] border border-zinc-300/80 text-zinc-700 font-bold text-xs transition flex items-center justify-center gap-1.5">
+        <span>Don’t know</span>
+        <span class="text-[10px] font-medium text-zinc-500">(keep in Learning)</span>
+      </button>
+    </footer>
+  </section>
+
+  <!-- ===================================================================== -->
+  <!-- SCREEN 2: DISTRACTION-FREE TWO-COLUMN SORTING GAME (iPhone SE tuned)  -->
+  <!-- ===================================================================== -->
+  <section id="game-screen" class="hidden w-full max-w-md h-full flex flex-col justify-between px-3 py-2.5 overflow-hidden">
+
+    <!-- Minimal Top HUD -->
+    <header class="shrink-0 space-y-1.5">
+      <div class="flex items-center justify-between gap-2">
+        <button id="btn-back-setup" type="button" class="px-2.5 py-1 rounded-xl bg-white border border-zinc-200 hover:bg-zinc-50 active:scale-95 text-xs font-semibold text-zinc-700 shadow-2xs transition flex items-center gap-1">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          <span>Setup</span>
+        </button>
+
+        <span id="combo-badge" class="text-[11px] font-mono font-semibold text-zinc-700 bg-white border border-zinc-200 px-2.5 py-1 rounded-full shadow-2xs">
+          Streak: 0
+        </span>
+
+        <button id="btn-open-bank-game" type="button" class="px-2.5 py-1 rounded-xl bg-white border border-zinc-200 hover:bg-zinc-50 active:scale-95 text-xs font-semibold text-zinc-700 shadow-2xs transition">
+          Words
+        </button>
+      </div>
+
+      <!-- In-Game Active Pack Progress Bar -->
+      <div class="flex items-center gap-2 px-0.5">
+        <div class="flex-1 h-1.5 bg-zinc-200/90 rounded-full overflow-hidden">
+          <div id="game-progress-bar" class="h-full bg-emerald-500 rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+        <span id="game-progress-label" class="text-[10px] font-mono font-semibold text-zinc-500 shrink-0">0/0 (0%)</span>
+      </div>
+    </header>
+
+    <!-- Two Target Columns (Top Half of Workspace) -->
+    <div id="columns-grid" class="grid grid-cols-2 gap-2 flex-1 min-h-0 my-2 relative">
+      <!-- LEFT COLUMN -->
+      <div id="col-left" class="bg-white rounded-2xl border-2 border-zinc-200/90 shadow-xs flex flex-col overflow-visible transition-all duration-200">
+        <!-- Column Title + Pre-placed Color-Coded Learning Anchor & Inline Definition -->
+        <div id="col-left-header" class="p-2 border-b border-zinc-100 rounded-t-2xl shrink-0">
+          <!-- Populated dynamically -->
+        </div>
+        <!-- Sorted Words Dropped Into Left Column -->
+        <div id="col-left-items" class="flex-1 p-1.5 space-y-1.5 overflow-y-auto thin-scroll flex flex-col">
+          <!-- Sorted items appear here -->
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN -->
+      <div id="col-right" class="bg-white rounded-2xl border-2 border-zinc-200/90 shadow-xs flex flex-col overflow-visible transition-all duration-200">
+        <!-- Column Title + Pre-placed Color-Coded Learning Anchor & Inline Definition -->
+        <div id="col-right-header" class="p-2 border-b border-zinc-100 rounded-t-2xl shrink-0">
+          <!-- Populated dynamically -->
+        </div>
+        <!-- Sorted Words Dropped Into Right Column -->
+        <div id="col-right-items" class="flex-1 p-1.5 space-y-1.5 overflow-y-auto thin-scroll flex flex-col">
+          <!-- Sorted items appear here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Action / Single Current Word Tray -->
+    <footer class="shrink-0">
+      <!-- Active Word Card (Shown while unsorted words remain) -->
+      <div id="unsorted-section" class="space-y-1">
+        <div class="flex items-center justify-between px-1">
+          <span id="unsorted-label" class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+            Remaining: 4
+          </span>
+          <span id="combo-pool-status" class="text-[10px] font-mono text-zinc-400">Unique set</span>
+        </div>
+
+        <!-- Single Current Word Card -->
+        <div id="unsorted-queue" class="px-0.5">
+          <!-- Populated dynamically with only the current word -->
+        </div>
+      </div>
+
+      <!-- Check / Next Round Button (Replaces the active word tray once all words are picked) -->
+      <button id="btn-primary-action" type="button" class="hidden w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white font-bold text-sm shadow-lg shadow-emerald-600/20 transition flex items-center justify-center gap-1.5 whitespace-nowrap">
+        <span id="btn-primary-label">Check Answers</span>
+      </button>
+    </footer>
+
+  </section>
+
+  <!-- ===================================================================== -->
+  <!-- TRANSLATION POPOVER (SHOWN ON TAP WITHOUT DRAG)                       -->
+  <!-- ===================================================================== -->
+  <div id="translation-popover" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 pointer-events-none">
+    <div id="translation-card" class="bg-zinc-900/95 backdrop-blur-md text-white rounded-2xl px-4 py-3.5 shadow-2xl border border-zinc-700/80 max-w-[300px] w-full text-center pointer-events-auto transition-all duration-200 scale-95 opacity-0">
+      <div class="flex items-center justify-center gap-1.5 flex-wrap">
+        <span id="trans-pill" class="px-1.5 py-0.5 rounded text-[10px] font-extrabold tracking-wide bg-zinc-700 text-zinc-200">der</span>
+        <span id="trans-header-line" class="text-sm font-extrabold tracking-tight text-white">Lehrer</span>
+      </div>
+      <div id="trans-definition-box" class="mt-2 pt-2 border-t border-zinc-800">
+        <p id="trans-definition" class="text-xs text-zinc-200 leading-relaxed"></p>
+      </div>
+      <p id="trans-compound" class="text-[10px] font-mono text-amber-300 mt-1.5 hidden"></p>
+      <p id="trans-note" class="text-[10px] text-zinc-400 mt-1 hidden"></p>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- WORD BANK & MASTERY DRAWER MODAL                                      -->
+  <!-- ===================================================================== -->
+  <div id="word-bank-modal" class="fixed inset-0 z-50 bg-zinc-950/50 backdrop-blur-xs hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl border border-zinc-200 max-h-[85dvh] flex flex-col overflow-hidden">
+      <!-- Modal Header -->
+      <div class="px-4 py-3.5 border-b border-zinc-100 flex items-center justify-between">
+        <div>
+          <h2 class="text-sm font-extrabold text-zinc-900">Vocabulary Mastery Pool</h2>
+          <p class="text-[11px] text-zinc-500">+1 per right column · −1 per wrong column</p>
+        </div>
+        <button id="btn-close-bank" type="button" class="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-600 font-bold text-sm">
+          ✕
+        </button>
+      </div>
+
+      <!-- Filter Tabs -->
+      <div class="px-4 py-2 bg-zinc-50 border-b border-zinc-100 flex items-center gap-1.5 text-xs font-semibold">
+        <button data-bank-filter="all" class="bank-filter-btn px-2.5 py-1 rounded-lg bg-zinc-900 text-white">All</button>
+        <button data-bank-filter="learning" class="bank-filter-btn px-2.5 py-1 rounded-lg bg-white text-zinc-600 border border-zinc-200">Learning</button>
+        <button data-bank-filter="learned" class="bank-filter-btn px-2.5 py-1 rounded-lg bg-white text-zinc-600 border border-zinc-200">Learned</button>
+        <button data-bank-filter="mastered" class="bank-filter-btn px-2.5 py-1 rounded-lg bg-white text-zinc-600 border border-zinc-200">Mastered</button>
+      </div>
+
+      <!-- Word List -->
+      <div id="word-bank-list" class="p-3 overflow-y-auto thin-scroll space-y-1.5 flex-1">
+        <!-- Populated dynamically -->
+      </div>
+
+      <!-- Modal Footer Actions -->
+      <div class="px-4 py-2.5 border-t border-zinc-100 bg-zinc-50 flex items-center justify-between gap-2">
+        <button id="btn-clear-combos" type="button" class="text-xs font-semibold text-zinc-600 hover:text-zinc-900 underline underline-offset-2">
+          Clear seen sets
+        </button>
+        <button id="btn-reset-progress" type="button" class="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold transition">
+          Reset Scores
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Non-Blocking Confirm Toast -->
+  <div id="confirm-toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 hidden bg-zinc-900 text-white px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 text-xs max-w-xs w-[92%]">
+    <span class="flex-1 font-medium">Reset all word mastery scores to default?</span>
+    <button id="confirm-toast-no" type="button" class="px-2.5 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 font-semibold">Cancel</button>
+    <button id="confirm-toast-yes" type="button" class="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 font-semibold">Reset</button>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- APPLICATION LOGIC                                                     -->
+  <!-- ===================================================================== -->
+  <script>
+    // =========================================================================
+    // 1. CURRICULUM VOCABULARY DATASET (nouns-gender.md & case.md)
+    // =========================================================================
+    // Tiers: 0..2 = Learning (color-coded anchor), 3..5 = Learned, 6..8 = Mastered.
+    const VOCAB_DATA = [
+      // --- NOUN GENDER: FEMININE (die) ---
+      { id: 'vocab.nouns.zeitung', domain: 'nouns', pos: 'noun', word: 'Zeitung', trait: 'die', meaning: 'newspaper', note: '-ung suffix → feminine', initialScore: 0 },
+      { id: 'vocab.nouns.wohnung', domain: 'nouns', pos: 'noun', word: 'Wohnung', trait: 'die', meaning: 'apartment', note: '-ung suffix → feminine', initialScore: 3 },
+      { id: 'vocab.nouns.rechnung', domain: 'nouns', pos: 'noun', word: 'Rechnung', trait: 'die', meaning: 'bill / invoice', note: '-ung suffix → feminine', initialScore: 6 },
+      { id: 'vocab.nouns.meinung', domain: 'nouns', pos: 'noun', word: 'Meinung', trait: 'die', meaning: 'opinion', note: '-ung suffix → feminine', initialScore: 0 },
+      { id: 'vocab.nouns.pruefung', domain: 'nouns', pos: 'noun', word: 'Prüfung', trait: 'die', meaning: 'exam / test', note: '-ung suffix → feminine', initialScore: 3 },
+      { id: 'vocab.nouns.gesundheit', domain: 'nouns', pos: 'noun', word: 'Gesundheit', trait: 'die', meaning: 'health', note: '-heit suffix → feminine', initialScore: 6 },
+      { id: 'vocab.nouns.freundlichkeit', domain: 'nouns', pos: 'noun', word: 'Freundlichkeit', trait: 'die', meaning: 'friendliness', note: '-keit suffix → feminine', initialScore: 0 },
+      { id: 'vocab.nouns.mannschaft', domain: 'nouns', pos: 'noun', word: 'Mannschaft', trait: 'die', meaning: 'team', note: '-schaft suffix → feminine', initialScore: 3 },
+      { id: 'vocab.nouns.tradition', domain: 'nouns', pos: 'noun', word: 'Tradition', trait: 'die', meaning: 'tradition', note: '-ion suffix → feminine', initialScore: 6 },
+      { id: 'vocab.nouns.sonnenblume', domain: 'nouns', pos: 'noun', word: 'Sonnenblume', trait: 'die', meaning: 'sunflower', note: 'Plants/flowers → feminine', initialScore: 3 },
+      { id: 'vocab.nouns.aktion', domain: 'nouns', pos: 'noun', word: 'Aktion', trait: 'die', meaning: 'action / special offer', note: '-ion suffix → feminine', initialScore: 0 },
+      { id: 'vocab.nouns.bedeutung', domain: 'nouns', pos: 'noun', word: 'Bedeutung', trait: 'die', meaning: 'meaning', note: '-ung suffix → feminine', initialScore: 3 },
+      { id: 'vocab.nouns.bewegung', domain: 'nouns', pos: 'noun', word: 'Bewegung', trait: 'die', meaning: 'movement', note: '-ung suffix → feminine', initialScore: 0 },
+      { id: 'vocab.nouns.botschaft', domain: 'nouns', pos: 'noun', word: 'Botschaft', trait: 'die', meaning: 'message', note: '-schaft suffix → feminine', initialScore: 3 },
+      { id: 'vocab.nouns.diskussion', domain: 'nouns', pos: 'noun', word: 'Diskussion', trait: 'die', meaning: 'discussion', note: '-ion suffix → feminine', initialScore: 6 },
+      { id: 'vocab.nouns.ehrlichkeit', domain: 'nouns', pos: 'noun', word: 'Ehrlichkeit', trait: 'die', meaning: 'honesty', note: '-keit suffix → feminine', initialScore: 0 },
+      { id: 'vocab.nouns.einheit', domain: 'nouns', pos: 'noun', word: 'Einheit', trait: 'die', meaning: 'unit / unity', note: '-heit suffix → feminine', initialScore: 3 },
+      { id: 'vocab.nouns.einladung', domain: 'nouns', pos: 'noun', word: 'Einladung', trait: 'die', meaning: 'invitation', note: '-ung suffix → feminine', initialScore: 6 },
+      { id: 'vocab.nouns.erfahrung', domain: 'nouns', pos: 'noun', word: 'Erfahrung', trait: 'die', meaning: 'experience', note: '-ung suffix → feminine', initialScore: 0 },
+      { id: 'vocab.nouns.erzaehlung', domain: 'nouns', pos: 'noun', word: 'Erzählung', trait: 'die', meaning: 'story / narrative', note: '-ung suffix → feminine', initialScore: 3 },
+      { id: 'vocab.nouns.faehigkeit', domain: 'nouns', pos: 'noun', word: 'Fähigkeit', trait: 'die', meaning: 'ability', note: '-keit suffix → feminine', initialScore: 0 },
+      { id: 'vocab.nouns.freiheit', domain: 'nouns', pos: 'noun', word: 'Freiheit', trait: 'die', meaning: 'freedom', note: '-heit suffix → feminine', initialScore: 6 },
+      { id: 'vocab.nouns.freundschaft', domain: 'nouns', pos: 'noun', word: 'Freundschaft', trait: 'die', meaning: 'friendship', note: '-schaft suffix → feminine', initialScore: 3 },
+      { id: 'vocab.nouns.geschwindigkeit', domain: 'nouns', pos: 'noun', word: 'Geschwindigkeit', trait: 'die', meaning: 'speed', note: '-keit suffix → feminine', initialScore: 0 },
+      { id: 'vocab.nouns.gesellschaft', domain: 'nouns', pos: 'noun', word: 'Gesellschaft', trait: 'die', meaning: 'society', note: '-schaft suffix → feminine', initialScore: 3 },
+      { id: 'vocab.nouns.hoffnung', domain: 'nouns', pos: 'noun', word: 'Hoffnung', trait: 'die', meaning: 'hope', note: '-ung suffix → feminine', initialScore: 6 },
+      { id: 'vocab.nouns.information', domain: 'nouns', pos: 'noun', word: 'Information', trait: 'die', meaning: 'information', note: '-ion suffix → feminine', initialScore: 6 },
+      { id: 'vocab.nouns.klarheit', domain: 'nouns', pos: 'noun', word: 'Klarheit', trait: 'die', meaning: 'clarity', note: '-heit suffix → feminine', initialScore: 0 },
+      { id: 'vocab.nouns.krankheit', domain: 'nouns', pos: 'noun', word: 'Krankheit', trait: 'die', meaning: 'illness', note: '-heit suffix → feminine', initialScore: 3 },
+      { id: 'vocab.nouns.landschaft', domain: 'nouns', pos: 'noun', word: 'Landschaft', trait: 'die', meaning: 'landscape', note: '-schaft suffix → feminine', initialScore: 3 },
+      { id: 'vocab.nouns.loesung', domain: 'nouns', pos: 'noun', word: 'Lösung', trait: 'die', meaning: 'solution', note: '-ung suffix → feminine', initialScore: 6 },
+      { id: 'vocab.nouns.million', domain: 'nouns', pos: 'noun', word: 'Million', trait: 'die', meaning: 'million', note: '-ion suffix → feminine', initialScore: 6 },
+      { id: 'vocab.nouns.moeglichkeit', domain: 'nouns', pos: 'noun', word: 'Möglichkeit', trait: 'die', meaning: 'possibility', note: '-keit suffix → feminine', initialScore: 0 },
+      { id: 'vocab.nouns.nation', domain: 'nouns', pos: 'noun', word: 'Nation', trait: 'die', meaning: 'nation', note: '-ion suffix → feminine', initialScore: 3 },
+      { id: 'vocab.nouns.partnerschaft', domain: 'nouns', pos: 'noun', word: 'Partnerschaft', trait: 'die', meaning: 'partnership', note: '-schaft suffix → feminine', initialScore: 0 },
+      { id: 'vocab.nouns.region', domain: 'nouns', pos: 'noun', word: 'Region', trait: 'die', meaning: 'region', note: '-ion suffix → feminine', initialScore: 3 },
+      { id: 'vocab.nouns.richtung', domain: 'nouns', pos: 'noun', word: 'Richtung', trait: 'die', meaning: 'direction', note: '-ung suffix → feminine', initialScore: 3 },
+      { id: 'vocab.nouns.schoenheit', domain: 'nouns', pos: 'noun', word: 'Schönheit', trait: 'die', meaning: 'beauty', note: '-heit suffix → feminine', initialScore: 0 },
+      { id: 'vocab.nouns.schwierigkeit', domain: 'nouns', pos: 'noun', word: 'Schwierigkeit', trait: 'die', meaning: 'difficulty', note: '-keit suffix → feminine', initialScore: 0 },
+      { id: 'vocab.nouns.sicherheit', domain: 'nouns', pos: 'noun', word: 'Sicherheit', trait: 'die', meaning: 'safety / security', note: '-heit suffix → feminine', initialScore: 3 },
+      { id: 'vocab.nouns.situation', domain: 'nouns', pos: 'noun', word: 'Situation', trait: 'die', meaning: 'situation', note: '-ion suffix → feminine', initialScore: 6 },
+      { id: 'vocab.nouns.station', domain: 'nouns', pos: 'noun', word: 'Station', trait: 'die', meaning: 'station', note: '-ion suffix → feminine', initialScore: 3 },
+      { id: 'vocab.nouns.uebung', domain: 'nouns', pos: 'noun', word: 'Übung', trait: 'die', meaning: 'exercise / practice', note: '-ung suffix → feminine', initialScore: 6 },
+      { id: 'vocab.nouns.wahrheit', domain: 'nouns', pos: 'noun', word: 'Wahrheit', trait: 'die', meaning: 'truth', note: '-heit suffix → feminine', initialScore: 3 },
+      { id: 'vocab.nouns.wirklichkeit', domain: 'nouns', pos: 'noun', word: 'Wirklichkeit', trait: 'die', meaning: 'reality', note: '-keit suffix → feminine', initialScore: 0 },
+      { id: 'vocab.nouns.wirtschaft', domain: 'nouns', pos: 'noun', word: 'Wirtschaft', trait: 'die', meaning: 'economy', note: '-schaft suffix → feminine', initialScore: 3 },
+      { id: 'vocab.nouns.wissenschaft', domain: 'nouns', pos: 'noun', word: 'Wissenschaft', trait: 'die', meaning: 'science', note: '-schaft suffix → feminine', initialScore: 0 },
+      { id: 'vocab.nouns.lilie', domain: 'nouns', pos: 'noun', word: 'Lilie', trait: 'die', meaning: 'lily', note: 'Flowers → feminine', initialScore: 0 },
+      { id: 'vocab.nouns.narzisse', domain: 'nouns', pos: 'noun', word: 'Narzisse', trait: 'die', meaning: 'daffodil', note: 'Flowers → feminine', initialScore: 0 },
+      { id: 'vocab.nouns.nelke', domain: 'nouns', pos: 'noun', word: 'Nelke', trait: 'die', meaning: 'carnation', note: 'Flowers → feminine', initialScore: 3 },
+      { id: 'vocab.nouns.orchidee', domain: 'nouns', pos: 'noun', word: 'Orchidee', trait: 'die', meaning: 'orchid', note: 'Flowers → feminine', initialScore: 0 },
+      { id: 'vocab.nouns.rose', domain: 'nouns', pos: 'noun', word: 'Rose', trait: 'die', meaning: 'rose', note: 'Flowers → feminine', initialScore: 6 },
+      { id: 'vocab.nouns.tulpe', domain: 'nouns', pos: 'noun', word: 'Tulpe', trait: 'die', meaning: 'tulip', note: 'Flowers → feminine', initialScore: 3 },
+
+      // --- NOUN GENDER: MASCULINE (der) ---
+      { id: 'vocab.nouns.lehrer', domain: 'nouns', pos: 'noun', word: 'Lehrer', trait: 'der', meaning: 'teacher', note: '-er agent suffix → masculine', initialScore: 0 },
+      { id: 'vocab.nouns.fahrer', domain: 'nouns', pos: 'noun', word: 'Fahrer', trait: 'der', meaning: 'driver', note: '-er agent suffix → masculine', initialScore: 3 },
+      { id: 'vocab.nouns.baecker', domain: 'nouns', pos: 'noun', word: 'Bäcker', trait: 'der', meaning: 'baker', note: '-er agent suffix → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.schmetterling', domain: 'nouns', pos: 'noun', word: 'Schmetterling', trait: 'der', meaning: 'butterfly', note: '-ling suffix → masculine', initialScore: 0 },
+      { id: 'vocab.nouns.zwilling', domain: 'nouns', pos: 'noun', word: 'Zwilling', trait: 'der', meaning: 'twin', note: '-ling suffix → masculine', initialScore: 3 },
+      { id: 'vocab.nouns.montag', domain: 'nouns', pos: 'noun', word: 'Montag', trait: 'der', meaning: 'Monday', note: 'Days of week → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.sturm', domain: 'nouns', pos: 'noun', word: 'Sturm', trait: 'der', meaning: 'storm', note: 'Weather phenomena → masculine', initialScore: 3 },
+      { id: 'vocab.nouns.kellner', domain: 'nouns', pos: 'noun', word: 'Kellner', trait: 'der', meaning: 'waiter', note: '-er agent suffix → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.arbeiter', domain: 'nouns', pos: 'noun', word: 'Arbeiter', trait: 'der', meaning: 'worker', note: '-er agent suffix → masculine', initialScore: 3 },
+      { id: 'vocab.nouns.dezember', domain: 'nouns', pos: 'noun', word: 'Dezember', trait: 'der', meaning: 'December', note: 'Months → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.donner', domain: 'nouns', pos: 'noun', word: 'Donner', trait: 'der', meaning: 'thunder', note: 'Weather phenomena → masculine', initialScore: 0 },
+      { id: 'vocab.nouns.fluechtling', domain: 'nouns', pos: 'noun', word: 'Flüchtling', trait: 'der', meaning: 'refugee', note: '-ling suffix → masculine', initialScore: 0 },
+      { id: 'vocab.nouns.fruehling', domain: 'nouns', pos: 'noun', word: 'Frühling', trait: 'der', meaning: 'spring (season)', note: 'Seasons & -ling → masculine', initialScore: 3 },
+      { id: 'vocab.nouns.gaertner', domain: 'nouns', pos: 'noun', word: 'Gärtner', trait: 'der', meaning: 'gardener', note: '-er agent suffix → masculine', initialScore: 3 },
+      { id: 'vocab.nouns.journalismus', domain: 'nouns', pos: 'noun', word: 'Journalismus', trait: 'der', meaning: 'journalism', note: '-ismus suffix → masculine', initialScore: 0 },
+      { id: 'vocab.nouns.kapitalismus', domain: 'nouns', pos: 'noun', word: 'Kapitalismus', trait: 'der', meaning: 'capitalism', note: '-ismus suffix → masculine', initialScore: 0 },
+      { id: 'vocab.nouns.lehrling', domain: 'nouns', pos: 'noun', word: 'Lehrling', trait: 'der', meaning: 'apprentice', note: '-ling suffix → masculine', initialScore: 3 },
+      { id: 'vocab.nouns.liebling', domain: 'nouns', pos: 'noun', word: 'Liebling', trait: 'der', meaning: 'favorite / darling', note: '-ling suffix → masculine', initialScore: 3 },
+      { id: 'vocab.nouns.november', domain: 'nouns', pos: 'noun', word: 'November', trait: 'der', meaning: 'November', note: 'Months → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.oktober', domain: 'nouns', pos: 'noun', word: 'Oktober', trait: 'der', meaning: 'October', note: 'Months → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.optimismus', domain: 'nouns', pos: 'noun', word: 'Optimismus', trait: 'der', meaning: 'optimism', note: '-ismus suffix → masculine', initialScore: 0 },
+      { id: 'vocab.nouns.partner', domain: 'nouns', pos: 'noun', word: 'Partner', trait: 'der', meaning: 'partner', note: '-er suffix → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.rentner', domain: 'nouns', pos: 'noun', word: 'Rentner', trait: 'der', meaning: 'retiree', note: '-er agent suffix → masculine', initialScore: 3 },
+      { id: 'vocab.nouns.schueler', domain: 'nouns', pos: 'noun', word: 'Schüler', trait: 'der', meaning: 'student / pupil', note: '-er agent suffix → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.september', domain: 'nouns', pos: 'noun', word: 'September', trait: 'der', meaning: 'September', note: 'Months → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.sommer', domain: 'nouns', pos: 'noun', word: 'Sommer', trait: 'der', meaning: 'summer', note: 'Seasons → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.tourismus', domain: 'nouns', pos: 'noun', word: 'Tourismus', trait: 'der', meaning: 'tourism', note: '-ismus suffix → masculine', initialScore: 3 },
+      { id: 'vocab.nouns.verkaeufer', domain: 'nouns', pos: 'noun', word: 'Verkäufer', trait: 'der', meaning: 'salesperson', note: '-er agent suffix → masculine', initialScore: 3 },
+      { id: 'vocab.nouns.winter', domain: 'nouns', pos: 'noun', word: 'Winter', trait: 'der', meaning: 'winter', note: 'Seasons → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.april', domain: 'nouns', pos: 'noun', word: 'April', trait: 'der', meaning: 'April', note: 'Months → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.arzt', domain: 'nouns', pos: 'noun', word: 'Arzt', trait: 'der', meaning: 'doctor', note: 'Male professions → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.august', domain: 'nouns', pos: 'noun', word: 'August', trait: 'der', meaning: 'August', note: 'Months → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.dienstag', domain: 'nouns', pos: 'noun', word: 'Dienstag', trait: 'der', meaning: 'Tuesday', note: 'Days of week → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.donnerstag', domain: 'nouns', pos: 'noun', word: 'Donnerstag', trait: 'der', meaning: 'Thursday', note: 'Days of week → masculine', initialScore: 3 },
+      { id: 'vocab.nouns.februar', domain: 'nouns', pos: 'noun', word: 'Februar', trait: 'der', meaning: 'February', note: 'Months → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.freitag', domain: 'nouns', pos: 'noun', word: 'Freitag', trait: 'der', meaning: 'Friday', note: 'Days of week → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.frost', domain: 'nouns', pos: 'noun', word: 'Frost', trait: 'der', meaning: 'frost', note: 'Weather phenomena → masculine', initialScore: 0 },
+      { id: 'vocab.nouns.hagel', domain: 'nouns', pos: 'noun', word: 'Hagel', trait: 'der', meaning: 'hail', note: 'Weather phenomena → masculine', initialScore: 0 },
+      { id: 'vocab.nouns.herbst', domain: 'nouns', pos: 'noun', word: 'Herbst', trait: 'der', meaning: 'autumn / fall', note: 'Seasons → masculine', initialScore: 3 },
+      { id: 'vocab.nouns.januar', domain: 'nouns', pos: 'noun', word: 'Januar', trait: 'der', meaning: 'January', note: 'Months → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.juli', domain: 'nouns', pos: 'noun', word: 'Juli', trait: 'der', meaning: 'July', note: 'Months → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.juni', domain: 'nouns', pos: 'noun', word: 'Juni', trait: 'der', meaning: 'June', note: 'Months → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.koch', domain: 'nouns', pos: 'noun', word: 'Koch', trait: 'der', meaning: 'cook / chef', note: 'Male professions → masculine', initialScore: 3 },
+      { id: 'vocab.nouns.mai', domain: 'nouns', pos: 'noun', word: 'Mai', trait: 'der', meaning: 'May', note: 'Months → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.maerz', domain: 'nouns', pos: 'noun', word: 'März', trait: 'der', meaning: 'March', note: 'Months → masculine', initialScore: 3 },
+      { id: 'vocab.nouns.mittwoch', domain: 'nouns', pos: 'noun', word: 'Mittwoch', trait: 'der', meaning: 'Wednesday', note: 'Days of week → masculine', initialScore: 3 },
+      { id: 'vocab.nouns.nebel', domain: 'nouns', pos: 'noun', word: 'Nebel', trait: 'der', meaning: 'fog', note: 'Weather phenomena → masculine', initialScore: 0 },
+      { id: 'vocab.nouns.norden', domain: 'nouns', pos: 'noun', word: 'Norden', trait: 'der', meaning: 'north', note: 'Compass directions → masculine', initialScore: 3 },
+      { id: 'vocab.nouns.osten', domain: 'nouns', pos: 'noun', word: 'Osten', trait: 'der', meaning: 'east', note: 'Compass directions → masculine', initialScore: 3 },
+      { id: 'vocab.nouns.regen', domain: 'nouns', pos: 'noun', word: 'Regen', trait: 'der', meaning: 'rain', note: 'Weather phenomena → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.samstag', domain: 'nouns', pos: 'noun', word: 'Samstag', trait: 'der', meaning: 'Saturday', note: 'Days of week → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.schnee', domain: 'nouns', pos: 'noun', word: 'Schnee', trait: 'der', meaning: 'snow', note: 'Weather phenomena → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.sonntag', domain: 'nouns', pos: 'noun', word: 'Sonntag', trait: 'der', meaning: 'Sunday', note: 'Days of week → masculine', initialScore: 6 },
+      { id: 'vocab.nouns.sueden', domain: 'nouns', pos: 'noun', word: 'Süden', trait: 'der', meaning: 'south', note: 'Compass directions → masculine', initialScore: 3 },
+      { id: 'vocab.nouns.westen', domain: 'nouns', pos: 'noun', word: 'Westen', trait: 'der', meaning: 'west', note: 'Compass directions → masculine', initialScore: 3 },
+      { id: 'vocab.nouns.wind', domain: 'nouns', pos: 'noun', word: 'Wind', trait: 'der', meaning: 'wind', note: 'Weather phenomena → masculine', initialScore: 6 },
+
+      // --- NOUN GENDER: NEUTER (das) ---
+      { id: 'vocab.nouns.kaetzchen', domain: 'nouns', pos: 'noun', word: 'Kätzchen', trait: 'das', meaning: 'kitten', note: '-chen diminutive → neuter', initialScore: 0 },
+      { id: 'vocab.nouns.element', domain: 'nouns', pos: 'noun', word: 'Element', trait: 'das', meaning: 'element', note: '-ment suffix → neuter', initialScore: 3 },
+      { id: 'vocab.nouns.theater', domain: 'nouns', pos: 'noun', word: 'Theater', trait: 'das', meaning: 'theater', note: 'Public venues → neuter', initialScore: 6 },
+      { id: 'vocab.nouns.krankenhaus', domain: 'nouns', pos: 'noun', word: 'Krankenhaus', trait: 'das', meaning: 'hospital', note: 'Compound with das Haus → neuter', initialScore: 6 },
+      { id: 'vocab.nouns.argument', domain: 'nouns', pos: 'noun', word: 'Argument', trait: 'das', meaning: 'argument', note: '-ment suffix → neuter', initialScore: 3 },
+      { id: 'vocab.nouns.bluemlein', domain: 'nouns', pos: 'noun', word: 'Blümlein', trait: 'das', meaning: 'little flower', note: '-lein diminutive → neuter', initialScore: 0 },
+      { id: 'vocab.nouns.broetchen', domain: 'nouns', pos: 'noun', word: 'Brötchen', trait: 'das', meaning: 'bread roll', note: '-chen diminutive → neuter', initialScore: 6 },
+      { id: 'vocab.nouns.buechlein', domain: 'nouns', pos: 'noun', word: 'Büchlein', trait: 'das', meaning: 'booklet', note: '-lein diminutive → neuter', initialScore: 0 },
+      { id: 'vocab.nouns.dokument', domain: 'nouns', pos: 'noun', word: 'Dokument', trait: 'das', meaning: 'document', note: '-ment suffix → neuter', initialScore: 3 },
+      { id: 'vocab.nouns.experiment', domain: 'nouns', pos: 'noun', word: 'Experiment', trait: 'das', meaning: 'experiment', note: '-ment suffix → neuter', initialScore: 3 },
+      { id: 'vocab.nouns.fraeulein', domain: 'nouns', pos: 'noun', word: 'Fräulein', trait: 'das', meaning: 'young woman (dated)', note: '-lein diminutive → neuter', initialScore: 0 },
+      { id: 'vocab.nouns.haeuschen', domain: 'nouns', pos: 'noun', word: 'Häuschen', trait: 'das', meaning: 'little house', note: '-chen diminutive → neuter', initialScore: 3 },
+      { id: 'vocab.nouns.haeuslein', domain: 'nouns', pos: 'noun', word: 'Häuslein', trait: 'das', meaning: 'little house', note: '-lein diminutive → neuter', initialScore: 0 },
+      { id: 'vocab.nouns.huendchen', domain: 'nouns', pos: 'noun', word: 'Hündchen', trait: 'das', meaning: 'puppy / little dog', note: '-chen diminutive → neuter', initialScore: 0 },
+      { id: 'vocab.nouns.instrument', domain: 'nouns', pos: 'noun', word: 'Instrument', trait: 'das', meaning: 'instrument', note: '-ment suffix → neuter', initialScore: 6 },
+      { id: 'vocab.nouns.kaninchen', domain: 'nouns', pos: 'noun', word: 'Kaninchen', trait: 'das', meaning: 'rabbit', note: '-chen ending → neuter', initialScore: 3 },
+      { id: 'vocab.nouns.kindlein', domain: 'nouns', pos: 'noun', word: 'Kindlein', trait: 'das', meaning: 'little child', note: '-lein diminutive → neuter', initialScore: 0 },
+      { id: 'vocab.nouns.maedchen', domain: 'nouns', pos: 'noun', word: 'Mädchen', trait: 'das', meaning: 'girl', note: '-chen diminutive → neuter', initialScore: 6 },
+      { id: 'vocab.nouns.maerchen', domain: 'nouns', pos: 'noun', word: 'Märchen', trait: 'das', meaning: 'fairy tale', note: '-chen diminutive → neuter', initialScore: 3 },
+      { id: 'vocab.nouns.medikament', domain: 'nouns', pos: 'noun', word: 'Medikament', trait: 'das', meaning: 'medication', note: '-ment suffix → neuter', initialScore: 3 },
+      { id: 'vocab.nouns.monument', domain: 'nouns', pos: 'noun', word: 'Monument', trait: 'das', meaning: 'monument', note: '-ment suffix → neuter', initialScore: 0 },
+      { id: 'vocab.nouns.buero', domain: 'nouns', pos: 'noun', word: 'Büro', trait: 'das', meaning: 'office', note: 'Places/venues → neuter', initialScore: 6 },
+      { id: 'vocab.nouns.caf', domain: 'nouns', pos: 'noun', word: 'Café', trait: 'das', meaning: 'café', note: 'Places/venues → neuter', initialScore: 6 },
+      { id: 'vocab.nouns.hotel', domain: 'nouns', pos: 'noun', word: 'Hotel', trait: 'das', meaning: 'hotel', note: 'Places/venues → neuter', initialScore: 6 },
+      { id: 'vocab.nouns.kino', domain: 'nouns', pos: 'noun', word: 'Kino', trait: 'das', meaning: 'cinema', note: 'Places/venues → neuter', initialScore: 6 },
+      { id: 'vocab.nouns.museum', domain: 'nouns', pos: 'noun', word: 'Museum', trait: 'das', meaning: 'museum', note: '-um suffix → neuter', initialScore: 6 },
+      { id: 'vocab.nouns.restaurant', domain: 'nouns', pos: 'noun', word: 'Restaurant', trait: 'das', meaning: 'restaurant', note: 'Places/venues → neuter', initialScore: 6 },
+
+      // --- CASE GOVERNANCE: ACCUSATIVE (Akk) ---
+      { id: 'vocab.case.sehen', domain: 'case', pos: 'verb', word: 'sehen', trait: 'Akk', meaning: 'to see', note: 'Transitive verb → Accusative', initialScore: 6 },
+      { id: 'vocab.case.haben', domain: 'case', pos: 'verb', word: 'haben', trait: 'Akk', meaning: 'to have', note: 'Transitive verb → Accusative', initialScore: 6 },
+      { id: 'vocab.case.fuer', domain: 'case', pos: 'prep', word: 'für', trait: 'Akk', meaning: 'for', note: 'Accusative preposition', initialScore: 6 },
+      { id: 'vocab.case.ohne', domain: 'case', pos: 'prep', word: 'ohne', trait: 'Akk', meaning: 'without', note: 'Accusative preposition', initialScore: 3 },
+      { id: 'vocab.case.brauchen', domain: 'case', pos: 'verb', word: 'brauchen', trait: 'Akk', meaning: 'to need', note: 'Transitive verb → Accusative', initialScore: 6 },
+      { id: 'vocab.case.suchen', domain: 'case', pos: 'verb', word: 'suchen', trait: 'Akk', meaning: 'to look for', note: 'Transitive verb → Accusative', initialScore: 3 },
+      { id: 'vocab.case.nehmen', domain: 'case', pos: 'verb', word: 'nehmen', trait: 'Akk', meaning: 'to take', note: 'Transitive verb → Accusative', initialScore: 3 },
+      { id: 'vocab.case.finden', domain: 'case', pos: 'verb', word: 'finden', trait: 'Akk', meaning: 'to find', note: 'Transitive verb → Accusative', initialScore: 6 },
+      { id: 'vocab.case.warten-auf', domain: 'case', pos: 'verb+prep', word: 'warten auf', trait: 'Akk', meaning: 'to wait for', note: 'auf + Accusative', initialScore: 0 },
+      { id: 'vocab.case.um', domain: 'case', pos: 'prep', word: 'um', trait: 'Akk', meaning: 'around / for', note: 'Accusative preposition', initialScore: 0 },
+      { id: 'vocab.case.durch', domain: 'case', pos: 'prep', word: 'durch', trait: 'Akk', meaning: 'through', note: 'Accusative preposition', initialScore: 3 },
+      { id: 'vocab.case.gegen', domain: 'case', pos: 'prep', word: 'gegen', trait: 'Akk', meaning: 'against', note: 'Accusative preposition', initialScore: 0 },
+
+      // --- CASE GOVERNANCE: DATIVE (Dat) ---
+      { id: 'vocab.case.helfen', domain: 'case', pos: 'verb', word: 'helfen', trait: 'Dat', meaning: 'to help', note: 'Dative verb', initialScore: 6 },
+      { id: 'vocab.case.mit', domain: 'case', pos: 'prep', word: 'mit', trait: 'Dat', meaning: 'with', note: 'Dative preposition', initialScore: 6 },
+      { id: 'vocab.case.aus', domain: 'case', pos: 'prep', word: 'aus', trait: 'Dat', meaning: 'out of / from', note: 'Dative preposition', initialScore: 6 },
+      { id: 'vocab.case.danken', domain: 'case', pos: 'verb', word: 'danken', trait: 'Dat', meaning: 'to thank', note: 'Dative verb', initialScore: 3 },
+      { id: 'vocab.case.gefallen', domain: 'case', pos: 'verb', word: 'gefallen', trait: 'Dat', meaning: 'to be pleasing', note: 'Dative verb', initialScore: 0 },
+      { id: 'vocab.case.passen-zu', domain: 'case', pos: 'verb+prep', word: 'passen zu', trait: 'Dat', meaning: 'to fit with', note: 'zu + Dative', initialScore: 0 },
+      { id: 'vocab.case.ausser', domain: 'case', pos: 'prep', word: 'außer', trait: 'Dat', meaning: 'except / besides', note: 'Dative preposition', initialScore: 0 },
+      { id: 'vocab.case.bei', domain: 'case', pos: 'prep', word: 'bei', trait: 'Dat', meaning: 'at / with', note: 'Dative preposition', initialScore: 6 },
+      { id: 'vocab.case.nach', domain: 'case', pos: 'prep', word: 'nach', trait: 'Dat', meaning: 'after / to', note: 'Dative preposition', initialScore: 6 },
+      { id: 'vocab.case.seit', domain: 'case', pos: 'prep', word: 'seit', trait: 'Dat', meaning: 'since', note: 'Dative preposition', initialScore: 3 },
+      { id: 'vocab.case.von', domain: 'case', pos: 'prep', word: 'von', trait: 'Dat', meaning: 'from / of', note: 'Dative preposition', initialScore: 6 },
+      { id: 'vocab.case.zu', domain: 'case', pos: 'prep', word: 'zu', trait: 'Dat', meaning: 'to', note: 'Dative preposition', initialScore: 6 },
+      { id: 'vocab.case.antworten', domain: 'case', pos: 'verb', word: 'antworten', trait: 'Dat', meaning: 'to answer', note: 'Dative verb', initialScore: 3 },
+      { id: 'vocab.case.gehoeren', domain: 'case', pos: 'verb', word: 'gehören', trait: 'Dat', meaning: 'to belong to', note: 'Dative verb', initialScore: 3 },
+      { id: 'vocab.case.passen', domain: 'case', pos: 'verb', word: 'passen', trait: 'Dat', meaning: 'to fit (someone)', note: 'Dative verb', initialScore: 3 }
+    ];
+
+    // Append deduplicated scene nouns as unlearned (initialScore: 0, Learning tier)
+    const SCENE_NOUN_ENTRIES = [
+      ['die', 'Stadt', 'city'],
+      ['die', 'Straße', 'street'],
+      ['die', 'Fußgängerzone', 'pedestrian zone'],
+      ['die', 'Kreuzung', 'intersection'],
+      ['die', 'Ampel', 'traffic light'],
+      ['der', 'Zebrastreifen', 'crosswalk'],
+      ['der', 'Bürgersteig', 'sidewalk'],
+      ['das', 'Fahrrad', 'bicycle'],
+      ['die', 'Straßenbahn', 'tram / streetcar'],
+      ['die', 'Haltestelle', 'transit stop'],
+      ['das', 'Taxi', 'taxi'],
+      ['das', 'Geschäft', 'shop / store'],
+      ['die', 'Buchhandlung', 'bookstore'],
+      ['das', 'Schaufenster', 'shop window'],
+      ['der', 'Kiosk', 'kiosk'],
+      ['der', 'Briefkasten', 'mailbox'],
+      ['das', 'Schild', 'sign'],
+      ['der', 'Mülleimer', 'trash can'],
+      ['der', 'Hund', 'dog'],
+      ['der', 'Fußgänger', 'pedestrian'],
+      ['die', 'Tür', 'door'],
+      ['der', 'Eingang', 'entrance'],
+      ['der', 'Ausgang', 'exit'],
+      ['die', 'Bank', 'bench / bank'],
+      ['die', 'Laterne', 'streetlamp'],
+      ['der', 'Bahnhof', 'train station'],
+      ['der', 'Zug', 'train'],
+      ['das', 'Gleis', 'track / platform'],
+      ['der', 'Bahnsteig', 'train platform'],
+      ['die', 'Fahrkarte', 'ticket'],
+      ['der', 'Fahrkartenautomat', 'ticket machine'],
+      ['die', 'Abfahrtstafel', 'departure board'],
+      ['die', 'Verspätung', 'delay'],
+      ['der', 'Aufzug', 'elevator'],
+      ['die', 'Treppe', 'stairs'],
+      ['der', 'Koffer', 'suitcase'],
+      ['der', 'Rucksack', 'backpack'],
+      ['die', 'Tasche', 'bag'],
+      ['das', 'Gepäck', 'luggage'],
+      ['der', 'Fahrgast', 'passenger'],
+      ['der', 'Schaffner', 'conductor'],
+      ['die', 'Toilette', 'restroom / toilet'],
+      ['das', 'Smartphone', 'smartphone'],
+      ['die', 'Uhr', 'clock / watch / o\'clock'],
+      ['das', 'Gleisschild', 'track sign'],
+      ['der', 'Tisch', 'table'],
+      ['der', 'Stuhl', 'chair'],
+      ['die', 'Theke', 'counter'],
+      ['der', 'Barhocker', 'bar stool'],
+      ['die', 'Speisekarte', 'menu'],
+      ['die', 'Tasse', 'cup'],
+      ['der', 'Teller', 'plate'],
+      ['das', 'Glas', 'glass'],
+      ['das', 'Besteck', 'cutlery'],
+      ['der', 'Löffel', 'spoon'],
+      ['die', 'Gabel', 'fork'],
+      ['das', 'Messer', 'knife'],
+      ['der', 'Kaffee', 'coffee'],
+      ['der', 'Kuchen', 'cake'],
+      ['das', 'Croissant', 'croissant'],
+      ['die', 'Kasse', 'cash register / checkout'],
+      ['der', 'Gast', 'guest'],
+      ['die', 'Kellnerin', 'waitress'],
+      ['das', 'Fenster', 'window'],
+      ['die', 'Espressomaschine', 'espresso machine'],
+      ['der', 'Supermarkt', 'supermarket'],
+      ['der', 'Einkaufswagen', 'shopping cart'],
+      ['der', 'Einkaufskorb', 'shopping basket'],
+      ['die', 'Einkaufstasche', 'shopping bag'],
+      ['das', 'Kassenband', 'checkout conveyor belt'],
+      ['die', 'Kassenkraft', 'cashier'],
+      ['das', 'Regal', 'shelf'],
+      ['der', 'Gang', 'aisle / corridor'],
+      ['das', 'Brot', 'bread'],
+      ['die', 'Milch', 'milk'],
+      ['der', 'Käse', 'cheese'],
+      ['der', 'Apfel', 'apple'],
+      ['die', 'Banane', 'banana'],
+      ['die', 'Kartoffel', 'potato'],
+      ['die', 'Karotte', 'carrot'],
+      ['die', 'Flasche', 'bottle'],
+      ['das', 'Angebot', 'special offer'],
+      ['die', 'Schlange', 'queue / line'],
+      ['das', 'Geld', 'money'],
+      ['die', 'Tüte', 'bag / pouch'],
+      ['die', 'Dose', 'can / tin'],
+      ['der', 'Joghurt', 'yogurt'],
+      ['die', 'Tiefkühltruhe', 'chest freezer'],
+      ['die', 'Rezeption', 'reception'],
+      ['das', 'Zimmer', 'room'],
+      ['der', 'Schlüssel', 'key'],
+      ['die', 'Schlüsselkarte', 'key card'],
+      ['das', 'Bett', 'bed'],
+      ['der', 'Schrank', 'wardrobe / cabinet'],
+      ['das', 'Badezimmer', 'bathroom'],
+      ['die', 'Dusche', 'shower'],
+      ['das', 'Handtuch', 'towel'],
+      ['der', 'Spiegel', 'mirror'],
+      ['der', 'Kofferwagen', 'luggage cart'],
+      ['die', 'Rezeptionistin', 'female receptionist'],
+      ['die', 'Lampe', 'lamp'],
+      ['der', 'Nachttisch', 'nightstand'],
+      ['die', 'Minibar', 'minibar'],
+      ['die', 'Kneipe', 'pub / tavern'],
+      ['der', 'Tresen', 'bar counter'],
+      ['die', 'Zapfanlage', 'beer tap system'],
+      ['der', 'Bierkrug', 'beer mug'],
+      ['das', 'Bier', 'beer'],
+      ['der', 'Bierdeckel', 'beer coaster'],
+      ['die', 'Brezel', 'pretzel'],
+      ['die', 'Wurst', 'sausage'],
+      ['die', 'Getränkekarte', 'drink menu'],
+      ['der', 'Wirt', 'innkeeper / host'],
+      ['der', 'Stammtisch', 'regulars’ table'],
+      ['die', 'Kreidetafel', 'chalkboard'],
+      ['der', 'Hocker', 'stool'],
+      ['die', 'Serviette', 'napkin'],
+      ['der', 'Garderobenhaken', 'coat hook'],
+      ['der', 'Wochenmarkt', 'weekly market'],
+      ['der', 'Marktstand', 'market stall'],
+      ['die', 'Verkäuferin', 'female salesperson'],
+      ['der', 'Korb', 'basket'],
+      ['die', 'Waage', 'scale'],
+      ['die', 'Kiste', 'crate / box'],
+      ['die', 'Birne', 'pear'],
+      ['die', 'Tomate', 'tomato'],
+      ['die', 'Zwiebel', 'onion'],
+      ['die', 'Blume', 'flower'],
+      ['der', 'Blumenstrauß', 'bouquet of flowers'],
+      ['der', 'Preis', 'price'],
+      ['der', 'Sonnenschirm', 'parasol / sun umbrella'],
+      ['das', 'Zelt', 'tent'],
+      ['die', 'Traube', 'grape'],
+      ['der', 'Kürbis', 'pumpkin'],
+      ['die', 'Münze', 'coin'],
+      ['der', 'Flughafen', 'airport'],
+      ['das', 'Terminal', 'terminal'],
+      ['der', 'Check-in-Schalter', 'check-in counter'],
+      ['das', 'Gate', 'gate'],
+      ['die', 'Anzeige', 'display / screen'],
+      ['der', 'Abflug', 'departure'],
+      ['die', 'Ankunft', 'arrival'],
+      ['die', 'Sicherheitskontrolle', 'security check'],
+      ['die', 'Passkontrolle', 'passport control'],
+      ['die', 'Gepäckabgabe', 'baggage drop'],
+      ['das', 'Handgepäck', 'hand luggage'],
+      ['die', 'Bordkarte', 'boarding pass'],
+      ['der', 'Reisepass', 'passport'],
+      ['der', 'Gepäckwagen', 'luggage trolley'],
+      ['das', 'Flugzeug', 'airplane'],
+      ['der', 'Sitzplatz', 'seat'],
+      ['das', 'Förderband', 'conveyor belt'],
+      ['die', 'Küche', 'kitchen'],
+      ['der', 'Kühlschrank', 'refrigerator'],
+      ['der', 'Herd', 'stove'],
+      ['der', 'Backofen', 'oven'],
+      ['die', 'Spüle', 'kitchen sink'],
+      ['der', 'Wasserhahn', 'faucet / tap'],
+      ['die', 'Schublade', 'drawer'],
+      ['die', 'Arbeitsplatte', 'countertop'],
+      ['der', 'Topf', 'pot'],
+      ['die', 'Pfanne', 'pan'],
+      ['das', 'Schneidebrett', 'cutting board'],
+      ['der', 'Wasserkocher', 'electric kettle'],
+      ['das', 'Geschirrtuch', 'dish towel'],
+      ['die', 'Schüssel', 'bowl'],
+      ['der', 'Stadtpark', 'city park'],
+      ['der', 'Biergarten', 'beer garden'],
+      ['der', 'Baum', 'tree'],
+      ['die', 'Parkbank', 'park bench'],
+      ['der', 'Brunnen', 'fountain'],
+      ['der', 'Parkweg', 'park path'],
+      ['der', 'Spielplatz', 'playground'],
+      ['die', 'Schaukel', 'swing'],
+      ['die', 'Rutsche', 'slide'],
+      ['der', 'Parkplan', 'park map'],
+      ['der', 'Ball', 'ball'],
+      ['die', 'Decke', 'blanket / ceiling'],
+      ['die', 'Bäckerei', 'bakery'],
+      ['die', 'Bäckerin', 'female baker'],
+      ['der', 'Laib', 'loaf'],
+      ['das', 'Gebäck', 'pastry / baked goods'],
+      ['die', 'Auslage', 'display case'],
+      ['das', 'Backblech', 'baking sheet'],
+      ['der', 'Ofen', 'oven'],
+      ['das', 'Mehl', 'flour'],
+      ['der', 'Teig', 'dough'],
+      ['die', 'Zange', 'tongs'],
+      ['die', 'Papiertüte', 'paper bag'],
+      ['der', 'Kunde', 'customer'],
+      ['die', 'Apotheke', 'pharmacy'],
+      ['der', 'Apotheker', 'pharmacist'],
+      ['die', 'Apothekerin', 'female pharmacist'],
+      ['die', 'Tablette', 'tablet / pill'],
+      ['die', 'Packung', 'package / box'],
+      ['die', 'Salbe', 'ointment'],
+      ['das', 'Pflaster', 'band-aid / plaster'],
+      ['der', 'Verband', 'bandage'],
+      ['das', 'Thermometer', 'thermometer'],
+      ['die', 'Creme', 'cream'],
+      ['der', 'Hustensaft', 'cough syrup'],
+      ['die', 'Schachtel', 'cardboard box'],
+      ['das', 'Rezept', 'prescription'],
+      ['die', 'Kundin', 'female customer'],
+      ['der', 'Beipackzettel', 'package leaflet'],
+      ['die', 'Bushaltestelle', 'bus stop'],
+      ['die', 'Straßenbahnhaltestelle', 'tram stop'],
+      ['der', 'Bus', 'bus'],
+      ['die', 'Fahrerin', 'female driver'],
+      ['der', 'Fahrplan', 'timetable / schedule'],
+      ['die', 'Linie', 'transit line'],
+      ['die', 'Sitzbank', 'bench'],
+      ['das', 'Wartehäuschen', 'bus shelter'],
+      ['das', 'Dach', 'roof'],
+      ['der', 'Knopf', 'button'],
+      ['die', 'Haltestange', 'handrail'],
+      ['der', 'Kinderwagen', 'stroller'],
+      ['der', 'Regenschirm', 'umbrella'],
+      ['das', 'Wohnhaus', 'apartment building'],
+      ['das', 'Gebäude', 'building'],
+      ['die', 'Haustür', 'front door'],
+      ['die', 'Klingel', 'doorbell'],
+      ['der', 'Flur', 'hallway'],
+      ['das', 'Treppenhaus', 'stairwell'],
+      ['der', 'Balkon', 'balcony'],
+      ['die', 'Fußmatte', 'doormat'],
+      ['der', 'Hof', 'courtyard'],
+      ['die', 'Mülltonne', 'trash bin'],
+      ['die', 'Pflanze', 'plant'],
+      ['das', 'Paket', 'package / parcel'],
+      ['die', 'Ausstellung', 'exhibition'],
+      ['das', 'Bild', 'picture / painting'],
+      ['das', 'Gemälde', 'painting'],
+      ['der', 'Bilderrahmen', 'picture frame'],
+      ['die', 'Skulptur', 'sculpture'],
+      ['die', 'Statue', 'statue'],
+      ['der', 'Sockel', 'pedestal'],
+      ['die', 'Vitrine', 'display case'],
+      ['der', 'Text', 'text'],
+      ['die', 'Eintrittskarte', 'admission ticket'],
+      ['der', 'Saal', 'hall'],
+      ['die', 'Wand', 'wall'],
+      ['der', 'Boden', 'floor'],
+      ['der', 'Besucher', 'visitor'],
+      ['die', 'Besucherin', 'female visitor'],
+      ['der', 'Führer', 'guide'],
+      ['die', 'Führerin', 'female guide']
+    ];
+
+    // Standalone root nouns (Grundwörter) added to Level 1 so compound words unlock after their parts
+    const COMPOUND_ROOT_ENTRIES = [
+      ['das', 'Haus', 'house'],
+      ['die', 'Karte', 'card / ticket / map'],
+      ['der', 'Automat', 'machine / dispenser'],
+      ['die', 'Tafel', 'board / panel'],
+      ['der', 'Wagen', 'cart / car'],
+      ['das', 'Band', 'belt / ribbon'],
+      ['die', 'Kraft', 'worker / force'],
+      ['das', 'Tuch', 'cloth'],
+      ['der', 'Krug', 'mug / pitcher'],
+      ['der', 'Deckel', 'lid / coaster'],
+      ['die', 'Anlage', 'system / facility'],
+      ['der', 'Haken', 'hook'],
+      ['der', 'Stand', 'stand / booth'],
+      ['der', 'Strauß', 'bouquet'],
+      ['der', 'Schirm', 'umbrella / screen'],
+      ['der', 'Hafen', 'harbor / port'],
+      ['der', 'Schalter', 'counter / switch'],
+      ['die', 'Kontrolle', 'control / inspection'],
+      ['die', 'Abgabe', 'drop-off / submission'],
+      ['der', 'Pass', 'passport / pass'],
+      ['das', 'Zeug', 'stuff / gear'],
+      ['der', 'Platz', 'square / seat / place'],
+      ['der', 'Hahn', 'tap / rooster'],
+      ['die', 'Platte', 'plate / counter'],
+      ['das', 'Brett', 'board'],
+      ['der', 'Kocher', 'cooker / boiler'],
+      ['der', 'Garten', 'garden'],
+      ['der', 'Weg', 'path / way'],
+      ['der', 'Plan', 'plan / map'],
+      ['das', 'Blech', 'sheet metal / tray'],
+      ['der', 'Saft', 'juice'],
+      ['der', 'Zettel', 'note / slip of paper'],
+      ['die', 'Stange', 'pole / bar'],
+      ['die', 'Matte', 'mat'],
+      ['die', 'Tonne', 'bin / barrel'],
+      ['der', 'Rahmen', 'frame'],
+      ['der', 'Eimer', 'bucket'],
+      ['der', 'Kasten', 'box'],
+      ['die', 'Stelle', 'spot / stop'],
+      ['die', 'Zone', 'zone']
+    ];
+
+    // Compound word breakdown map: compoundWord -> { prefix, rootWord }
+    const COMPOUND_BREAKDOWNS = {
+      'Sonnenblume': { prefix: 'Sonnen', rootWord: 'Blume' },
+      'Krankenhaus': { prefix: 'Kranken', rootWord: 'Haus' },
+      'Wohnhaus': { prefix: 'Wohn', rootWord: 'Haus' },
+      'Treppenhaus': { prefix: 'Treppen', rootWord: 'Haus' },
+      'Wartehäuschen': { prefix: 'Warte', rootWord: 'Häuschen' },
+      'Fahrkarte': { prefix: 'Fahr', rootWord: 'Karte' },
+      'Speisekarte': { prefix: 'Speise', rootWord: 'Karte' },
+      'Getränkekarte': { prefix: 'Getränke', rootWord: 'Karte' },
+      'Schlüsselkarte': { prefix: 'Schlüssel', rootWord: 'Karte' },
+      'Bordkarte': { prefix: 'Bord', rootWord: 'Karte' },
+      'Eintrittskarte': { prefix: 'Eintritts', rootWord: 'Karte' },
+      'Fahrkartenautomat': { prefix: 'Fahrkarten', rootWord: 'Automat' },
+      'Abfahrtstafel': { prefix: 'Abfahrts', rootWord: 'Tafel' },
+      'Kreidetafel': { prefix: 'Kreide', rootWord: 'Tafel' },
+      'Einkaufswagen': { prefix: 'Einkaufs', rootWord: 'Wagen' },
+      'Kofferwagen': { prefix: 'Koffer', rootWord: 'Wagen' },
+      'Gepäckwagen': { prefix: 'Gepäck', rootWord: 'Wagen' },
+      'Kinderwagen': { prefix: 'Kinder', rootWord: 'Wagen' },
+      'Kassenband': { prefix: 'Kassen', rootWord: 'Band' },
+      'Förderband': { prefix: 'Förder', rootWord: 'Band' },
+      'Kassenkraft': { prefix: 'Kassen', rootWord: 'Kraft' },
+      'Handtuch': { prefix: 'Hand', rootWord: 'Tuch' },
+      'Geschirrtuch': { prefix: 'Geschirr', rootWord: 'Tuch' },
+      'Bierkrug': { prefix: 'Bier', rootWord: 'Krug' },
+      'Bierdeckel': { prefix: 'Bier', rootWord: 'Deckel' },
+      'Zapfanlage': { prefix: 'Zapf', rootWord: 'Anlage' },
+      'Garderobenhaken': { prefix: 'Garderoben', rootWord: 'Haken' },
+      'Marktstand': { prefix: 'Markt', rootWord: 'Stand' },
+      'Blumenstrauß': { prefix: 'Blumen', rootWord: 'Strauß' },
+      'Sonnenschirm': { prefix: 'Sonnen', rootWord: 'Schirm' },
+      'Regenschirm': { prefix: 'Regen', rootWord: 'Schirm' },
+      'Flughafen': { prefix: 'Flug', rootWord: 'Hafen' },
+      'Check-in-Schalter': { prefix: 'Check-in-', rootWord: 'Schalter' },
+      'Sicherheitskontrolle': { prefix: 'Sicherheits', rootWord: 'Kontrolle' },
+      'Passkontrolle': { prefix: 'Pass', rootWord: 'Kontrolle' },
+      'Gepäckabgabe': { prefix: 'Gepäck', rootWord: 'Abgabe' },
+      'Reisepass': { prefix: 'Reise', rootWord: 'Pass' },
+      'Flugzeug': { prefix: 'Flug', rootWord: 'Zeug' },
+      'Sitzplatz': { prefix: 'Sitz', rootWord: 'Platz' },
+      'Spielplatz': { prefix: 'Spiel', rootWord: 'Platz' },
+      'Wasserhahn': { prefix: 'Wasser', rootWord: 'Hahn' },
+      'Arbeitsplatte': { prefix: 'Arbeits', rootWord: 'Platte' },
+      'Schneidebrett': { prefix: 'Schneide', rootWord: 'Brett' },
+      'Wasserkocher': { prefix: 'Wasser', rootWord: 'Kocher' },
+      'Biergarten': { prefix: 'Bier', rootWord: 'Garten' },
+      'Parkweg': { prefix: 'Park', rootWord: 'Weg' },
+      'Parkplan': { prefix: 'Park', rootWord: 'Plan' },
+      'Fahrplan': { prefix: 'Fahr', rootWord: 'Plan' },
+      'Backblech': { prefix: 'Back', rootWord: 'Blech' },
+      'Hustensaft': { prefix: 'Husten', rootWord: 'Saft' },
+      'Beipackzettel': { prefix: 'Beipack', rootWord: 'Zettel' },
+      'Haltestange': { prefix: 'Halte', rootWord: 'Stange' },
+      'Fußmatte': { prefix: 'Fuß', rootWord: 'Matte' },
+      'Mülltonne': { prefix: 'Müll', rootWord: 'Tonne' },
+      'Bilderrahmen': { prefix: 'Bilder', rootWord: 'Rahmen' },
+      'Mülleimer': { prefix: 'Müll', rootWord: 'Eimer' },
+      'Briefkasten': { prefix: 'Brief', rootWord: 'Kasten' },
+      'Haltestelle': { prefix: 'Halte', rootWord: 'Stelle' },
+      'Bushaltestelle': { prefix: 'Bus', rootWord: 'Haltestelle' },
+      'Straßenbahnhaltestelle': { prefix: 'Straßenbahn', rootWord: 'Haltestelle' },
+      'Fußgängerzone': { prefix: 'Fußgänger', rootWord: 'Zone' },
+      'Schaufenster': { prefix: 'Schau', rootWord: 'Fenster' },
+      'Gleisschild': { prefix: 'Gleis', rootWord: 'Schild' },
+      'Barhocker': { prefix: 'Bar', rootWord: 'Hocker' },
+      'Einkaufskorb': { prefix: 'Einkaufs', rootWord: 'Korb' },
+      'Einkaufstasche': { prefix: 'Einkaufs', rootWord: 'Tasche' },
+      'Badezimmer': { prefix: 'Bade', rootWord: 'Zimmer' },
+      'Nachttisch': { prefix: 'Nacht', rootWord: 'Tisch' },
+      'Stammtisch': { prefix: 'Stamm', rootWord: 'Tisch' },
+      'Wochenmarkt': { prefix: 'Wochen', rootWord: 'Markt' },
+      'Handgepäck': { prefix: 'Hand', rootWord: 'Gepäck' },
+      'Kühlschrank': { prefix: 'Kühl', rootWord: 'Schrank' },
+      'Backofen': { prefix: 'Back', rootWord: 'Ofen' },
+      'Stadtpark': { prefix: 'Stadt', rootWord: 'Park' },
+      'Parkbank': { prefix: 'Park', rootWord: 'Bank' },
+      'Sitzbank': { prefix: 'Sitz', rootWord: 'Bank' },
+      'Papiertüte': { prefix: 'Papier', rootWord: 'Tüte' },
+      'Haustür': { prefix: 'Haus', rootWord: 'Tür' },
+      'Bahnhof': { prefix: 'Bahn', rootWord: 'Hof' }
+    };
+
+    const LEVEL_DEFINITIONS = {
+      nouns: [],
+      case: [
+        { id: 1, title: 'Pack 1 · Core' },
+        { id: 2, title: 'Pack 2 · Extended' }
+      ]
+    };
+
+    (() => {
+      // Assign Case packs
+      VOCAB_DATA.forEach(w => {
+        if (w.domain === 'case') {
+          w.level = ['sehen', 'haben', 'für', 'ohne', 'brauchen', 'suchen', 'helfen', 'mit', 'aus', 'danken', 'bei', 'nach', 'von', 'zu'].includes(w.word) ? 1 : 2;
+        }
+      });
+
+      const existingNounKeys = new Set(
+        VOCAB_DATA.filter(w => w.domain === 'nouns').map(w => `${w.trait}:${w.word.toLowerCase()}`)
+      );
+
+      // Add standalone compound root nouns
+      COMPOUND_ROOT_ENTRIES.forEach(([trait, word, meaning], idx) => {
+        const key = `${trait}:${word.toLowerCase()}`;
+        if (existingNounKeys.has(key)) return;
+        existingNounKeys.add(key);
+        const slug = word.toLowerCase()
+          .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+          .replace(/[^a-z0-9]+/g, '-');
+        VOCAB_DATA.push({
+          id: `vocab.root.${slug}.${idx}`,
+          domain: 'nouns',
+          pos: 'noun',
+          word,
+          trait,
+          meaning,
+          isRoot: true,
+          initialScore: 0
+        });
+      });
+
+      // Add deduplicated scene nouns
+      SCENE_NOUN_ENTRIES.forEach(([trait, word, meaning], idx) => {
+        const key = `${trait}:${word.toLowerCase()}`;
+        if (existingNounKeys.has(key)) return;
+        existingNounKeys.add(key);
+        const slug = word.toLowerCase()
+          .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+          .replace(/[^a-z0-9]+/g, '-');
+        VOCAB_DATA.push({
+          id: `vocab.scene.${slug}.${idx}`,
+          domain: 'nouns',
+          pos: 'noun',
+          word,
+          trait,
+          meaning,
+          initialScore: 0
+        });
+      });
+
+      // Link each compound word to its root word ID & split metadata
+      const nounByWordLower = new Map();
+      VOCAB_DATA.filter(w => w.domain === 'nouns').forEach(w => {
+        nounByWordLower.set(w.word.toLowerCase(), w);
+      });
+
+      VOCAB_DATA.forEach(w => {
+        if (w.domain !== 'nouns') return;
+        const spec = COMPOUND_BREAKDOWNS[w.word];
+        if (spec) {
+          const rootObj = nounByWordLower.get(spec.rootWord.toLowerCase());
+          w.compound = {
+            prefix: spec.prefix,
+            rootWord: spec.rootWord,
+            rootTrait: rootObj ? rootObj.trait : w.trait,
+            rootId: rootObj ? rootObj.id : null
+          };
+        }
+      });
+
+      // Partition all Noun Gender words into balanced ~18-word interleaved packs (~6 der + 6 die + 6 das),
+      // ensuring standalone root nouns are placed in earlier packs than the compound nouns that depend on them.
+      const allNouns = VOCAB_DATA.filter(w => w.domain === 'nouns');
+      const rootWordSet = new Set(
+        Object.values(COMPOUND_BREAKDOWNS).map(spec => spec.rootWord.toLowerCase())
+      );
+
+      const prioritySort = (a, b) => {
+        const aIsRoot = rootWordSet.has(a.word.toLowerCase()) ? 0 : 1;
+        const bIsRoot = rootWordSet.has(b.word.toLowerCase()) ? 0 : 1;
+        if (aIsRoot !== bIsRoot) return aIsRoot - bIsRoot;
+        const aIsComp = a.compound ? 1 : 0;
+        const bIsComp = b.compound ? 1 : 0;
+        if (aIsComp !== bIsComp) return aIsComp - bIsComp;
+        return 0;
+      };
+
+      const derPool = allNouns.filter(w => w.trait === 'der').sort(prioritySort);
+      const diePool = allNouns.filter(w => w.trait === 'die').sort(prioritySort);
+      const dasPool = allNouns.filter(w => w.trait === 'das').sort(prioritySort);
+
+      const PER_TRAIT_PER_PACK = 6; // 6 der + 6 die + 6 das = 18 words per pack
+      const totalPacks = Math.max(
+        Math.ceil(derPool.length / PER_TRAIT_PER_PACK),
+        Math.ceil(diePool.length / PER_TRAIT_PER_PACK),
+        Math.ceil(dasPool.length / PER_TRAIT_PER_PACK)
+      );
+
+      for (let p = 0; p < totalPacks; p++) {
+        const packId = p + 1;
+        const sliceStart = p * PER_TRAIT_PER_PACK;
+        const sliceEnd = sliceStart + PER_TRAIT_PER_PACK;
+        derPool.slice(sliceStart, sliceEnd).forEach(w => { w.level = packId; });
+        diePool.slice(sliceStart, sliceEnd).forEach(w => { w.level = packId; });
+        dasPool.slice(sliceStart, sliceEnd).forEach(w => { w.level = packId; });
+        LEVEL_DEFINITIONS.nouns.push({
+          id: packId,
+          title: `Pack ${packId}`
+        });
+      }
+
+      // Guarantee every compound sits in a strictly higher pack number than its root noun
+      allNouns.forEach(w => {
+        if (w.compound && w.compound.rootId) {
+          const rootObj = VOCAB_DATA.find(item => item.id === w.compound.rootId);
+          if (rootObj && w.level <= rootObj.level) {
+            w.level = Math.min(totalPacks, rootObj.level + 1);
+          }
+        }
+      });
+    })();
+
+    // Visual styling tokens per grammatical trait (Blue=Masc, Red=Fem, Green=Neut, Green=Akk, Blue=Dat)
+    const TRAIT_STYLES = {
+      'der': {
+        badgeBg: 'bg-sky-600 text-white',
+        headerBg: 'bg-sky-50 border-sky-200',
+        colTint: 'bg-sky-50/35 border-sky-300',
+        titleText: 'text-sky-900',
+        subLabel: 'Masculine',
+        cardRevealBg: 'bg-sky-50 border-sky-300 text-sky-950',
+        cardInvertedBg: 'bg-sky-600 border-sky-700 text-white',
+        badgeInvertedBg: 'bg-white text-sky-700'
+      },
+      'die': {
+        badgeBg: 'bg-rose-600 text-white',
+        headerBg: 'bg-rose-50 border-rose-200',
+        colTint: 'bg-rose-50/35 border-rose-300',
+        titleText: 'text-rose-900',
+        subLabel: 'Feminine',
+        cardRevealBg: 'bg-rose-50 border-rose-300 text-rose-950',
+        cardInvertedBg: 'bg-rose-600 border-rose-700 text-white',
+        badgeInvertedBg: 'bg-white text-rose-700'
+      },
+      'das': {
+        badgeBg: 'bg-emerald-600 text-white',
+        headerBg: 'bg-emerald-50 border-emerald-200',
+        colTint: 'bg-emerald-50/35 border-emerald-300',
+        titleText: 'text-emerald-900',
+        subLabel: 'Neuter',
+        cardRevealBg: 'bg-emerald-50 border-emerald-300 text-emerald-950',
+        cardInvertedBg: 'bg-emerald-600 border-emerald-700 text-white',
+        badgeInvertedBg: 'bg-white text-emerald-700'
+      },
+      'Akk': {
+        badgeBg: 'bg-emerald-600 text-white',
+        headerBg: 'bg-emerald-50 border-emerald-200',
+        colTint: 'bg-emerald-50/35 border-emerald-300',
+        titleText: 'text-emerald-900',
+        subLabel: 'Accusative',
+        cardRevealBg: 'bg-emerald-50 border-emerald-300 text-emerald-950',
+        cardInvertedBg: 'bg-emerald-600 border-emerald-700 text-white',
+        badgeInvertedBg: 'bg-white text-emerald-700'
+      },
+      'Dat': {
+        badgeBg: 'bg-sky-600 text-white',
+        headerBg: 'bg-sky-50 border-sky-200',
+        colTint: 'bg-sky-50/35 border-sky-300',
+        titleText: 'text-sky-900',
+        subLabel: 'Dative',
+        cardRevealBg: 'bg-sky-50 border-sky-300 text-sky-950',
+        cardInvertedBg: 'bg-sky-600 border-sky-700 text-white',
+        badgeInvertedBg: 'bg-white text-sky-700'
+      }
+    };
+
+    const DOMAIN_CONFIG = {
+      nouns: { label: 'Gender', traits: ['der', 'die', 'das'] },
+      case: { label: 'Case', traits: ['Akk', 'Dat'] }
+    };
+
+    // =========================================================================
+    // 2. PERSISTENT STATE, MULTI-PACK SELECTION & COMPOUND GATING ENGINE
+    // =========================================================================
+    const STORAGE_KEY = 'wortmatch_sort_pwa_v4';
+    const MAX_SCORE = 8;
+    const GRADUATION_RATIO = 0.75; // 75% Learned (score >= 3) marks a pack complete
+
+    let appState = {
+      domain: 'nouns',          // 'nouns' | 'case'
+      selectedPacks: {
+        nouns: [1],
+        case: [1]
+      },
+      learnedCount: 2,          // 1..3
+      masteredCount: 2,         // 1..3
+      soundEnabled: true,
+      speechEnabled: true,
+      streak: 0,
+      bestStreak: 0,
+      scores: {},               // { [wordId]: number (0..8) }
+      seenCombinations: []      // Array of sorted ID strings
+    };
+
+    let currentRound = null;
+    let isChecked = false;
+    let bankFilter = 'all';
+    let activeScreen = 'intro'; // 'intro' | 'sprint' | 'game'
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          appState = {
+            ...appState,
+            ...parsed,
+            selectedPacks: { ...appState.selectedPacks, ...(parsed.selectedPacks || {}) }
+          };
+        }
+      } catch (e) {
+        console.warn('Could not load saved state:', e);
+      }
+
+      if (!DOMAIN_CONFIG[appState.domain]) {
+        appState.domain = 'nouns';
+      }
+
+      ['nouns', 'case'].forEach(dom => {
+        if (!Array.isArray(appState.selectedPacks[dom]) || appState.selectedPacks[dom].length === 0) {
+          appState.selectedPacks[dom] = [1];
+        }
+      });
+
+      VOCAB_DATA.forEach(item => {
+        if (typeof appState.scores[item.id] !== 'number') {
+          appState.scores[item.id] = 0;
+        }
+      });
+      saveState();
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+      } catch (e) {
+        console.warn('Could not save state:', e);
+      }
+    }
+
+    function getTier(score) {
+      if (score >= 6) return 'mastered';
+      if (score >= 3) return 'learned';
+      return 'learning';
+    }
+
+    function isCompoundUnlocked(wordObj) {
+      if (!wordObj || !wordObj.compound || !wordObj.compound.rootId) return true;
+      const rootScore = appState.scores[wordObj.compound.rootId] ?? 0;
+      return rootScore >= 3; // Root must reach Learned tier first
+    }
+
+    function getLevelStats(domain, levelId) {
+      const items = VOCAB_DATA.filter(w => w.domain === domain && w.level === levelId);
+      const learnedOrBetter = items.filter(w => (appState.scores[w.id] ?? 0) >= 3).length;
+      const ratio = items.length > 0 ? learnedOrBetter / items.length : 1;
+      return {
+        total: items.length,
+        learnedOrBetter,
+        ratio,
+        graduated: ratio >= GRADUATION_RATIO
+      };
+    }
+
+    function getSelectedPackSet(domain) {
+      const list = appState.selectedPacks[domain];
+      return new Set(Array.isArray(list) && list.length > 0 ? list : [1]);
+    }
+
+    function getActiveWorkingPool(domain) {
+      const packSet = getSelectedPackSet(domain);
+      return VOCAB_DATA.filter(w => {
+        if (w.domain !== domain) return false;
+        if (!packSet.has(w.level)) return false;
+        return isCompoundUnlocked(w);
+      });
+    }
+
+    function needsBootstrapSprint(domain) {
+      const pool = getActiveWorkingPool(domain);
+      const traits = DOMAIN_CONFIG[domain].traits;
+      const learnedOrMasteredCount = pool.filter(w => (appState.scores[w.id] ?? 0) >= 3).length;
+      const requiredAnchors = appState.learnedCount + appState.masteredCount;
+      const traitsWithLearned = traits.filter(t =>
+        pool.some(w => w.trait === t && (appState.scores[w.id] ?? 0) >= 3)
+      ).length;
+      return learnedOrMasteredCount < requiredAnchors || traitsWithLearned < 2;
+    }
+
+    // =========================================================================
+    // 3. WEB AUDIO SYNTHESIZER & iOS SAFARI-SAFE GERMAN PRONUNCIATION
+    // =========================================================================
+    let audioCtx = null;
+    let cachedGermanVoice = null;
+    let cachedEnglishVoice = null;
+    let speechUnlocked = false;
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      resolveVoices();
+
+      // iOS Safari requires a synchronous speak() inside a user gesture to unlock
+      // speechSynthesis for subsequent onend-chained or timed announcements.
+      if (!speechUnlocked && 'speechSynthesis' in window) {
+        try {
+          const primer = new SpeechSynthesisUtterance('');
+          primer.volume = 0;
+          window.speechSynthesis.speak(primer);
+          speechUnlocked = true;
+        } catch (e) {
+          // Ignore if blocked; next direct tap will retry
+        }
+      }
+    }
+
+    function resolveVoices() {
+      if (!('speechSynthesis' in window)) return;
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices || voices.length === 0) return;
+
+      const deVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('de'));
+      cachedGermanVoice =
+        deVoices.find(v => v.lang === 'de-DE' && /anna|helena|martin|yannick/i.test(v.name)) ||
+        deVoices.find(v => v.lang === 'de-DE') ||
+        deVoices[0] ||
+        cachedGermanVoice;
+
+      const enVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+      cachedEnglishVoice =
+        enVoices.find(v => v.lang === 'en-US' && /samantha|alex|daniel/i.test(v.name)) ||
+        enVoices.find(v => v.lang === 'en-US') ||
+        enVoices.find(v => v.lang === 'en-GB') ||
+        enVoices[0] ||
+        cachedEnglishVoice;
+    }
+
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = resolveVoices;
+    }
+
+    function playSound(type) {
+      if (!appState.soundEnabled) return;
+      initAudio();
+      if (!audioCtx) return;
+
+      const now = audioCtx.currentTime;
+
+      if (type === 'sort') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(340, now);
+        osc.frequency.exponentialRampToValueAtTime(520, now + 0.08);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.095);
+      } else if (type === 'correct') {
+        [523.25, 659.25, 783.99].forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+          gain.gain.setValueAtTime(0.11, now + idx * 0.06);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.25);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + idx * 0.06);
+          osc.stop(now + idx * 0.06 + 0.26);
+        });
+      } else if (type === 'wrong') {
+        [230, 175].forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.09);
+          gain.gain.setValueAtTime(0.08, now + idx * 0.09);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.09 + 0.22);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + idx * 0.09);
+          osc.stop(now + idx * 0.09 + 0.23);
+        });
+      }
+    }
+
+    function stopSpeech() {
+      if ('speechSynthesis' in window) {
+        if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+          window.speechSynthesis.cancel();
+        }
+      }
+    }
+
+    function speakText(text, onDone, langCode = 'de-DE') {
+      if (!appState.speechEnabled || !('speechSynthesis' in window) || !text) {
+        if (onDone) onDone();
+        return;
+      }
+
+      // Only cancel when speech is actively running/queued; calling cancel() while
+      // idle on iOS Safari can swallow the immediately following speak() call.
+      if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+        window.speechSynthesis.cancel();
+      }
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      resolveVoices();
+
+      if (langCode.toLowerCase().startsWith('en')) {
+        if (cachedEnglishVoice) utterance.voice = cachedEnglishVoice;
+        utterance.lang = cachedEnglishVoice?.lang || 'en-US';
+        utterance.rate = 1.02;
+      } else {
+        if (cachedGermanVoice) utterance.voice = cachedGermanVoice;
+        utterance.lang = cachedGermanVoice?.lang || 'de-DE';
+        utterance.rate = 0.96;
+      }
+
+      let finished = false;
+      const finishOnce = () => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(fallbackTimer);
+        if (onDone) onDone();
+      };
+
+      utterance.onend = finishOnce;
+      utterance.onerror = finishOnce;
+      // Fallback timer in case iOS Safari never fires onend
+      const fallbackTimer = setTimeout(finishOnce, Math.max(1800, text.length * 85));
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function formatSpokenPhrase(wordObj, includeArticle) {
+      if (includeArticle && wordObj.pos === 'noun' && ['der', 'die', 'das'].includes(wordObj.trait)) {
+        return `${wordObj.trait} ${wordObj.word}`;
+      }
+      if (includeArticle && wordObj.domain === 'case') {
+        const caseLabel = TRAIT_STYLES[wordObj.trait]?.subLabel || wordObj.trait;
+        return `${caseLabel}: ${wordObj.word}`;
+      }
+      return wordObj.word;
+    }
+
+    function speakGermanWord(wordObj, includeArticle = false, onDone = null) {
+      const phrase = formatSpokenPhrase(wordObj, includeArticle);
+      speakText(phrase, onDone, 'de-DE');
+    }
+
+    function speakEnglishDefinition(text, onDone = null) {
+      speakText(text, onDone, 'en-US');
+    }
+
+    // =========================================================================
+    // 4. ROUND GENERATION WITH COMBINATION DEDUPLICATION & LEVEL POOLS
+    // =========================================================================
+    function shuffleArray(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function pickRandom(pool, excludeIds = new Set()) {
+      const filtered = pool.filter(item => !excludeIds.has(item.id));
+      if (filtered.length === 0) return null;
+      return filtered[Math.floor(Math.random() * filtered.length)];
+    }
+
+    function generateRound() {
+      const packSet = getSelectedPackSet(appState.domain);
+      const packLabel = packSet.size === 1 ? `Pack ${[...packSet][0]}` : `${packSet.size} Packs`;
+      const domainItems = getActiveWorkingPool(appState.domain);
+      const traits = DOMAIN_CONFIG[appState.domain].traits;
+      const seenSet = new Set(appState.seenCombinations);
+
+      // Prefer Learning words from the active selected packs
+      const getBucket = (tier, trait) => {
+        const tierAndTrait = domainItems.filter(w => w.trait === trait && getTier(appState.scores[w.id]) === tier);
+        if (tierAndTrait.length > 0) return tierAndTrait;
+        const anyScoreInTrait = domainItems.filter(w => w.trait === trait);
+        return anyScoreInTrait.length > 0
+          ? anyScoreInTrait
+          : VOCAB_DATA.filter(w => w.domain === appState.domain && w.trait === trait);
+      };
+
+      let bestRound = null;
+      let isUnique = false;
+
+      // Try up to 25 attempts to avoid repeating exact word sets
+      for (let attempt = 0; attempt < 25; attempt++) {
+        // Pick 2 distinct traits for Left and Right columns
+        const shuffledTraits = shuffleArray(traits);
+        const leftTrait = shuffledTraits[0];
+        const rightTrait = shuffledTraits[1];
+        const pairTraits = [leftTrait, rightTrait];
+
+        const usedIds = new Set();
+
+        // 1 Learning Anchor for Left Column, 1 Learning Anchor for Right Column
+        const leftAnchor = pickRandom(getBucket('learning', leftTrait), usedIds);
+        if (leftAnchor) usedIds.add(leftAnchor.id);
+
+        const rightAnchor = pickRandom(getBucket('learning', rightTrait), usedIds);
+        if (rightAnchor) usedIds.add(rightAnchor.id);
+
+        const sortableWords = [];
+
+        // Add N Learned words with independent random column assignment
+        for (let i = 0; i < appState.learnedCount; i++) {
+          const targetTrait = pairTraits[Math.floor(Math.random() * 2)];
+          const w = pickRandom(getBucket('learned', targetTrait), usedIds);
+          if (w) {
+            usedIds.add(w.id);
+            sortableWords.push({
+              ...w,
+              displayTier: 'learned',
+              assignedSide: null, // null | 'left' | 'right'
+              isCorrect: null,
+              movedFromSide: null
+            });
+          }
+        }
+
+        // Add M Mastered words with independent random column assignment
+        for (let i = 0; i < appState.masteredCount; i++) {
+          const targetTrait = pairTraits[Math.floor(Math.random() * 2)];
+          const w = pickRandom(getBucket('mastered', targetTrait), usedIds);
+          if (w) {
+            usedIds.add(w.id);
+            sortableWords.push({
+              ...w,
+              displayTier: 'mastered',
+              assignedSide: null,
+              isCorrect: null,
+              movedFromSide: null
+            });
+          }
+        }
+
+        const allIds = [leftAnchor?.id, rightAnchor?.id, ...sortableWords.map(w => w.id)].filter(Boolean).sort();
+        const comboKey = allIds.join('|');
+
+        bestRound = {
+          leftTrait,
+          rightTrait,
+          leftAnchor,
+          rightAnchor,
+          items: shuffleArray(sortableWords),
+          comboKey
+        };
+
+        if (!seenSet.has(comboKey)) {
+          isUnique = true;
+          break;
+        }
+      }
+
+      if (bestRound && !seenSet.has(bestRound.comboKey)) {
+        appState.seenCombinations.push(bestRound.comboKey);
+        if (appState.seenCombinations.length > 400) {
+          appState.seenCombinations.shift();
+        }
+        saveState();
+      }
+
+      document.getElementById('combo-pool-status').textContent = isUnique
+        ? `${packLabel} · Unique`
+        : `${packLabel} · Recycled`;
+
+      return bestRound;
+    }
+
+    // =========================================================================
+    // 4B. BOOTSTRAP SPRINT ENGINE (RAPID COLD-START TIER SEEDING)
+    // =========================================================================
+    const elSprintScreen = document.getElementById('sprint-screen');
+    let sprintState = null;
+
+    function startBootstrapSprint() {
+      const domain = appState.domain;
+      const pool = getActiveWorkingPool(domain);
+
+      // Run through unlearned words in the selected packs (or all words in selected packs if already learned)
+      const unlearnedInSelection = shuffleArray(pool.filter(w => (appState.scores[w.id] ?? 0) < 3));
+      const queue = unlearnedInSelection.length > 0 ? unlearnedInSelection : shuffleArray(pool);
+
+      sprintState = {
+        queue,
+        index: 0,
+        seededCount: 0,
+        locked: false
+      };
+
+      showScreen('sprint');
+      renderSprintCard();
+    }
+
+    function renderSprintCard() {
+      if (!sprintState || sprintState.index >= sprintState.queue.length) {
+        // Sprint finished: jump directly into the Sorting Game!
+        showScreen('game');
+        return;
+      }
+
+      const wordObj = sprintState.queue[sprintState.index];
+      const cardEl = document.getElementById('sprint-card');
+      cardEl.className = 'w-full max-w-[320px] bg-white rounded-3xl border-2 border-zinc-200 shadow-card p-6 text-center space-y-2 transition-all';
+
+      document.getElementById('sprint-counter').textContent = `${sprintState.index + 1} / ${sprintState.queue.length}`;
+      document.getElementById('sprint-level-tag').textContent = `Pack ${wordObj.level}`;
+      document.getElementById('sprint-word').textContent = wordObj.word;
+
+      // Intro TTS only: pronounce just the word without its article/case pill
+      speakGermanWord(wordObj, false);
+
+      const fb = document.getElementById('sprint-feedback-line');
+      fb.textContent = '—';
+      fb.className = 'h-5 text-xs font-bold text-transparent transition-colors';
+
+      const traits = DOMAIN_CONFIG[appState.domain].traits;
+      const btnContainer = document.getElementById('sprint-buttons');
+      btnContainer.className = traits.length === 2 ? 'grid grid-cols-2 gap-2.5' : 'grid grid-cols-3 gap-2';
+
+      btnContainer.innerHTML = traits.map(trait => {
+        const st = TRAIT_STYLES[trait];
+        return `
+          <button type="button" data-sprint-trait="${trait}" class="py-3.5 px-2 rounded-2xl border-2 ${st.headerBg} active:scale-95 transition flex flex-col items-center justify-center shadow-xs">
+            <span class="px-2 py-0.5 rounded-md text-xs font-extrabold ${st.badgeBg}">${trait}</span>
+            <span class="text-[11px] font-bold ${st.titleText} mt-1">${st.subLabel}</span>
+          </button>
+        `;
+      }).join('');
+
+      btnContainer.querySelectorAll('[data-sprint-trait]').forEach(btn => {
+        btn.addEventListener('click', () => handleSprintChoice(btn.dataset.sprintTrait));
+      });
+    }
+
+    function handleSprintChoice(chosenTrait) {
+      if (!sprintState || sprintState.locked) return;
+      sprintState.locked = true;
+      initAudio();
+
+      const wordObj = sprintState.queue[sprintState.index];
+      const isDontKnow = chosenTrait === null;
+      const isRight = !isDontKnow && chosenTrait === wordObj.trait;
+      const st = TRAIT_STYLES[wordObj.trait];
+      const cardEl = document.getElementById('sprint-card');
+      const fb = document.getElementById('sprint-feedback-line');
+
+      if (isRight) {
+        // Seed directly into Learned tier (score >= 3)
+        const prev = appState.scores[wordObj.id] ?? 0;
+        appState.scores[wordObj.id] = Math.min(MAX_SCORE, Math.max(3, prev + 3));
+        sprintState.seededCount++;
+        playSound('correct');
+        cardEl.className = `w-full max-w-[320px] rounded-3xl border-2 ${st.cardRevealBg} shadow-card p-6 text-center space-y-2 transition-all`;
+        fb.textContent = `✓ ${wordObj.trait} ${wordObj.word} → Learned`;
+        fb.className = `h-5 text-xs font-extrabold ${st.titleText}`;
+      } else if (isDontKnow) {
+        // Keep in Learning tier (score 0) without wrong-answer buzzer
+        appState.scores[wordObj.id] = 0;
+        playSound('sort');
+        cardEl.className = `w-full max-w-[320px] rounded-3xl border-2 ${st.cardRevealBg} shadow-card p-6 text-center space-y-2 transition-all`;
+        fb.textContent = `${wordObj.trait} ${wordObj.word} → Learning`;
+        fb.className = `h-5 text-xs font-extrabold ${st.titleText}`;
+      } else {
+        // Keep in Learning tier (score 0) so it becomes a color-coded anchor
+        appState.scores[wordObj.id] = 0;
+        playSound('wrong');
+        cardEl.className = `w-full max-w-[320px] rounded-3xl border-2 ${st.cardRevealBg} shadow-card p-6 text-center space-y-2 transition-all`;
+        fb.textContent = `✗ ${wordObj.trait} ${wordObj.word} → Anchor`;
+        fb.className = 'h-5 text-xs font-extrabold text-rose-600';
+      }
+
+      saveState();
+      updateHeaderAndLegend();
+
+      setTimeout(() => {
+        if (!sprintState) return;
+        sprintState.index++;
+        sprintState.locked = false;
+        renderSprintCard();
+      }, 650);
+    }
+
+    // =========================================================================
+    // 5. SCREEN MANAGEMENT, BOARD RENDERING & TOUCH SWIPE PHYSICS
+    // =========================================================================
+    const elIntroScreen = document.getElementById('intro-screen');
+    const elGameScreen = document.getElementById('game-screen');
+
+    const elColLeft = document.getElementById('col-left');
+    const elColRight = document.getElementById('col-right');
+    const elColLeftHeader = document.getElementById('col-left-header');
+    const elColRightHeader = document.getElementById('col-right-header');
+    const elColLeftItems = document.getElementById('col-left-items');
+    const elColRightItems = document.getElementById('col-right-items');
+    const elUnsortedSection = document.getElementById('unsorted-section');
+    const elUnsortedQueue = document.getElementById('unsorted-queue');
+    const elPrimaryBtn = document.getElementById('btn-primary-action');
+    const elPrimaryLabel = document.getElementById('btn-primary-label');
+
+    // Translation popover elements
+    const elTransPopover = document.getElementById('translation-popover');
+    const elTransCard = document.getElementById('translation-card');
+    let transHideTimer = null;
+    let transOpenedAt = 0;
+    let transSpeechDone = true;
+    let anchorIntroRunId = 0;
+    let revealSequenceRunId = 0;
+    let highlightedSide = null; // null | 'left' | 'right'
+    let highlightedWordId = null; // word id currently highlighted during Answer Mode TTS
+
+    // User-friendly definitions: canonical gloss + clear everyday or scene context
+    const RICH_DEFINITIONS = {
+      // Core Nouns (nouns-gender.md)
+      'Zeitung': 'Newspaper — daily printed or digital news publication (e.g., read at a café).',
+      'Wohnung': 'Apartment — a flat or living unit inside an apartment building.',
+      'Rechnung': 'Bill / invoice — itemized check for food, drinks, or services.',
+      'Meinung': 'Opinion — a personal view, belief, or judgment on a topic.',
+      'Prüfung': 'Exam / test — a formal school, university, or practical test.',
+      'Gesundheit': 'Health — physical and mental well-being; also said after a sneeze.',
+      'Freundlichkeit': 'Friendliness — warm, polite, and welcoming behavior.',
+      'Mannschaft': 'Team — a sports squad or organized crew working together.',
+      'Tradition': 'Tradition — a custom or practice passed down across generations.',
+      'Sonnenblume': 'Sunflower — a tall plant with a large bright yellow flower.',
+      'Aktion': 'Action / special offer — an active campaign or limited-time store discount.',
+      'Bedeutung': 'Meaning — the sense or significance of a word, sign, or event.',
+      'Bewegung': 'Movement — physical motion, exercise, or an organized campaign.',
+      'Botschaft': 'Message — an important spoken or written communication; also an embassy.',
+      'Diskussion': 'Discussion — an active conversation or debate exchanging different views.',
+      'Ehrlichkeit': 'Honesty — truthfulness and sincerity without deceit.',
+      'Einheit': 'Unit / unity — a standard measurement unit, single whole, or harmony.',
+      'Einladung': 'Invitation — a spoken or written request to attend an event or visit.',
+      'Erfahrung': 'Experience — practical knowledge and skill gained over time.',
+      'Erzählung': 'Story / narrative — a spoken or written account of real or fictional events.',
+      'Fähigkeit': 'Ability — the talent, skill, or competence to do something well.',
+      'Freiheit': 'Freedom — the state of being free to act, speak, or choose.',
+      'Freundschaft': 'Friendship — a close bond of trust and affection between friends.',
+      'Geschwindigkeit': 'Speed — how fast someone or something moves or travels.',
+      'Gesellschaft': 'Society — a community of people living together, or social company.',
+      'Hoffnung': 'Hope — an optimistic wish or expectation that things go well.',
+      'Information': 'Information — helpful facts or details (also an info desk at a station).',
+      'Klarheit': 'Clarity — clearness of thought, expression, or visibility.',
+      'Krankheit': 'Illness — a sickness or medical condition affecting the body or mind.',
+      'Landschaft': 'Landscape — the natural scenery and terrain of the countryside.',
+      'Lösung': 'Solution — the answer to a problem or puzzle; also a liquid mixture.',
+      'Million': 'Million — the number 1,000,000 (one thousand thousand).',
+      'Möglichkeit': 'Possibility — a viable option, chance, or opportunity.',
+      'Nation': 'Nation — a country or large population united by shared history and territory.',
+      'Partnerschaft': 'Partnership — a close cooperation between two people or organizations.',
+      'Region': 'Region — a geographic area or district with shared characteristics.',
+      'Richtung': 'Direction — the path, course, or way something is heading.',
+      'Schönheit': 'Beauty — aesthetic appeal or grace in a person, artwork, or place.',
+      'Schwierigkeit': 'Difficulty — a problem, hurdle, or complication that makes a task harder.',
+      'Sicherheit': 'Safety / security — protection from danger or risk; also certainty.',
+      'Situation': 'Situation — the set of circumstances at a particular moment.',
+      'Station': 'Station — a transit stop along a route, or a hospital ward.',
+      'Übung': 'Exercise / practice — a drill or repeated practice to build skill.',
+      'Wahrheit': 'Truth — what matches actual fact and reality.',
+      'Wirklichkeit': 'Reality — the real world as it actually exists.',
+      'Wirtschaft': 'Economy — production and trade of goods; also a traditional country inn.',
+      'Wissenschaft': 'Science — systematic study and research based on evidence.',
+      'Lehrer': 'Teacher — an instructor who teaches students in a school or class.',
+      'Fahrer': 'Driver — someone operating a bus, tram, car, or delivery vehicle.',
+      'Bäcker': 'Baker — an artisan who makes and bakes bread, rolls, and pastries.',
+      'Schmetterling': 'Butterfly — a flying insect with large, colorful patterned wings.',
+      'Zwilling': 'Twin — one of two siblings born together; also the Gemini sign.',
+      'Kellner': 'Waiter — a server who takes orders and brings food and drinks.',
+      'Arbeiter': 'Worker — a person employed in manual, skilled, or industrial work.',
+      'Flüchtling': 'Refugee — someone forced to leave their home country for safety.',
+      'Gärtner': 'Gardener — someone who plants and cares for gardens, flowers, and trees.',
+      'Journalismus': 'Journalism — the work of reporting and publishing news.',
+      'Kapitalismus': 'Capitalism — an economic system of private ownership and free markets.',
+      'Lehrling': 'Apprentice — a trainee learning a skilled trade under a master.',
+      'Liebling': 'Favorite / darling — someone or something cherished most.',
+      'Optimismus': 'Optimism — a hopeful attitude expecting positive outcomes.',
+      'Partner': 'Partner — someone sharing in a relationship, team, or venture.',
+      'Rentner': 'Retiree — a retired person living on a pension.',
+      'Schüler': 'Student / pupil — a child or teenager attending school.',
+      'Tourismus': 'Tourism — travel for leisure and sightseeing, and its industry.',
+      'Verkäufer': 'Salesperson — a shop or market vendor who assists customers and sells goods.',
+      'Arzt': 'Doctor — a medical physician who diagnoses and treats patients.',
+      'Koch': 'Cook / chef — someone who prepares meals professionally or in a kitchen.',
+      'Kätzchen': 'Kitten — a young cat (neuter because of the -chen ending).',
+      'Element': 'Element — a basic building block, chemical element, or core part.',
+      'Theater': 'Theater — a stage venue for live plays and dramatic performances.',
+      'Krankenhaus': 'Hospital — a medical center for inpatient care, surgery, and emergencies.',
+      'Argument': 'Argument — a reason or point given to support or oppose an idea.',
+      'Brötchen': 'Bread roll — a small, crusty baked roll eaten at breakfast or with snacks.',
+      'Dokument': 'Document — an official written, printed, or digital record.',
+      'Experiment': 'Experiment — a controlled scientific test to check an idea.',
+      'Instrument': 'Instrument — a musical device or a precision tool.',
+      'Kaninchen': 'Rabbit — a small, long-eared furry mammal.',
+      'Mädchen': 'Girl — a female child or young woman (neuter due to -chen).',
+      'Märchen': 'Fairy tale — a traditional folk story with magic and moral lessons.',
+      'Medikament': 'Medication — a medicine or drug used to treat or prevent illness.',
+      'Monument': 'Monument — a large statue or structure built in memory of someone or something.',
+      'Büro': 'Office — a room or workplace for desk and administrative work.',
+      'Café': 'Café — a casual spot serving coffee, cakes, and light snacks.',
+      'Hotel': 'Hotel — a place offering overnight rooms and guest reception.',
+      'Kino': 'Cinema — a movie theater showing films on a big screen.',
+      'Museum': 'Museum — a building exhibiting art, history, or science collections.',
+      'Restaurant': 'Restaurant — a dining venue where meals are prepared and served at tables.',
+
+      // Scene & Compound Nouns (german_image_map_combined_scene_spec.md)
+      'Stadt': 'City — a large urban town with streets, shops, and public squares.',
+      'Straße': 'Street — a paved public road in a city or town.',
+      'Fußgängerzone': 'Pedestrian zone — a car-free shopping street open only to people on foot.',
+      'Kreuzung': 'Intersection — a crossroads where two or more streets meet.',
+      'Ampel': 'Traffic light — a red-yellow-green signal controlling street traffic.',
+      'Zebrastreifen': 'Crosswalk — white-striped pedestrian crossing painted across a road.',
+      'Bürgersteig': 'Sidewalk — the paved walkway beside a street for pedestrians.',
+      'Fahrrad': 'Bicycle — a two-wheeled pedal bike steered with handlebars.',
+      'Straßenbahn': 'Tram / streetcar — an electric rail car running along city streets.',
+      'Haltestelle': 'Transit stop — a marked street stop where buses or trams pick up riders.',
+      'Taxi': 'Taxi — a hired car with a driver for local trips.',
+      'Geschäft': 'Shop / store — a retail store selling goods; also a business deal.',
+      'Buchhandlung': 'Bookstore — a retail shop specializing in books.',
+      'Schaufenster': 'Shop window — a large front glass window displaying store goods.',
+      'Kiosk': 'Kiosk — a small street stand selling newspapers, snacks, and drinks.',
+      'Briefkasten': 'Mailbox — a street postbox for outgoing mail or a home letterbox.',
+      'Schild': 'Sign — a posted board showing directions, labels, or rules.',
+      'Mülleimer': 'Trash can — a bin for throwing away garbage indoors or on the street.',
+      'Hund': 'Dog — a pet or working canine (often walked on a leash in parks).',
+      'Fußgänger': 'Pedestrian — someone walking along a street, sidewalk, or crossing.',
+      'Tür': 'Door — a hinged or sliding panel used to enter or close a room or building.',
+      'Eingang': 'Entrance — the doorway or gate where you enter a building or venue.',
+      'Ausgang': 'Exit — the doorway or way out of a building, station, or park.',
+      'Bank': 'Bench / bank — a multi-person seat in a park or station; also a financial bank.',
+      'Laterne': 'Streetlamp — a tall outdoor lamppost lighting streets and paths.',
+      'Bahnhof': 'Train station — a railway hub with ticket halls, platforms, and tracks.',
+      'Zug': 'Train — connected railway carriages pulled along tracks.',
+      'Gleis': 'Track / platform — a numbered railway track where trains arrive and depart.',
+      'Bahnsteig': 'Train platform — the raised walkway beside the tracks for boarding trains.',
+      'Fahrkarte': 'Ticket — a printed or digital pass for riding a train, bus, or tram.',
+      'Fahrkartenautomat': 'Ticket machine — a self-service kiosk at a station or stop selling transit tickets.',
+      'Abfahrtstafel': 'Departure board — a station display listing outgoing trains, times, and tracks.',
+      'Verspätung': 'Delay — when a train, flight, or bus runs behind schedule.',
+      'Aufzug': 'Elevator — a mechanical lift carrying people between floors.',
+      'Treppe': 'Stairs — a flight of steps connecting different levels of a building.',
+      'Koffer': 'Suitcase — a rectangular travel case packed with clothes and belongings.',
+      'Rucksack': 'Backpack — a bag carried on the back with two shoulder straps.',
+      'Tasche': 'Bag — a handbag, shoulder tote, or pocket in clothing.',
+      'Gepäck': 'Luggage — suitcases and bags carried by a traveler.',
+      'Fahrgast': 'Passenger — a traveler riding a bus, tram, or train.',
+      'Schaffner': 'Conductor — a train staff member who checks tickets onboard.',
+      'Toilette': 'Restroom / toilet — a public or private bathroom facility.',
+      'Smartphone': 'Smartphone — a touchscreen mobile phone with apps and internet.',
+      'Uhr': 'Clock / watch / o\'clock — a timepiece on a wall or wrist; also used for clock time.',
+      'Gleisschild': 'Track sign — an overhead platform sign showing the track number.',
+      'Tisch': 'Table — a flat-topped piece of furniture for dining, working, or drinks.',
+      'Stuhl': 'Chair — a single seat with a backrest and legs.',
+      'Theke': 'Counter — a service counter in a café, bakery, or shop for ordering and paying.',
+      'Barhocker': 'Bar stool — a tall stool placed at a bar or high café counter.',
+      'Speisekarte': 'Menu — a list of food dishes and prices at a café or restaurant.',
+      'Tasse': 'Cup — a small handled cup for hot drinks like coffee or tea.',
+      'Teller': 'Plate — a flat round dish for serving solid food.',
+      'Glas': 'Glass — a clear drinking glass; also window glass.',
+      'Besteck': 'Cutlery — knives, forks, and spoons used for eating.',
+      'Löffel': 'Spoon — an eating or stirring utensil with a small oval bowl.',
+      'Gabel': 'Fork — an eating utensil with prongs for picking up food.',
+      'Messer': 'Knife — a cutting tool with a blade and handle.',
+      'Kaffee': 'Coffee — a hot brewed drink made from roasted coffee beans.',
+      'Kuchen': 'Cake — a sweet baked dessert served in slices at cafés and bakeries.',
+      'Croissant': 'Croissant — a flaky, crescent-shaped butter pastry.',
+      'Kasse': 'Cash register / checkout — the till or counter where you pay in a shop.',
+      'Gast': 'Guest — a customer in a café, pub, or hotel, or a visitor at home.',
+      'Kellnerin': 'Waitress — a female server bringing food and drinks.',
+      'Fenster': 'Window — a glass opening in a wall letting in daylight and air.',
+      'Espressomaschine': 'Espresso machine — a café machine for brewing espresso and steaming milk.',
+      'Supermarkt': 'Supermarket — a large self-service grocery store with aisles and checkouts.',
+      'Einkaufswagen': 'Shopping cart — a wheeled pushcart for groceries in a supermarket.',
+      'Einkaufskorb': 'Shopping basket — a handheld basket for carrying items in a store.',
+      'Einkaufstasche': 'Shopping bag — a reusable tote bag for carrying groceries home.',
+      'Kassenband': 'Checkout conveyor belt — the moving belt at a supermarket register.',
+      'Kassenkraft': 'Cashier — a store worker scanning items and taking payment.',
+      'Regal': 'Shelf — a multi-level shelving unit displaying store goods or books.',
+      'Gang': 'Aisle / corridor — a walkway between store shelves, or a hallway.',
+      'Brot': 'Bread — a baked staple loaf made from flour, water, and yeast or sourdough.',
+      'Milch': 'Milk — white dairy liquid sold in cartons or bottles.',
+      'Käse': 'Cheese — solid or soft dairy food made from pressed milk curds.',
+      'Apfel': 'Apple — a crisp, round orchard fruit with red, green, or yellow skin.',
+      'Banane': 'Banana — a curved yellow fruit with soft sweet flesh.',
+      'Kartoffel': 'Potato — a starchy root vegetable boiled, fried, or roasted.',
+      'Karotte': 'Carrot — a crunchy orange root vegetable.',
+      'Flasche': 'Bottle — a glass or plastic container with a narrow neck for liquids.',
+      'Angebot': 'Special offer — a discounted sale item in a store; also an offer.',
+      'Schlange': 'Queue / line — a line of people waiting their turn; also a snake.',
+      'Geld': 'Money — coins, bills, or funds used to pay for things.',
+      'Tüte': 'Bag / pouch — a paper or plastic bag for groceries or baked goods.',
+      'Dose': 'Can / tin — a sealed metal can for food or drinks; also a small container.',
+      'Joghurt': 'Yogurt — a creamy cultured dairy product.',
+      'Tiefkühltruhe': 'Chest freezer — a large horizontal freezer case in a supermarket.',
+      'Rezeption': 'Reception — the front check-in desk in a hotel.',
+      'Zimmer': 'Room — an enclosed room inside a home, apartment, or hotel.',
+      'Schlüssel': 'Key — a metal key used to lock or unlock a door.',
+      'Schlüsselkarte': 'Key card — an electronic plastic card that unlocks a hotel room door.',
+      'Bett': 'Bed — furniture with a mattress for sleeping.',
+      'Schrank': 'Wardrobe / cabinet — a tall closed cupboard for clothes, dishes, or supplies.',
+      'Badezimmer': 'Bathroom — a room with a sink, toilet, and shower or tub.',
+      'Dusche': 'Shower — an enclosed stall or overhead spray for washing.',
+      'Handtuch': 'Towel — an absorbent cloth for drying hands or body.',
+      'Spiegel': 'Mirror — a reflective glass surface showing your reflection.',
+      'Kofferwagen': 'Luggage cart — a wheeled hotel trolley for moving suitcases.',
+      'Rezeptionistin': 'Female receptionist — a woman working at a hotel front desk.',
+      'Lampe': 'Lamp — an electric light fixture on a table, wall, or ceiling.',
+      'Nachttisch': 'Nightstand — a small table beside a bed.',
+      'Minibar': 'Minibar — a small fridge stocked with drinks inside a hotel room.',
+      'Kneipe': 'Pub / tavern — a cozy neighborhood bar serving draft beer and hearty snacks.',
+      'Tresen': 'Bar counter — the long counter in a pub where drinks are poured.',
+      'Zapfanlage': 'Beer tap system — the taps used at a bar to pour fresh draft beer.',
+      'Bierkrug': 'Beer mug — a heavy glass or ceramic mug with a handle for beer.',
+      'Bier': 'Beer — a brewed alcoholic drink made from malt and hops.',
+      'Bierdeckel': 'Beer coaster — a small cardboard mat placed under a beer glass.',
+      'Brezel': 'Pretzel — a baked knot-shaped roll with a salted brown crust.',
+      'Wurst': 'Sausage — a seasoned meat sausage served at pubs and street stands.',
+      'Getränkekarte': 'Drink menu — a menu listing beers, wines, and soft drinks.',
+      'Wirt': 'Innkeeper / host — the owner or manager running a traditional pub.',
+      'Stammtisch': 'Regulars’ table — a pub table reserved for a group of regular guests.',
+      'Kreidetafel': 'Chalkboard — a blackboard written on with chalk for daily specials.',
+      'Hocker': 'Stool — a backless seat.',
+      'Serviette': 'Napkin — a paper or cloth square used to wipe hands and mouth at meals.',
+      'Garderobenhaken': 'Coat hook — a wall hook for hanging jackets, hats, or bags.',
+      'Wochenmarkt': 'Weekly market — an open-air town square market selling fresh local food.',
+      'Marktstand': 'Market stall — an outdoor vendor booth displaying fruit, vegetables, or flowers.',
+      'Verkäuferin': 'Female salesperson — a woman selling goods at a market stall or shop.',
+      'Korb': 'Basket — a woven container with handles for carrying produce or bread.',
+      'Waage': 'Scale — a device used to weigh fruit, vegetables, or luggage.',
+      'Kiste': 'Crate / box — a wooden or plastic crate holding produce or bottles.',
+      'Birne': 'Pear — a sweet, bell-shaped orchard fruit; also a lightbulb.',
+      'Tomate': 'Tomato — a juicy red fruit used as a vegetable in salads and cooking.',
+      'Zwiebel': 'Onion — a layered bulb vegetable used in savory cooking.',
+      'Blume': 'Flower — a colorful garden or cut blossom.',
+      'Blumenstrauß': 'Bouquet of flowers — a gathered bunch of cut flowers.',
+      'Preis': 'Price — the amount of money something costs; also a prize.',
+      'Sonnenschirm': 'Parasol / sun umbrella — a large outdoor umbrella providing shade.',
+      'Zelt': 'Tent — a portable fabric canopy or shelter on poles.',
+      'Traube': 'Grape — a small sweet berry growing in bunches on vines.',
+      'Kürbis': 'Pumpkin — a large round orange autumn squash.',
+      'Münze': 'Coin — a flat round piece of metal money.',
+      'Flughafen': 'Airport — a major terminal complex where passenger planes take off and land.',
+      'Terminal': 'Terminal — the airport building for check-in, security, and boarding gates.',
+      'Check-in-Schalter': 'Check-in counter — the airline desk for registering flights and bags.',
+      'Gate': 'Gate — the numbered airport boarding area leading onto a plane.',
+      'Anzeige': 'Display / screen — an electronic departure board or screen; also a classified ad.',
+      'Abflug': 'Departure — the takeoff of an airplane from an airport.',
+      'Ankunft': 'Arrival — when a flight, train, or traveler reaches a destination.',
+      'Sicherheitskontrolle': 'Security check — airport screening of passengers and carry-on luggage.',
+      'Passkontrolle': 'Passport control — border checkpoint where passports are inspected.',
+      'Gepäckabgabe': 'Baggage drop — the airline counter where checked suitcases are handed over.',
+      'Handgepäck': 'Hand luggage — small bags carried onto the airplane cabin.',
+      'Bordkarte': 'Boarding pass — the airline pass needed to board an aircraft.',
+      'Reisepass': 'Passport — an official ID booklet for international travel.',
+      'Gepäckwagen': 'Luggage trolley — a pushcart at an airport or station for heavy bags.',
+      'Flugzeug': 'Airplane — a winged passenger or cargo aircraft.',
+      'Sitzplatz': 'Seat — an individual seat on a plane, train, bus, or in a hall.',
+      'Förderband': 'Conveyor belt — a moving belt carrying luggage at check-in or baggage claim.',
+      'Küche': 'Kitchen — the room in a home where meals are prepared and cooked.',
+      'Kühlschrank': 'Refrigerator — a cold kitchen appliance for storing fresh food and milk.',
+      'Herd': 'Stove — a kitchen range with burners for cooking in pots and pans.',
+      'Backofen': 'Oven — an enclosed heated oven for baking and roasting.',
+      'Spüle': 'Kitchen sink — a basin with a faucet for washing dishes and produce.',
+      'Wasserhahn': 'Faucet / tap — a valve spout controlling running water.',
+      'Schublade': 'Drawer — a sliding storage compartment in a cabinet or counter.',
+      'Arbeitsplatte': 'Countertop — the flat kitchen work surface for chopping and prep.',
+      'Topf': 'Pot — a deep round cooking pot with handles and a lid.',
+      'Pfanne': 'Pan — a flat, wide frying pan with a long handle.',
+      'Schneidebrett': 'Cutting board — a flat board used when slicing vegetables or bread.',
+      'Wasserkocher': 'Electric kettle — a countertop jug that quickly boils water.',
+      'Geschirrtuch': 'Dish towel — a kitchen cloth for drying washed dishes.',
+      'Schüssel': 'Bowl — a deep round dish for salads, soup, or mixing ingredients.',
+      'Stadtpark': 'City park — a public urban green space with paths, trees, and benches.',
+      'Biergarten': 'Beer garden — an outdoor tree-shaded seating area serving beer and snacks.',
+      'Baum': 'Tree — a tall woody plant with a trunk, branches, and leaves.',
+      'Parkbank': 'Park bench — an outdoor bench along a park walkway.',
+      'Brunnen': 'Fountain — a decorative water feature in a park or square; also a well.',
+      'Parkweg': 'Park path — a walking trail winding through a park.',
+      'Spielplatz': 'Playground — an outdoor play area for children with swings and slides.',
+      'Schaukel': 'Swing — a hanging seat on chains that swings back and forth.',
+      'Rutsche': 'Slide — a smooth sloped chute for children to slide down.',
+      'Parkplan': 'Park map — a posted map showing paths and landmarks inside a park.',
+      'Ball': 'Ball — a round ball thrown, kicked, or bounced in games.',
+      'Decke': 'Blanket / ceiling — a picnic or bed blanket; also the ceiling of a room.',
+      'Bäckerei': 'Bakery — a shop and bakehouse selling fresh bread, rolls, and pastries.',
+      'Bäckerin': 'Female baker — a woman who bakes bread, rolls, and cakes.',
+      'Laib': 'Loaf — a whole shaped loaf of baked bread.',
+      'Gebäck': 'Pastry / baked goods — sweet or savory baked treats.',
+      'Auslage': 'Display case — a glass counter displaying fresh pastries or goods.',
+      'Backblech': 'Baking sheet — a flat metal tray used in an oven.',
+      'Ofen': 'Oven — a heated chamber for baking bread and pastries.',
+      'Mehl': 'Flour — finely ground grain powder used for baking.',
+      'Teig': 'Dough — kneaded mixture of flour and liquid before baking.',
+      'Zange': 'Tongs — serving tongs used to pick up rolls and pastries cleanly.',
+      'Papiertüte': 'Paper bag — a lightweight paper sack used at bakeries and markets.',
+      'Kunde': 'Customer — a person buying goods or services.',
+      'Apotheke': 'Pharmacy — a shop dispensing prescription medicines and health items.',
+      'Apotheker': 'Pharmacist — a licensed specialist who prepares and explains medicines.',
+      'Apothekerin': 'Female pharmacist — a woman licensed to dispense and advise on medicines.',
+      'Tablette': 'Tablet / pill — a small solid pill of medicine.',
+      'Packung': 'Package / box — a sealed carton or packet of medicine or goods.',
+      'Salbe': 'Ointment — a medicated soothing cream applied to skin.',
+      'Pflaster': 'Band-aid / plaster — an adhesive strip covering a small cut.',
+      'Verband': 'Bandage — a wrapped gauze dressing protecting a wound or sprain.',
+      'Thermometer': 'Thermometer — a device for measuring body or air temperature.',
+      'Creme': 'Cream — a smooth skin lotion or medicinal cream.',
+      'Hustensaft': 'Cough syrup — liquid medicine taken to soothe a cough.',
+      'Schachtel': 'Cardboard box — a small paperboard box holding pills or items.',
+      'Rezept': 'Prescription — a doctor’s written order for medicine; also a cooking recipe.',
+      'Kundin': 'Female customer — a woman shopping in a store or pharmacy.',
+      'Beipackzettel': 'Package leaflet — the instruction sheet inside a medicine box.',
+      'Bushaltestelle': 'Bus stop — a marked street stop where local buses pick up passengers.',
+      'Straßenbahnhaltestelle': 'Tram stop — a street-level stop where trams board and let off riders.',
+      'Bus': 'Bus — a large city or regional passenger road vehicle.',
+      'Fahrerin': 'Female driver — a woman operating a bus, tram, or car.',
+      'Fahrplan': 'Timetable / schedule — a posted list of bus, tram, or train departure times.',
+      'Linie': 'Transit line — a numbered bus, tram, or rail route; also a drawn line.',
+      'Sitzbank': 'Bench — a multi-person bench seat at a transit stop or station.',
+      'Wartehäuschen': 'Bus shelter — a covered roadside shelter protecting waiting riders.',
+      'Dach': 'Roof — the top covering of a building, shelter, or vehicle.',
+      'Knopf': 'Button — a push-button to request a stop or open doors; also a coat button.',
+      'Haltestange': 'Handrail — a metal grab pole inside a bus or tram for standing riders.',
+      'Kinderwagen': 'Stroller — a wheeled baby carriage pushed while walking.',
+      'Regenschirm': 'Umbrella — a folding handheld canopy for rain.',
+      'Wohnhaus': 'Apartment building — a residential building with flats, mailboxes, and a stairwell.',
+      'Gebäude': 'Building — any permanent roofed architectural structure.',
+      'Haustür': 'Front door — the main street entrance door of a house or apartment building.',
+      'Klingel': 'Doorbell — a button outside a door pressed to ring inside.',
+      'Flur': 'Hallway — an entrance corridor inside an apartment or house.',
+      'Treppenhaus': 'Stairwell — the shared interior staircase connecting floors of a building.',
+      'Balkon': 'Balcony — an outdoor platform extending from an upper-floor apartment.',
+      'Fußmatte': 'Doormat — a mat outside a door for wiping shoes.',
+      'Hof': 'Courtyard — an open yard behind or enclosed by residential buildings.',
+      'Mülltonne': 'Trash bin — a large outdoor wheeled garbage bin.',
+      'Pflanze': 'Plant — a green potted or garden plant.',
+      'Paket': 'Package / parcel — a wrapped box delivered by mail or courier.',
+      'Ausstellung': 'Exhibition — a public display of artworks or objects in a museum.',
+      'Bild': 'Picture / painting — a framed picture, painting, or photograph.',
+      'Gemälde': 'Painting — a work of art painted on canvas or wood.',
+      'Bilderrahmen': 'Picture frame — a wood or metal border framing a picture.',
+      'Skulptur': 'Sculpture — a three-dimensional carved or cast artwork.',
+      'Statue': 'Statue — a sculpted freestanding figure of a person or animal.',
+      'Sockel': 'Pedestal — a solid base supporting a statue or sculpture.',
+      'Vitrine': 'Display case — a glass cabinet protecting museum exhibits.',
+      'Text': 'Text — written information on an exhibit plaque, sign, or page.',
+      'Eintrittskarte': 'Admission ticket — a ticket granting entry to a museum or event.',
+      'Saal': 'Hall — a large gallery room in a museum or public building.',
+      'Wand': 'Wall — an interior room wall where paintings hang.',
+      'Boden': 'Floor — the ground surface you walk on inside a room.',
+      'Besucher': 'Visitor — someone visiting a museum, exhibition, or place.',
+      'Besucherin': 'Female visitor — a woman visiting a museum or exhibition.',
+      'Führer': 'Guide — a tour guide leading museum visitors; also a guidebook.',
+      'Führerin': 'Female guide — a woman leading a museum or city tour.',
+
+      // Standalone Compound Root Nouns
+      'Haus': 'House — a residential house or building (root of Krankenhaus, Wohnhaus).',
+      'Karte': 'Card / ticket / map — a stiff card, transit pass, menu, or map.',
+      'Automat': 'Machine / dispenser — an automated ticket or vending machine.',
+      'Tafel': 'Board / panel — a flat schedule board or chalkboard.',
+      'Wagen': 'Cart / car — a wheeled pushcart, trolley, or vehicle.',
+      'Band': 'Belt / ribbon — a moving conveyor belt or flat strip.',
+      'Kraft': 'Worker / force — physical strength, or a staff member in job titles.',
+      'Tuch': 'Cloth — a piece of fabric for drying dishes or hands.',
+      'Krug': 'Mug / pitcher — a handled mug or jug for beer or water.',
+      'Deckel': 'Lid / coaster — a pot lid or a coaster under a drink.',
+      'Anlage': 'System / facility — a technical setup, park grounds, or stereo.',
+      'Haken': 'Hook — a curved peg for hanging coats or bags.',
+      'Stand': 'Stand / booth — a market booth or display stand.',
+      'Strauß': 'Bouquet — an arranged bunch of cut flowers.',
+      'Schirm': 'Umbrella / screen — a protective canopy or shade.',
+      'Hafen': 'Harbor / port — a port where ships or aircraft arrive and depart.',
+      'Schalter': 'Counter / switch — a service window with a clerk, or a light switch.',
+      'Kontrolle': 'Control / inspection — a security or ticket check.',
+      'Abgabe': 'Drop-off / submission — handing over luggage or items.',
+      'Pass': 'Passport / pass — an official travel ID document.',
+      'Zeug': 'Stuff / gear — everyday equipment or things.',
+      'Platz': 'Square / seat / place — a town square, playground, or individual seat.',
+      'Hahn': 'Tap / rooster — a water faucet valve; also a male chicken.',
+      'Platte': 'Plate / counter — a flat countertop or slab.',
+      'Brett': 'Board — a flat wooden or plastic board.',
+      'Kocher': 'Cooker / boiler — a device for heating or boiling water.',
+      'Garten': 'Garden — an outdoor planted garden or beer garden.',
+      'Weg': 'Path / way — a walking path or route.',
+      'Plan': 'Plan / map — a site map, timetable, or plan.',
+      'Blech': 'Sheet metal / tray — a flat metal baking sheet.',
+      'Saft': 'Juice — fruit juice or liquid cough syrup.',
+      'Zettel': 'Note / slip of paper — a small written paper slip or leaflet.',
+      'Stange': 'Pole / bar — a metal grab bar or rod.',
+      'Matte': 'Mat — a floor mat for wiping feet.',
+      'Tonne': 'Bin / barrel — a large wheeled trash bin or barrel.',
+      'Rahmen': 'Frame — a border surrounding a picture or window.',
+      'Eimer': 'Bucket — a pail or bin with a handle.',
+      'Kasten': 'Box — a rectangular box or mailbox.',
+      'Stelle': 'Spot / stop — a specific location or transit stop.',
+      'Zone': 'Zone — a designated city area or district.',
+
+      // Case Governance Verbs & Prepositions (case.md)
+      'sehen': 'To see — governs a direct Accusative object (Ich sehe den Hund).',
+      'haben': 'To have — always governs an Accusative object (Ich habe einen Stift).',
+      'für': 'For — Accusative preposition (für den Mann).',
+      'ohne': 'Without — Accusative preposition (ohne die Tasche).',
+      'brauchen': 'To need — governs a direct Accusative object (Ich brauche das Ticket).',
+      'suchen': 'To look for — governs a direct Accusative object (Ich suche den Schlüssel).',
+      'nehmen': 'To take — governs a direct Accusative object (Ich nehme den Bus).',
+      'finden': 'To find — governs a direct Accusative object (Ich finde das Buch).',
+      'warten auf': 'To wait for — verb + preposition governing Accusative (auf den Zug warten).',
+      'um': 'Around / for — Accusative preposition (um den Park).',
+      'durch': 'Through — Accusative preposition (durch die Stadt).',
+      'gegen': 'Against — Accusative preposition (gegen den Wind).',
+      'helfen': 'To help — Dative verb (Ich helfe dem Kind).',
+      'mit': 'With — Dative preposition (mit dem Bus).',
+      'aus': 'Out of — Dative preposition (aus dem Haus).',
+      'danken': 'To thank — Dative verb (Ich danke der Frau).',
+      'gefallen': 'To be pleasing — Dative verb; the person who likes it takes Dative (Das Hemd gefällt dem Mann).',
+      'passen zu': 'To fit with — verb + preposition governing Dative (Das passt zu dem Kleid).',
+      'außer': 'Except — Dative preposition (außer dem Hund).',
+      'bei': 'At / with — Dative preposition (bei der Arbeit / beim Arzt).',
+      'nach': 'After / to — Dative preposition (nach dem Essen / nach Berlin).',
+      'seit': 'Since — Dative preposition (seit dem Montag).',
+      'von': 'From / of — Dative preposition (von dem Bahnhof).',
+      'zu': 'To — Dative preposition (zu dem Park).',
+      'antworten': 'To answer — Dative verb (Ich antworte dem Lehrer).',
+      'gehören': 'To belong to — Dative verb (Das Buch gehört der Frau).',
+      'passen': 'To fit (someone) — Dative verb (Die Jacke passt dem Kind).'
+    };
+
+    function getDescriptiveDefinition(wordObj) {
+      if (!wordObj) return '';
+      if (RICH_DEFINITIONS[wordObj.word]) {
+        return RICH_DEFINITIONS[wordObj.word];
+      }
+      if (wordObj.pos === 'noun') {
+        return `${wordObj.meaning} — German noun.`;
+      }
+      return `${wordObj.meaning}.`;
+    }
+
+    function showTranslationPopup(wordObj, revealAnswer = false, options = {}) {
+      if (!wordObj) return;
+      const {
+        minReadMs = 3200,
+        pauseAfterMs = 250,
+        readDefinitionAloud = false,
+        onComplete = null,
+        cancelAnchorIntro = true
+      } = options;
+
+      if (cancelAnchorIntro) {
+        anchorIntroRunId++;
+      }
+
+      initAudio();
+      if (transHideTimer) {
+        clearTimeout(transHideTimer);
+        transHideTimer = null;
+      }
+
+      const st = TRAIT_STYLES[wordObj.trait];
+      const pillEl = document.getElementById('trans-pill');
+      const headerLineEl = document.getElementById('trans-header-line');
+      const defEl = document.getElementById('trans-definition');
+      const noteEl = document.getElementById('trans-note');
+      const compEl = document.getElementById('trans-compound');
+      const definitionText = getDescriptiveDefinition(wordObj);
+
+      headerLineEl.textContent = wordObj.word;
+      defEl.textContent = definitionText;
+
+      if (revealAnswer) {
+        pillEl.textContent = wordObj.trait;
+        pillEl.className = `px-1.5 py-0.5 rounded text-[10px] font-extrabold tracking-wide ${st.badgeBg}`;
+        pillEl.classList.remove('hidden');
+
+        if (wordObj.compound) {
+          compEl.textContent = `${wordObj.compound.prefix} + ${wordObj.compound.rootTrait} ${wordObj.compound.rootWord}`;
+          compEl.classList.remove('hidden');
+        } else {
+          compEl.classList.add('hidden');
+        }
+
+        if (wordObj.note) {
+          noteEl.textContent = wordObj.note;
+          noteEl.classList.remove('hidden');
+        } else {
+          noteEl.classList.add('hidden');
+        }
+      } else {
+        // Selection mode for masked words: hide gender/case/compound clue so it doesn't spoil the answer
+        pillEl.classList.add('hidden');
+        compEl.classList.add('hidden');
+        noteEl.classList.add('hidden');
+      }
+
+      elTransPopover.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        elTransCard.classList.remove('scale-95', 'opacity-0');
+        elTransCard.classList.add('scale-100', 'opacity-100');
+      });
+
+      transOpenedAt = Date.now();
+      transSpeechDone = false;
+      const popupRunId = anchorIntroRunId;
+
+      const scheduleFadeOutAfterMinRead = () => {
+        if (popupRunId !== anchorIntroRunId) return;
+        const elapsed = Date.now() - transOpenedAt;
+        const remaining = Math.max(pauseAfterMs, minReadMs - elapsed);
+        transHideTimer = setTimeout(() => {
+          if (popupRunId !== anchorIntroRunId) return;
+          hideTranslationPopup();
+          if (onComplete) {
+            setTimeout(onComplete, 220);
+          }
+        }, remaining);
+      };
+
+      // Speak the German word sequence first, then optionally read the English definition with a native English voice
+      speakGermanWord(wordObj, revealAnswer, () => {
+        if (popupRunId !== anchorIntroRunId) return;
+        if (readDefinitionAloud && definitionText) {
+          setTimeout(() => {
+            if (popupRunId !== anchorIntroRunId) return;
+            speakEnglishDefinition(definitionText, () => {
+              transSpeechDone = true;
+              scheduleFadeOutAfterMinRead();
+            });
+          }, 160);
+        } else {
+          transSpeechDone = true;
+          scheduleFadeOutAfterMinRead();
+        }
+      });
+    }
+
+    function setColumnHighlight(side) {
+      highlightedSide = side;
+      if (!currentRound) return;
+
+      const applyColClass = (colEl, colSide, trait) => {
+        const st = TRAIT_STYLES[trait];
+        if (highlightedSide === colSide) {
+          colEl.className = `rounded-2xl border-2 flex flex-col overflow-visible transition-all duration-200 col-intro-highlight ${st.colTint}`;
+        } else {
+          colEl.className = 'bg-white rounded-2xl border-2 border-zinc-200/90 shadow-xs flex flex-col overflow-visible transition-all duration-200';
+        }
+      };
+
+      applyColClass(elColLeft, 'left', currentRound.leftTrait);
+      applyColClass(elColRight, 'right', currentRound.rightTrait);
+
+      // Invert the active column's anchor card color during round intro / re-announcement
+      if (!isChecked) {
+        highlightRevealWord(side, side === 'left' ? currentRound.leftAnchor?.id : currentRound.rightAnchor?.id);
+      }
+    }
+
+    function announceColumnAnchor(side, onComplete = null, runId = null) {
+      if (!currentRound) return;
+      const anchorWord = side === 'left' ? currentRound.leftAnchor : currentRound.rightAnchor;
+      if (!anchorWord) {
+        if (onComplete) onComplete();
+        return;
+      }
+
+      const activeRunId = runId !== null ? runId : ++anchorIntroRunId;
+      initAudio();
+      hideTranslationPopup();
+      setColumnHighlight(side);
+
+      speakGermanWord(anchorWord, true, () => {
+        if (activeRunId !== anchorIntroRunId) return;
+        setTimeout(() => {
+          if (activeRunId !== anchorIntroRunId) return;
+          setColumnHighlight(null);
+          if (onComplete) onComplete();
+        }, 320);
+      });
+    }
+
+    function playNewRoundAnchorIntro() {
+      const runId = ++anchorIntroRunId;
+      const sides = [];
+      if (currentRound?.leftAnchor) sides.push('left');
+      if (currentRound?.rightAnchor) sides.push('right');
+      if (sides.length === 0) return;
+
+      const showStep = (idx) => {
+        if (runId !== anchorIntroRunId || activeScreen !== 'game' || isChecked) {
+          setColumnHighlight(null);
+          return;
+        }
+        if (idx >= sides.length) {
+          setColumnHighlight(null);
+          return;
+        }
+
+        announceColumnAnchor(sides[idx], () => {
+          if (runId !== anchorIntroRunId || activeScreen !== 'game' || isChecked) return;
+          setTimeout(() => showStep(idx + 1), 220);
+        }, runId);
+      };
+
+      // Invoke step 0 synchronously inside the user tap so iOS Safari allows audio playback
+      showStep(0);
+    }
+
+    function hideTranslationPopup() {
+      if (transHideTimer) {
+        clearTimeout(transHideTimer);
+        transHideTimer = null;
+      }
+      elTransCard.classList.remove('scale-100', 'opacity-100');
+      elTransCard.classList.add('scale-95', 'opacity-0');
+      setTimeout(() => {
+        elTransPopover.classList.add('hidden');
+      }, 180);
+    }
+
+    elTransPopover.addEventListener('click', () => {
+      anchorIntroRunId++;
+      revealSequenceRunId++;
+      clearRevealHighlights();
+      stopSpeech();
+      hideTranslationPopup();
+    });
+
+    function clearRevealHighlights() {
+      highlightedWordId = null;
+      document.querySelectorAll('.word-announce-highlight').forEach(el => {
+        el.classList.remove('word-announce-highlight');
+        if (el.dataset.normalClass) {
+          el.className = el.dataset.normalClass;
+        }
+        const badgeEl = el.querySelector('[data-anchor-badge]');
+        if (badgeEl && badgeEl.dataset.normalClass) {
+          badgeEl.className = badgeEl.dataset.normalClass;
+        }
+        const wordEl = el.querySelector('[data-anchor-word]');
+        if (wordEl && wordEl.dataset.normalClass) {
+          wordEl.className = wordEl.dataset.normalClass;
+        }
+        const defEl = el.querySelector('[data-anchor-def]');
+        if (defEl && defEl.dataset.normalClass) {
+          defEl.className = defEl.dataset.normalClass;
+        }
+      });
+    }
+
+    function highlightRevealWord(side, wordId) {
+      clearRevealHighlights();
+      highlightedWordId = wordId;
+      if (!side || !wordId) return;
+
+      const anchorObj = side === 'left' ? currentRound?.leftAnchor : currentRound?.rightAnchor;
+      if (anchorObj && anchorObj.id === wordId) {
+        const st = TRAIT_STYLES[anchorObj.trait];
+        const headerEl = side === 'left' ? elColLeftHeader : elColRightHeader;
+        const anchorCard = headerEl.querySelector('[data-anchor-card]');
+        if (anchorCard) {
+          anchorCard.className = `${st.cardInvertedBg} rounded-xl px-2 py-1.5 border shadow-sm transition-all duration-200 word-announce-highlight`;
+          const badgeEl = anchorCard.querySelector('[data-anchor-badge]');
+          if (badgeEl) badgeEl.className = `px-1.5 py-0.5 rounded text-[10px] font-extrabold tracking-wide shrink-0 ${st.badgeInvertedBg}`;
+          const wordEl = anchorCard.querySelector('[data-anchor-word]');
+          if (wordEl) wordEl.className = 'text-xs font-extrabold text-white truncate';
+          const defEl = anchorCard.querySelector('[data-anchor-def]');
+          if (defEl) defEl.className = 'text-[10px] text-white/90 leading-[1.35] mt-1 line-clamp-3';
+        }
+        return;
+      }
+
+      const colContainer = side === 'left' ? elColLeftItems : elColRightItems;
+      const itemEl = colContainer.querySelector(`[data-col-item-id="${CSS.escape(wordId)}"]`);
+      const itemObj = currentRound?.items.find(i => i.id === wordId);
+      if (itemEl && itemObj) {
+        const st = TRAIT_STYLES[itemObj.trait];
+        const borderThickness = itemObj.isCorrect ? 'border' : 'border-2';
+        itemEl.className = `cursor-pointer ${borderThickness} rounded-xl px-2.5 py-1.5 flex items-center transition-all duration-200 ${st.cardInvertedBg} word-announce-highlight`;
+        itemEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    }
+
+    function playRevealColumnSequence() {
+      const runId = ++revealSequenceRunId;
+      if (!currentRound) return;
+
+      // Build ordered steps: Left anchor -> Left sorted words -> Right anchor -> Right sorted words
+      const steps = [];
+      if (currentRound.leftAnchor) {
+        steps.push({ side: 'left', wordObj: currentRound.leftAnchor });
+      }
+      currentRound.items
+        .filter(item => item.assignedSide === 'left')
+        .forEach(item => steps.push({ side: 'left', wordObj: item }));
+
+      if (currentRound.rightAnchor) {
+        steps.push({ side: 'right', wordObj: currentRound.rightAnchor });
+      }
+      currentRound.items
+        .filter(item => item.assignedSide === 'right')
+        .forEach(item => steps.push({ side: 'right', wordObj: item }));
+
+      if (steps.length === 0) return;
+
+      const speakStepNow = (idx) => {
+        if (runId !== revealSequenceRunId || activeScreen !== 'game' || !isChecked) {
+          setColumnHighlight(null);
+          clearRevealHighlights();
+          return;
+        }
+        if (idx >= steps.length) {
+          setColumnHighlight(null);
+          clearRevealHighlights();
+          return;
+        }
+
+        const { side, wordObj } = steps[idx];
+        setColumnHighlight(side);
+        highlightRevealWord(side, wordObj.id);
+
+        // Announce with grammatical pill beforehand (e.g., "der Stand", "der Automat")
+        speakGermanWord(wordObj, true, () => {
+          if (runId !== revealSequenceRunId || activeScreen !== 'game' || !isChecked) return;
+          const nextStep = steps[idx + 1];
+          const pauseMs = nextStep && nextStep.side !== side ? 520 : 320;
+          setTimeout(() => speakStepNow(idx + 1), pauseMs);
+        });
+      };
+
+      // Start step 0 synchronously inside the Check Answers click handler for iOS Safari
+      speakStepNow(0);
+    }
+
+    function showScreen(screenName) {
+      activeScreen = screenName;
+      anchorIntroRunId++;
+      revealSequenceRunId++;
+      setColumnHighlight(null);
+      clearRevealHighlights();
+      stopSpeech();
+      hideTranslationPopup();
+      elIntroScreen.classList.add('hidden');
+      elSprintScreen.classList.add('hidden');
+      elGameScreen.classList.add('hidden');
+
+      if (screenName === 'intro') {
+        elIntroScreen.classList.remove('hidden');
+        updateHeaderAndLegend();
+      } else if (screenName === 'sprint') {
+        elSprintScreen.classList.remove('hidden');
+      } else if (screenName === 'game') {
+        elGameScreen.classList.remove('hidden');
+        startNewRound();
+      }
+    }
+
+    function startNewRound() {
+      isChecked = false;
+      anchorIntroRunId++;
+      revealSequenceRunId++;
+      setColumnHighlight(null);
+      clearRevealHighlights();
+      stopSpeech();
+      hideTranslationPopup();
+      currentRound = generateRound();
+      renderBoard();
+      updateHeaderAndLegend();
+      playNewRoundAnchorIntro();
+    }
+
+    function renderBoard() {
+      renderColumnHeader(elColLeftHeader, currentRound.leftTrait, currentRound.leftAnchor, 'left');
+      renderColumnHeader(elColRightHeader, currentRound.rightTrait, currentRound.rightAnchor, 'right');
+
+      setColumnHighlight(null);
+
+      renderColumnItems(elColLeftItems, 'left');
+      renderColumnItems(elColRightItems, 'right');
+      renderUnsortedQueue();
+      updatePrimaryButtonState();
+    }
+
+    function renderColumnHeader(containerEl, trait, anchorWord, side) {
+      const st = TRAIT_STYLES[trait];
+      containerEl.className = `p-2 border-b rounded-t-2xl shrink-0 cursor-pointer select-none transition-colors flex flex-col ${st.headerBg}`;
+
+      const defText = anchorWord ? getDescriptiveDefinition(anchorWord) : '';
+      const normalCardClass = 'bg-white/95 hover:bg-white rounded-xl px-2 py-1.5 border border-black/5 shadow-2xs transition-all duration-200 active:scale-[0.98] flex flex-col justify-between flex-1';
+      const normalBadgeClass = `px-1.5 py-0.5 rounded text-[10px] font-extrabold tracking-wide shrink-0 ${st.badgeBg}`;
+      const normalWordClass = 'text-xs font-extrabold text-zinc-900 truncate';
+      const normalDefClass = 'text-[10px] text-zinc-600 leading-[1.35] mt-1 line-clamp-3';
+
+      containerEl.innerHTML = `
+        <div class="flex items-center justify-between gap-1 mb-1">
+          <span class="text-[11px] font-extrabold tracking-tight ${st.titleText}">${st.subLabel}</span>
+        </div>
+        ${anchorWord ? `
+          <div data-anchor-card="true" data-normal-class="${normalCardClass}" class="${normalCardClass}">
+            <div class="flex items-center gap-1.5">
+              <span data-anchor-badge="true" data-normal-class="${normalBadgeClass}" class="${normalBadgeClass}">${trait}</span>
+              <span data-anchor-word="true" data-normal-class="${normalWordClass}" class="${normalWordClass}">${anchorWord.word}</span>
+            </div>
+            <p data-anchor-def="true" data-normal-class="${normalDefClass}" class="${normalDefClass}">${defText}</p>
+          </div>
+        ` : ''}
+      `;
+
+      // Clicking the word or column header re-announces that column's anchor word
+      containerEl.onclick = () => {
+        revealSequenceRunId++;
+        clearRevealHighlights();
+        announceColumnAnchor(side);
+      };
+    }
+
+    function renderColumnItems(containerEl, side) {
+      const assigned = currentRound.items.filter(item => item.assignedSide === side);
+
+      if (assigned.length === 0) {
+        containerEl.innerHTML = '';
+        return;
+      }
+
+      containerEl.innerHTML = assigned.map(item => {
+        if (!isChecked) {
+          // Selection mode: swipeable across columns or tap to return to unsorted tray
+          return `
+            <div data-col-item-id="${item.id}" data-col-side="${side}" class="word-row-spring touch-pan-y cursor-grab active:cursor-grabbing bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 rounded-xl px-2.5 py-1.5 flex items-center justify-between gap-1.5 shadow-2xs slot-enter">
+              <span class="text-xs font-bold text-zinc-800 truncate">${item.word}</span>
+            </div>
+          `;
+        } else {
+          // Answer reveal mode: grammatical color coding only (no pills or checks), with a thicker border for incorrect answers
+          const trueStyle = TRAIT_STYLES[item.trait];
+          const borderThickness = item.isCorrect ? 'border' : 'border-2';
+
+          const animClass = item.movedFromSide
+            ? (side === 'right' ? 'animate-fix-to-right' : 'animate-fix-to-left')
+            : '';
+
+          const normalRevealClass = `cursor-pointer ${borderThickness} rounded-xl px-2.5 py-1.5 flex items-center transition-all duration-200 ${trueStyle.cardRevealBg}`;
+
+          return `
+            <div data-col-item-id="${item.id}" data-col-side="${side}" data-normal-class="${normalRevealClass}" class="${normalRevealClass} ${animClass}">
+              <span class="text-xs font-extrabold truncate">${item.word}</span>
+            </div>
+          `;
+        }
+      }).join('');
+
+      // Attach interactions for column items
+      containerEl.querySelectorAll('[data-col-item-id]').forEach(el => {
+        const itemId = el.dataset.colItemId;
+        const itemObj = currentRound.items.find(i => i.id === itemId);
+
+        if (isChecked) {
+          // Answer mode: tapping reveals full translation & grammatical clue
+          el.addEventListener('click', () => {
+            revealSequenceRunId++;
+            setColumnHighlight(null);
+            clearRevealHighlights();
+            showTranslationPopup(itemObj, true);
+          });
+        } else {
+          // Selection mode: swipe left/right to move across columns, or tap to unassign back to queue
+          attachColumnItemPhysics(el, itemObj, side);
+        }
+      });
+    }
+
+    function attachColumnItemPhysics(el, itemObj, currentSide) {
+      let startX = 0;
+      let startY = 0;
+      let deltaX = 0;
+      let dragging = false;
+      let lockedAxis = null;
+
+      const targetSide = currentSide === 'left' ? 'right' : 'left';
+      const targetColEl = targetSide === 'left' ? elColLeft : elColRight;
+      const targetTrait = targetSide === 'left' ? currentRound.leftTrait : currentRound.rightTrait;
+      const targetStyle = TRAIT_STYLES[targetTrait];
+
+      const onPointerDown = (e) => {
+        if (isChecked) return;
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        startX = e.clientX;
+        startY = e.clientY;
+        deltaX = 0;
+        dragging = true;
+        lockedAxis = null;
+        el.setPointerCapture(e.pointerId);
+      };
+
+      const onPointerMove = (e) => {
+        if (!dragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+
+        if (!lockedAxis) {
+          if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+            lockedAxis = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y';
+            if (lockedAxis === 'x') {
+              el.classList.add('word-row-dragging');
+            }
+          }
+        }
+
+        if (lockedAxis !== 'x') return;
+        e.preventDefault();
+        deltaX = dx;
+
+        const rotate = Math.max(-7, Math.min(7, deltaX * 0.04));
+        el.style.transform = `translate3d(${deltaX}px, 0, 0) rotate(${rotate}deg)`;
+
+        // Highlight target column if swiping toward it
+        const movingTowardTarget = (currentSide === 'left' && deltaX > 35) || (currentSide === 'right' && deltaX < -35);
+        if (movingTowardTarget) {
+          targetColEl.className = `rounded-2xl border-2 shadow-xs flex flex-col overflow-visible transition-colors ${targetStyle.colTint}`;
+        } else {
+          targetColEl.className = 'bg-white rounded-2xl border-2 border-zinc-200/90 shadow-xs flex flex-col overflow-visible transition-colors';
+        }
+      };
+
+      const onPointerUp = (e) => {
+        if (!dragging) return;
+        dragging = false;
+        el.classList.remove('word-row-dragging');
+        if (el.hasPointerCapture(e.pointerId)) {
+          el.releasePointerCapture(e.pointerId);
+        }
+
+        targetColEl.className = 'bg-white rounded-2xl border-2 border-zinc-200/90 shadow-xs flex flex-col overflow-visible transition-colors';
+
+        // Tap (minimal movement) -> return word back to unsorted queue
+        if (Math.abs(deltaX) < 8 && lockedAxis !== 'y') {
+          unassignWord(itemObj.id);
+          return;
+        }
+
+        // Swipe threshold -> transfer word to the opposite column
+        const swipedToOther = (currentSide === 'left' && deltaX > 48) || (currentSide === 'right' && deltaX < -48);
+        if (lockedAxis === 'x' && swipedToOther) {
+          el.style.transform = `translate3d(${currentSide === 'left' ? 140 : -140}px, 0, 0)`;
+          el.style.opacity = '0';
+          setTimeout(() => assignWord(itemObj.id, targetSide), 110);
+        } else {
+          el.style.transform = 'translate3d(0, 0, 0) rotate(0deg)';
+        }
+      };
+
+      el.addEventListener('pointerdown', onPointerDown);
+      el.addEventListener('pointermove', onPointerMove);
+      el.addEventListener('pointerup', onPointerUp);
+      el.addEventListener('pointercancel', onPointerUp);
+    }
+
+    function renderUnsortedQueue() {
+      const unsorted = currentRound.items.filter(item => item.assignedSide === null);
+
+      if (isChecked || unsorted.length === 0) {
+        elUnsortedSection.classList.add('hidden');
+        return;
+      }
+
+      elUnsortedSection.classList.remove('hidden');
+      document.getElementById('unsorted-label').textContent = `Remaining: ${unsorted.length}`;
+
+      const leftTrait = currentRound.leftTrait;
+      const rightTrait = currentRound.rightTrait;
+      const leftStyle = TRAIT_STYLES[leftTrait];
+      const rightStyle = TRAIT_STYLES[rightTrait];
+      const currentItem = unsorted[0];
+
+      // Only show the single current word to select
+      elUnsortedQueue.innerHTML = `
+        <div data-word-id="${currentItem.id}" class="word-row-spring touch-pan-y cursor-grab active:cursor-grabbing bg-white border-2 border-zinc-300 rounded-2xl px-2 py-2.5 shadow-pill flex items-center justify-between gap-1.5 relative">
+          <button type="button" data-action="left" class="px-2 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 active:scale-90 text-zinc-700 flex items-center gap-1 transition shrink-0" aria-label="Sort left">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            <span class="px-1.5 py-0.5 rounded text-[9px] font-extrabold tracking-wide ${leftStyle.badgeBg}">${leftTrait}</span>
+          </button>
+
+          <span class="text-sm font-extrabold tracking-tight text-zinc-900 truncate text-center flex-1 px-1">
+            ${currentItem.word}
+          </span>
+
+          <button type="button" data-action="right" class="px-2 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 active:scale-90 text-zinc-700 flex items-center gap-1 transition shrink-0" aria-label="Sort right">
+            <span class="px-1.5 py-0.5 rounded text-[9px] font-extrabold tracking-wide ${rightStyle.badgeBg}">${rightTrait}</span>
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </button>
+        </div>
+      `;
+
+      const topRowEl = elUnsortedQueue.querySelector('[data-word-id]');
+      if (topRowEl) {
+        attachUnsortedRowSwipePhysics(topRowEl, currentItem);
+      }
+    }
+
+    function attachUnsortedRowSwipePhysics(rowEl, wordObj) {
+      let startX = 0;
+      let startY = 0;
+      let deltaX = 0;
+      let isDragging = false;
+      let lockedAxis = null;
+
+      const leftBtn = rowEl.querySelector('[data-action="left"]');
+      const rightBtn = rowEl.querySelector('[data-action="right"]');
+
+      leftBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        assignWord(wordObj.id, 'left');
+      });
+
+      rightBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        assignWord(wordObj.id, 'right');
+      });
+
+      const onPointerDown = (e) => {
+        if (isChecked) return;
+        if (e.target.closest('button')) return;
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+        startX = e.clientX;
+        startY = e.clientY;
+        deltaX = 0;
+        isDragging = true;
+        lockedAxis = null;
+        rowEl.setPointerCapture(e.pointerId);
+      };
+
+      const onPointerMove = (e) => {
+        if (!isDragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+
+        if (!lockedAxis) {
+          if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+            lockedAxis = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y';
+            if (lockedAxis === 'x') {
+              rowEl.classList.add('word-row-dragging');
+            }
+          }
+        }
+
+        if (lockedAxis !== 'x') return;
+        e.preventDefault();
+        deltaX = dx;
+
+        const rotate = Math.max(-7, Math.min(7, deltaX * 0.035));
+        rowEl.style.transform = `translate3d(${deltaX}px, 0, 0) rotate(${rotate}deg)`;
+
+        if (deltaX < -35) {
+          const st = TRAIT_STYLES[currentRound.leftTrait];
+          elColLeft.className = `rounded-2xl border-2 shadow-xs flex flex-col overflow-visible transition-colors ${st.colTint}`;
+          elColRight.className = 'bg-white rounded-2xl border-2 border-zinc-200/90 shadow-xs flex flex-col overflow-visible transition-colors';
+        } else if (deltaX > 35) {
+          const st = TRAIT_STYLES[currentRound.rightTrait];
+          elColRight.className = `rounded-2xl border-2 shadow-xs flex flex-col overflow-visible transition-colors ${st.colTint}`;
+          elColLeft.className = 'bg-white rounded-2xl border-2 border-zinc-200/90 shadow-xs flex flex-col overflow-visible transition-colors';
+        } else {
+          elColLeft.className = 'bg-white rounded-2xl border-2 border-zinc-200/90 shadow-xs flex flex-col overflow-visible transition-colors';
+          elColRight.className = 'bg-white rounded-2xl border-2 border-zinc-200/90 shadow-xs flex flex-col overflow-visible transition-colors';
+        }
+      };
+
+      const onPointerUp = (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        rowEl.classList.remove('word-row-dragging');
+        if (rowEl.hasPointerCapture(e.pointerId)) {
+          rowEl.releasePointerCapture(e.pointerId);
+        }
+
+        elColLeft.className = 'bg-white rounded-2xl border-2 border-zinc-200/90 shadow-xs flex flex-col overflow-visible transition-colors';
+        elColRight.className = 'bg-white rounded-2xl border-2 border-zinc-200/90 shadow-xs flex flex-col overflow-visible transition-colors';
+
+        // Tap without dragging -> show spoiler-free translation popover (hidden gender/case)
+        if (Math.abs(deltaX) < 8 && lockedAxis !== 'y') {
+          showTranslationPopup(wordObj, false);
+          return;
+        }
+
+        const threshold = 52;
+        if (lockedAxis === 'x' && deltaX < -threshold) {
+          rowEl.style.transform = 'translate3d(-150px, -24px, 0) rotate(-8deg)';
+          rowEl.style.opacity = '0';
+          setTimeout(() => assignWord(wordObj.id, 'left'), 120);
+        } else if (lockedAxis === 'x' && deltaX > threshold) {
+          rowEl.style.transform = 'translate3d(150px, -24px, 0) rotate(8deg)';
+          rowEl.style.opacity = '0';
+          setTimeout(() => assignWord(wordObj.id, 'right'), 120);
+        } else {
+          rowEl.style.transform = 'translate3d(0, 0, 0) rotate(0deg)';
+        }
+      };
+
+      rowEl.addEventListener('pointerdown', onPointerDown);
+      rowEl.addEventListener('pointermove', onPointerMove);
+      rowEl.addEventListener('pointerup', onPointerUp);
+      rowEl.addEventListener('pointercancel', onPointerUp);
+    }
+
+    function assignWord(wordId, side) {
+      if (isChecked) return;
+      const item = currentRound.items.find(w => w.id === wordId);
+      if (!item) return;
+
+      // Cancel automatic anchor intro sequence if the user starts sorting immediately
+      anchorIntroRunId++;
+      setColumnHighlight(null);
+      hideTranslationPopup();
+
+      item.assignedSide = side;
+      playSound('sort');
+
+      renderColumnItems(elColLeftItems, 'left');
+      renderColumnItems(elColRightItems, 'right');
+      renderUnsortedQueue();
+      updatePrimaryButtonState();
+    }
+
+    function unassignWord(wordId) {
+      if (isChecked) return;
+      const item = currentRound.items.find(w => w.id === wordId);
+      if (!item) return;
+
+      item.assignedSide = null;
+      playSound('sort');
+
+      renderColumnItems(elColLeftItems, 'left');
+      renderColumnItems(elColRightItems, 'right');
+      renderUnsortedQueue();
+      updatePrimaryButtonState();
+    }
+
+    function updatePrimaryButtonState() {
+      const remaining = currentRound.items.filter(w => w.assignedSide === null).length;
+
+      if (isChecked) {
+        elPrimaryBtn.classList.remove('hidden');
+        elPrimaryBtn.disabled = false;
+        elPrimaryBtn.className = 'w-full py-3.5 px-4 rounded-2xl bg-zinc-900 hover:bg-zinc-800 active:scale-[0.99] text-white font-bold text-sm shadow-md transition flex items-center justify-center whitespace-nowrap';
+        elPrimaryLabel.className = 'inline-flex items-center justify-center gap-1.5 whitespace-nowrap';
+        elPrimaryLabel.innerHTML = '<span>Next Round</span><svg class="w-4 h-4 shrink-0 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+        return;
+      }
+
+      // While words remain to pick, hide the Check button so the single active word card occupies the bottom slot
+      if (remaining > 0) {
+        elPrimaryBtn.classList.add('hidden');
+        elPrimaryBtn.disabled = true;
+      } else {
+        elPrimaryBtn.classList.remove('hidden');
+        elPrimaryBtn.disabled = false;
+        elPrimaryBtn.className = 'w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white font-bold text-sm shadow-lg shadow-emerald-600/20 transition flex items-center justify-center gap-1.5 whitespace-nowrap';
+        elPrimaryLabel.className = 'whitespace-nowrap';
+        elPrimaryLabel.textContent = 'Check Answers';
+      }
+    }
+
+    // =========================================================================
+    // 6. CHECK ANSWERS, AUTO-MOVE INCORRECT ITEMS & SYMMETRIC SCORING
+    // =========================================================================
+    function handlePrimaryButtonClick() {
+      initAudio();
+
+      if (isChecked) {
+        startNewRound();
+        return;
+      }
+
+      const remaining = currentRound.items.filter(w => w.assignedSide === null).length;
+      if (remaining > 0) return;
+
+      isChecked = true;
+      let correctCount = 0;
+
+      currentRound.items.forEach(item => {
+        const expectedSide = item.trait === currentRound.leftTrait ? 'left' : 'right';
+        item.isCorrect = item.assignedSide === expectedSide;
+
+        const prevScore = appState.scores[item.id] ?? 0;
+        if (item.isCorrect) {
+          correctCount++;
+          item.movedFromSide = null;
+          appState.scores[item.id] = Math.min(MAX_SCORE, prevScore + 1);
+        } else {
+          // Track original column so it animates into its true column on render
+          item.movedFromSide = item.assignedSide;
+          item.assignedSide = expectedSide;
+          appState.scores[item.id] = Math.max(0, prevScore - 1);
+        }
+      });
+
+      const allRight = correctCount === currentRound.items.length;
+
+      if (allRight) {
+        appState.streak += 1;
+        appState.bestStreak = Math.max(appState.bestStreak, appState.streak);
+        playSound('correct');
+      } else {
+        appState.streak = 0;
+        playSound('wrong');
+      }
+
+      saveState();
+
+      renderColumnItems(elColLeftItems, 'left');
+      renderColumnItems(elColRightItems, 'right');
+      renderUnsortedQueue();
+      updatePrimaryButtonState();
+      updateHeaderAndLegend();
+
+      // Sequentially announce & highlight Left column (anchor + sorted words), then Right column
+      playRevealColumnSequence();
+    }
+
+    // =========================================================================
+    // 7. HEADER, INTRO UI & WORD BANK MODAL
+    // =========================================================================
+    function updateHeaderAndLegend() {
+      const domain = appState.domain;
+      const levels = LEVEL_DEFINITIONS[domain] || [];
+      const packSet = getSelectedPackSet(domain);
+
+      // Render multi-select pack pills
+      const packGrid = document.getElementById('pack-grid');
+      packGrid.className = levels.length <= 2
+        ? 'grid grid-cols-2 gap-1.5 p-1 bg-zinc-50/80 rounded-xl border border-zinc-200/70'
+        : 'grid grid-cols-3 gap-1.5 max-h-[112px] overflow-y-auto thin-scroll p-1 bg-zinc-50/80 rounded-xl border border-zinc-200/70';
+
+      packGrid.innerHTML = levels.map(lvl => {
+        const stats = getLevelStats(domain, lvl.id);
+        const isSelected = packSet.has(lvl.id);
+        const badgeText = stats.graduated ? '✓' : `${stats.learnedOrBetter}/${stats.total}`;
+        const packPct = Math.round(stats.ratio * 100);
+
+        return `
+          <button type="button" data-pack-id="${lvl.id}" class="p-1.5 rounded-xl border text-left transition flex flex-col gap-1 ${
+            isSelected
+              ? 'bg-zinc-900 border-zinc-900 text-white shadow-2xs'
+              : 'bg-zinc-50 border-zinc-200 text-zinc-700 hover:bg-zinc-100'
+          }">
+            <div class="w-full flex items-center justify-between gap-1">
+              <span class="text-[11px] font-bold truncate">${lvl.title}</span>
+              <span class="text-[9px] font-mono px-1 py-0.5 rounded shrink-0 ${
+                stats.graduated
+                  ? (isSelected ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-800')
+                  : (isSelected ? 'bg-zinc-700 text-zinc-200' : 'bg-zinc-200/80 text-zinc-500')
+              }">${badgeText}</span>
+            </div>
+            <div class="w-full h-1 rounded-full overflow-hidden ${isSelected ? 'bg-zinc-700' : 'bg-zinc-200'}">
+              <div class="h-full rounded-full transition-all duration-300 ${stats.graduated ? 'bg-emerald-400' : 'bg-emerald-500'}" style="width: ${packPct}%"></div>
+            </div>
+          </button>
+        `;
+      }).join('');
+
+      packGrid.querySelectorAll('[data-pack-id]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = Number(btn.dataset.packId);
+          const nextSet = getSelectedPackSet(domain);
+          if (nextSet.has(id)) {
+            if (nextSet.size > 1) {
+              nextSet.delete(id);
+            }
+          } else {
+            nextSet.add(id);
+          }
+          appState.selectedPacks[domain] = [...nextSet].sort((a, b) => a - b);
+          saveState();
+          updateHeaderAndLegend();
+        });
+      });
+
+      document.getElementById('pack-selection-summary').textContent = `${packSet.size}/${levels.length} Packs`;
+
+      // Active unlocked pool stats (including compound root gating count)
+      const activePool = getActiveWorkingPool(domain);
+      const lockedCompoundsCount = VOCAB_DATA.filter(
+        w => w.domain === domain && packSet.has(w.level) && !isCompoundUnlocked(w)
+      ).length;
+
+      let mCount = 0, lCount = 0, nCount = 0;
+      activePool.forEach(w => {
+        const t = getTier(appState.scores[w.id]);
+        if (t === 'mastered') mCount++;
+        else if (t === 'learned') lCount++;
+        else nCount++;
+      });
+
+      const activeTotal = activePool.length;
+      const activeLearnedPct = activeTotal > 0 ? Math.round(((mCount + lCount) / activeTotal) * 100) : 0;
+      const gameProgressBar = document.getElementById('game-progress-bar');
+      const gameProgressLabel = document.getElementById('game-progress-label');
+      if (gameProgressBar) gameProgressBar.style.width = `${activeLearnedPct}%`;
+      if (gameProgressLabel) gameProgressLabel.textContent = `${mCount + lCount}/${activeTotal} (${activeLearnedPct}%)`;
+
+      const streakText = `Streak: ${appState.streak} · Best: ${appState.bestStreak}`;
+      document.getElementById('combo-badge').textContent = streakText;
+      document.getElementById('intro-streak-badge').textContent = streakText;
+      document.getElementById('tier-summary-pill').textContent = `${mCount}/${lCount}/${nCount}`;
+      document.getElementById('intro-pool-breakdown').textContent = lockedCompoundsCount > 0
+        ? `${mCount}M · ${lCount}L · ${nCount} New (${lockedCompoundsCount} compounds gated)`
+        : `${mCount} Mastered · ${lCount} Learned · ${nCount} New`;
+
+      // Update Start CTA label if Sprint is needed to seed Learned anchors
+      const needsSprint = needsBootstrapSprint(domain);
+      document.getElementById('btn-start-label').textContent = needsSprint
+        ? 'Sprint → Sort'
+        : 'Start Game';
+
+      document.getElementById('val-learned').textContent = appState.learnedCount;
+      document.getElementById('val-mastered').textContent = appState.masteredCount;
+      document.getElementById('total-words-badge').textContent = `${appState.learnedCount + appState.masteredCount} words`;
+
+      ['nouns', 'case'].forEach(dom => {
+        const btn = document.getElementById(`domain-${dom}`);
+        if (appState.domain === dom) {
+          btn.className = 'domain-btn py-2 px-2.5 rounded-xl border text-left transition flex flex-col justify-between bg-zinc-900 text-white border-zinc-900 shadow-xs';
+        } else {
+          btn.className = 'domain-btn py-2 px-2.5 rounded-xl border text-left transition flex flex-col justify-between bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-zinc-100';
+        }
+      });
+
+      const sndBtn = document.getElementById('toggle-sound');
+      sndBtn.className = appState.soundEnabled
+        ? 'px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition flex items-center gap-1 bg-zinc-900 text-white border-zinc-900'
+        : 'px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition flex items-center gap-1 bg-zinc-50 text-zinc-500 border-zinc-200';
+      document.getElementById('sound-icon').textContent = appState.soundEnabled ? '🔊' : '🔇';
+
+      const spkBtn = document.getElementById('toggle-speech');
+      spkBtn.className = appState.speechEnabled
+        ? 'px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition flex items-center gap-1 bg-zinc-900 text-white border-zinc-900'
+        : 'px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition flex items-center gap-1 bg-zinc-50 text-zinc-500 border-zinc-200';
+    }
+
+    // Event bindings
+    elPrimaryBtn.addEventListener('click', handlePrimaryButtonClick);
+
+    document.getElementById('btn-start-game').addEventListener('click', () => {
+      initAudio();
+      if (needsBootstrapSprint(appState.domain)) {
+        startBootstrapSprint();
+      } else {
+        showScreen('game');
+      }
+    });
+
+    document.getElementById('btn-bootstrap-intro').addEventListener('click', () => {
+      initAudio();
+      startBootstrapSprint();
+    });
+
+    document.getElementById('btn-packs-all').addEventListener('click', () => {
+      const levels = LEVEL_DEFINITIONS[appState.domain] || [];
+      appState.selectedPacks[appState.domain] = levels.map(l => l.id);
+      saveState();
+      updateHeaderAndLegend();
+    });
+
+    document.getElementById('btn-packs-none').addEventListener('click', () => {
+      appState.selectedPacks[appState.domain] = [1];
+      saveState();
+      updateHeaderAndLegend();
+    });
+
+    document.getElementById('btn-back-setup').addEventListener('click', () => {
+      showScreen('intro');
+    });
+
+    document.getElementById('btn-sprint-exit').addEventListener('click', () => {
+      sprintState = null;
+      showScreen('intro');
+    });
+
+    document.getElementById('btn-sprint-skip-all').addEventListener('click', () => {
+      initAudio();
+      sprintState = null;
+      showScreen('game');
+    });
+
+    document.getElementById('btn-sprint-dont-know').addEventListener('click', () => {
+      handleSprintChoice(null);
+    });
+
+    ['nouns', 'case'].forEach(dom => {
+      document.getElementById(`domain-${dom}`).addEventListener('click', () => {
+        if (appState.domain === dom) return;
+        appState.domain = dom;
+        saveState();
+        updateHeaderAndLegend();
+      });
+    });
+
+    document.getElementById('btn-learned-dec').addEventListener('click', () => {
+      if (appState.learnedCount > 1) {
+        appState.learnedCount--;
+        saveState();
+        updateHeaderAndLegend();
+      }
+    });
+    document.getElementById('btn-learned-inc').addEventListener('click', () => {
+      if (appState.learnedCount < 3) {
+        appState.learnedCount++;
+        saveState();
+        updateHeaderAndLegend();
+      }
+    });
+    document.getElementById('btn-mastered-dec').addEventListener('click', () => {
+      if (appState.masteredCount > 1) {
+        appState.masteredCount--;
+        saveState();
+        updateHeaderAndLegend();
+      }
+    });
+    document.getElementById('btn-mastered-inc').addEventListener('click', () => {
+      if (appState.masteredCount < 3) {
+        appState.masteredCount++;
+        saveState();
+        updateHeaderAndLegend();
+      }
+    });
+
+    document.getElementById('toggle-sound').addEventListener('click', () => {
+      appState.soundEnabled = !appState.soundEnabled;
+      if (appState.soundEnabled) playSound('sort');
+      saveState();
+      updateHeaderAndLegend();
+    });
+
+    document.getElementById('toggle-speech').addEventListener('click', () => {
+      appState.speechEnabled = !appState.speechEnabled;
+      if (appState.speechEnabled) {
+        initAudio();
+      } else {
+        stopSpeech();
+      }
+      saveState();
+      updateHeaderAndLegend();
+    });
+
+    // Word Bank Modal
+    const elBankModal = document.getElementById('word-bank-modal');
+    const elBankList = document.getElementById('word-bank-list');
+    const elConfirmToast = document.getElementById('confirm-toast');
+
+    function openWordBank() {
+      renderWordBank();
+      elBankModal.classList.remove('hidden');
+    }
+
+    document.getElementById('btn-open-bank-intro').addEventListener('click', openWordBank);
+    document.getElementById('btn-open-bank-game').addEventListener('click', openWordBank);
+
+    document.getElementById('btn-close-bank').addEventListener('click', () => {
+      elBankModal.classList.add('hidden');
+    });
+
+    elBankModal.addEventListener('click', (e) => {
+      if (e.target === elBankModal) {
+        elBankModal.classList.add('hidden');
+      }
+    });
+
+    document.querySelectorAll('.bank-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        bankFilter = btn.dataset.bankFilter;
+        document.querySelectorAll('.bank-filter-btn').forEach(b => {
+          b.className = b.dataset.bankFilter === bankFilter
+            ? 'bank-filter-btn px-2.5 py-1 rounded-lg bg-zinc-900 text-white'
+            : 'bank-filter-btn px-2.5 py-1 rounded-lg bg-white text-zinc-600 border border-zinc-200';
+        });
+        renderWordBank();
+      });
+    });
+
+    function renderWordBank() {
+      const items = VOCAB_DATA
+        .filter(w => w.domain === appState.domain)
+        .filter(w => {
+          if (bankFilter === 'all') return true;
+          return getTier(appState.scores[w.id]) === bankFilter;
+        })
+        .sort((a, b) => a.level - b.level || (appState.scores[b.id] - appState.scores[a.id]));
+
+      elBankList.innerHTML = items.map(w => {
+        const score = appState.scores[w.id] ?? 0;
+        const tier = getTier(score);
+        const st = TRAIT_STYLES[w.trait];
+        const unlocked = isCompoundUnlocked(w);
+        const pct = Math.round((score / MAX_SCORE) * 100);
+
+        const tierBadge = tier === 'mastered'
+          ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">Mastered</span>'
+          : tier === 'learned'
+            ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-200 text-zinc-800">Learned</span>'
+            : '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800">Learning</span>';
+
+        const compoundSub = w.compound
+          ? `<p class="text-[10px] font-mono ${unlocked ? 'text-amber-700' : 'text-zinc-400'} mt-0.5">${unlocked ? '' : '🔒 '}${w.compound.prefix} + ${w.compound.rootTrait} ${w.compound.rootWord}</p>`
+          : '';
+
+        return `
+          <div class="p-2.5 rounded-xl border border-zinc-200/80 ${unlocked ? 'bg-zinc-50/60' : 'bg-zinc-100/80 opacity-65'} flex items-center justify-between gap-2.5">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5">
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold ${st.badgeBg}">${w.trait}</span>
+                <span class="font-bold text-sm text-zinc-900 truncate">${w.word}</span>
+                <span class="text-xs text-zinc-400 truncate">— ${w.meaning}</span>
+              </div>
+              ${compoundSub}
+              <div class="mt-1.5 flex items-center gap-2">
+                <div class="flex-1 h-1.5 bg-zinc-200 rounded-full overflow-hidden">
+                  <div class="h-full bg-zinc-800 rounded-full transition-all" style="width: ${pct}%"></div>
+                </div>
+                <span class="text-[11px] font-mono text-zinc-500">${score}/${MAX_SCORE} · Pack ${w.level}</span>
+              </div>
+            </div>
+            <div class="shrink-0">
+              ${tierBadge}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    document.getElementById('btn-clear-combos').addEventListener('click', () => {
+      appState.seenCombinations = [];
+      saveState();
+      renderWordBank();
+      document.getElementById('combo-pool-status').textContent = 'Unique set';
+    });
+
+    document.getElementById('btn-reset-progress').addEventListener('click', () => {
+      elConfirmToast.classList.remove('hidden');
+    });
+
+    document.getElementById('confirm-toast-no').addEventListener('click', () => {
+      elConfirmToast.classList.add('hidden');
+    });
+
+    document.getElementById('confirm-toast-yes').addEventListener('click', () => {
+      VOCAB_DATA.forEach(item => {
+        appState.scores[item.id] = 0;
+      });
+      appState.selectedPacks = { nouns: [1], case: [1] };
+      appState.seenCombinations = [];
+      appState.streak = 0;
+      saveState();
+      elConfirmToast.classList.add('hidden');
+      updateHeaderAndLegend();
+      renderWordBank();
+      if (activeScreen === 'game') {
+        startNewRound();
+      }
+    });
+
+    // =========================================================================
+    // 8. BOOTSTRAP
+    // =========================================================================
+    window.addEventListener('DOMContentLoaded', () => {
+      loadState();
+      showScreen('intro');
+    });
+  </script>
+</body>
+</html>
