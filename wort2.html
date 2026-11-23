@@ -175,31 +175,41 @@
         </div>
       </div>
 
-      <!-- 2. Round Composition Controls (2 Learning Anchors + Adjustable Learned & Mastered) -->
+      <!-- 2. Round Composition Controls (Learning + Learned + Mastered) -->
       <div class="space-y-2 pt-2.5 border-t border-zinc-100">
         <div class="flex items-center justify-between gap-2">
           <label class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Words to Sort per Round</label>
-          <span id="total-words-badge" class="text-[11px] font-mono font-semibold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-md shrink-0">4 words</span>
+          <span id="total-words-badge" class="text-[11px] font-mono font-semibold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-md shrink-0">5 words</span>
         </div>
 
-        <div class="grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-3 gap-1.5">
+          <!-- Learning Count Stepper -->
+          <div class="flex flex-col items-center justify-between bg-sky-50/60 border border-sky-200/80 rounded-xl px-1.5 py-1.5 gap-1">
+            <span class="text-[10px] font-bold text-sky-900">Learning</span>
+            <div class="flex items-center gap-1">
+              <button id="btn-learning-dec" type="button" class="w-5 h-5 rounded-md bg-white border border-zinc-200 hover:bg-zinc-100 active:scale-95 text-zinc-700 font-bold text-xs flex items-center justify-center transition" aria-label="Decrease learning words">−</button>
+              <span id="val-learning" class="w-4 text-center text-xs font-mono font-bold text-zinc-900">2</span>
+              <button id="btn-learning-inc" type="button" class="w-5 h-5 rounded-md bg-white border border-zinc-200 hover:bg-zinc-100 active:scale-95 text-zinc-700 font-bold text-xs flex items-center justify-center transition" aria-label="Increase learning words">+</button>
+            </div>
+          </div>
+
           <!-- Learned Count Stepper -->
-          <div class="flex items-center justify-between bg-zinc-50 border border-zinc-200/75 rounded-xl px-2.5 py-1.5">
-            <span class="text-xs font-semibold text-zinc-800">Learned</span>
-            <div class="flex items-center gap-1.5">
-              <button id="btn-learned-dec" type="button" class="w-6 h-6 rounded-lg bg-white border border-zinc-200 hover:bg-zinc-100 active:scale-95 text-zinc-700 font-bold text-sm flex items-center justify-center transition" aria-label="Decrease learned words">−</button>
+          <div class="flex flex-col items-center justify-between bg-zinc-50 border border-zinc-200/75 rounded-xl px-1.5 py-1.5 gap-1">
+            <span class="text-[10px] font-bold text-zinc-800">Learned</span>
+            <div class="flex items-center gap-1">
+              <button id="btn-learned-dec" type="button" class="w-5 h-5 rounded-md bg-white border border-zinc-200 hover:bg-zinc-100 active:scale-95 text-zinc-700 font-bold text-xs flex items-center justify-center transition" aria-label="Decrease learned words">−</button>
               <span id="val-learned" class="w-4 text-center text-xs font-mono font-bold text-zinc-900">2</span>
-              <button id="btn-learned-inc" type="button" class="w-6 h-6 rounded-lg bg-white border border-zinc-200 hover:bg-zinc-100 active:scale-95 text-zinc-700 font-bold text-sm flex items-center justify-center transition" aria-label="Increase learned words">+</button>
+              <button id="btn-learned-inc" type="button" class="w-5 h-5 rounded-md bg-white border border-zinc-200 hover:bg-zinc-100 active:scale-95 text-zinc-700 font-bold text-xs flex items-center justify-center transition" aria-label="Increase learned words">+</button>
             </div>
           </div>
 
           <!-- Mastered Count Stepper -->
-          <div class="flex items-center justify-between bg-zinc-50 border border-zinc-200/75 rounded-xl px-2.5 py-1.5">
-            <span class="text-xs font-semibold text-zinc-800">Mastered</span>
-            <div class="flex items-center gap-1.5">
-              <button id="btn-mastered-dec" type="button" class="w-6 h-6 rounded-lg bg-white border border-zinc-200 hover:bg-zinc-100 active:scale-95 text-zinc-700 font-bold text-sm flex items-center justify-center transition" aria-label="Decrease mastered words">−</button>
-              <span id="val-mastered" class="w-4 text-center text-xs font-mono font-bold text-zinc-900">2</span>
-              <button id="btn-mastered-inc" type="button" class="w-6 h-6 rounded-lg bg-white border border-zinc-200 hover:bg-zinc-100 active:scale-95 text-zinc-700 font-bold text-sm flex items-center justify-center transition" aria-label="Increase mastered words">+</button>
+          <div class="flex flex-col items-center justify-between bg-zinc-50 border border-zinc-200/75 rounded-xl px-1.5 py-1.5 gap-1">
+            <span class="text-[10px] font-bold text-zinc-800">Mastered</span>
+            <div class="flex items-center gap-1">
+              <button id="btn-mastered-dec" type="button" class="w-5 h-5 rounded-md bg-white border border-zinc-200 hover:bg-zinc-100 active:scale-95 text-zinc-700 font-bold text-xs flex items-center justify-center transition" aria-label="Decrease mastered words">−</button>
+              <span id="val-mastered" class="w-4 text-center text-xs font-mono font-bold text-zinc-900">1</span>
+              <button id="btn-mastered-inc" type="button" class="w-5 h-5 rounded-md bg-white border border-zinc-200 hover:bg-zinc-100 active:scale-95 text-zinc-700 font-bold text-xs flex items-center justify-center transition" aria-label="Increase mastered words">+</button>
             </div>
           </div>
         </div>
@@ -883,30 +893,22 @@
       ['die', 'Tafel', 'board / panel'],
       ['der', 'Wagen', 'cart / car'],
       ['das', 'Band', 'belt / ribbon'],
-      ['die', 'Kraft', 'worker / force'],
       ['das', 'Tuch', 'cloth'],
       ['der', 'Krug', 'mug / pitcher'],
       ['der', 'Deckel', 'lid / coaster'],
-      ['die', 'Anlage', 'system / facility'],
+      ['der', 'Park', 'park'],
       ['der', 'Haken', 'hook'],
       ['der', 'Stand', 'stand / booth'],
-      ['der', 'Strauß', 'bouquet'],
       ['der', 'Schirm', 'umbrella / screen'],
-      ['der', 'Hafen', 'harbor / port'],
       ['der', 'Schalter', 'counter / switch'],
       ['die', 'Kontrolle', 'control / inspection'],
-      ['die', 'Abgabe', 'drop-off / submission'],
       ['der', 'Pass', 'passport / pass'],
-      ['das', 'Zeug', 'stuff / gear'],
       ['der', 'Platz', 'square / seat / place'],
-      ['der', 'Hahn', 'tap / rooster'],
       ['die', 'Platte', 'plate / counter'],
       ['das', 'Brett', 'board'],
-      ['der', 'Kocher', 'cooker / boiler'],
       ['der', 'Garten', 'garden'],
       ['der', 'Weg', 'path / way'],
       ['der', 'Plan', 'plan / map'],
-      ['das', 'Blech', 'sheet metal / tray'],
       ['der', 'Saft', 'juice'],
       ['der', 'Zettel', 'note / slip of paper'],
       ['die', 'Stange', 'pole / bar'],
@@ -914,9 +916,7 @@
       ['die', 'Tonne', 'bin / barrel'],
       ['der', 'Rahmen', 'frame'],
       ['der', 'Eimer', 'bucket'],
-      ['der', 'Kasten', 'box'],
-      ['die', 'Stelle', 'spot / stop'],
-      ['die', 'Zone', 'zone']
+      ['der', 'Kasten', 'box']
     ];
 
     // Compound word breakdown map: compoundWord -> { prefix, rootWord }
@@ -941,47 +941,34 @@
       'Kinderwagen': { prefix: 'Kinder', rootWord: 'Wagen' },
       'Kassenband': { prefix: 'Kassen', rootWord: 'Band' },
       'Förderband': { prefix: 'Förder', rootWord: 'Band' },
-      'Kassenkraft': { prefix: 'Kassen', rootWord: 'Kraft' },
       'Handtuch': { prefix: 'Hand', rootWord: 'Tuch' },
       'Geschirrtuch': { prefix: 'Geschirr', rootWord: 'Tuch' },
       'Bierkrug': { prefix: 'Bier', rootWord: 'Krug' },
       'Bierdeckel': { prefix: 'Bier', rootWord: 'Deckel' },
-      'Zapfanlage': { prefix: 'Zapf', rootWord: 'Anlage' },
       'Garderobenhaken': { prefix: 'Garderoben', rootWord: 'Haken' },
       'Marktstand': { prefix: 'Markt', rootWord: 'Stand' },
-      'Blumenstrauß': { prefix: 'Blumen', rootWord: 'Strauß' },
       'Sonnenschirm': { prefix: 'Sonnen', rootWord: 'Schirm' },
       'Regenschirm': { prefix: 'Regen', rootWord: 'Schirm' },
-      'Flughafen': { prefix: 'Flug', rootWord: 'Hafen' },
       'Check-in-Schalter': { prefix: 'Check-in-', rootWord: 'Schalter' },
       'Sicherheitskontrolle': { prefix: 'Sicherheits', rootWord: 'Kontrolle' },
       'Passkontrolle': { prefix: 'Pass', rootWord: 'Kontrolle' },
-      'Gepäckabgabe': { prefix: 'Gepäck', rootWord: 'Abgabe' },
-      'Reisepass': { prefix: 'Reise', rootWord: 'Pass' },
-      'Flugzeug': { prefix: 'Flug', rootWord: 'Zeug' },
       'Sitzplatz': { prefix: 'Sitz', rootWord: 'Platz' },
       'Spielplatz': { prefix: 'Spiel', rootWord: 'Platz' },
-      'Wasserhahn': { prefix: 'Wasser', rootWord: 'Hahn' },
       'Arbeitsplatte': { prefix: 'Arbeits', rootWord: 'Platte' },
       'Schneidebrett': { prefix: 'Schneide', rootWord: 'Brett' },
-      'Wasserkocher': { prefix: 'Wasser', rootWord: 'Kocher' },
       'Biergarten': { prefix: 'Bier', rootWord: 'Garten' },
       'Parkweg': { prefix: 'Park', rootWord: 'Weg' },
       'Parkplan': { prefix: 'Park', rootWord: 'Plan' },
       'Fahrplan': { prefix: 'Fahr', rootWord: 'Plan' },
-      'Backblech': { prefix: 'Back', rootWord: 'Blech' },
       'Hustensaft': { prefix: 'Husten', rootWord: 'Saft' },
-      'Beipackzettel': { prefix: 'Beipack', rootWord: 'Zettel' },
       'Haltestange': { prefix: 'Halte', rootWord: 'Stange' },
       'Fußmatte': { prefix: 'Fuß', rootWord: 'Matte' },
       'Mülltonne': { prefix: 'Müll', rootWord: 'Tonne' },
       'Bilderrahmen': { prefix: 'Bilder', rootWord: 'Rahmen' },
       'Mülleimer': { prefix: 'Müll', rootWord: 'Eimer' },
       'Briefkasten': { prefix: 'Brief', rootWord: 'Kasten' },
-      'Haltestelle': { prefix: 'Halte', rootWord: 'Stelle' },
       'Bushaltestelle': { prefix: 'Bus', rootWord: 'Haltestelle' },
       'Straßenbahnhaltestelle': { prefix: 'Straßenbahn', rootWord: 'Haltestelle' },
-      'Fußgängerzone': { prefix: 'Fußgänger', rootWord: 'Zone' },
       'Schaufenster': { prefix: 'Schau', rootWord: 'Fenster' },
       'Gleisschild': { prefix: 'Gleis', rootWord: 'Schild' },
       'Barhocker': { prefix: 'Bar', rootWord: 'Hocker' },
@@ -992,14 +979,11 @@
       'Stammtisch': { prefix: 'Stamm', rootWord: 'Tisch' },
       'Wochenmarkt': { prefix: 'Wochen', rootWord: 'Markt' },
       'Handgepäck': { prefix: 'Hand', rootWord: 'Gepäck' },
-      'Kühlschrank': { prefix: 'Kühl', rootWord: 'Schrank' },
-      'Backofen': { prefix: 'Back', rootWord: 'Ofen' },
       'Stadtpark': { prefix: 'Stadt', rootWord: 'Park' },
       'Parkbank': { prefix: 'Park', rootWord: 'Bank' },
       'Sitzbank': { prefix: 'Sitz', rootWord: 'Bank' },
       'Papiertüte': { prefix: 'Papier', rootWord: 'Tüte' },
-      'Haustür': { prefix: 'Haus', rootWord: 'Tür' },
-      'Bahnhof': { prefix: 'Bahn', rootWord: 'Hof' }
+      'Haustür': { prefix: 'Haus', rootWord: 'Tür' }
     };
 
     const LEVEL_DEFINITIONS = {
@@ -1195,7 +1179,7 @@
     // =========================================================================
     // 2. PERSISTENT STATE, MULTI-PACK SELECTION & COMPOUND GATING ENGINE
     // =========================================================================
-    const STORAGE_KEY = 'wortmatch_sort_pwa_v4';
+    const STORAGE_KEY = 'wortmatch_sort_pwa_v5';
     const MAX_SCORE = 8;
     const GRADUATION_RATIO = 0.75; // 75% Learned (score >= 3) marks a pack complete
 
@@ -1205,8 +1189,9 @@
         nouns: [1],
         case: [1]
       },
-      learnedCount: 2,          // 1..3
-      masteredCount: 2,         // 1..3
+      learningCount: 2,         // 0..3 sortable Learning words per round
+      learnedCount: 2,          // 0..3
+      masteredCount: 1,         // 0..3
       soundEnabled: true,
       speechEnabled: true,
       streak: 0,
@@ -1222,7 +1207,7 @@
 
     function loadState() {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('wortmatch_sort_pwa_v4');
         if (raw) {
           const parsed = JSON.parse(raw);
           appState = {
@@ -1237,6 +1222,10 @@
 
       if (!DOMAIN_CONFIG[appState.domain]) {
         appState.domain = 'nouns';
+      }
+
+      if (typeof appState.learningCount !== 'number') {
+        appState.learningCount = 2;
       }
 
       ['nouns', 'case'].forEach(dom => {
@@ -1303,11 +1292,26 @@
       const pool = getActiveWorkingPool(domain);
       const traits = DOMAIN_CONFIG[domain].traits;
       const learnedOrMasteredCount = pool.filter(w => (appState.scores[w.id] ?? 0) >= 3).length;
-      const requiredAnchors = appState.learnedCount + appState.masteredCount;
       const traitsWithLearned = traits.filter(t =>
         pool.some(w => w.trait === t && (appState.scores[w.id] ?? 0) >= 3)
       ).length;
-      return learnedOrMasteredCount < requiredAnchors || traitsWithLearned < 2;
+      return learnedOrMasteredCount < 2 || traitsWithLearned < 2;
+    }
+
+    function autoAdvanceGraduatedPacks(domain) {
+      const levels = LEVEL_DEFINITIONS[domain] || [];
+      const packSet = getSelectedPackSet(domain);
+      const selectedIds = [...packSet].sort((a, b) => a - b);
+      const highestSelected = selectedIds[selectedIds.length - 1] || 1;
+      const highestStats = getLevelStats(domain, highestSelected);
+
+      if (highestStats.graduated && highestSelected < levels.length) {
+        const nextPack = highestSelected + 1;
+        if (!packSet.has(nextPack)) {
+          packSet.add(nextPack);
+          appState.selectedPacks[domain] = [...packSet].sort((a, b) => a - b);
+        }
+      }
     }
 
     // =========================================================================
@@ -1330,8 +1334,6 @@
       }
       resolveVoices();
 
-      // iOS Safari requires a synchronous speak() inside a user gesture to unlock
-      // speechSynthesis for subsequent onend-chained or timed announcements.
       if (!speechUnlocked && 'speechSynthesis' in window) {
         try {
           const primer = new SpeechSynthesisUtterance('');
@@ -1431,8 +1433,6 @@
         return;
       }
 
-      // Only cancel when speech is actively running/queued; calling cancel() while
-      // idle on iOS Safari can swallow the immediately following speak() call.
       if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
         window.speechSynthesis.cancel();
       }
@@ -1463,7 +1463,6 @@
 
       utterance.onend = finishOnce;
       utterance.onerror = finishOnce;
-      // Fallback timer in case iOS Safari never fires onend
       const fallbackTimer = setTimeout(finishOnce, Math.max(1800, text.length * 85));
 
       window.speechSynthesis.speak(utterance);
@@ -1490,7 +1489,7 @@
     }
 
     // =========================================================================
-    // 4. ROUND GENERATION WITH COMBINATION DEDUPLICATION & LEVEL POOLS
+    // 4. ROUND GENERATION WITH SORTABLE LEARNING WORDS & LEVEL PROGRESSION
     // =========================================================================
     function shuffleArray(arr) {
       const copy = [...arr];
@@ -1514,13 +1513,17 @@
       const traits = DOMAIN_CONFIG[appState.domain].traits;
       const seenSet = new Set(appState.seenCombinations);
 
-      // Prefer Learning words from the active selected packs
-      const getBucket = (tier, trait) => {
-        const tierAndTrait = domainItems.filter(w => w.trait === trait && getTier(appState.scores[w.id]) === tier);
-        if (tierAndTrait.length > 0) return tierAndTrait;
-        const anyScoreInTrait = domainItems.filter(w => w.trait === trait);
-        return anyScoreInTrait.length > 0
-          ? anyScoreInTrait
+      const getExactBucket = (tier, trait) =>
+        domainItems.filter(w => w.trait === trait && getTier(appState.scores[w.id]) === tier);
+
+      const getBucketWithFallback = (tier, trait) => {
+        const exact = getExactBucket(tier, trait);
+        if (exact.length > 0) return exact;
+        const ungraduated = domainItems.filter(w => w.trait === trait && getTier(appState.scores[w.id]) !== 'mastered');
+        if (ungraduated.length > 0) return ungraduated;
+        const anyInPool = domainItems.filter(w => w.trait === trait);
+        return anyInPool.length > 0
+          ? anyInPool
           : VOCAB_DATA.filter(w => w.domain === appState.domain && w.trait === trait);
       };
 
@@ -1529,48 +1532,79 @@
 
       // Try up to 25 attempts to avoid repeating exact word sets
       for (let attempt = 0; attempt < 25; attempt++) {
-        // Pick 2 distinct traits for Left and Right columns
-        const shuffledTraits = shuffleArray(traits);
-        const leftTrait = shuffledTraits[0];
-        const rightTrait = shuffledTraits[1];
-        const pairTraits = [leftTrait, rightTrait];
+        const traitsWithLearning = traits.filter(t => getExactBucket('learning', t).length > 0);
+        let pairTraits;
+        if (traitsWithLearning.length >= 2) {
+          pairTraits = shuffleArray(traitsWithLearning).slice(0, 2);
+        } else if (traitsWithLearning.length === 1) {
+          const otherTrait = pickRandom(
+            traits.filter(t => t !== traitsWithLearning[0]).map(t => ({ id: t, val: t }))
+          )?.val || traits.find(t => t !== traitsWithLearning[0]);
+          pairTraits = shuffleArray([traitsWithLearning[0], otherTrait]);
+        } else {
+          pairTraits = shuffleArray(traits).slice(0, 2);
+        }
 
+        const [leftTrait, rightTrait] = pairTraits;
         const usedIds = new Set();
 
         // 1 Learning Anchor for Left Column, 1 Learning Anchor for Right Column
-        const leftAnchor = pickRandom(getBucket('learning', leftTrait), usedIds);
+        const leftAnchor = pickRandom(getBucketWithFallback('learning', leftTrait), usedIds);
         if (leftAnchor) usedIds.add(leftAnchor.id);
 
-        const rightAnchor = pickRandom(getBucket('learning', rightTrait), usedIds);
+        const rightAnchor = pickRandom(getBucketWithFallback('learning', rightTrait), usedIds);
         if (rightAnchor) usedIds.add(rightAnchor.id);
 
         const sortableWords = [];
 
-        // Add N Learned words with independent random column assignment
-        for (let i = 0; i < appState.learnedCount; i++) {
+        // 1. Add K Learning words directly into the sortable queue so they actively earn +1 points
+        for (let i = 0; i < appState.learningCount; i++) {
           const targetTrait = pairTraits[Math.floor(Math.random() * 2)];
-          const w = pickRandom(getBucket('learned', targetTrait), usedIds);
+          let w = pickRandom(getExactBucket('learning', targetTrait), usedIds);
+          if (!w) {
+            const altTrait = targetTrait === leftTrait ? rightTrait : leftTrait;
+            w = pickRandom(getExactBucket('learning', altTrait), usedIds);
+          }
+          if (!w) {
+            w = pickRandom(getBucketWithFallback('learned', targetTrait), usedIds);
+          }
           if (w) {
             usedIds.add(w.id);
             sortableWords.push({
               ...w,
-              displayTier: 'learned',
-              assignedSide: null, // null | 'left' | 'right'
+              displayTier: getTier(appState.scores[w.id]),
+              assignedSide: null,
               isCorrect: null,
               movedFromSide: null
             });
           }
         }
 
-        // Add M Mastered words with independent random column assignment
-        for (let i = 0; i < appState.masteredCount; i++) {
+        // 2. Add N Learned words
+        for (let i = 0; i < appState.learnedCount; i++) {
           const targetTrait = pairTraits[Math.floor(Math.random() * 2)];
-          const w = pickRandom(getBucket('mastered', targetTrait), usedIds);
+          const w = pickRandom(getBucketWithFallback('learned', targetTrait), usedIds);
           if (w) {
             usedIds.add(w.id);
             sortableWords.push({
               ...w,
-              displayTier: 'mastered',
+              displayTier: getTier(appState.scores[w.id]),
+              assignedSide: null,
+              isCorrect: null,
+              movedFromSide: null
+            });
+          }
+        }
+
+        // 3. Add M Mastered words
+        for (let i = 0; i < appState.masteredCount; i++) {
+          const targetTrait = pairTraits[Math.floor(Math.random() * 2)];
+          const w = pickRandom(getBucketWithFallback('mastered', targetTrait), usedIds);
+          if (w) {
+            usedIds.add(w.id);
+            sortableWords.push({
+              ...w,
+              displayTier: getTier(appState.scores[w.id]),
               assignedSide: null,
               isCorrect: null,
               movedFromSide: null
@@ -1621,7 +1655,6 @@
       const domain = appState.domain;
       const pool = getActiveWorkingPool(domain);
 
-      // Run through unlearned words in the selected packs (or all words in selected packs if already learned)
       const unlearnedInSelection = shuffleArray(pool.filter(w => (appState.scores[w.id] ?? 0) < 3));
       const queue = unlearnedInSelection.length > 0 ? unlearnedInSelection : shuffleArray(pool);
 
@@ -1638,7 +1671,6 @@
 
     function renderSprintCard() {
       if (!sprintState || sprintState.index >= sprintState.queue.length) {
-        // Sprint finished: jump directly into the Sorting Game!
         showScreen('game');
         return;
       }
@@ -1651,7 +1683,6 @@
       document.getElementById('sprint-level-tag').textContent = `Pack ${wordObj.level}`;
       document.getElementById('sprint-word').textContent = wordObj.word;
 
-      // Intro TTS only: pronounce just the word without its article/case pill
       speakGermanWord(wordObj, false);
 
       const fb = document.getElementById('sprint-feedback-line');
@@ -1690,7 +1721,6 @@
       const fb = document.getElementById('sprint-feedback-line');
 
       if (isRight) {
-        // Seed directly into Learned tier (score >= 3)
         const prev = appState.scores[wordObj.id] ?? 0;
         appState.scores[wordObj.id] = Math.min(MAX_SCORE, Math.max(3, prev + 3));
         sprintState.seededCount++;
@@ -1699,14 +1729,12 @@
         fb.textContent = `✓ ${wordObj.trait} ${wordObj.word} → Learned`;
         fb.className = `h-5 text-xs font-extrabold ${st.titleText}`;
       } else if (isDontKnow) {
-        // Keep in Learning tier (score 0) without wrong-answer buzzer
         appState.scores[wordObj.id] = 0;
         playSound('sort');
         cardEl.className = `w-full max-w-[320px] rounded-3xl border-2 ${st.cardRevealBg} shadow-card p-6 text-center space-y-2 transition-all`;
         fb.textContent = `${wordObj.trait} ${wordObj.word} → Learning`;
         fb.className = `h-5 text-xs font-extrabold ${st.titleText}`;
       } else {
-        // Keep in Learning tier (score 0) so it becomes a color-coded anchor
         appState.scores[wordObj.id] = 0;
         playSound('wrong');
         cardEl.className = `w-full max-w-[320px] rounded-3xl border-2 ${st.cardRevealBg} shadow-card p-6 text-center space-y-2 transition-all`;
@@ -1714,6 +1742,7 @@
         fb.className = 'h-5 text-xs font-extrabold text-rose-600';
       }
 
+      autoAdvanceGraduatedPacks(appState.domain);
       saveState();
       updateHeaderAndLegend();
 
@@ -2101,30 +2130,22 @@
       'Tafel': 'Board / panel — a flat schedule board or chalkboard.',
       'Wagen': 'Cart / car — a wheeled pushcart, trolley, or vehicle.',
       'Band': 'Belt / ribbon — a moving conveyor belt or flat strip.',
-      'Kraft': 'Worker / force — physical strength, or a staff member in job titles.',
       'Tuch': 'Cloth — a piece of fabric for drying dishes or hands.',
       'Krug': 'Mug / pitcher — a handled mug or jug for beer or water.',
       'Deckel': 'Lid / coaster — a pot lid or a coaster under a drink.',
-      'Anlage': 'System / facility — a technical setup, park grounds, or stereo.',
+      'Park': 'Park — a public green park for walking, relaxing, and recreation.',
       'Haken': 'Hook — a curved peg for hanging coats or bags.',
       'Stand': 'Stand / booth — a market booth or display stand.',
-      'Strauß': 'Bouquet — an arranged bunch of cut flowers.',
       'Schirm': 'Umbrella / screen — a protective canopy or shade.',
-      'Hafen': 'Harbor / port — a port where ships or aircraft arrive and depart.',
       'Schalter': 'Counter / switch — a service window with a clerk, or a light switch.',
       'Kontrolle': 'Control / inspection — a security or ticket check.',
-      'Abgabe': 'Drop-off / submission — handing over luggage or items.',
       'Pass': 'Passport / pass — an official travel ID document.',
-      'Zeug': 'Stuff / gear — everyday equipment or things.',
       'Platz': 'Square / seat / place — a town square, playground, or individual seat.',
-      'Hahn': 'Tap / rooster — a water faucet valve; also a male chicken.',
       'Platte': 'Plate / counter — a flat countertop or slab.',
       'Brett': 'Board — a flat wooden or plastic board.',
-      'Kocher': 'Cooker / boiler — a device for heating or boiling water.',
       'Garten': 'Garden — an outdoor planted garden or beer garden.',
       'Weg': 'Path / way — a walking path or route.',
       'Plan': 'Plan / map — a site map, timetable, or plan.',
-      'Blech': 'Sheet metal / tray — a flat metal baking sheet.',
       'Saft': 'Juice — fruit juice or liquid cough syrup.',
       'Zettel': 'Note / slip of paper — a small written paper slip or leaflet.',
       'Stange': 'Pole / bar — a metal grab bar or rod.',
@@ -2133,8 +2154,6 @@
       'Rahmen': 'Frame — a border surrounding a picture or window.',
       'Eimer': 'Bucket — a pail or bin with a handle.',
       'Kasten': 'Box — a rectangular box or mailbox.',
-      'Stelle': 'Spot / stop — a specific location or transit stop.',
-      'Zone': 'Zone — a designated city area or district.',
 
       // Case Governance Verbs & Prepositions (case.md)
       'sehen': 'To see — governs a direct Accusative object (Ich sehe den Hund).',
@@ -2227,7 +2246,6 @@
           noteEl.classList.add('hidden');
         }
       } else {
-        // Selection mode for masked words: hide gender/case/compound clue so it doesn't spoil the answer
         pillEl.classList.add('hidden');
         compEl.classList.add('hidden');
         noteEl.classList.add('hidden');
@@ -2256,7 +2274,6 @@
         }, remaining);
       };
 
-      // Speak the German word sequence first, then optionally read the English definition with a native English voice
       speakGermanWord(wordObj, revealAnswer, () => {
         if (popupRunId !== anchorIntroRunId) return;
         if (readDefinitionAloud && definitionText) {
@@ -2290,7 +2307,6 @@
       applyColClass(elColLeft, 'left', currentRound.leftTrait);
       applyColClass(elColRight, 'right', currentRound.rightTrait);
 
-      // Invert the active column's anchor card color during round intro / re-announcement
       if (!isChecked) {
         highlightRevealWord(side, side === 'left' ? currentRound.leftAnchor?.id : currentRound.rightAnchor?.id);
       }
@@ -2342,7 +2358,6 @@
         }, runId);
       };
 
-      // Invoke step 0 synchronously inside the user tap so iOS Safari allows audio playback
       showStep(0);
     }
 
@@ -2405,7 +2420,7 @@
           const wordEl = anchorCard.querySelector('[data-anchor-word]');
           if (wordEl) wordEl.className = 'text-xs font-extrabold text-white truncate';
           const defEl = anchorCard.querySelector('[data-anchor-def]');
-          if (defEl) defEl.className = 'text-[10px] text-white/90 leading-[1.35] mt-1 line-clamp-3';
+          if (defEl) defEl.className = 'text-[10px] text-white/90 leading-[1.35] mt-1 line-clamp-3 h-[41px]';
         }
         return;
       }
@@ -2425,7 +2440,6 @@
       const runId = ++revealSequenceRunId;
       if (!currentRound) return;
 
-      // Build ordered steps: Left anchor -> Left sorted words -> Right anchor -> Right sorted words
       const steps = [];
       if (currentRound.leftAnchor) {
         steps.push({ side: 'left', wordObj: currentRound.leftAnchor });
@@ -2459,7 +2473,6 @@
         setColumnHighlight(side);
         highlightRevealWord(side, wordObj.id);
 
-        // Announce with grammatical pill beforehand (e.g., "der Stand", "der Automat")
         speakGermanWord(wordObj, true, () => {
           if (runId !== revealSequenceRunId || activeScreen !== 'game' || !isChecked) return;
           const nextStep = steps[idx + 1];
@@ -2468,7 +2481,6 @@
         });
       };
 
-      // Start step 0 synchronously inside the Check Answers click handler for iOS Safari
       speakStepNow(0);
     }
 
@@ -2526,11 +2538,12 @@
       containerEl.className = `p-2 border-b rounded-t-2xl shrink-0 cursor-pointer select-none transition-colors flex flex-col ${st.headerBg}`;
 
       const defText = anchorWord ? getDescriptiveDefinition(anchorWord) : '';
-      const normalCardClass = 'bg-white/95 hover:bg-white rounded-xl px-2 py-1.5 border border-black/5 shadow-2xs transition-all duration-200 active:scale-[0.98] flex flex-col justify-between flex-1';
+      const normalCardClass = 'bg-white/95 hover:bg-white rounded-xl px-2 py-1.5 border border-black/5 shadow-2xs transition-all duration-200 active:scale-[0.98] flex flex-col justify-between';
       const normalBadgeClass = `px-1.5 py-0.5 rounded text-[10px] font-extrabold tracking-wide shrink-0 ${st.badgeBg}`;
       const normalWordClass = 'text-xs font-extrabold text-zinc-900 truncate';
-      const normalDefClass = 'text-[10px] text-zinc-600 leading-[1.35] mt-1 line-clamp-3';
+      const normalDefClass = 'text-[10px] text-zinc-600 leading-[1.35] mt-1 line-clamp-3 h-[41px]';
 
+      // Reserve an exact 3-line definition box (h-[41px]) so left and right column headers always stay the exact same height
       containerEl.innerHTML = `
         <div class="flex items-center justify-between gap-1 mb-1">
           <span class="text-[11px] font-extrabold tracking-tight ${st.titleText}">${st.subLabel}</span>
@@ -2546,7 +2559,6 @@
         ` : ''}
       `;
 
-      // Clicking the word or column header re-announces that column's anchor word
       containerEl.onclick = () => {
         revealSequenceRunId++;
         clearRevealHighlights();
@@ -2564,14 +2576,12 @@
 
       containerEl.innerHTML = assigned.map(item => {
         if (!isChecked) {
-          // Selection mode: swipeable across columns or tap to return to unsorted tray
           return `
             <div data-col-item-id="${item.id}" data-col-side="${side}" class="word-row-spring touch-pan-y cursor-grab active:cursor-grabbing bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 rounded-xl px-2.5 py-1.5 flex items-center justify-between gap-1.5 shadow-2xs slot-enter">
               <span class="text-xs font-bold text-zinc-800 truncate">${item.word}</span>
             </div>
           `;
         } else {
-          // Answer reveal mode: grammatical color coding only (no pills or checks), with a thicker border for incorrect answers
           const trueStyle = TRAIT_STYLES[item.trait];
           const borderThickness = item.isCorrect ? 'border' : 'border-2';
 
@@ -2589,13 +2599,11 @@
         }
       }).join('');
 
-      // Attach interactions for column items
       containerEl.querySelectorAll('[data-col-item-id]').forEach(el => {
         const itemId = el.dataset.colItemId;
         const itemObj = currentRound.items.find(i => i.id === itemId);
 
         if (isChecked) {
-          // Answer mode: tapping reveals full translation & grammatical clue
           el.addEventListener('click', () => {
             revealSequenceRunId++;
             setColumnHighlight(null);
@@ -2603,7 +2611,6 @@
             showTranslationPopup(itemObj, true);
           });
         } else {
-          // Selection mode: swipe left/right to move across columns, or tap to unassign back to queue
           attachColumnItemPhysics(el, itemObj, side);
         }
       });
@@ -2653,7 +2660,6 @@
         const rotate = Math.max(-7, Math.min(7, deltaX * 0.04));
         el.style.transform = `translate3d(${deltaX}px, 0, 0) rotate(${rotate}deg)`;
 
-        // Highlight target column if swiping toward it
         const movingTowardTarget = (currentSide === 'left' && deltaX > 35) || (currentSide === 'right' && deltaX < -35);
         if (movingTowardTarget) {
           targetColEl.className = `rounded-2xl border-2 shadow-xs flex flex-col overflow-visible transition-colors ${targetStyle.colTint}`;
@@ -2672,13 +2678,11 @@
 
         targetColEl.className = 'bg-white rounded-2xl border-2 border-zinc-200/90 shadow-xs flex flex-col overflow-visible transition-colors';
 
-        // Tap (minimal movement) -> return word back to unsorted queue
         if (Math.abs(deltaX) < 8 && lockedAxis !== 'y') {
           unassignWord(itemObj.id);
           return;
         }
 
-        // Swipe threshold -> transfer word to the opposite column
         const swipedToOther = (currentSide === 'left' && deltaX > 48) || (currentSide === 'right' && deltaX < -48);
         if (lockedAxis === 'x' && swipedToOther) {
           el.style.transform = `translate3d(${currentSide === 'left' ? 140 : -140}px, 0, 0)`;
@@ -2712,7 +2716,6 @@
       const rightStyle = TRAIT_STYLES[rightTrait];
       const currentItem = unsorted[0];
 
-      // Only show the single current word to select
       elUnsortedQueue.innerHTML = `
         <div data-word-id="${currentItem.id}" class="word-row-spring touch-pan-y cursor-grab active:cursor-grabbing bg-white border-2 border-zinc-300 rounded-2xl px-2 py-2.5 shadow-pill flex items-center justify-between gap-1.5 relative">
           <button type="button" data-action="left" class="px-2 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 active:scale-90 text-zinc-700 flex items-center gap-1 transition shrink-0" aria-label="Sort left">
@@ -2816,7 +2819,6 @@
         elColLeft.className = 'bg-white rounded-2xl border-2 border-zinc-200/90 shadow-xs flex flex-col overflow-visible transition-colors';
         elColRight.className = 'bg-white rounded-2xl border-2 border-zinc-200/90 shadow-xs flex flex-col overflow-visible transition-colors';
 
-        // Tap without dragging -> show spoiler-free translation popover (hidden gender/case)
         if (Math.abs(deltaX) < 8 && lockedAxis !== 'y') {
           showTranslationPopup(wordObj, false);
           return;
@@ -2847,7 +2849,6 @@
       const item = currentRound.items.find(w => w.id === wordId);
       if (!item) return;
 
-      // Cancel automatic anchor intro sequence if the user starts sorting immediately
       anchorIntroRunId++;
       setColumnHighlight(null);
       hideTranslationPopup();
@@ -2887,7 +2888,6 @@
         return;
       }
 
-      // While words remain to pick, hide the Check button so the single active word card occupies the bottom slot
       if (remaining > 0) {
         elPrimaryBtn.classList.add('hidden');
         elPrimaryBtn.disabled = true;
@@ -2901,7 +2901,7 @@
     }
 
     // =========================================================================
-    // 6. CHECK ANSWERS, AUTO-MOVE INCORRECT ITEMS & SYMMETRIC SCORING
+    // 6. CHECK ANSWERS, ANCHOR PROMOTION, AUTO-MOVE & SYMMETRIC SCORING
     // =========================================================================
     function handlePrimaryButtonClick() {
       initAudio();
@@ -2916,6 +2916,8 @@
 
       isChecked = true;
       let correctCount = 0;
+      let leftCorrectCount = 0;
+      let rightCorrectCount = 0;
 
       currentRound.items.forEach(item => {
         const expectedSide = item.trait === currentRound.leftTrait ? 'left' : 'right';
@@ -2924,15 +2926,30 @@
         const prevScore = appState.scores[item.id] ?? 0;
         if (item.isCorrect) {
           correctCount++;
+          if (expectedSide === 'left') leftCorrectCount++;
+          else rightCorrectCount++;
           item.movedFromSide = null;
           appState.scores[item.id] = Math.min(MAX_SCORE, prevScore + 1);
         } else {
-          // Track original column so it animates into its true column on render
           item.movedFromSide = item.assignedSide;
           item.assignedSide = expectedSide;
           appState.scores[item.id] = Math.max(0, prevScore - 1);
         }
       });
+
+      // Promote column anchors (+1 toward Learned) whenever you successfully match words to them
+      if (currentRound.leftAnchor && leftCorrectCount > 0) {
+        const aPrev = appState.scores[currentRound.leftAnchor.id] ?? 0;
+        if (aPrev < 3) {
+          appState.scores[currentRound.leftAnchor.id] = Math.min(3, aPrev + 1);
+        }
+      }
+      if (currentRound.rightAnchor && rightCorrectCount > 0) {
+        const aPrev = appState.scores[currentRound.rightAnchor.id] ?? 0;
+        if (aPrev < 3) {
+          appState.scores[currentRound.rightAnchor.id] = Math.min(3, aPrev + 1);
+        }
+      }
 
       const allRight = correctCount === currentRound.items.length;
 
@@ -2945,6 +2962,7 @@
         playSound('wrong');
       }
 
+      autoAdvanceGraduatedPacks(appState.domain);
       saveState();
 
       renderColumnItems(elColLeftItems, 'left');
@@ -2953,7 +2971,6 @@
       updatePrimaryButtonState();
       updateHeaderAndLegend();
 
-      // Sequentially announce & highlight Left column (anchor + sorted words), then Right column
       playRevealColumnSequence();
     }
 
@@ -2965,7 +2982,6 @@
       const levels = LEVEL_DEFINITIONS[domain] || [];
       const packSet = getSelectedPackSet(domain);
 
-      // Render multi-select pack pills
       const packGrid = document.getElementById('pack-grid');
       packGrid.className = levels.length <= 2
         ? 'grid grid-cols-2 gap-1.5 p-1 bg-zinc-50/80 rounded-xl border border-zinc-200/70'
@@ -3017,7 +3033,6 @@
 
       document.getElementById('pack-selection-summary').textContent = `${packSet.size}/${levels.length} Packs`;
 
-      // Active unlocked pool stats (including compound root gating count)
       const activePool = getActiveWorkingPool(domain);
       const lockedCompoundsCount = VOCAB_DATA.filter(
         w => w.domain === domain && packSet.has(w.level) && !isCompoundUnlocked(w)
@@ -3046,15 +3061,15 @@
         ? `${mCount}M · ${lCount}L · ${nCount} New (${lockedCompoundsCount} compounds gated)`
         : `${mCount} Mastered · ${lCount} Learned · ${nCount} New`;
 
-      // Update Start CTA label if Sprint is needed to seed Learned anchors
       const needsSprint = needsBootstrapSprint(domain);
       document.getElementById('btn-start-label').textContent = needsSprint
         ? 'Sprint → Sort'
         : 'Start Game';
 
+      document.getElementById('val-learning').textContent = appState.learningCount;
       document.getElementById('val-learned').textContent = appState.learnedCount;
       document.getElementById('val-mastered').textContent = appState.masteredCount;
-      document.getElementById('total-words-badge').textContent = `${appState.learnedCount + appState.masteredCount} words`;
+      document.getElementById('total-words-badge').textContent = `${appState.learningCount + appState.learnedCount + appState.masteredCount} words`;
 
       ['nouns', 'case'].forEach(dom => {
         const btn = document.getElementById(`domain-${dom}`);
@@ -3135,8 +3150,24 @@
       });
     });
 
+    const getTotalRoundWords = () => appState.learningCount + appState.learnedCount + appState.masteredCount;
+
+    document.getElementById('btn-learning-dec').addEventListener('click', () => {
+      if (appState.learningCount > 0 && getTotalRoundWords() > 2) {
+        appState.learningCount--;
+        saveState();
+        updateHeaderAndLegend();
+      }
+    });
+    document.getElementById('btn-learning-inc').addEventListener('click', () => {
+      if (appState.learningCount < 3) {
+        appState.learningCount++;
+        saveState();
+        updateHeaderAndLegend();
+      }
+    });
     document.getElementById('btn-learned-dec').addEventListener('click', () => {
-      if (appState.learnedCount > 1) {
+      if (appState.learnedCount > 0 && getTotalRoundWords() > 2) {
         appState.learnedCount--;
         saveState();
         updateHeaderAndLegend();
@@ -3150,7 +3181,7 @@
       }
     });
     document.getElementById('btn-mastered-dec').addEventListener('click', () => {
-      if (appState.masteredCount > 1) {
+      if (appState.masteredCount > 0 && getTotalRoundWords() > 2) {
         appState.masteredCount--;
         saveState();
         updateHeaderAndLegend();
