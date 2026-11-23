@@ -2791,8 +2791,10 @@
         e.preventDefault();
         deltaX = dx;
 
-        const rotate = Math.max(-7, Math.min(7, deltaX * 0.035));
-        rowEl.style.transform = `translate3d(${deltaX}px, 0, 0) rotate(${rotate}deg)`;
+        // Arc upward toward the column choices above as the user drags left or right
+        const liftY = -Math.min(18, Math.abs(deltaX) * 0.14);
+        const rotate = Math.max(-7, Math.min(7, -deltaX * 0.035));
+        rowEl.style.transform = `translate3d(${deltaX}px, ${liftY}px, 0) rotate(${rotate}deg)`;
 
         if (deltaX < -35) {
           const st = TRAIT_STYLES[currentRound.leftTrait];
@@ -2826,11 +2828,11 @@
 
         const threshold = 52;
         if (lockedAxis === 'x' && deltaX < -threshold) {
-          rowEl.style.transform = 'translate3d(-150px, -24px, 0) rotate(-8deg)';
+          rowEl.style.transform = 'translate3d(-150px, -36px, 0) rotate(8deg)';
           rowEl.style.opacity = '0';
           setTimeout(() => assignWord(wordObj.id, 'left'), 120);
         } else if (lockedAxis === 'x' && deltaX > threshold) {
-          rowEl.style.transform = 'translate3d(150px, -24px, 0) rotate(8deg)';
+          rowEl.style.transform = 'translate3d(150px, -36px, 0) rotate(-8deg)';
           rowEl.style.opacity = '0';
           setTimeout(() => assignWord(wordObj.id, 'right'), 120);
         } else {
