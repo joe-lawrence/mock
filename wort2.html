@@ -122,6 +122,10 @@
     }
 
     /* Prevent pull-to-refresh and accidental text selection during touch swipes */
+    html {
+      font-size: 106.25%; /* ~17px — mild bump; Tailwind rem utilities follow */
+    }
+
     html, body {
       overscroll-behavior: none;
       -webkit-tap-highlight-color: transparent;
@@ -142,6 +146,26 @@
 
     .wm-display { font-family: var(--font-display); }
     .wm-mono { font-family: var(--font-mono); }
+
+    /* Long German words: swipe/scroll horizontally instead of ellipsis */
+    .wm-word-scroll {
+      display: block;
+      min-width: 0;
+      max-width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+      white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      overscroll-behavior-x: contain;
+    }
+    .wm-word-scroll::-webkit-scrollbar {
+      height: 3px;
+    }
+    .wm-word-scroll::-webkit-scrollbar-thumb {
+      background: var(--faint);
+      border-radius: 999px;
+    }
 
     .wm-surface {
       background: var(--surface);
@@ -213,7 +237,7 @@
     }
 
     .wm-section-label {
-      font-size: 0.62rem;
+      font-size: 0.7rem;
       font-weight: 700;
       letter-spacing: 0.05em;
       text-transform: uppercase;
@@ -392,6 +416,29 @@
     #word-bank-modal .border-zinc-200\/80 {
       border-color: var(--line) !important;
     }
+    #word-bank-modal input,
+    #word-bank-modal select {
+      background: var(--surface) !important;
+      border-color: var(--line) !important;
+      color: var(--ink) !important;
+    }
+    #word-bank-modal .bank-row.is-open {
+      border-color: var(--signal) !important;
+      box-shadow: 0 0 0 1px var(--signal-soft);
+    }
+    #word-bank-modal .bank-chip-miss {
+      background: var(--bad) !important;
+      color: #fff !important;
+    }
+    #word-bank-modal .bank-chip-cold {
+      background: var(--surface-2) !important;
+      color: var(--muted) !important;
+      border: 1px solid var(--line) !important;
+    }
+    #word-bank-modal .bank-chip-taught {
+      background: var(--ok-soft) !important;
+      color: var(--ok) !important;
+    }
     #confirm-toast {
       background: var(--ink) !important;
       color: var(--on-ink) !important;
@@ -546,8 +593,18 @@
           <button type="button" data-theme-choice="system" class="theme-chip px-2 py-0.5 rounded-full text-[10px] font-bold" aria-pressed="true">Auto</button>
         </div>
         <span id="intro-streak-badge" class="wm-mono text-[11px] font-semibold wm-chip px-2.5 py-1">
-          Streak: 0
+          Streak 0 · Best 0
         </span>
+      </div>
+    </div>
+
+    <div id="intro-session-card" class="wm-surface rounded-2xl px-3.5 py-2.5 my-1.5 shrink-0 hidden">
+      <div class="flex items-center justify-between gap-2">
+        <div>
+          <p class="wm-section-label mb-0.5">Last session</p>
+          <p id="intro-session-summary" class="text-xs leading-snug" style="color:var(--ink)"></p>
+        </div>
+        <button id="btn-open-session-report" type="button" class="wm-chip px-2.5 py-1 text-[10px] shrink-0">Details</button>
       </div>
     </div>
 
@@ -685,7 +742,7 @@
         <span id="sprint-level-tag" class="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style="color:var(--faint);background:var(--surface-2)">
           Pack 1
         </span>
-        <h2 id="sprint-word" class="wm-display text-2xl font-semibold tracking-tight pt-1">
+        <h2 id="sprint-word" class="wm-display text-2xl font-semibold tracking-tight pt-1 wm-word-scroll">
           Zeitung
         </h2>
         <p id="sprint-feedback-line" class="h-5 text-xs font-bold text-transparent transition-colors">
@@ -715,7 +772,7 @@
         </button>
 
         <span id="combo-badge" class="wm-mono text-[11px] font-semibold wm-chip px-2.5 py-1">
-          Streak: 0
+          Streak 0 · Best 0
         </span>
 
         <button id="btn-open-bank-game" type="button" class="wm-btn-ghost px-2.5 py-1 text-xs active:scale-95 transition">
@@ -768,13 +825,32 @@
     <div id="translation-card" class="wm-surface rounded-2xl px-4 py-3.5 shadow-2xl border max-w-[300px] w-full text-center pointer-events-auto transition-all duration-200 scale-95 opacity-0" style="border-color:var(--line-strong)">
       <div class="flex items-center justify-center gap-1.5 flex-wrap">
         <span id="trans-pill" class="px-1.5 py-0.5 rounded text-[10px] font-extrabold tracking-wide wm-badge">der</span>
-        <span id="trans-header-line" class="wm-display text-sm font-semibold tracking-tight">Lehrer</span>
+        <span id="trans-header-line" class="wm-display text-base font-semibold tracking-tight wm-word-scroll min-w-0 flex-1">Lehrer</span>
       </div>
       <div id="trans-definition-box" class="mt-2 pt-2 border-t" style="border-color:var(--line)">
         <p id="trans-definition" class="text-xs leading-relaxed"></p>
       </div>
       <p id="trans-compound" class="text-[10px] wm-mono mt-1.5 hidden"></p>
+      <p id="trans-example" class="text-[11px] leading-snug mt-1.5 hidden" style="color:var(--ink)"></p>
+      <p id="trans-example-en" class="text-[10px] leading-snug mt-0.5 hidden" style="color:var(--muted)"></p>
       <p id="trans-note" class="text-[10px] mt-1 hidden"></p>
+    </div>
+  </div>
+
+  <!-- Session report (shown when leaving a play session) -->
+  <div id="session-report-modal" class="fixed inset-0 z-50 bg-zinc-950/50 backdrop-blur-xs hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="wm-surface w-full max-w-md rounded-t-3xl sm:rounded-3xl max-h-[85dvh] flex flex-col overflow-hidden border" style="border-color:var(--line-strong)">
+      <div class="px-4 py-3.5 border-b flex items-center justify-between" style="border-color:var(--line)">
+        <div>
+          <h2 class="wm-display text-base font-semibold tracking-tight">Session report</h2>
+          <p id="session-report-sub" class="text-[11px] mt-0.5" style="color:var(--muted)">This play session</p>
+        </div>
+        <button id="btn-close-session-report" type="button" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style="background:var(--surface-2);color:var(--ink)" aria-label="Close">✕</button>
+      </div>
+      <div id="session-report-body" class="p-4 overflow-y-auto thin-scroll space-y-3 text-sm"></div>
+      <div class="px-4 py-3 border-t" style="border-color:var(--line)">
+        <button id="btn-dismiss-session-report" type="button" class="w-full py-3 px-4 wm-btn-primary text-sm">Back to setup</button>
+      </div>
     </div>
   </div>
 
@@ -784,22 +860,49 @@
   <div id="word-bank-modal" class="fixed inset-0 z-50 bg-zinc-950/50 backdrop-blur-xs hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
     <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl border border-zinc-200 max-h-[85dvh] flex flex-col overflow-hidden">
       <!-- Modal Header -->
-      <div class="px-4 py-3.5 border-b border-zinc-100 flex items-center justify-between">
-        <div>
-          <h2 class="text-sm font-extrabold text-zinc-900">Vocabulary Mastery Pool</h2>
-          <p class="text-[11px] text-zinc-500">+1 per right column · −1 per wrong column</p>
+      <div class="px-4 py-3.5 border-b border-zinc-100 flex items-center justify-between gap-2">
+        <div class="min-w-0">
+          <h2 class="text-sm font-extrabold text-zinc-900">Word Bank</h2>
+          <p id="bank-count-line" class="text-[11px] text-zinc-500 mt-0.5">Search, filter, tap a word for gloss + example</p>
         </div>
-        <button id="btn-close-bank" type="button" class="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-600 font-bold text-sm">
+        <button id="btn-close-bank" type="button" class="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-600 font-bold text-sm shrink-0">
           ✕
         </button>
       </div>
 
-      <!-- Filter Tabs -->
-      <div class="px-4 py-2 bg-zinc-50 border-b border-zinc-100 flex items-center gap-1.5 text-xs font-semibold">
-        <button data-bank-filter="all" class="bank-filter-btn is-on px-2.5 py-1 rounded-lg">All</button>
-        <button data-bank-filter="learning" class="bank-filter-btn px-2.5 py-1 rounded-lg">Learning</button>
-        <button data-bank-filter="learned" class="bank-filter-btn px-2.5 py-1 rounded-lg">Learned</button>
-        <button data-bank-filter="mastered" class="bank-filter-btn px-2.5 py-1 rounded-lg">Mastered</button>
+      <!-- Search + pack -->
+      <div class="px-4 pt-2.5 pb-2 bg-zinc-50 border-b border-zinc-100 space-y-2">
+        <div class="relative">
+          <input id="bank-search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Search word or meaning…"
+            class="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-400"
+            style="color:var(--ink)" />
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="sr-only" for="bank-pack-filter">Pack</label>
+          <select id="bank-pack-filter" class="flex-1 rounded-xl border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-semibold outline-none" style="color:var(--ink)">
+            <option value="all">All packs</option>
+          </select>
+          <select id="bank-sort" class="rounded-xl border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-semibold outline-none shrink-0" style="color:var(--ink)">
+            <option value="pack">Sort: pack</option>
+            <option value="score-asc">Score ↑</option>
+            <option value="score-desc">Score ↓</option>
+            <option value="alpha">A–Z</option>
+            <option value="miss">Recent miss</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Tier + trait filters -->
+      <div class="px-4 py-2 bg-zinc-50 border-b border-zinc-100 space-y-1.5">
+        <div id="bank-tier-filters" class="flex items-center gap-1.5 text-xs font-semibold flex-wrap">
+          <button type="button" data-bank-filter="all" class="bank-filter-btn is-on px-2.5 py-1 rounded-lg">All</button>
+          <button type="button" data-bank-filter="learning" class="bank-filter-btn px-2.5 py-1 rounded-lg">Learning</button>
+          <button type="button" data-bank-filter="learned" class="bank-filter-btn px-2.5 py-1 rounded-lg">Learned</button>
+          <button type="button" data-bank-filter="mastered" class="bank-filter-btn px-2.5 py-1 rounded-lg">Mastered</button>
+          <button type="button" data-bank-filter="missed" class="bank-filter-btn px-2.5 py-1 rounded-lg">Missed</button>
+          <button type="button" data-bank-filter="cold" class="bank-filter-btn px-2.5 py-1 rounded-lg">Not taught</button>
+        </div>
+        <div id="bank-trait-filters" class="flex items-center gap-1.5 text-xs font-semibold flex-wrap"></div>
       </div>
 
       <!-- Word List -->
@@ -838,684 +941,17 @@
       stopPiperAudio,
       isPiperReady,
     } from './js/piper-tts.js?v=wort2-piper-1';
+    import { buildWort2Vocab } from './js/wort2-vocab.js?v=wort2-content-2';
+    import {
+      getDescriptiveDefinition,
+      getExampleSentence
+    } from './js/wort2-definitions.js?v=wort2-content-2';
+
+    const { VOCAB_DATA, LEVEL_DEFINITIONS } = buildWort2Vocab();
 
     // =========================================================================
     // 1. CURRICULUM VOCABULARY DATASET (nouns-gender.md & case.md)
     // =========================================================================
-    // Tiers: 0..2 = Learning (color-coded anchor), 3..5 = Learned, 6..8 = Mastered.
-    const VOCAB_DATA = [
-      // --- NOUN GENDER: FEMININE (die) ---
-      { id: 'vocab.nouns.zeitung', domain: 'nouns', pos: 'noun', word: 'Zeitung', trait: 'die', meaning: 'newspaper', note: '-ung suffix → feminine', initialScore: 0 },
-      { id: 'vocab.nouns.wohnung', domain: 'nouns', pos: 'noun', word: 'Wohnung', trait: 'die', meaning: 'apartment / flat', note: '-ung suffix → feminine', initialScore: 3 },
-      { id: 'vocab.nouns.rechnung', domain: 'nouns', pos: 'noun', word: 'Rechnung', trait: 'die', meaning: 'bill / invoice', note: '-ung suffix → feminine', initialScore: 6 },
-      { id: 'vocab.nouns.meinung', domain: 'nouns', pos: 'noun', word: 'Meinung', trait: 'die', meaning: 'opinion', note: '-ung suffix → feminine', initialScore: 0 },
-      { id: 'vocab.nouns.pruefung', domain: 'nouns', pos: 'noun', word: 'Prüfung', trait: 'die', meaning: 'exam / test', note: '-ung suffix → feminine', initialScore: 3 },
-      { id: 'vocab.nouns.gesundheit', domain: 'nouns', pos: 'noun', word: 'Gesundheit', trait: 'die', meaning: 'health', note: '-heit suffix → feminine', initialScore: 6 },
-      { id: 'vocab.nouns.freundlichkeit', domain: 'nouns', pos: 'noun', word: 'Freundlichkeit', trait: 'die', meaning: 'friendliness', note: '-keit suffix → feminine', initialScore: 0 },
-      { id: 'vocab.nouns.mannschaft', domain: 'nouns', pos: 'noun', word: 'Mannschaft', trait: 'die', meaning: 'team', note: '-schaft suffix → feminine', initialScore: 3 },
-      { id: 'vocab.nouns.tradition', domain: 'nouns', pos: 'noun', word: 'Tradition', trait: 'die', meaning: 'tradition', note: '-ion suffix → feminine', initialScore: 6 },
-      { id: 'vocab.nouns.sonnenblume', domain: 'nouns', pos: 'noun', word: 'Sonnenblume', trait: 'die', meaning: 'sunflower', note: 'Plants/flowers → feminine', initialScore: 3 },
-      { id: 'vocab.nouns.aktion', domain: 'nouns', pos: 'noun', word: 'Aktion', trait: 'die', meaning: 'special offer', note: '-ion suffix → feminine', initialScore: 0 },
-      { id: 'vocab.nouns.bedeutung', domain: 'nouns', pos: 'noun', word: 'Bedeutung', trait: 'die', meaning: 'meaning', note: '-ung suffix → feminine', initialScore: 3 },
-      { id: 'vocab.nouns.bewegung', domain: 'nouns', pos: 'noun', word: 'Bewegung', trait: 'die', meaning: 'movement', note: '-ung suffix → feminine', initialScore: 0 },
-      { id: 'vocab.nouns.botschaft', domain: 'nouns', pos: 'noun', word: 'Botschaft', trait: 'die', meaning: 'message', note: '-schaft suffix → feminine', initialScore: 3 },
-      { id: 'vocab.nouns.diskussion', domain: 'nouns', pos: 'noun', word: 'Diskussion', trait: 'die', meaning: 'discussion', note: '-ion suffix → feminine', initialScore: 6 },
-      { id: 'vocab.nouns.ehrlichkeit', domain: 'nouns', pos: 'noun', word: 'Ehrlichkeit', trait: 'die', meaning: 'honesty', note: '-keit suffix → feminine', initialScore: 0 },
-      { id: 'vocab.nouns.einheit', domain: 'nouns', pos: 'noun', word: 'Einheit', trait: 'die', meaning: 'unit / unity', note: '-heit suffix → feminine', initialScore: 3 },
-      { id: 'vocab.nouns.einladung', domain: 'nouns', pos: 'noun', word: 'Einladung', trait: 'die', meaning: 'invitation', note: '-ung suffix → feminine', initialScore: 6 },
-      { id: 'vocab.nouns.erfahrung', domain: 'nouns', pos: 'noun', word: 'Erfahrung', trait: 'die', meaning: 'experience', note: '-ung suffix → feminine', initialScore: 0 },
-      { id: 'vocab.nouns.erzaehlung', domain: 'nouns', pos: 'noun', word: 'Erzählung', trait: 'die', meaning: 'story / narrative', note: '-ung suffix → feminine', initialScore: 3 },
-      { id: 'vocab.nouns.faehigkeit', domain: 'nouns', pos: 'noun', word: 'Fähigkeit', trait: 'die', meaning: 'ability', note: '-keit suffix → feminine', initialScore: 0 },
-      { id: 'vocab.nouns.freiheit', domain: 'nouns', pos: 'noun', word: 'Freiheit', trait: 'die', meaning: 'freedom', note: '-heit suffix → feminine', initialScore: 6 },
-      { id: 'vocab.nouns.freundschaft', domain: 'nouns', pos: 'noun', word: 'Freundschaft', trait: 'die', meaning: 'friendship', note: '-schaft suffix → feminine', initialScore: 3 },
-      { id: 'vocab.nouns.geschwindigkeit', domain: 'nouns', pos: 'noun', word: 'Geschwindigkeit', trait: 'die', meaning: 'speed', note: '-keit suffix → feminine', initialScore: 0 },
-      { id: 'vocab.nouns.gesellschaft', domain: 'nouns', pos: 'noun', word: 'Gesellschaft', trait: 'die', meaning: 'society / company', note: '-schaft suffix → feminine', initialScore: 3 },
-      { id: 'vocab.nouns.hoffnung', domain: 'nouns', pos: 'noun', word: 'Hoffnung', trait: 'die', meaning: 'hope', note: '-ung suffix → feminine', initialScore: 6 },
-      { id: 'vocab.nouns.information', domain: 'nouns', pos: 'noun', word: 'Information', trait: 'die', meaning: 'information', note: '-ion suffix → feminine', initialScore: 6 },
-      { id: 'vocab.nouns.klarheit', domain: 'nouns', pos: 'noun', word: 'Klarheit', trait: 'die', meaning: 'clarity', note: '-heit suffix → feminine', initialScore: 0 },
-      { id: 'vocab.nouns.krankheit', domain: 'nouns', pos: 'noun', word: 'Krankheit', trait: 'die', meaning: 'illness', note: '-heit suffix → feminine', initialScore: 3 },
-      { id: 'vocab.nouns.landschaft', domain: 'nouns', pos: 'noun', word: 'Landschaft', trait: 'die', meaning: 'landscape', note: '-schaft suffix → feminine', initialScore: 3 },
-      { id: 'vocab.nouns.loesung', domain: 'nouns', pos: 'noun', word: 'Lösung', trait: 'die', meaning: 'solution', note: '-ung suffix → feminine', initialScore: 6 },
-      { id: 'vocab.nouns.million', domain: 'nouns', pos: 'noun', word: 'Million', trait: 'die', meaning: 'million', note: '-ion suffix → feminine', initialScore: 6 },
-      { id: 'vocab.nouns.moeglichkeit', domain: 'nouns', pos: 'noun', word: 'Möglichkeit', trait: 'die', meaning: 'possibility', note: '-keit suffix → feminine', initialScore: 0 },
-      { id: 'vocab.nouns.nation', domain: 'nouns', pos: 'noun', word: 'Nation', trait: 'die', meaning: 'nation', note: '-ion suffix → feminine', initialScore: 3 },
-      { id: 'vocab.nouns.partnerschaft', domain: 'nouns', pos: 'noun', word: 'Partnerschaft', trait: 'die', meaning: 'partnership', note: '-schaft suffix → feminine', initialScore: 0 },
-      { id: 'vocab.nouns.region', domain: 'nouns', pos: 'noun', word: 'Region', trait: 'die', meaning: 'region', note: '-ion suffix → feminine', initialScore: 3 },
-      { id: 'vocab.nouns.richtung', domain: 'nouns', pos: 'noun', word: 'Richtung', trait: 'die', meaning: 'direction', note: '-ung suffix → feminine', initialScore: 3 },
-      { id: 'vocab.nouns.schoenheit', domain: 'nouns', pos: 'noun', word: 'Schönheit', trait: 'die', meaning: 'beauty', note: '-heit suffix → feminine', initialScore: 0 },
-      { id: 'vocab.nouns.schwierigkeit', domain: 'nouns', pos: 'noun', word: 'Schwierigkeit', trait: 'die', meaning: 'difficulty', note: '-keit suffix → feminine', initialScore: 0 },
-      { id: 'vocab.nouns.sicherheit', domain: 'nouns', pos: 'noun', word: 'Sicherheit', trait: 'die', meaning: 'safety / security', note: '-heit suffix → feminine', initialScore: 3 },
-      { id: 'vocab.nouns.situation', domain: 'nouns', pos: 'noun', word: 'Situation', trait: 'die', meaning: 'situation', note: '-ion suffix → feminine', initialScore: 6 },
-      { id: 'vocab.nouns.station', domain: 'nouns', pos: 'noun', word: 'Station', trait: 'die', meaning: 'stop / ward', note: '-ion suffix → feminine', initialScore: 3 },
-      { id: 'vocab.nouns.uebung', domain: 'nouns', pos: 'noun', word: 'Übung', trait: 'die', meaning: 'exercise / practice', note: '-ung suffix → feminine', initialScore: 6 },
-      { id: 'vocab.nouns.wahrheit', domain: 'nouns', pos: 'noun', word: 'Wahrheit', trait: 'die', meaning: 'truth', note: '-heit suffix → feminine', initialScore: 3 },
-      { id: 'vocab.nouns.wirklichkeit', domain: 'nouns', pos: 'noun', word: 'Wirklichkeit', trait: 'die', meaning: 'reality', note: '-keit suffix → feminine', initialScore: 0 },
-      { id: 'vocab.nouns.wirtschaft', domain: 'nouns', pos: 'noun', word: 'Wirtschaft', trait: 'die', meaning: 'economy', note: '-schaft suffix → feminine', initialScore: 3 },
-      { id: 'vocab.nouns.wissenschaft', domain: 'nouns', pos: 'noun', word: 'Wissenschaft', trait: 'die', meaning: 'science', note: '-schaft suffix → feminine', initialScore: 0 },
-      { id: 'vocab.nouns.lilie', domain: 'nouns', pos: 'noun', word: 'Lilie', trait: 'die', meaning: 'lily', note: 'Flowers → feminine', initialScore: 0 },
-      { id: 'vocab.nouns.narzisse', domain: 'nouns', pos: 'noun', word: 'Narzisse', trait: 'die', meaning: 'daffodil', note: 'Flowers → feminine', initialScore: 0 },
-      { id: 'vocab.nouns.nelke', domain: 'nouns', pos: 'noun', word: 'Nelke', trait: 'die', meaning: 'carnation', note: 'Flowers → feminine', initialScore: 3 },
-      { id: 'vocab.nouns.orchidee', domain: 'nouns', pos: 'noun', word: 'Orchidee', trait: 'die', meaning: 'orchid', note: 'Flowers → feminine', initialScore: 0 },
-      { id: 'vocab.nouns.rose', domain: 'nouns', pos: 'noun', word: 'Rose', trait: 'die', meaning: 'rose', note: 'Flowers → feminine', initialScore: 6 },
-      { id: 'vocab.nouns.tulpe', domain: 'nouns', pos: 'noun', word: 'Tulpe', trait: 'die', meaning: 'tulip', note: 'Flowers → feminine', initialScore: 3 },
-
-      // --- NOUN GENDER: MASCULINE (der) ---
-      { id: 'vocab.nouns.lehrer', domain: 'nouns', pos: 'noun', word: 'Lehrer', trait: 'der', meaning: 'teacher', note: '-er agent suffix → masculine', initialScore: 0 },
-      { id: 'vocab.nouns.fahrer', domain: 'nouns', pos: 'noun', word: 'Fahrer', trait: 'der', meaning: 'driver', note: '-er agent suffix → masculine', initialScore: 3 },
-      { id: 'vocab.nouns.baecker', domain: 'nouns', pos: 'noun', word: 'Bäcker', trait: 'der', meaning: 'baker', note: '-er agent suffix → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.schmetterling', domain: 'nouns', pos: 'noun', word: 'Schmetterling', trait: 'der', meaning: 'butterfly', note: '-ling suffix → masculine', initialScore: 0 },
-      { id: 'vocab.nouns.zwilling', domain: 'nouns', pos: 'noun', word: 'Zwilling', trait: 'der', meaning: 'twin', note: '-ling suffix → masculine', initialScore: 3 },
-      { id: 'vocab.nouns.montag', domain: 'nouns', pos: 'noun', word: 'Montag', trait: 'der', meaning: 'Monday', note: 'Days of week → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.sturm', domain: 'nouns', pos: 'noun', word: 'Sturm', trait: 'der', meaning: 'storm', note: 'Weather phenomena → masculine', initialScore: 3 },
-      { id: 'vocab.nouns.kellner', domain: 'nouns', pos: 'noun', word: 'Kellner', trait: 'der', meaning: 'waiter', note: '-er agent suffix → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.arbeiter', domain: 'nouns', pos: 'noun', word: 'Arbeiter', trait: 'der', meaning: 'worker', note: '-er agent suffix → masculine', initialScore: 3 },
-      { id: 'vocab.nouns.dezember', domain: 'nouns', pos: 'noun', word: 'Dezember', trait: 'der', meaning: 'December', note: 'Months → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.donner', domain: 'nouns', pos: 'noun', word: 'Donner', trait: 'der', meaning: 'thunder', note: 'Weather phenomena → masculine', initialScore: 0 },
-      { id: 'vocab.nouns.fluechtling', domain: 'nouns', pos: 'noun', word: 'Flüchtling', trait: 'der', meaning: 'refugee', note: '-ling suffix → masculine', initialScore: 0 },
-      { id: 'vocab.nouns.fruehling', domain: 'nouns', pos: 'noun', word: 'Frühling', trait: 'der', meaning: 'spring (season)', note: 'Seasons & -ling → masculine', initialScore: 3 },
-      { id: 'vocab.nouns.gaertner', domain: 'nouns', pos: 'noun', word: 'Gärtner', trait: 'der', meaning: 'gardener', note: '-er agent suffix → masculine', initialScore: 3 },
-      { id: 'vocab.nouns.journalismus', domain: 'nouns', pos: 'noun', word: 'Journalismus', trait: 'der', meaning: 'journalism', note: '-ismus suffix → masculine', initialScore: 0 },
-      { id: 'vocab.nouns.kapitalismus', domain: 'nouns', pos: 'noun', word: 'Kapitalismus', trait: 'der', meaning: 'capitalism', note: '-ismus suffix → masculine', initialScore: 0 },
-      { id: 'vocab.nouns.lehrling', domain: 'nouns', pos: 'noun', word: 'Lehrling', trait: 'der', meaning: 'apprentice', note: '-ling suffix → masculine', initialScore: 3 },
-      { id: 'vocab.nouns.liebling', domain: 'nouns', pos: 'noun', word: 'Liebling', trait: 'der', meaning: 'favorite / darling', note: '-ling suffix → masculine', initialScore: 3 },
-      { id: 'vocab.nouns.november', domain: 'nouns', pos: 'noun', word: 'November', trait: 'der', meaning: 'November', note: 'Months → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.oktober', domain: 'nouns', pos: 'noun', word: 'Oktober', trait: 'der', meaning: 'October', note: 'Months → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.optimismus', domain: 'nouns', pos: 'noun', word: 'Optimismus', trait: 'der', meaning: 'optimism', note: '-ismus suffix → masculine', initialScore: 0 },
-      { id: 'vocab.nouns.partner', domain: 'nouns', pos: 'noun', word: 'Partner', trait: 'der', meaning: 'partner', note: '-er suffix → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.rentner', domain: 'nouns', pos: 'noun', word: 'Rentner', trait: 'der', meaning: 'retiree', note: '-er agent suffix → masculine', initialScore: 3 },
-      { id: 'vocab.nouns.schueler', domain: 'nouns', pos: 'noun', word: 'Schüler', trait: 'der', meaning: 'student / pupil', note: '-er agent suffix → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.september', domain: 'nouns', pos: 'noun', word: 'September', trait: 'der', meaning: 'September', note: 'Months → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.sommer', domain: 'nouns', pos: 'noun', word: 'Sommer', trait: 'der', meaning: 'summer', note: 'Seasons → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.tourismus', domain: 'nouns', pos: 'noun', word: 'Tourismus', trait: 'der', meaning: 'tourism', note: '-ismus suffix → masculine', initialScore: 3 },
-      { id: 'vocab.nouns.verkaeufer', domain: 'nouns', pos: 'noun', word: 'Verkäufer', trait: 'der', meaning: 'salesperson', note: '-er agent suffix → masculine', initialScore: 3 },
-      { id: 'vocab.nouns.winter', domain: 'nouns', pos: 'noun', word: 'Winter', trait: 'der', meaning: 'winter', note: 'Seasons → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.april', domain: 'nouns', pos: 'noun', word: 'April', trait: 'der', meaning: 'April', note: 'Months → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.arzt', domain: 'nouns', pos: 'noun', word: 'Arzt', trait: 'der', meaning: 'doctor', note: 'Male professions → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.august', domain: 'nouns', pos: 'noun', word: 'August', trait: 'der', meaning: 'August', note: 'Months → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.dienstag', domain: 'nouns', pos: 'noun', word: 'Dienstag', trait: 'der', meaning: 'Tuesday', note: 'Days of week → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.donnerstag', domain: 'nouns', pos: 'noun', word: 'Donnerstag', trait: 'der', meaning: 'Thursday', note: 'Days of week → masculine', initialScore: 3 },
-      { id: 'vocab.nouns.februar', domain: 'nouns', pos: 'noun', word: 'Februar', trait: 'der', meaning: 'February', note: 'Months → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.freitag', domain: 'nouns', pos: 'noun', word: 'Freitag', trait: 'der', meaning: 'Friday', note: 'Days of week → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.frost', domain: 'nouns', pos: 'noun', word: 'Frost', trait: 'der', meaning: 'frost', note: 'Weather phenomena → masculine', initialScore: 0 },
-      { id: 'vocab.nouns.hagel', domain: 'nouns', pos: 'noun', word: 'Hagel', trait: 'der', meaning: 'hail', note: 'Weather phenomena → masculine', initialScore: 0 },
-      { id: 'vocab.nouns.herbst', domain: 'nouns', pos: 'noun', word: 'Herbst', trait: 'der', meaning: 'autumn / fall', note: 'Seasons → masculine', initialScore: 3 },
-      { id: 'vocab.nouns.januar', domain: 'nouns', pos: 'noun', word: 'Januar', trait: 'der', meaning: 'January', note: 'Months → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.juli', domain: 'nouns', pos: 'noun', word: 'Juli', trait: 'der', meaning: 'July', note: 'Months → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.juni', domain: 'nouns', pos: 'noun', word: 'Juni', trait: 'der', meaning: 'June', note: 'Months → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.koch', domain: 'nouns', pos: 'noun', word: 'Koch', trait: 'der', meaning: 'cook / chef', note: 'Male professions → masculine', initialScore: 3 },
-      { id: 'vocab.nouns.mai', domain: 'nouns', pos: 'noun', word: 'Mai', trait: 'der', meaning: 'May', note: 'Months → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.maerz', domain: 'nouns', pos: 'noun', word: 'März', trait: 'der', meaning: 'March', note: 'Months → masculine', initialScore: 3 },
-      { id: 'vocab.nouns.mittwoch', domain: 'nouns', pos: 'noun', word: 'Mittwoch', trait: 'der', meaning: 'Wednesday', note: 'Days of week → masculine', initialScore: 3 },
-      { id: 'vocab.nouns.nebel', domain: 'nouns', pos: 'noun', word: 'Nebel', trait: 'der', meaning: 'fog', note: 'Weather phenomena → masculine', initialScore: 0 },
-      { id: 'vocab.nouns.norden', domain: 'nouns', pos: 'noun', word: 'Norden', trait: 'der', meaning: 'north', note: 'Compass directions → masculine', initialScore: 3 },
-      { id: 'vocab.nouns.osten', domain: 'nouns', pos: 'noun', word: 'Osten', trait: 'der', meaning: 'east', note: 'Compass directions → masculine', initialScore: 3 },
-      { id: 'vocab.nouns.regen', domain: 'nouns', pos: 'noun', word: 'Regen', trait: 'der', meaning: 'rain', note: 'Weather phenomena → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.samstag', domain: 'nouns', pos: 'noun', word: 'Samstag', trait: 'der', meaning: 'Saturday', note: 'Days of week → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.schnee', domain: 'nouns', pos: 'noun', word: 'Schnee', trait: 'der', meaning: 'snow', note: 'Weather phenomena → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.sonntag', domain: 'nouns', pos: 'noun', word: 'Sonntag', trait: 'der', meaning: 'Sunday', note: 'Days of week → masculine', initialScore: 6 },
-      { id: 'vocab.nouns.sueden', domain: 'nouns', pos: 'noun', word: 'Süden', trait: 'der', meaning: 'south', note: 'Compass directions → masculine', initialScore: 3 },
-      { id: 'vocab.nouns.westen', domain: 'nouns', pos: 'noun', word: 'Westen', trait: 'der', meaning: 'west', note: 'Compass directions → masculine', initialScore: 3 },
-      { id: 'vocab.nouns.wind', domain: 'nouns', pos: 'noun', word: 'Wind', trait: 'der', meaning: 'wind', note: 'Weather phenomena → masculine', initialScore: 6 },
-
-      // --- NOUN GENDER: NEUTER (das) ---
-      { id: 'vocab.nouns.kaetzchen', domain: 'nouns', pos: 'noun', word: 'Kätzchen', trait: 'das', meaning: 'kitten', note: '-chen diminutive → neuter', initialScore: 0 },
-      { id: 'vocab.nouns.element', domain: 'nouns', pos: 'noun', word: 'Element', trait: 'das', meaning: 'element', note: '-ment suffix → neuter', initialScore: 3 },
-      { id: 'vocab.nouns.theater', domain: 'nouns', pos: 'noun', word: 'Theater', trait: 'das', meaning: 'theater', note: 'Public venues → neuter', initialScore: 6 },
-      { id: 'vocab.nouns.krankenhaus', domain: 'nouns', pos: 'noun', word: 'Krankenhaus', trait: 'das', meaning: 'hospital', note: 'Compound with das Haus → neuter', initialScore: 6 },
-      { id: 'vocab.nouns.argument', domain: 'nouns', pos: 'noun', word: 'Argument', trait: 'das', meaning: 'argument', note: '-ment suffix → neuter', initialScore: 3 },
-      { id: 'vocab.nouns.bluemlein', domain: 'nouns', pos: 'noun', word: 'Blümlein', trait: 'das', meaning: 'little flower', note: '-lein diminutive → neuter', initialScore: 0 },
-      { id: 'vocab.nouns.broetchen', domain: 'nouns', pos: 'noun', word: 'Brötchen', trait: 'das', meaning: 'bread roll', note: '-chen diminutive → neuter', initialScore: 6 },
-      { id: 'vocab.nouns.buechlein', domain: 'nouns', pos: 'noun', word: 'Büchlein', trait: 'das', meaning: 'booklet', note: '-lein diminutive → neuter', initialScore: 0 },
-      { id: 'vocab.nouns.dokument', domain: 'nouns', pos: 'noun', word: 'Dokument', trait: 'das', meaning: 'document', note: '-ment suffix → neuter', initialScore: 3 },
-      { id: 'vocab.nouns.experiment', domain: 'nouns', pos: 'noun', word: 'Experiment', trait: 'das', meaning: 'experiment', note: '-ment suffix → neuter', initialScore: 3 },
-      { id: 'vocab.nouns.fraeulein', domain: 'nouns', pos: 'noun', word: 'Fräulein', trait: 'das', meaning: 'young woman (dated)', note: '-lein diminutive → neuter', initialScore: 0 },
-      { id: 'vocab.nouns.haeuschen', domain: 'nouns', pos: 'noun', word: 'Häuschen', trait: 'das', meaning: 'little house', note: '-chen diminutive → neuter', initialScore: 3 },
-      { id: 'vocab.nouns.haeuslein', domain: 'nouns', pos: 'noun', word: 'Häuslein', trait: 'das', meaning: 'little house', note: '-lein diminutive → neuter', initialScore: 0 },
-      { id: 'vocab.nouns.huendchen', domain: 'nouns', pos: 'noun', word: 'Hündchen', trait: 'das', meaning: 'puppy / little dog', note: '-chen diminutive → neuter', initialScore: 0 },
-      { id: 'vocab.nouns.instrument', domain: 'nouns', pos: 'noun', word: 'Instrument', trait: 'das', meaning: 'instrument', note: '-ment suffix → neuter', initialScore: 6 },
-      { id: 'vocab.nouns.kaninchen', domain: 'nouns', pos: 'noun', word: 'Kaninchen', trait: 'das', meaning: 'rabbit', note: '-chen ending → neuter', initialScore: 3 },
-      { id: 'vocab.nouns.kindlein', domain: 'nouns', pos: 'noun', word: 'Kindlein', trait: 'das', meaning: 'little child', note: '-lein diminutive → neuter', initialScore: 0 },
-      { id: 'vocab.nouns.maedchen', domain: 'nouns', pos: 'noun', word: 'Mädchen', trait: 'das', meaning: 'girl', note: '-chen diminutive → neuter', initialScore: 6 },
-      { id: 'vocab.nouns.maerchen', domain: 'nouns', pos: 'noun', word: 'Märchen', trait: 'das', meaning: 'fairy tale', note: '-chen diminutive → neuter', initialScore: 3 },
-      { id: 'vocab.nouns.medikament', domain: 'nouns', pos: 'noun', word: 'Medikament', trait: 'das', meaning: 'medication', note: '-ment suffix → neuter', initialScore: 3 },
-      { id: 'vocab.nouns.monument', domain: 'nouns', pos: 'noun', word: 'Monument', trait: 'das', meaning: 'monument', note: '-ment suffix → neuter', initialScore: 0 },
-      { id: 'vocab.nouns.buero', domain: 'nouns', pos: 'noun', word: 'Büro', trait: 'das', meaning: 'office', note: 'Places/venues → neuter', initialScore: 6 },
-      { id: 'vocab.nouns.caf', domain: 'nouns', pos: 'noun', word: 'Café', trait: 'das', meaning: 'café', note: 'Places/venues → neuter', initialScore: 6 },
-      { id: 'vocab.nouns.hotel', domain: 'nouns', pos: 'noun', word: 'Hotel', trait: 'das', meaning: 'hotel', note: 'Places/venues → neuter', initialScore: 6 },
-      { id: 'vocab.nouns.kino', domain: 'nouns', pos: 'noun', word: 'Kino', trait: 'das', meaning: 'cinema', note: 'Places/venues → neuter', initialScore: 6 },
-      { id: 'vocab.nouns.museum', domain: 'nouns', pos: 'noun', word: 'Museum', trait: 'das', meaning: 'museum', note: '-um suffix → neuter', initialScore: 6 },
-      { id: 'vocab.nouns.restaurant', domain: 'nouns', pos: 'noun', word: 'Restaurant', trait: 'das', meaning: 'restaurant', note: 'Places/venues → neuter', initialScore: 6 },
-
-      // --- CASE GOVERNANCE: ACCUSATIVE (Akk) ---
-      { id: 'vocab.case.sehen', domain: 'case', pos: 'verb', word: 'sehen', trait: 'Akk', meaning: 'to see', note: 'Transitive verb → Accusative', initialScore: 6 },
-      { id: 'vocab.case.haben', domain: 'case', pos: 'verb', word: 'haben', trait: 'Akk', meaning: 'to have', note: 'Transitive verb → Accusative', initialScore: 6 },
-      { id: 'vocab.case.fuer', domain: 'case', pos: 'prep', word: 'für', trait: 'Akk', meaning: 'for', note: 'Accusative preposition', initialScore: 6 },
-      { id: 'vocab.case.ohne', domain: 'case', pos: 'prep', word: 'ohne', trait: 'Akk', meaning: 'without', note: 'Accusative preposition', initialScore: 3 },
-      { id: 'vocab.case.brauchen', domain: 'case', pos: 'verb', word: 'brauchen', trait: 'Akk', meaning: 'to need', note: 'Transitive verb → Accusative', initialScore: 6 },
-      { id: 'vocab.case.suchen', domain: 'case', pos: 'verb', word: 'suchen', trait: 'Akk', meaning: 'to look for', note: 'Transitive verb → Accusative', initialScore: 3 },
-      { id: 'vocab.case.nehmen', domain: 'case', pos: 'verb', word: 'nehmen', trait: 'Akk', meaning: 'to take', note: 'Transitive verb → Accusative', initialScore: 3 },
-      { id: 'vocab.case.finden', domain: 'case', pos: 'verb', word: 'finden', trait: 'Akk', meaning: 'to find', note: 'Transitive verb → Accusative', initialScore: 6 },
-      { id: 'vocab.case.warten-auf', domain: 'case', pos: 'verb+prep', word: 'warten auf', trait: 'Akk', meaning: 'to wait for', note: 'auf + Accusative', initialScore: 0 },
-      { id: 'vocab.case.um', domain: 'case', pos: 'prep', word: 'um', trait: 'Akk', meaning: 'around / for', note: 'Accusative preposition', initialScore: 0 },
-      { id: 'vocab.case.durch', domain: 'case', pos: 'prep', word: 'durch', trait: 'Akk', meaning: 'through', note: 'Accusative preposition', initialScore: 3 },
-      { id: 'vocab.case.gegen', domain: 'case', pos: 'prep', word: 'gegen', trait: 'Akk', meaning: 'against', note: 'Accusative preposition', initialScore: 0 },
-
-      // --- CASE GOVERNANCE: DATIVE (Dat) ---
-      { id: 'vocab.case.helfen', domain: 'case', pos: 'verb', word: 'helfen', trait: 'Dat', meaning: 'to help', note: 'Dative verb', initialScore: 6 },
-      { id: 'vocab.case.mit', domain: 'case', pos: 'prep', word: 'mit', trait: 'Dat', meaning: 'with', note: 'Dative preposition', initialScore: 6 },
-      { id: 'vocab.case.aus', domain: 'case', pos: 'prep', word: 'aus', trait: 'Dat', meaning: 'out of / from', note: 'Dative preposition', initialScore: 6 },
-      { id: 'vocab.case.danken', domain: 'case', pos: 'verb', word: 'danken', trait: 'Dat', meaning: 'to thank', note: 'Dative verb', initialScore: 3 },
-      { id: 'vocab.case.gefallen', domain: 'case', pos: 'verb', word: 'gefallen', trait: 'Dat', meaning: 'to be pleasing', note: 'Dative verb', initialScore: 0 },
-      { id: 'vocab.case.passen-zu', domain: 'case', pos: 'verb+prep', word: 'passen zu', trait: 'Dat', meaning: 'to fit with', note: 'zu + Dative', initialScore: 0 },
-      { id: 'vocab.case.ausser', domain: 'case', pos: 'prep', word: 'außer', trait: 'Dat', meaning: 'except / besides', note: 'Dative preposition', initialScore: 0 },
-      { id: 'vocab.case.bei', domain: 'case', pos: 'prep', word: 'bei', trait: 'Dat', meaning: 'at / with', note: 'Dative preposition', initialScore: 6 },
-      { id: 'vocab.case.nach', domain: 'case', pos: 'prep', word: 'nach', trait: 'Dat', meaning: 'after / to', note: 'Dative preposition', initialScore: 6 },
-      { id: 'vocab.case.seit', domain: 'case', pos: 'prep', word: 'seit', trait: 'Dat', meaning: 'since', note: 'Dative preposition', initialScore: 3 },
-      { id: 'vocab.case.von', domain: 'case', pos: 'prep', word: 'von', trait: 'Dat', meaning: 'from / of', note: 'Dative preposition', initialScore: 6 },
-      { id: 'vocab.case.zu', domain: 'case', pos: 'prep', word: 'zu', trait: 'Dat', meaning: 'to', note: 'Dative preposition', initialScore: 6 },
-      { id: 'vocab.case.antworten', domain: 'case', pos: 'verb', word: 'antworten', trait: 'Dat', meaning: 'to answer', note: 'Dative verb', initialScore: 3 },
-      { id: 'vocab.case.gehoeren', domain: 'case', pos: 'verb', word: 'gehören', trait: 'Dat', meaning: 'to belong to', note: 'Dative verb', initialScore: 3 },
-      { id: 'vocab.case.passen', domain: 'case', pos: 'verb', word: 'passen', trait: 'Dat', meaning: 'to fit (someone)', note: 'Dative verb', initialScore: 3 }
-    ];
-
-    // Append deduplicated scene nouns as unlearned (initialScore: 0, Learning tier)
-    const SCENE_NOUN_ENTRIES = [
-      ['die', 'Stadt', 'city'],
-      ['die', 'Straße', 'street'],
-      ['die', 'Fußgängerzone', 'pedestrian zone'],
-      ['die', 'Kreuzung', 'intersection'],
-      ['die', 'Ampel', 'traffic light'],
-      ['der', 'Zebrastreifen', 'crosswalk'],
-      ['der', 'Bürgersteig', 'sidewalk'],
-      ['das', 'Fahrrad', 'bicycle'],
-      ['die', 'Straßenbahn', 'tram / streetcar'],
-      ['die', 'Haltestelle', 'transit stop'],
-      ['das', 'Taxi', 'taxi'],
-      ['das', 'Geschäft', 'shop / store'],
-      ['die', 'Buchhandlung', 'bookstore'],
-      ['das', 'Schaufenster', 'shop window'],
-      ['der', 'Kiosk', 'kiosk'],
-      ['der', 'Briefkasten', 'mailbox'],
-      ['das', 'Schild', 'sign / shield'],
-      ['der', 'Mülleimer', 'trash can'],
-      ['der', 'Hund', 'dog'],
-      ['der', 'Fußgänger', 'pedestrian'],
-      ['die', 'Tür', 'door'],
-      ['der', 'Eingang', 'entrance'],
-      ['der', 'Ausgang', 'exit'],
-      ['die', 'Bank', 'bench'],
-      ['die', 'Laterne', 'streetlamp'],
-      ['der', 'Bahnhof', 'train station'],
-      ['der', 'Zug', 'train'],
-      ['das', 'Gleis', 'track'],
-      ['der', 'Bahnsteig', 'platform'],
-      ['die', 'Fahrkarte', 'ticket'],
-      ['der', 'Fahrkartenautomat', 'ticket machine'],
-      ['die', 'Abfahrtstafel', 'departure board'],
-      ['die', 'Verspätung', 'delay'],
-      ['der', 'Aufzug', 'elevator'],
-      ['die', 'Treppe', 'stairs'],
-      ['der', 'Koffer', 'suitcase'],
-      ['der', 'Rucksack', 'backpack'],
-      ['die', 'Tasche', 'bag'],
-      ['das', 'Gepäck', 'luggage'],
-      ['der', 'Fahrgast', 'passenger'],
-      ['der', 'Schaffner', 'conductor'],
-      ['die', 'Toilette', 'restroom / toilet'],
-      ['das', 'Smartphone', 'smartphone'],
-      ['die', 'Uhr', 'clock / watch'],
-      ['das', 'Gleisschild', 'track sign'],
-      ['der', 'Tisch', 'table'],
-      ['der', 'Stuhl', 'chair'],
-      ['die', 'Theke', 'counter'],
-      ['der', 'Barhocker', 'bar stool'],
-      ['die', 'Speisekarte', 'menu'],
-      ['die', 'Tasse', 'cup'],
-      ['der', 'Teller', 'plate'],
-      ['das', 'Glas', 'glass'],
-      ['das', 'Besteck', 'cutlery'],
-      ['der', 'Löffel', 'spoon'],
-      ['die', 'Gabel', 'fork'],
-      ['das', 'Messer', 'knife'],
-      ['der', 'Kaffee', 'coffee'],
-      ['der', 'Kuchen', 'cake'],
-      ['das', 'Croissant', 'croissant'],
-      ['die', 'Kasse', 'cash register / checkout'],
-      ['der', 'Gast', 'guest'],
-      ['die', 'Kellnerin', 'waitress'],
-      ['das', 'Fenster', 'window'],
-      ['die', 'Espressomaschine', 'espresso machine'],
-      ['der', 'Supermarkt', 'supermarket'],
-      ['der', 'Einkaufswagen', 'shopping cart'],
-      ['der', 'Einkaufskorb', 'shopping basket'],
-      ['die', 'Einkaufstasche', 'shopping bag'],
-      ['das', 'Kassenband', 'checkout conveyor belt'],
-      ['die', 'Kassenkraft', 'cashier'],
-      ['das', 'Regal', 'shelf'],
-      ['der', 'Gang', 'aisle / hallway'],
-      ['das', 'Brot', 'bread'],
-      ['die', 'Milch', 'milk'],
-      ['der', 'Käse', 'cheese'],
-      ['der', 'Apfel', 'apple'],
-      ['die', 'Banane', 'banana'],
-      ['die', 'Kartoffel', 'potato'],
-      ['die', 'Karotte', 'carrot'],
-      ['die', 'Flasche', 'bottle'],
-      ['das', 'Angebot', 'offer / special'],
-      ['die', 'Schlange', 'queue / line'],
-      ['das', 'Geld', 'money'],
-      ['die', 'Tüte', 'bag'],
-      ['die', 'Dose', 'tin can'],
-      ['der', 'Joghurt', 'yogurt'],
-      ['die', 'Tiefkühltruhe', 'chest freezer'],
-      ['die', 'Rezeption', 'reception'],
-      ['das', 'Zimmer', 'room'],
-      ['der', 'Schlüssel', 'key'],
-      ['die', 'Schlüsselkarte', 'key card'],
-      ['das', 'Bett', 'bed'],
-      ['der', 'Schrank', 'wardrobe / cabinet'],
-      ['das', 'Badezimmer', 'bathroom'],
-      ['die', 'Dusche', 'shower'],
-      ['das', 'Handtuch', 'towel'],
-      ['der', 'Spiegel', 'mirror'],
-      ['der', 'Kofferwagen', 'luggage cart'],
-      ['die', 'Rezeptionistin', 'female receptionist'],
-      ['die', 'Lampe', 'lamp'],
-      ['der', 'Nachttisch', 'nightstand'],
-      ['die', 'Minibar', 'minibar'],
-      ['die', 'Kneipe', 'pub / tavern'],
-      ['der', 'Tresen', 'bar counter'],
-      ['die', 'Zapfanlage', 'beer tap system'],
-      ['der', 'Bierkrug', 'beer mug'],
-      ['das', 'Bier', 'beer'],
-      ['der', 'Bierdeckel', 'beer coaster'],
-      ['die', 'Brezel', 'pretzel'],
-      ['die', 'Wurst', 'sausage'],
-      ['die', 'Getränkekarte', 'drink menu'],
-      ['der', 'Wirt', 'innkeeper / host'],
-      ['der', 'Stammtisch', 'regulars’ table'],
-      ['die', 'Kreidetafel', 'chalkboard'],
-      ['der', 'Hocker', 'stool'],
-      ['die', 'Serviette', 'napkin'],
-      ['der', 'Garderobenhaken', 'coat hook'],
-      ['der', 'Wochenmarkt', 'weekly market'],
-      ['der', 'Marktstand', 'market stall'],
-      ['die', 'Verkäuferin', 'female salesperson'],
-      ['der', 'Korb', 'basket'],
-      ['die', 'Waage', 'scale'],
-      ['die', 'Kiste', 'crate / box'],
-      ['die', 'Birne', 'pear'],
-      ['die', 'Tomate', 'tomato'],
-      ['die', 'Zwiebel', 'onion'],
-      ['die', 'Blume', 'flower'],
-      ['der', 'Blumenstrauß', 'bouquet of flowers'],
-      ['der', 'Preis', 'price'],
-      ['der', 'Sonnenschirm', 'parasol / sun umbrella'],
-      ['das', 'Zelt', 'tent'],
-      ['die', 'Traube', 'grape'],
-      ['der', 'Kürbis', 'pumpkin'],
-      ['die', 'Münze', 'coin'],
-      ['der', 'Flughafen', 'airport'],
-      ['das', 'Terminal', 'terminal'],
-      ['der', 'Check-in-Schalter', 'check-in counter'],
-      ['das', 'Gate', 'gate'],
-      ['die', 'Anzeige', 'display / screen'],
-      ['der', 'Abflug', 'departure'],
-      ['die', 'Ankunft', 'arrival'],
-      ['die', 'Sicherheitskontrolle', 'security check'],
-      ['die', 'Passkontrolle', 'passport control'],
-      ['die', 'Gepäckabgabe', 'baggage drop'],
-      ['das', 'Handgepäck', 'hand luggage'],
-      ['die', 'Bordkarte', 'boarding pass'],
-      ['der', 'Reisepass', 'passport'],
-      ['der', 'Gepäckwagen', 'luggage trolley'],
-      ['das', 'Flugzeug', 'airplane'],
-      ['der', 'Sitzplatz', 'seat'],
-      ['das', 'Förderband', 'conveyor belt'],
-      ['die', 'Küche', 'kitchen'],
-      ['der', 'Kühlschrank', 'refrigerator'],
-      ['der', 'Herd', 'stove'],
-      ['der', 'Backofen', 'oven'],
-      ['die', 'Spüle', 'kitchen sink'],
-      ['der', 'Wasserhahn', 'faucet / tap'],
-      ['die', 'Schublade', 'drawer'],
-      ['die', 'Arbeitsplatte', 'countertop'],
-      ['der', 'Topf', 'pot'],
-      ['die', 'Pfanne', 'pan'],
-      ['das', 'Schneidebrett', 'cutting board'],
-      ['der', 'Wasserkocher', 'electric kettle'],
-      ['das', 'Geschirrtuch', 'dish towel'],
-      ['die', 'Schüssel', 'bowl'],
-      ['der', 'Stadtpark', 'city park'],
-      ['der', 'Biergarten', 'beer garden'],
-      ['der', 'Baum', 'tree'],
-      ['die', 'Parkbank', 'park bench'],
-      ['der', 'Brunnen', 'fountain'],
-      ['der', 'Parkweg', 'park path'],
-      ['der', 'Spielplatz', 'playground'],
-      ['die', 'Schaukel', 'swing'],
-      ['die', 'Rutsche', 'slide'],
-      ['der', 'Parkplan', 'park map'],
-      ['der', 'Ball', 'ball'],
-      ['die', 'Decke', 'blanket / ceiling'],
-      ['die', 'Bäckerei', 'bakery'],
-      ['die', 'Bäckerin', 'female baker'],
-      ['der', 'Laib', 'loaf'],
-      ['das', 'Gebäck', 'pastry / baked goods'],
-      ['die', 'Auslage', 'display case'],
-      ['das', 'Backblech', 'baking sheet'],
-      ['der', 'Ofen', 'oven'],
-      ['das', 'Mehl', 'flour'],
-      ['der', 'Teig', 'dough'],
-      ['die', 'Zange', 'tongs'],
-      ['die', 'Papiertüte', 'paper bag'],
-      ['der', 'Kunde', 'customer'],
-      ['die', 'Apotheke', 'pharmacy'],
-      ['der', 'Apotheker', 'pharmacist'],
-      ['die', 'Apothekerin', 'female pharmacist'],
-      ['die', 'Tablette', 'tablet / pill'],
-      ['die', 'Packung', 'pack / box'],
-      ['die', 'Salbe', 'ointment'],
-      ['das', 'Pflaster', 'band-aid / plaster'],
-      ['der', 'Verband', 'bandage'],
-      ['das', 'Thermometer', 'thermometer'],
-      ['die', 'Creme', 'cream'],
-      ['der', 'Hustensaft', 'cough syrup'],
-      ['die', 'Schachtel', 'cardboard box'],
-      ['das', 'Rezept', 'prescription'],
-      ['die', 'Kundin', 'female customer'],
-      ['der', 'Beipackzettel', 'package leaflet'],
-      ['die', 'Bushaltestelle', 'bus stop'],
-      ['die', 'Straßenbahnhaltestelle', 'tram stop'],
-      ['der', 'Bus', 'bus'],
-      ['die', 'Fahrerin', 'female driver'],
-      ['der', 'Fahrplan', 'timetable / schedule'],
-      ['die', 'Linie', 'transit line'],
-      ['die', 'Sitzbank', 'bench'],
-      ['das', 'Wartehäuschen', 'bus shelter'],
-      ['das', 'Dach', 'roof'],
-      ['der', 'Knopf', 'button'],
-      ['die', 'Haltestange', 'handrail'],
-      ['der', 'Kinderwagen', 'stroller'],
-      ['der', 'Regenschirm', 'umbrella'],
-      ['das', 'Wohnhaus', 'apartment building'],
-      ['das', 'Gebäude', 'building'],
-      ['die', 'Haustür', 'front door'],
-      ['die', 'Klingel', 'doorbell'],
-      ['der', 'Flur', 'hallway'],
-      ['das', 'Treppenhaus', 'stairwell'],
-      ['der', 'Balkon', 'balcony'],
-      ['die', 'Fußmatte', 'doormat'],
-      ['der', 'Hof', 'courtyard'],
-      ['die', 'Mülltonne', 'trash bin'],
-      ['die', 'Pflanze', 'plant'],
-      ['das', 'Paket', 'package / parcel'],
-      ['die', 'Ausstellung', 'exhibition'],
-      ['das', 'Bild', 'picture / painting'],
-      ['das', 'Gemälde', 'painting'],
-      ['der', 'Bilderrahmen', 'picture frame'],
-      ['die', 'Skulptur', 'sculpture'],
-      ['die', 'Statue', 'statue'],
-      ['der', 'Sockel', 'pedestal'],
-      ['die', 'Vitrine', 'display case'],
-      ['der', 'Text', 'text'],
-      ['die', 'Eintrittskarte', 'admission ticket'],
-      ['der', 'Saal', 'hall'],
-      ['die', 'Wand', 'wall'],
-      ['der', 'Boden', 'floor / ground'],
-      ['der', 'Besucher', 'visitor'],
-      ['die', 'Besucherin', 'female visitor'],
-      ['der', 'Führer', 'guide'],
-      ['die', 'Führerin', 'female guide']
-    ];
-
-    // Standalone root nouns (Grundwörter) added to Level 1 so compound words unlock after their parts
-    const COMPOUND_ROOT_ENTRIES = [
-      ['das', 'Haus', 'house'],
-      ['die', 'Karte', 'card'],
-      ['der', 'Automat', 'machine / dispenser'],
-      ['die', 'Tafel', 'board'],
-      ['der', 'Wagen', 'cart / carriage'],
-      ['das', 'Band', 'belt / ribbon'],
-      ['das', 'Tuch', 'cloth'],
-      ['der', 'Krug', 'mug / pitcher'],
-      ['der', 'Deckel', 'lid / coaster'],
-      ['der', 'Park', 'park'],
-      ['der', 'Haken', 'hook'],
-      ['der', 'Stand', 'stand / booth'],
-      ['der', 'Schirm', 'umbrella / screen'],
-      ['der', 'Schalter', 'service counter'],
-      ['die', 'Kontrolle', 'check / inspection'],
-      ['der', 'Pass', 'passport'],
-      ['der', 'Platz', 'place / square / seat'],
-      ['die', 'Platte', 'plate / counter'],
-      ['das', 'Brett', 'board'],
-      ['der', 'Garten', 'garden'],
-      ['der', 'Weg', 'path / way'],
-      ['der', 'Plan', 'plan / map'],
-      ['der', 'Saft', 'juice'],
-      ['der', 'Zettel', 'note / slip of paper'],
-      ['die', 'Stange', 'pole / bar'],
-      ['die', 'Matte', 'mat'],
-      ['die', 'Tonne', 'bin / barrel'],
-      ['der', 'Rahmen', 'frame'],
-      ['der', 'Eimer', 'bucket'],
-      ['der', 'Kasten', 'box']
-    ];
-
-    // Compound word breakdown map: compoundWord -> { prefix, rootWord }
-    const COMPOUND_BREAKDOWNS = {
-      'Sonnenblume': { prefix: 'Sonnen', rootWord: 'Blume' },
-      'Krankenhaus': { prefix: 'Kranken', rootWord: 'Haus' },
-      'Wohnhaus': { prefix: 'Wohn', rootWord: 'Haus' },
-      'Treppenhaus': { prefix: 'Treppen', rootWord: 'Haus' },
-      'Wartehäuschen': { prefix: 'Warte', rootWord: 'Häuschen' },
-      'Fahrkarte': { prefix: 'Fahr', rootWord: 'Karte' },
-      'Speisekarte': { prefix: 'Speise', rootWord: 'Karte' },
-      'Getränkekarte': { prefix: 'Getränke', rootWord: 'Karte' },
-      'Schlüsselkarte': { prefix: 'Schlüssel', rootWord: 'Karte' },
-      'Bordkarte': { prefix: 'Bord', rootWord: 'Karte' },
-      'Eintrittskarte': { prefix: 'Eintritts', rootWord: 'Karte' },
-      'Fahrkartenautomat': { prefix: 'Fahrkarten', rootWord: 'Automat' },
-      'Abfahrtstafel': { prefix: 'Abfahrts', rootWord: 'Tafel' },
-      'Kreidetafel': { prefix: 'Kreide', rootWord: 'Tafel' },
-      'Einkaufswagen': { prefix: 'Einkaufs', rootWord: 'Wagen' },
-      'Kofferwagen': { prefix: 'Koffer', rootWord: 'Wagen' },
-      'Gepäckwagen': { prefix: 'Gepäck', rootWord: 'Wagen' },
-      'Kinderwagen': { prefix: 'Kinder', rootWord: 'Wagen' },
-      'Kassenband': { prefix: 'Kassen', rootWord: 'Band' },
-      'Förderband': { prefix: 'Förder', rootWord: 'Band' },
-      'Handtuch': { prefix: 'Hand', rootWord: 'Tuch' },
-      'Geschirrtuch': { prefix: 'Geschirr', rootWord: 'Tuch' },
-      'Bierkrug': { prefix: 'Bier', rootWord: 'Krug' },
-      'Bierdeckel': { prefix: 'Bier', rootWord: 'Deckel' },
-      'Garderobenhaken': { prefix: 'Garderoben', rootWord: 'Haken' },
-      'Marktstand': { prefix: 'Markt', rootWord: 'Stand' },
-      'Sonnenschirm': { prefix: 'Sonnen', rootWord: 'Schirm' },
-      'Regenschirm': { prefix: 'Regen', rootWord: 'Schirm' },
-      'Check-in-Schalter': { prefix: 'Check-in-', rootWord: 'Schalter' },
-      'Sicherheitskontrolle': { prefix: 'Sicherheits', rootWord: 'Kontrolle' },
-      'Passkontrolle': { prefix: 'Pass', rootWord: 'Kontrolle' },
-      'Sitzplatz': { prefix: 'Sitz', rootWord: 'Platz' },
-      'Spielplatz': { prefix: 'Spiel', rootWord: 'Platz' },
-      'Arbeitsplatte': { prefix: 'Arbeits', rootWord: 'Platte' },
-      'Schneidebrett': { prefix: 'Schneide', rootWord: 'Brett' },
-      'Biergarten': { prefix: 'Bier', rootWord: 'Garten' },
-      'Parkweg': { prefix: 'Park', rootWord: 'Weg' },
-      'Parkplan': { prefix: 'Park', rootWord: 'Plan' },
-      'Fahrplan': { prefix: 'Fahr', rootWord: 'Plan' },
-      'Hustensaft': { prefix: 'Husten', rootWord: 'Saft' },
-      'Haltestange': { prefix: 'Halte', rootWord: 'Stange' },
-      'Fußmatte': { prefix: 'Fuß', rootWord: 'Matte' },
-      'Mülltonne': { prefix: 'Müll', rootWord: 'Tonne' },
-      'Bilderrahmen': { prefix: 'Bilder', rootWord: 'Rahmen' },
-      'Mülleimer': { prefix: 'Müll', rootWord: 'Eimer' },
-      'Briefkasten': { prefix: 'Brief', rootWord: 'Kasten' },
-      'Bushaltestelle': { prefix: 'Bus', rootWord: 'Haltestelle' },
-      'Straßenbahnhaltestelle': { prefix: 'Straßenbahn', rootWord: 'Haltestelle' },
-      'Schaufenster': { prefix: 'Schau', rootWord: 'Fenster' },
-      'Gleisschild': { prefix: 'Gleis', rootWord: 'Schild' },
-      'Barhocker': { prefix: 'Bar', rootWord: 'Hocker' },
-      'Einkaufskorb': { prefix: 'Einkaufs', rootWord: 'Korb' },
-      'Einkaufstasche': { prefix: 'Einkaufs', rootWord: 'Tasche' },
-      'Badezimmer': { prefix: 'Bade', rootWord: 'Zimmer' },
-      'Nachttisch': { prefix: 'Nacht', rootWord: 'Tisch' },
-      'Stammtisch': { prefix: 'Stamm', rootWord: 'Tisch' },
-      'Wochenmarkt': { prefix: 'Wochen', rootWord: 'Markt' },
-      'Handgepäck': { prefix: 'Hand', rootWord: 'Gepäck' },
-      'Stadtpark': { prefix: 'Stadt', rootWord: 'Park' },
-      'Parkbank': { prefix: 'Park', rootWord: 'Bank' },
-      'Sitzbank': { prefix: 'Sitz', rootWord: 'Bank' },
-      'Papiertüte': { prefix: 'Papier', rootWord: 'Tüte' },
-      'Haustür': { prefix: 'Haus', rootWord: 'Tür' }
-    };
-
-    const LEVEL_DEFINITIONS = {
-      nouns: [],
-      case: [
-        { id: 1, title: 'Pack 1 · Core' },
-        { id: 2, title: 'Pack 2 · Extended' }
-      ]
-    };
-
-    (() => {
-      // Assign Case packs
-      VOCAB_DATA.forEach(w => {
-        if (w.domain === 'case') {
-          w.level = ['sehen', 'haben', 'für', 'ohne', 'brauchen', 'suchen', 'helfen', 'mit', 'aus', 'danken', 'bei', 'nach', 'von', 'zu'].includes(w.word) ? 1 : 2;
-        }
-      });
-
-      const existingNounKeys = new Set(
-        VOCAB_DATA.filter(w => w.domain === 'nouns').map(w => `${w.trait}:${w.word.toLowerCase()}`)
-      );
-
-      // Add standalone compound root nouns
-      COMPOUND_ROOT_ENTRIES.forEach(([trait, word, meaning], idx) => {
-        const key = `${trait}:${word.toLowerCase()}`;
-        if (existingNounKeys.has(key)) return;
-        existingNounKeys.add(key);
-        const slug = word.toLowerCase()
-          .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-          .replace(/[^a-z0-9]+/g, '-');
-        VOCAB_DATA.push({
-          id: `vocab.root.${slug}.${idx}`,
-          domain: 'nouns',
-          pos: 'noun',
-          word,
-          trait,
-          meaning,
-          isRoot: true,
-          initialScore: 0
-        });
-      });
-
-      // Add deduplicated scene nouns
-      SCENE_NOUN_ENTRIES.forEach(([trait, word, meaning], idx) => {
-        const key = `${trait}:${word.toLowerCase()}`;
-        if (existingNounKeys.has(key)) return;
-        existingNounKeys.add(key);
-        const slug = word.toLowerCase()
-          .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-          .replace(/[^a-z0-9]+/g, '-');
-        VOCAB_DATA.push({
-          id: `vocab.scene.${slug}.${idx}`,
-          domain: 'nouns',
-          pos: 'noun',
-          word,
-          trait,
-          meaning,
-          initialScore: 0
-        });
-      });
-
-      // Link each compound word to its root word ID & split metadata
-      const nounByWordLower = new Map();
-      VOCAB_DATA.filter(w => w.domain === 'nouns').forEach(w => {
-        nounByWordLower.set(w.word.toLowerCase(), w);
-      });
-
-      VOCAB_DATA.forEach(w => {
-        if (w.domain !== 'nouns') return;
-        const spec = COMPOUND_BREAKDOWNS[w.word];
-        if (spec) {
-          const rootObj = nounByWordLower.get(spec.rootWord.toLowerCase());
-          w.compound = {
-            prefix: spec.prefix,
-            rootWord: spec.rootWord,
-            rootTrait: rootObj ? rootObj.trait : w.trait,
-            rootId: rootObj ? rootObj.id : null
-          };
-        }
-      });
-
-      // Reverse index: root word → compounds that end with it (for "Builds:" hints)
-      const compoundsByRoot = new Map();
-      Object.entries(COMPOUND_BREAKDOWNS).forEach(([compoundWord, spec]) => {
-        const key = spec.rootWord.toLowerCase();
-        if (!compoundsByRoot.has(key)) compoundsByRoot.set(key, []);
-        compoundsByRoot.get(key).push(compoundWord);
-      });
-      VOCAB_DATA.forEach(w => {
-        if (w.domain !== 'nouns') return;
-        const builds = compoundsByRoot.get(w.word.toLowerCase());
-        if (builds && builds.length) {
-          w.buildsCompounds = builds;
-        }
-      });
-
-      // Partition all Noun Gender words into balanced ~18-word interleaved packs (~6 der + 6 die + 6 das),
-      // ensuring standalone root nouns are placed in earlier packs than the compound nouns that depend on them.
-      const allNouns = VOCAB_DATA.filter(w => w.domain === 'nouns');
-      const rootWordSet = new Set(
-        Object.values(COMPOUND_BREAKDOWNS).map(spec => spec.rootWord.toLowerCase())
-      );
-
-      const prioritySort = (a, b) => {
-        const aIsRoot = rootWordSet.has(a.word.toLowerCase()) ? 0 : 1;
-        const bIsRoot = rootWordSet.has(b.word.toLowerCase()) ? 0 : 1;
-        if (aIsRoot !== bIsRoot) return aIsRoot - bIsRoot;
-        const aIsComp = a.compound ? 1 : 0;
-        const bIsComp = b.compound ? 1 : 0;
-        if (aIsComp !== bIsComp) return aIsComp - bIsComp;
-        return 0;
-      };
-
-      const derPool = allNouns.filter(w => w.trait === 'der').sort(prioritySort);
-      const diePool = allNouns.filter(w => w.trait === 'die').sort(prioritySort);
-      const dasPool = allNouns.filter(w => w.trait === 'das').sort(prioritySort);
-
-      const PER_TRAIT_PER_PACK = 6; // 6 der + 6 die + 6 das = 18 words per pack
-      const totalPacks = Math.max(
-        Math.ceil(derPool.length / PER_TRAIT_PER_PACK),
-        Math.ceil(diePool.length / PER_TRAIT_PER_PACK),
-        Math.ceil(dasPool.length / PER_TRAIT_PER_PACK)
-      );
-
-      for (let p = 0; p < totalPacks; p++) {
-        const packId = p + 1;
-        const sliceStart = p * PER_TRAIT_PER_PACK;
-        const sliceEnd = sliceStart + PER_TRAIT_PER_PACK;
-        derPool.slice(sliceStart, sliceEnd).forEach(w => { w.level = packId; });
-        diePool.slice(sliceStart, sliceEnd).forEach(w => { w.level = packId; });
-        dasPool.slice(sliceStart, sliceEnd).forEach(w => { w.level = packId; });
-        LEVEL_DEFINITIONS.nouns.push({
-          id: packId,
-          title: `Pack ${packId}`
-        });
-      }
-
-      // Guarantee every compound sits in a strictly higher pack number than its root noun
-      allNouns.forEach(w => {
-        if (w.compound && w.compound.rootId) {
-          const rootObj = VOCAB_DATA.find(item => item.id === w.compound.rootId);
-          if (rootObj && w.level <= rootObj.level) {
-            w.level = Math.min(totalPacks, rootObj.level + 1);
-          }
-        }
-      });
-    })();
-
     // Visual styling tokens per grammatical trait (Blue=Masc, Red=Fem, Green=Neut, Green=Akk, Blue=Dat)
     const TRAIT_STYLES = {
       'der': {
@@ -1597,13 +1033,179 @@
       bestStreak: 0,
       scores: {},               // { [wordId]: number (0..8) }
       introduced: {},           // { [wordId]: true } — taught as anchor or sprint before sortable
+      lastMissAt: {},           // { [wordId]: timestamp } — last wrong sort
       seenCombinations: []      // Array of sorted ID strings
     };
 
     let currentRound = null;
     let isChecked = false;
-    let bankFilter = 'all';
+    let bankFilter = 'all';       // tier / status filter
+    let bankTraitFilter = 'all';  // grammatical trait
+    let bankPackFilter = 'all';   // pack id or 'all'
+    let bankSort = 'pack';
+    let bankQuery = '';
+    let bankOpenId = null;        // expanded row in word bank
+    /** One-shot Bank → practice: force these into the next generateRound(). */
+    let practiceFocus = null;     // { focusId, relatedIds: string[] } | null
     let activeScreen = 'intro'; // 'intro' | 'sprint' | 'game'
+
+    /** Per play-session stats (reset when starting game/sprint from setup). */
+    let sessionStats = null;
+    let lastSessionReport = null;
+
+    function createEmptySessionStats() {
+      return {
+        startedAt: Date.now(),
+        rounds: 0,
+        perfectRounds: 0,
+        sortsCorrect: 0,
+        sortsWrong: 0,
+        introducedIds: new Set(),
+        graduatedIds: new Set(),
+        demotedIds: new Set(),
+        peakStreak: 0,
+        mistakes: []
+      };
+    }
+
+    function ensureSessionStats() {
+      if (!sessionStats) sessionStats = createEmptySessionStats();
+      return sessionStats;
+    }
+
+    function resetSessionStats() {
+      sessionStats = createEmptySessionStats();
+    }
+
+    function snapshotSessionReport() {
+      if (!sessionStats || sessionStats.rounds < 1) return null;
+      const s = sessionStats;
+      return {
+        startedAt: s.startedAt,
+        endedAt: Date.now(),
+        rounds: s.rounds,
+        perfectRounds: s.perfectRounds,
+        sortsCorrect: s.sortsCorrect,
+        sortsWrong: s.sortsWrong,
+        introduced: s.introducedIds.size,
+        graduated: s.graduatedIds.size,
+        demoted: s.demotedIds.size,
+        peakStreak: s.peakStreak,
+        bestAllTime: appState.bestStreak,
+        endStreak: appState.streak,
+        mistakes: s.mistakes.slice(0, 12)
+      };
+    }
+
+    function persistLastSessionReport(report) {
+      lastSessionReport = report;
+      try {
+        if (report) sessionStorage.setItem('wort2_last_session', JSON.stringify(report));
+        else sessionStorage.removeItem('wort2_last_session');
+      } catch (_) {}
+    }
+
+    function loadLastSessionReport() {
+      try {
+        const raw = sessionStorage.getItem('wort2_last_session');
+        if (raw) lastSessionReport = JSON.parse(raw);
+      } catch (_) {
+        lastSessionReport = null;
+      }
+    }
+
+    function formatSessionDuration(ms) {
+      const sec = Math.max(1, Math.round(ms / 1000));
+      if (sec < 60) return `${sec}s`;
+      const m = Math.floor(sec / 60);
+      const r = sec % 60;
+      return r ? `${m}m ${r}s` : `${m}m`;
+    }
+
+    function renderSessionReportBody(report) {
+      const body = document.getElementById('session-report-body');
+      const sub = document.getElementById('session-report-sub');
+      if (!body || !report) return;
+      const dur = formatSessionDuration(report.endedAt - report.startedAt);
+      if (sub) sub.textContent = `${dur} · ${report.rounds} round${report.rounds === 1 ? '' : 's'}`;
+      const accuracy = report.sortsCorrect + report.sortsWrong > 0
+        ? Math.round((report.sortsCorrect / (report.sortsCorrect + report.sortsWrong)) * 100)
+        : 0;
+      const mistakeLines = report.mistakes.length
+        ? report.mistakes.map(m =>
+            `<li class="flex items-center gap-2 py-0.5"><span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold shrink-0" style="background:var(--surface-2)">${m.trait}</span><span class="wm-word-scroll font-semibold">${m.word}</span></li>`
+          ).join('')
+        : '<li style="color:var(--muted)">No misses this session</li>';
+
+      body.innerHTML = `
+        <div class="grid grid-cols-2 gap-2">
+          <div class="rounded-xl px-3 py-2.5" style="background:var(--surface-2)">
+            <p class="wm-section-label mb-0.5">Accuracy</p>
+            <p class="wm-display text-xl font-semibold">${accuracy}%</p>
+            <p class="text-[10px]" style="color:var(--muted)">${report.sortsCorrect} right · ${report.sortsWrong} wrong</p>
+          </div>
+          <div class="rounded-xl px-3 py-2.5" style="background:var(--surface-2)">
+            <p class="wm-section-label mb-0.5">Streak</p>
+            <p class="wm-display text-xl font-semibold">${report.peakStreak}</p>
+            <p class="text-[10px]" style="color:var(--muted)">peak · best ever ${report.bestAllTime}</p>
+          </div>
+          <div class="rounded-xl px-3 py-2.5" style="background:var(--surface-2)">
+            <p class="wm-section-label mb-0.5">Rounds</p>
+            <p class="wm-display text-xl font-semibold">${report.perfectRounds}/${report.rounds}</p>
+            <p class="text-[10px]" style="color:var(--muted)">perfect / played</p>
+          </div>
+          <div class="rounded-xl px-3 py-2.5" style="background:var(--surface-2)">
+            <p class="wm-section-label mb-0.5">Progress</p>
+            <p class="wm-display text-lg font-semibold">+${report.introduced} · ↑${report.graduated}</p>
+            <p class="text-[10px]" style="color:var(--muted)">introduced · graduated</p>
+          </div>
+        </div>
+        ${report.demoted ? `<p class="text-[11px]" style="color:var(--muted)">${report.demoted} word${report.demoted === 1 ? '' : 's'} slipped below Learned</p>` : ''}
+        <div>
+          <p class="wm-section-label mb-1">Misses to revisit</p>
+          <ul class="text-xs space-y-0.5">${mistakeLines}</ul>
+        </div>
+      `;
+    }
+
+    function openSessionReport(report) {
+      if (!report) return;
+      persistLastSessionReport(report);
+      renderSessionReportBody(report);
+      const modal = document.getElementById('session-report-modal');
+      if (modal) modal.classList.remove('hidden');
+      refreshIntroSessionCard();
+    }
+
+    function closeSessionReport() {
+      const modal = document.getElementById('session-report-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function refreshIntroSessionCard() {
+      const card = document.getElementById('intro-session-card');
+      const line = document.getElementById('intro-session-summary');
+      if (!card || !line) return;
+      if (!lastSessionReport || lastSessionReport.rounds < 1) {
+        card.classList.add('hidden');
+        return;
+      }
+      const r = lastSessionReport;
+      const accuracy = r.sortsCorrect + r.sortsWrong > 0
+        ? Math.round((r.sortsCorrect / (r.sortsCorrect + r.sortsWrong)) * 100)
+        : 0;
+      line.textContent = `${r.rounds} rounds · ${accuracy}% · peak streak ${r.peakStreak} · +${r.introduced} introduced`;
+      card.classList.remove('hidden');
+    }
+
+    function leavePlayToIntro({ showReport = true } = {}) {
+      const report = snapshotSessionReport();
+      if (report) persistLastSessionReport(report);
+      sessionStats = null;
+      showScreen('intro');
+      refreshIntroSessionCard();
+      if (showReport && report) openSessionReport(report);
+    }
 
     function loadState() {
       try {
@@ -1617,7 +1219,8 @@
             ...appState,
             ...parsed,
             selectedPacks: { ...appState.selectedPacks, ...(parsed.selectedPacks || {}) },
-            introduced: { ...(parsed.introduced || {}) }
+            introduced: { ...(parsed.introduced || {}) },
+            lastMissAt: { ...(parsed.lastMissAt || {}) }
           };
         }
       } catch (e) {
@@ -1634,6 +1237,9 @@
 
       if (!appState.introduced || typeof appState.introduced !== 'object') {
         appState.introduced = {};
+      }
+      if (!appState.lastMissAt || typeof appState.lastMissAt !== 'object') {
+        appState.lastMissAt = {};
       }
 
       ['nouns', 'case'].forEach(dom => {
@@ -1673,6 +1279,7 @@
     function markIntroduced(wordId) {
       if (!wordId || appState.introduced[wordId]) return;
       appState.introduced[wordId] = true;
+      if (sessionStats) sessionStats.introducedIds.add(wordId);
     }
 
     function saveState() {
@@ -2062,12 +1669,59 @@
       return filtered[Math.floor(Math.random() * filtered.length)];
     }
 
+    function pickRelatedPracticeIds(focusWord) {
+      const packSet = getSelectedPackSet(appState.domain);
+      const pool = VOCAB_DATA.filter(w =>
+        w.domain === appState.domain && packSet.has(w.level) && w.id !== focusWord.id
+      );
+      const related = [];
+      const pushId = (id) => {
+        if (id && !related.includes(id) && id !== focusWord.id) related.push(id);
+      };
+
+      if (focusWord.compound?.rootId) pushId(focusWord.compound.rootId);
+
+      if (Array.isArray(focusWord.buildsCompounds)) {
+        for (const surface of focusWord.buildsCompounds.slice(0, 2)) {
+          const hit = pool.find(w => w.word === surface);
+          if (hit) pushId(hit.id);
+        }
+      }
+
+      const sameTraitMiss = pool
+        .filter(w => w.trait === focusWord.trait && appState.lastMissAt?.[w.id])
+        .sort((a, b) => (appState.lastMissAt[b.id] || 0) - (appState.lastMissAt[a.id] || 0));
+      if (sameTraitMiss[0]) pushId(sameTraitMiss[0].id);
+
+      return related.slice(0, 2);
+    }
+
     function generateRound() {
       const packSet = getSelectedPackSet(appState.domain);
       const packLabel = packSet.size === 1 ? `Pack ${[...packSet][0]}` : `${packSet.size} Packs`;
-      const domainItems = getActiveWorkingPool(appState.domain);
+      const pendingPractice = practiceFocus;
+      practiceFocus = null;
+
+      const focusWord = pendingPractice
+        ? VOCAB_DATA.find(w => w.id === pendingPractice.focusId)
+        : null;
+      const relatedIds = pendingPractice?.relatedIds || [];
+
+      let domainItems = getActiveWorkingPool(appState.domain);
+      // Practice may target a gated compound — still include it for this round.
+      if (focusWord && !domainItems.some(w => w.id === focusWord.id)) {
+        domainItems = [...domainItems, focusWord];
+      }
+      relatedIds.forEach(rid => {
+        if (domainItems.some(w => w.id === rid)) return;
+        const extra = VOCAB_DATA.find(w => w.id === rid);
+        if (extra && extra.domain === appState.domain) domainItems = [...domainItems, extra];
+      });
+
       const traits = DOMAIN_CONFIG[appState.domain].traits;
       const seenSet = new Set(appState.seenCombinations);
+      const totalNeeded =
+        appState.learningCount + appState.learnedCount + appState.masteredCount;
 
       const getExactBucket = (tier, trait) =>
         domainItems.filter(w => w.trait === trait && getTier(appState.scores[w.id] ?? 0) === tier);
@@ -2114,7 +1768,7 @@
       };
 
       const pushSortable = (sortableWords, usedIds, w) => {
-        if (!w) return;
+        if (!w || usedIds.has(w.id)) return;
         usedIds.add(w.id);
         sortableWords.push({
           ...w,
@@ -2130,32 +1784,42 @@
 
       // Try up to 25 attempts to avoid repeating exact word sets
       for (let attempt = 0; attempt < 25; attempt++) {
-        // Prefer traits that still have unintroduced Learning words so new items get taught as anchors.
-        const traitsWithFresh = traits.filter(t => getUnintroducedLearning(t).length > 0);
-        const traitsWithLearning = traits.filter(t => getExactBucket('learning', t).length > 0);
         let pairTraits;
-        if (traitsWithFresh.length >= 2) {
-          pairTraits = shuffleArray(traitsWithFresh).slice(0, 2);
-        } else if (traitsWithFresh.length === 1) {
+        if (focusWord && traits.includes(focusWord.trait)) {
           const other =
             pickRandom(
-              traits.filter(t => t !== traitsWithFresh[0]).map(t => ({ id: t, val: t }))
-            )?.val || traits.find(t => t !== traitsWithFresh[0]);
-          pairTraits = shuffleArray([traitsWithFresh[0], other]);
-        } else if (traitsWithLearning.length >= 2) {
-          pairTraits = shuffleArray(traitsWithLearning).slice(0, 2);
-        } else if (traitsWithLearning.length === 1) {
-          const otherTrait =
-            pickRandom(
-              traits.filter(t => t !== traitsWithLearning[0]).map(t => ({ id: t, val: t }))
-            )?.val || traits.find(t => t !== traitsWithLearning[0]);
-          pairTraits = shuffleArray([traitsWithLearning[0], otherTrait]);
+              traits.filter(t => t !== focusWord.trait).map(t => ({ id: t, val: t }))
+            )?.val || traits.find(t => t !== focusWord.trait);
+          pairTraits = shuffleArray([focusWord.trait, other]);
         } else {
-          pairTraits = shuffleArray(traits).slice(0, 2);
+          // Prefer traits that still have unintroduced Learning words so new items get taught as anchors.
+          const traitsWithFresh = traits.filter(t => getUnintroducedLearning(t).length > 0);
+          const traitsWithLearning = traits.filter(t => getExactBucket('learning', t).length > 0);
+          if (traitsWithFresh.length >= 2) {
+            pairTraits = shuffleArray(traitsWithFresh).slice(0, 2);
+          } else if (traitsWithFresh.length === 1) {
+            const other =
+              pickRandom(
+                traits.filter(t => t !== traitsWithFresh[0]).map(t => ({ id: t, val: t }))
+              )?.val || traits.find(t => t !== traitsWithFresh[0]);
+            pairTraits = shuffleArray([traitsWithFresh[0], other]);
+          } else if (traitsWithLearning.length >= 2) {
+            pairTraits = shuffleArray(traitsWithLearning).slice(0, 2);
+          } else if (traitsWithLearning.length === 1) {
+            const otherTrait =
+              pickRandom(
+                traits.filter(t => t !== traitsWithLearning[0]).map(t => ({ id: t, val: t }))
+              )?.val || traits.find(t => t !== traitsWithLearning[0]);
+            pairTraits = shuffleArray([traitsWithLearning[0], otherTrait]);
+          } else {
+            pairTraits = shuffleArray(traits).slice(0, 2);
+          }
         }
 
         const [leftTrait, rightTrait] = pairTraits;
         const usedIds = new Set();
+        // Keep the focus word as a sortable drill target, not an anchor.
+        if (focusWord) usedIds.add(focusWord.id);
 
         const leftAnchor = pickRandom(getAnchorPool(leftTrait), usedIds);
         if (leftAnchor) usedIds.add(leftAnchor.id);
@@ -2163,35 +1827,33 @@
         const rightAnchor = pickRandom(getAnchorPool(rightTrait), usedIds);
         if (rightAnchor) usedIds.add(rightAnchor.id);
 
+        // Focus was reserved — allow it into sortables now.
+        if (focusWord) usedIds.delete(focusWord.id);
+
         const sortableWords = [];
+        const traitOk = (w) => w && (w.trait === leftTrait || w.trait === rightTrait);
 
-        // Learning quota: introduced Learning only (fallback Learned/Mastered — never cold new words)
-        for (let i = 0; i < appState.learningCount; i++) {
-          const targetTrait = pairTraits[Math.floor(Math.random() * 2)];
-          let w = pickRandom(getSortablePool('learning', targetTrait), usedIds);
-          if (!w) {
-            const altTrait = targetTrait === leftTrait ? rightTrait : leftTrait;
-            w = pickRandom(getSortablePool('learning', altTrait), usedIds);
-          }
-          pushSortable(sortableWords, usedIds, w);
+        if (focusWord && traitOk(focusWord)) {
+          pushSortable(sortableWords, usedIds, focusWord);
         }
+        relatedIds.forEach(rid => {
+          if (sortableWords.length >= totalNeeded) return;
+          const rel = domainItems.find(w => w.id === rid);
+          if (traitOk(rel)) pushSortable(sortableWords, usedIds, rel);
+        });
 
-        for (let i = 0; i < appState.learnedCount; i++) {
+        const fillOrder = [
+          ...Array(appState.learningCount).fill('learning'),
+          ...Array(appState.learnedCount).fill('learned'),
+          ...Array(appState.masteredCount).fill('mastered')
+        ];
+        for (const tier of fillOrder) {
+          if (sortableWords.length >= totalNeeded) break;
           const targetTrait = pairTraits[Math.floor(Math.random() * 2)];
-          let w = pickRandom(getSortablePool('learned', targetTrait), usedIds);
+          let w = pickRandom(getSortablePool(tier, targetTrait), usedIds);
           if (!w) {
             const altTrait = targetTrait === leftTrait ? rightTrait : leftTrait;
-            w = pickRandom(getSortablePool('learned', altTrait), usedIds);
-          }
-          pushSortable(sortableWords, usedIds, w);
-        }
-
-        for (let i = 0; i < appState.masteredCount; i++) {
-          const targetTrait = pairTraits[Math.floor(Math.random() * 2)];
-          let w = pickRandom(getSortablePool('mastered', targetTrait), usedIds);
-          if (!w) {
-            const altTrait = targetTrait === leftTrait ? rightTrait : leftTrait;
-            w = pickRandom(getSortablePool('mastered', altTrait), usedIds);
+            w = pickRandom(getSortablePool(tier, altTrait), usedIds);
           }
           pushSortable(sortableWords, usedIds, w);
         }
@@ -2199,17 +1861,27 @@
         const allIds = [leftAnchor?.id, rightAnchor?.id, ...sortableWords.map(w => w.id)].filter(Boolean).sort();
         const comboKey = allIds.join('|');
 
+        // Keep practice focus near the front of the unsorted queue.
+        const orderedItems = focusWord
+          ? [
+              ...sortableWords.filter(w => w.id === focusWord.id),
+              ...shuffleArray(sortableWords.filter(w => w.id !== focusWord.id))
+            ]
+          : shuffleArray(sortableWords);
+
         bestRound = {
           leftTrait,
           rightTrait,
           leftAnchor,
           rightAnchor,
-          items: shuffleArray(sortableWords),
-          comboKey
+          items: orderedItems,
+          comboKey,
+          practiceFocusId: focusWord?.id || null
         };
 
-        if (!seenSet.has(comboKey)) {
-          isUnique = true;
+        // Practice rounds always accept the first build (forced set).
+        if (focusWord || !seenSet.has(comboKey)) {
+          isUnique = !seenSet.has(comboKey);
           break;
         }
       }
@@ -2222,11 +1894,53 @@
         saveState();
       }
 
-      document.getElementById('combo-pool-status').textContent = isUnique
-        ? `${packLabel} · Unique`
-        : `${packLabel} · Recycled`;
+      const statusEl = document.getElementById('combo-pool-status');
+      if (statusEl) {
+        if (focusWord) {
+          statusEl.textContent = `Practice · ${focusWord.word}`;
+        } else {
+          statusEl.textContent = isUnique
+            ? `${packLabel} · Unique`
+            : `${packLabel} · Recycled`;
+        }
+      }
 
       return bestRound;
+    }
+
+    function practiceWordFromBank(wordId) {
+      const wordObj = VOCAB_DATA.find(w => w.id === wordId);
+      if (!wordObj || wordObj.domain !== appState.domain) return;
+
+      const packSet = getSelectedPackSet(appState.domain);
+      if (!packSet.has(wordObj.level)) {
+        packSet.add(wordObj.level);
+        appState.selectedPacks[appState.domain] = [...packSet].sort((a, b) => a - b);
+      }
+
+      // Sortables require introduced Learning words — teach it now.
+      markIntroduced(wordObj.id);
+      const relatedIds = pickRelatedPracticeIds(wordObj);
+      relatedIds.forEach(id => markIntroduced(id));
+
+      practiceFocus = { focusId: wordObj.id, relatedIds };
+      saveState();
+
+      if (elBankModal) elBankModal.classList.add('hidden');
+      bankOpenId = null;
+      stopSpeech();
+
+      initAudio();
+      if (appState.speechEnabled) warmPiperVoice();
+
+      if (activeScreen !== 'game') {
+        resetSessionStats();
+        ensureSessionStats();
+        showScreen('game');
+      } else {
+        ensureSessionStats();
+        startNewRound();
+      }
     }
 
     // =========================================================================
@@ -2377,417 +2091,6 @@
     let highlightedWordId = null; // word id currently highlighted during Answer Mode TTS
     let highlightedRootEl = null; // DOM node currently inverted for TTS readout
 
-    // Definitions: bare gloss when transparent/cognate; dash only for false friend, 2nd sense, or scene.
-    const RICH_DEFINITIONS = {
-      // Core Nouns (nouns-gender.md)
-      'Zeitung': 'Newspaper — often read at a café or kiosk.',
-      'Wohnung': 'Apartment / flat',
-      'Rechnung': 'Bill / invoice — the check for food, drinks, or services.',
-      'Meinung': 'Opinion',
-      'Prüfung': 'Exam / test',
-      'Gesundheit': 'Health — also what you say after a sneeze.',
-      'Freundlichkeit': 'Friendliness',
-      'Mannschaft': 'Team',
-      'Tradition': 'Tradition',
-      'Sonnenblume': 'Sunflower',
-      'Aktion': 'Special offer — a limited-time store deal or sale campaign.',
-      'Bedeutung': 'Meaning',
-      'Bewegung': 'Movement — physical motion, or a social/political campaign.',
-      'Botschaft': 'Message — also an embassy.',
-      'Diskussion': 'Discussion',
-      'Ehrlichkeit': 'Honesty',
-      'Einheit': 'Unit / unity',
-      'Einladung': 'Invitation',
-      'Erfahrung': 'Experience',
-      'Erzählung': 'Story / narrative',
-      'Fähigkeit': 'Ability',
-      'Freiheit': 'Freedom',
-      'Freundschaft': 'Friendship',
-      'Geschwindigkeit': 'Speed',
-      'Gesellschaft': 'Society / company',
-      'Hoffnung': 'Hope',
-      'Information': 'Information — also the info desk at a station.',
-      'Klarheit': 'Clarity',
-      'Krankheit': 'Illness',
-      'Landschaft': 'Landscape',
-      'Lösung': 'Solution — also a liquid mixture.',
-      'Million': 'Million',
-      'Möglichkeit': 'Possibility',
-      'Nation': 'Nation',
-      'Partnerschaft': 'Partnership',
-      'Region': 'Region',
-      'Richtung': 'Direction',
-      'Schönheit': 'Beauty',
-      'Schwierigkeit': 'Difficulty',
-      'Sicherheit': 'Safety / security — also certainty.',
-      'Situation': 'Situation',
-      'Station': 'Stop / ward — a transit stop, or a hospital ward.',
-      'Übung': 'Exercise / practice',
-      'Wahrheit': 'Truth',
-      'Wirklichkeit': 'Reality',
-      'Wirtschaft': 'Economy — also a traditional country inn.',
-      'Wissenschaft': 'Science',
-      'Lehrer': 'Teacher',
-      'Fahrer': 'Driver — bus, tram, car, or delivery.',
-      'Bäcker': 'Baker',
-      'Schmetterling': 'Butterfly',
-      'Zwilling': 'Twin — also the Gemini sign.',
-      'Kellner': 'Waiter',
-      'Arbeiter': 'Worker',
-      'Flüchtling': 'Refugee',
-      'Gärtner': 'Gardener',
-      'Journalismus': 'Journalism',
-      'Kapitalismus': 'Capitalism',
-      'Lehrling': 'Apprentice — learning a trade under a master.',
-      'Liebling': 'Favorite / darling',
-      'Optimismus': 'Optimism',
-      'Partner': 'Partner',
-      'Rentner': 'Retiree',
-      'Schüler': 'Student / pupil — a schoolchild (not university).',
-      'Tourismus': 'Tourism',
-      'Verkäufer': 'Salesperson',
-      'Arzt': 'Doctor',
-      'Koch': 'Cook / chef',
-      'Kätzchen': 'Kitten — neuter because of -chen.',
-      'Element': 'Element',
-      'Theater': 'Theater',
-      'Krankenhaus': 'Hospital',
-      'Argument': 'Argument — a point in a debate (not a quarrel).',
-      'Brötchen': 'Bread roll — breakfast staple; crusty small roll.',
-      'Dokument': 'Document',
-      'Experiment': 'Experiment',
-      'Instrument': 'Instrument — musical, or a precision tool.',
-      'Kaninchen': 'Rabbit — neuter from the -chen ending (not a young rabbit).',
-      'Mädchen': 'Girl — neuter because of -chen.',
-      'Märchen': 'Fairy tale',
-      'Medikament': 'Medication',
-      'Monument': 'Monument',
-      'Büro': 'Office',
-      'Café': 'Café — coffee, cake, light snacks.',
-      'Hotel': 'Hotel',
-      'Kino': 'Cinema',
-      'Museum': 'Museum',
-      'Restaurant': 'Restaurant',
-
-      // Scene & Compound Nouns (german_image_map_combined_scene_spec.md)
-      'Stadt': 'City — a large urban town with streets, shops, and public squares.',
-      'Straße': 'Street — a paved public road in a city or town.',
-      'Fußgängerzone': 'Pedestrian zone — a car-free shopping street open only to people on foot.',
-      'Kreuzung': 'Intersection — a crossroads where two or more streets meet.',
-      'Ampel': 'Traffic light — a red-yellow-green signal controlling street traffic.',
-      'Zebrastreifen': 'Crosswalk — white-striped pedestrian crossing painted across a road.',
-      'Bürgersteig': 'Sidewalk — the paved walkway beside a street for pedestrians.',
-      'Fahrrad': 'Bicycle — a two-wheeled pedal bike steered with handlebars.',
-      'Straßenbahn': 'Tram / streetcar — an electric rail car running along city streets.',
-      'Haltestelle': 'Transit stop — a marked street stop where buses or trams pick up riders.',
-      'Taxi': 'Taxi',
-      'Geschäft': 'Shop / store — also a business deal.',
-      'Buchhandlung': 'Bookstore — a retail shop specializing in books.',
-      'Schaufenster': 'Shop window — a large front glass window displaying store goods.',
-      'Kiosk': 'Kiosk — a small street stand selling newspapers, snacks, and drinks.',
-      'Briefkasten': 'Mailbox — a street postbox for outgoing mail or a home letterbox.',
-      'Schild': 'Sign / shield — a posted sign; also a coat of arms or shield.',
-      'Mülleimer': 'Trash can — a bin for throwing away garbage indoors or on the street.',
-      'Hund': 'Dog — a pet or working canine (often walked on a leash in parks).',
-      'Fußgänger': 'Pedestrian — someone walking along a street, sidewalk, or crossing.',
-      'Tür': 'Door — a hinged or sliding panel used to enter or close a room or building.',
-      'Eingang': 'Entrance — the doorway or gate where you enter a building or venue.',
-      'Ausgang': 'Exit — the doorway or way out of a building, station, or park.',
-      'Bank': 'Bench — also a financial bank.',
-      'Laterne': 'Streetlamp — a tall outdoor lamppost lighting streets and paths.',
-      'Bahnhof': 'Train station — a railway hub with ticket halls, platforms, and tracks.',
-      'Zug': 'Train — connected railway carriages pulled along tracks.',
-      'Gleis': 'Track — the rails / track number (Gleis 5); Bahnsteig is where passengers stand.',
-      'Bahnsteig': 'Platform — the passenger area beside the tracks (DB signs still say Gleis for the number).',
-      'Fahrkarte': 'Ticket — a printed or digital pass for riding a train, bus, or tram.',
-      'Fahrkartenautomat': 'Ticket machine — a self-service kiosk at a station or stop selling transit tickets.',
-      'Abfahrtstafel': 'Departure board — a station display listing outgoing trains, times, and tracks.',
-      'Verspätung': 'Delay — when a train, flight, or bus runs behind schedule.',
-      'Aufzug': 'Elevator — a mechanical lift carrying people between floors.',
-      'Treppe': 'Stairs — a flight of steps connecting different levels of a building.',
-      'Koffer': 'Suitcase — a rectangular travel case packed with clothes and belongings.',
-      'Rucksack': 'Backpack — a bag carried on the back with two shoulder straps.',
-      'Tasche': 'Bag — a handbag, shoulder tote, or pocket in clothing.',
-      'Gepäck': 'Luggage — suitcases and bags carried by a traveler.',
-      'Fahrgast': 'Passenger — a traveler riding a bus, tram, or train.',
-      'Schaffner': 'Conductor — a train staff member who checks tickets onboard.',
-      'Toilette': 'Restroom / toilet',
-      'Smartphone': 'Smartphone',
-      'Uhr': 'Clock / watch — also clock time (es ist 3 Uhr).',
-      'Gleisschild': 'Track sign — overhead sign showing the Gleis number.',
-      'Tisch': 'Table — a flat-topped piece of furniture for dining, working, or drinks.',
-      'Stuhl': 'Chair — a single seat with a backrest and legs.',
-      'Theke': 'Counter — a service counter in a café, bakery, or shop for ordering and paying.',
-      'Barhocker': 'Bar stool — a tall stool placed at a bar or high café counter.',
-      'Speisekarte': 'Menu — a list of food dishes and prices at a café or restaurant.',
-      'Tasse': 'Cup — a small handled cup for hot drinks like coffee or tea.',
-      'Teller': 'Plate — a flat round dish for serving solid food.',
-      'Glas': 'Glass — drinking glass, or window glass.',
-      'Besteck': 'Cutlery — knives, forks, and spoons used for eating.',
-      'Löffel': 'Spoon — an eating or stirring utensil with a small oval bowl.',
-      'Gabel': 'Fork — an eating utensil with prongs for picking up food.',
-      'Messer': 'Knife — a cutting tool with a blade and handle.',
-      'Kaffee': 'Coffee — a hot brewed drink made from roasted coffee beans.',
-      'Kuchen': 'Cake — a sweet baked dessert served in slices at cafés and bakeries.',
-      'Croissant': 'Croissant',
-      'Kasse': 'Cash register / checkout',
-      'Gast': 'Guest — a customer in a café, pub, or hotel, or a visitor at home.',
-      'Kellnerin': 'Waitress — a female server bringing food and drinks.',
-      'Fenster': 'Window — a glass opening in a wall letting in daylight and air.',
-      'Espressomaschine': 'Espresso machine — a café machine for brewing espresso and steaming milk.',
-      'Supermarkt': 'Supermarket',
-      'Einkaufswagen': 'Shopping cart — a wheeled pushcart for groceries in a supermarket.',
-      'Einkaufskorb': 'Shopping basket — a handheld basket for carrying items in a store.',
-      'Einkaufstasche': 'Shopping bag — a reusable tote bag for carrying groceries home.',
-      'Kassenband': 'Checkout conveyor belt — the moving belt at a supermarket register.',
-      'Kassenkraft': 'Cashier — a store worker scanning items and taking payment.',
-      'Regal': 'Shelf — a multi-level shelving unit displaying store goods or books.',
-      'Gang': 'Aisle / hallway — store aisle or corridor; also a course of a meal.',
-      'Brot': 'Bread — a baked staple loaf made from flour, water, and yeast or sourdough.',
-      'Milch': 'Milk — white dairy liquid sold in cartons or bottles.',
-      'Käse': 'Cheese — solid or soft dairy food made from pressed milk curds.',
-      'Apfel': 'Apple — a crisp, round orchard fruit with red, green, or yellow skin.',
-      'Banane': 'Banana',
-      'Kartoffel': 'Potato — a starchy root vegetable boiled, fried, or roasted.',
-      'Karotte': 'Carrot — a crunchy orange root vegetable.',
-      'Flasche': 'Bottle — a glass or plastic container with a narrow neck for liquids.',
-      'Angebot': 'Offer / special — a sale deal, or a bid/proposal.',
-      'Schlange': 'Queue / line — also a snake.',
-      'Geld': 'Money — coins, bills, or funds used to pay for things.',
-      'Tüte': 'Bag — paper or plastic bag for groceries or baked goods.',
-      'Dose': 'Tin can — sealed can for food or drinks; also a small container.',
-      'Joghurt': 'Yogurt — a creamy cultured dairy product.',
-      'Tiefkühltruhe': 'Chest freezer — a large horizontal freezer case in a supermarket.',
-      'Rezeption': 'Reception — the front check-in desk in a hotel.',
-      'Zimmer': 'Room — an enclosed room inside a home, apartment, or hotel.',
-      'Schlüssel': 'Key — a metal key used to lock or unlock a door.',
-      'Schlüsselkarte': 'Key card — an electronic plastic card that unlocks a hotel room door.',
-      'Bett': 'Bed — furniture with a mattress for sleeping.',
-      'Schrank': 'Wardrobe / cabinet — a tall closed cupboard for clothes, dishes, or supplies.',
-      'Badezimmer': 'Bathroom — a room with a sink, toilet, and shower or tub.',
-      'Dusche': 'Shower — an enclosed stall or overhead spray for washing.',
-      'Handtuch': 'Towel — an absorbent cloth for drying hands or body.',
-      'Spiegel': 'Mirror — a reflective glass surface showing your reflection.',
-      'Kofferwagen': 'Luggage cart — a wheeled hotel trolley for moving suitcases.',
-      'Rezeptionistin': 'Female receptionist — a woman working at a hotel front desk.',
-      'Lampe': 'Lamp',
-      'Nachttisch': 'Nightstand — a small table beside a bed.',
-      'Minibar': 'Minibar — a small fridge stocked with drinks inside a hotel room.',
-      'Kneipe': 'Pub / tavern — a cozy neighborhood bar serving draft beer and hearty snacks.',
-      'Tresen': 'Bar counter — the long counter in a pub where drinks are poured.',
-      'Zapfanlage': 'Beer tap system — the taps used at a bar to pour fresh draft beer.',
-      'Bierkrug': 'Beer mug — a heavy glass or ceramic mug with a handle for beer.',
-      'Bier': 'Beer — a brewed alcoholic drink made from malt and hops.',
-      'Bierdeckel': 'Beer coaster — a small cardboard mat placed under a beer glass.',
-      'Brezel': 'Pretzel — a baked knot-shaped roll with a salted brown crust.',
-      'Wurst': 'Sausage — a seasoned meat sausage served at pubs and street stands.',
-      'Getränkekarte': 'Drink menu — a menu listing beers, wines, and soft drinks.',
-      'Wirt': 'Innkeeper / host — the owner or manager running a traditional pub.',
-      'Stammtisch': 'Regulars’ table — a pub table reserved for a group of regular guests.',
-      'Kreidetafel': 'Chalkboard — a blackboard written on with chalk for daily specials.',
-      'Hocker': 'Stool — a backless seat.',
-      'Serviette': 'Napkin — a paper or cloth square used to wipe hands and mouth at meals.',
-      'Garderobenhaken': 'Coat hook — a wall hook for hanging jackets, hats, or bags.',
-      'Wochenmarkt': 'Weekly market — an open-air town square market selling fresh local food.',
-      'Marktstand': 'Market stall — an outdoor vendor booth displaying fruit, vegetables, or flowers.',
-      'Verkäuferin': 'Female salesperson — a woman selling goods at a market stall or shop.',
-      'Korb': 'Basket — a woven container with handles for carrying produce or bread.',
-      'Waage': 'Scale — a device used to weigh fruit, vegetables, or luggage.',
-      'Kiste': 'Crate / box — a wooden or plastic crate holding produce or bottles.',
-      'Birne': 'Pear — also a lightbulb.',
-      'Tomate': 'Tomato — a juicy red fruit used as a vegetable in salads and cooking.',
-      'Zwiebel': 'Onion — a layered bulb vegetable used in savory cooking.',
-      'Blume': 'Flower — a colorful garden or cut blossom.',
-      'Blumenstrauß': 'Bouquet of flowers — a gathered bunch of cut flowers.',
-      'Preis': 'Price — also a prize.',
-      'Sonnenschirm': 'Parasol / sun umbrella — a large outdoor umbrella providing shade.',
-      'Zelt': 'Tent — a portable fabric canopy or shelter on poles.',
-      'Traube': 'Grape — a small sweet berry growing in bunches on vines.',
-      'Kürbis': 'Pumpkin — a large round orange autumn squash.',
-      'Münze': 'Coin — a flat round piece of metal money.',
-      'Flughafen': 'Airport — a major terminal complex where passenger planes take off and land.',
-      'Terminal': 'Terminal — the airport building for check-in, security, and boarding gates.',
-      'Check-in-Schalter': 'Check-in counter — the airline desk for registering flights and bags.',
-      'Gate': 'Gate — the numbered airport boarding area leading onto a plane.',
-      'Anzeige': 'Display / classified ad — departure board, or a newspaper ad.',
-      'Abflug': 'Departure — the takeoff of an airplane from an airport.',
-      'Ankunft': 'Arrival — when a flight, train, or traveler reaches a destination.',
-      'Sicherheitskontrolle': 'Security check — airport screening of passengers and carry-on luggage.',
-      'Passkontrolle': 'Passport control — border checkpoint where passports are inspected.',
-      'Gepäckabgabe': 'Baggage drop — the airline counter where checked suitcases are handed over.',
-      'Handgepäck': 'Hand luggage — small bags carried onto the airplane cabin.',
-      'Bordkarte': 'Boarding pass — the airline pass needed to board an aircraft.',
-      'Reisepass': 'Passport — booklet for international travel (also just Pass).',
-      'Gepäckwagen': 'Luggage trolley — a pushcart at an airport or station for heavy bags.',
-      'Flugzeug': 'Airplane — a winged passenger or cargo aircraft.',
-      'Sitzplatz': 'Seat — an individual seat on a plane, train, bus, or in a hall.',
-      'Förderband': 'Conveyor belt — a moving belt carrying luggage at check-in or baggage claim.',
-      'Küche': 'Kitchen — the room in a home where meals are prepared and cooked.',
-      'Kühlschrank': 'Refrigerator — a cold kitchen appliance for storing fresh food and milk.',
-      'Herd': 'Stove — a kitchen range with burners for cooking in pots and pans.',
-      'Backofen': 'Oven — an enclosed heated oven for baking and roasting.',
-      'Spüle': 'Kitchen sink — a basin with a faucet for washing dishes and produce.',
-      'Wasserhahn': 'Faucet / tap — a valve spout controlling running water.',
-      'Schublade': 'Drawer — a sliding storage compartment in a cabinet or counter.',
-      'Arbeitsplatte': 'Countertop — the flat kitchen work surface for chopping and prep.',
-      'Topf': 'Pot — a deep round cooking pot with handles and a lid.',
-      'Pfanne': 'Pan — a flat, wide frying pan with a long handle.',
-      'Schneidebrett': 'Cutting board — a flat board used when slicing vegetables or bread.',
-      'Wasserkocher': 'Electric kettle — a countertop jug that quickly boils water.',
-      'Geschirrtuch': 'Dish towel — a kitchen cloth for drying washed dishes.',
-      'Schüssel': 'Bowl — a deep round dish for salads, soup, or mixing ingredients.',
-      'Stadtpark': 'City park — a public urban green space with paths, trees, and benches.',
-      'Biergarten': 'Beer garden — an outdoor tree-shaded seating area serving beer and snacks.',
-      'Baum': 'Tree — a tall woody plant with a trunk, branches, and leaves.',
-      'Parkbank': 'Park bench — an outdoor bench along a park walkway.',
-      'Brunnen': 'Fountain — a decorative water feature in a park or square; also a well.',
-      'Parkweg': 'Park path — a walking trail winding through a park.',
-      'Spielplatz': 'Playground — an outdoor play area for children with swings and slides.',
-      'Schaukel': 'Swing — a hanging seat on chains that swings back and forth.',
-      'Rutsche': 'Slide — a smooth sloped chute for children to slide down.',
-      'Parkplan': 'Park map — a posted map showing paths and landmarks inside a park.',
-      'Ball': 'Ball',
-      'Decke': 'Blanket / ceiling — indoor ceiling (Dach is the roof).',
-      'Bäckerei': 'Bakery — a shop and bakehouse selling fresh bread, rolls, and pastries.',
-      'Bäckerin': 'Female baker — a woman who bakes bread, rolls, and cakes.',
-      'Laib': 'Loaf — a whole shaped loaf of baked bread.',
-      'Gebäck': 'Pastry / baked goods — sweet or savory baked treats.',
-      'Auslage': 'Display case — a glass counter displaying fresh pastries or goods.',
-      'Backblech': 'Baking sheet — a flat metal tray used in an oven.',
-      'Ofen': 'Oven — a heated chamber for baking bread and pastries.',
-      'Mehl': 'Flour — finely ground grain powder used for baking.',
-      'Teig': 'Dough — kneaded mixture of flour and liquid before baking.',
-      'Zange': 'Tongs — serving tongs used to pick up rolls and pastries cleanly.',
-      'Papiertüte': 'Paper bag — a lightweight paper sack used at bakeries and markets.',
-      'Kunde': 'Customer — a person buying goods or services.',
-      'Apotheke': 'Pharmacy — a shop dispensing prescription medicines and health items.',
-      'Apotheker': 'Pharmacist — a licensed specialist who prepares and explains medicines.',
-      'Apothekerin': 'Female pharmacist — a woman licensed to dispense and advise on medicines.',
-      'Tablette': 'Tablet / pill',
-      'Packung': 'Pack / box — sealed carton or packet (medicine, goods).',
-      'Salbe': 'Ointment — a medicated soothing cream applied to skin.',
-      'Pflaster': 'Band-aid / plaster — also cobblestone pavement.',
-      'Verband': 'Bandage — a wrapped gauze dressing protecting a wound or sprain.',
-      'Thermometer': 'Thermometer',
-      'Creme': 'Cream — skin lotion or medicinal cream.',
-      'Hustensaft': 'Cough syrup — liquid medicine taken to soothe a cough.',
-      'Schachtel': 'Cardboard box — a small paperboard box holding pills or items.',
-      'Rezept': 'Prescription — also a cooking recipe.',
-      'Kundin': 'Female customer — a woman shopping in a store or pharmacy.',
-      'Beipackzettel': 'Package leaflet — the instruction sheet inside a medicine box.',
-      'Bushaltestelle': 'Bus stop — a marked street stop where local buses pick up passengers.',
-      'Straßenbahnhaltestelle': 'Tram stop — a street-level stop where trams board and let off riders.',
-      'Bus': 'Bus — a large city or regional passenger road vehicle.',
-      'Fahrerin': 'Female driver — a woman operating a bus, tram, or car.',
-      'Fahrplan': 'Timetable / schedule — a posted list of bus, tram, or train departure times.',
-      'Linie': 'Transit line — a numbered bus, tram, or rail route; also a drawn line.',
-      'Sitzbank': 'Bench — a multi-person bench seat at a transit stop or station.',
-      'Wartehäuschen': 'Bus shelter — a covered roadside shelter protecting waiting riders.',
-      'Dach': 'Roof — outside top of a building (Decke is the indoor ceiling).',
-      'Knopf': 'Button — stop request, or a coat button.',
-      'Haltestange': 'Handrail — a metal grab pole inside a bus or tram for standing riders.',
-      'Kinderwagen': 'Stroller — a wheeled baby carriage pushed while walking.',
-      'Regenschirm': 'Umbrella — a folding handheld canopy for rain.',
-      'Wohnhaus': 'Apartment building — a residential building with flats, mailboxes, and a stairwell.',
-      'Gebäude': 'Building — any permanent roofed architectural structure.',
-      'Haustür': 'Front door — the main street entrance door of a house or apartment building.',
-      'Klingel': 'Doorbell — a button outside a door pressed to ring inside.',
-      'Flur': 'Hallway — an entrance corridor inside an apartment or house.',
-      'Treppenhaus': 'Stairwell — the shared interior staircase connecting floors of a building.',
-      'Balkon': 'Balcony — an outdoor platform extending from an upper-floor apartment.',
-      'Fußmatte': 'Doormat — a mat outside a door for wiping shoes.',
-      'Hof': 'Courtyard — an open yard behind or enclosed by residential buildings.',
-      'Mülltonne': 'Trash bin — a large outdoor wheeled garbage bin.',
-      'Pflanze': 'Plant — a green potted or garden plant.',
-      'Paket': 'Package / parcel — a wrapped box delivered by mail or courier.',
-      'Ausstellung': 'Exhibition — a public display of artworks or objects in a museum.',
-      'Bild': 'Picture / painting — a framed picture, painting, or photograph.',
-      'Gemälde': 'Painting — a work of art painted on canvas or wood.',
-      'Bilderrahmen': 'Picture frame — a wood or metal border framing a picture.',
-      'Skulptur': 'Sculpture — a three-dimensional carved or cast artwork.',
-      'Statue': 'Statue',
-      'Sockel': 'Pedestal — a solid base supporting a statue or sculpture.',
-      'Vitrine': 'Display case — a glass cabinet protecting museum exhibits.',
-      'Text': 'Text — on an exhibit plaque or sign.',
-      'Eintrittskarte': 'Admission ticket — a ticket granting entry to a museum or event.',
-      'Saal': 'Hall — a large gallery room in a museum or public building.',
-      'Wand': 'Wall — an interior room wall where paintings hang.',
-      'Boden': 'Floor / ground — indoor floor; also soil or ground outdoors.',
-      'Besucher': 'Visitor — someone visiting a museum, exhibition, or place.',
-      'Besucherin': 'Female visitor — a woman visiting a museum or exhibition.',
-      'Führer': 'Guide — tour guide or guidebook.',
-      'Führerin': 'Female guide — a woman leading a museum or city tour.',
-
-      // Standalone Compound Root Nouns
-      'Haus': 'House',
-      'Karte': 'Card — ticket, menu, or map depending on the compound.',
-      'Automat': 'Machine / dispenser — an automated ticket or vending machine.',
-      'Tafel': 'Board — departure board or chalkboard.',
-      'Wagen': 'Cart / carriage — shopping cart or luggage trolley; also a rail car.',
-      'Band': 'Belt / ribbon — conveyor belt or strip (not a music band).',
-      'Tuch': 'Cloth — a piece of fabric for drying dishes or hands.',
-      'Krug': 'Mug / pitcher — a handled mug or jug for beer or water.',
-      'Deckel': 'Lid / coaster — a pot lid or a coaster under a drink.',
-      'Park': 'Park',
-      'Haken': 'Hook — a curved peg for hanging coats or bags.',
-      'Stand': 'Stand / booth — a market booth or display stand.',
-      'Schirm': 'Umbrella / screen — a protective canopy or shade.',
-      'Schalter': 'Service counter — also a light switch.',
-      'Kontrolle': 'Check / inspection — security or ticket check (not "remote control").',
-      'Pass': 'Passport — short for Reisepass.',
-      'Platz': 'Place / square / seat — town square, or “is this seat free?”',
-      'Platte': 'Plate / counter — a flat countertop or slab.',
-      'Brett': 'Board — a flat wooden or plastic board.',
-      'Garten': 'Garden — an outdoor planted garden or beer garden.',
-      'Weg': 'Path / way — a walking path or route.',
-      'Plan': 'Plan / map',
-      'Saft': 'Juice — fruit juice or liquid cough syrup.',
-      'Zettel': 'Note / slip of paper — a small written paper slip or leaflet.',
-      'Stange': 'Pole / bar — a metal grab bar or rod.',
-      'Matte': 'Mat — a floor mat for wiping feet.',
-      'Tonne': 'Bin / barrel — a large wheeled trash bin or barrel.',
-      'Rahmen': 'Frame — a border surrounding a picture or window.',
-      'Eimer': 'Bucket — a pail or bin with a handle.',
-      'Kasten': 'Box — a rectangular box or mailbox.',
-
-      // Case Governance Verbs & Prepositions (case.md)
-      'sehen': 'To see — governs a direct Accusative object (Ich sehe den Hund).',
-      'haben': 'To have — always governs an Accusative object (Ich habe einen Stift).',
-      'für': 'For — Accusative preposition (für den Mann).',
-      'ohne': 'Without — Accusative preposition (ohne die Tasche).',
-      'brauchen': 'To need — governs a direct Accusative object (Ich brauche das Ticket).',
-      'suchen': 'To look for — governs a direct Accusative object (Ich suche den Schlüssel).',
-      'nehmen': 'To take — governs a direct Accusative object (Ich nehme den Bus).',
-      'finden': 'To find — governs a direct Accusative object (Ich finde das Buch).',
-      'warten auf': 'To wait for — verb + preposition governing Accusative (auf den Zug warten).',
-      'um': 'Around / for — Accusative preposition (um den Park).',
-      'durch': 'Through — Accusative preposition (durch die Stadt).',
-      'gegen': 'Against — Accusative preposition (gegen den Wind).',
-      'helfen': 'To help — Dative verb (Ich helfe dem Kind).',
-      'mit': 'With — Dative preposition (mit dem Bus).',
-      'aus': 'Out of — Dative preposition (aus dem Haus).',
-      'danken': 'To thank — Dative verb (Ich danke der Frau).',
-      'gefallen': 'To be pleasing — Dative verb; the person who likes it takes Dative (Das Hemd gefällt dem Mann).',
-      'passen zu': 'To fit with — verb + preposition governing Dative (Das passt zu dem Kleid).',
-      'außer': 'Except — Dative preposition (außer dem Hund).',
-      'bei': 'At / with — Dative preposition (bei der Arbeit / beim Arzt).',
-      'nach': 'After / to — Dative preposition (nach dem Essen / nach Berlin).',
-      'seit': 'Since — Dative preposition (seit dem Montag).',
-      'von': 'From / of — Dative preposition (von dem Bahnhof).',
-      'zu': 'To — Dative preposition (zu dem Park).',
-      'antworten': 'To answer — Dative verb (Ich antworte dem Lehrer).',
-      'gehören': 'To belong to — Dative verb (Das Buch gehört der Frau).',
-      'passen': 'To fit (someone) — Dative verb (Die Jacke passt dem Kind).'
-    };
-
-    function getDescriptiveDefinition(wordObj) {
-      if (!wordObj) return '';
-      if (RICH_DEFINITIONS[wordObj.word]) {
-        return RICH_DEFINITIONS[wordObj.word];
-      }
-      return wordObj.meaning || '';
-    }
-
     const BUILDS_EXAMPLE_LIMIT = 3;
 
     function formatBuildsHint(wordObj, { includeGender = false } = {}) {
@@ -2837,7 +2140,10 @@
       const defEl = document.getElementById('trans-definition');
       const noteEl = document.getElementById('trans-note');
       const compEl = document.getElementById('trans-compound');
+      const exampleEl = document.getElementById('trans-example');
+      const exampleEnEl = document.getElementById('trans-example-en');
       const definitionText = getDescriptiveDefinition(wordObj);
+      const example = getExampleSentence(wordObj);
 
       headerLineEl.textContent = wordObj.word;
       defEl.textContent = definitionText;
@@ -2848,6 +2154,16 @@
         compEl.classList.remove('hidden');
       } else {
         compEl.classList.add('hidden');
+      }
+
+      if (example && exampleEl && exampleEnEl) {
+        exampleEl.textContent = example.de;
+        exampleEl.classList.remove('hidden');
+        exampleEnEl.textContent = example.en;
+        exampleEnEl.classList.remove('hidden');
+      } else if (exampleEl && exampleEnEl) {
+        exampleEl.classList.add('hidden');
+        exampleEnEl.classList.add('hidden');
       }
 
       if (revealAnswer) {
@@ -3126,7 +2442,7 @@
             );
           }
           const wordEl = anchorCard.querySelector('[data-anchor-word]');
-          if (wordEl) snapClassName(wordEl, 'text-sm font-extrabold text-white truncate');
+          if (wordEl) snapClassName(wordEl, 'text-base font-extrabold text-white wm-word-scroll flex-1');
           const defEl = anchorCard.querySelector('[data-anchor-def]');
           if (defEl) {
             snapClassName(defEl, 'text-[10px] leading-[1.35] mt-1.5 line-clamp-3 h-[41px]');
@@ -3155,7 +2471,7 @@
         highlightedRootEl = itemEl;
         snapClassName(
           itemEl,
-          `cursor-pointer ${borderThickness} rounded-xl px-2.5 py-1.5 flex items-center ${st.cardInvertedBg} word-announce-highlight`
+          `cursor-pointer ${borderThickness} rounded-xl px-2.5 py-1.5 flex items-center min-w-0 ${st.cardInvertedBg} word-announce-highlight`
         );
         quietOtherRevealCards(itemEl);
         itemEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -3295,7 +2611,7 @@
       const defText = anchorWord ? getDescriptiveDefinition(anchorWord) : '';
       const normalCardClass = 'wm-surface rounded-xl px-2 py-1.5 active:scale-[0.98] flex flex-col';
       const normalBadgeClass = `px-2.5 py-1 rounded-lg text-sm tracking-wide shrink-0 ${st.badgeBg}`;
-      const normalWordClass = 'wm-display text-sm font-semibold truncate';
+      const normalWordClass = 'wm-display text-base font-semibold wm-word-scroll flex-1';
       const normalDefClass = 'text-[10px] leading-[1.35] mt-1.5 line-clamp-3 h-[41px]';
       const normalLabelClass = `text-[11px] font-bold tracking-tight ${st.titleText} mt-1.5`;
       // muted gloss color via inline on def below
@@ -3343,8 +2659,8 @@
       containerEl.innerHTML = assigned.map(item => {
         if (!isChecked) {
           return `
-            <div data-col-item-id="${item.id}" data-col-side="${side}" class="word-row-spring cursor-pointer wm-surface rounded-xl px-2.5 py-1.5 flex items-center justify-between gap-1.5 slot-enter" title="Tap to return">
-              <span class="text-xs font-bold truncate">${item.word}</span>
+            <div data-col-item-id="${item.id}" data-col-side="${side}" class="word-row-spring cursor-pointer wm-surface rounded-xl px-2.5 py-1.5 flex items-center justify-between gap-1.5 slot-enter min-w-0" title="Tap to return">
+              <span class="text-sm font-bold wm-word-scroll flex-1">${item.word}</span>
             </div>
           `;
         } else {
@@ -3355,11 +2671,11 @@
             ? (side === 'right' ? 'animate-fix-to-right' : 'animate-fix-to-left')
             : '';
 
-          const normalRevealClass = `cursor-pointer ${borderThickness} rounded-xl px-2.5 py-1.5 flex items-center ${trueStyle.cardRevealBg}`;
+          const normalRevealClass = `cursor-pointer ${borderThickness} rounded-xl px-2.5 py-1.5 flex items-center min-w-0 ${trueStyle.cardRevealBg}`;
 
           return `
             <div data-col-item-id="${item.id}" data-col-side="${side}" data-normal-class="${normalRevealClass}" class="${normalRevealClass} ${animClass}">
-              <span class="text-xs font-extrabold truncate">${item.word}</span>
+              <span class="text-sm font-extrabold wm-word-scroll flex-1">${item.word}</span>
             </div>
           `;
         }
@@ -3413,7 +2729,7 @@
       elUnsortedQueue.innerHTML = `
         <div data-word-id="${currentItem.id}" class="wm-word-card rounded-2xl px-3 py-3 text-center cursor-pointer">
           <p class="wm-section-label mb-1">Place in a column</p>
-          <p class="text-lg truncate">${currentItem.word}</p>
+          <p class="text-xl font-semibold wm-word-scroll">${currentItem.word}</p>
         </div>
       `;
 
@@ -3509,6 +2825,8 @@
       let leftCorrectCount = 0;
       let rightCorrectCount = 0;
 
+      const sess = ensureSessionStats();
+
       currentRound.items.forEach(item => {
         const expectedSide = item.trait === currentRound.leftTrait ? 'left' : 'right';
         item.isCorrect = item.assignedSide === expectedSide;
@@ -3519,11 +2837,21 @@
           if (expectedSide === 'left') leftCorrectCount++;
           else rightCorrectCount++;
           item.movedFromSide = null;
-          appState.scores[item.id] = Math.min(MAX_SCORE, prevScore + 1);
+          const next = Math.min(MAX_SCORE, prevScore + 1);
+          appState.scores[item.id] = next;
+          sess.sortsCorrect += 1;
+          if (prevScore < 3 && next >= 3) sess.graduatedIds.add(item.id);
         } else {
           item.movedFromSide = item.assignedSide;
           item.assignedSide = expectedSide;
-          appState.scores[item.id] = Math.max(0, prevScore - 1);
+          const next = Math.max(0, prevScore - 1);
+          appState.scores[item.id] = next;
+          sess.sortsWrong += 1;
+          if (prevScore >= 3 && next < 3) sess.demotedIds.add(item.id);
+          appState.lastMissAt[item.id] = Date.now();
+          if (!sess.mistakes.some(m => m.id === item.id)) {
+            sess.mistakes.push({ id: item.id, word: item.word, trait: item.trait });
+          }
         }
       });
 
@@ -3531,17 +2859,23 @@
       if (currentRound.leftAnchor && leftCorrectCount > 0) {
         const aPrev = appState.scores[currentRound.leftAnchor.id] ?? 0;
         if (aPrev < 3) {
-          appState.scores[currentRound.leftAnchor.id] = Math.min(3, aPrev + 1);
+          const next = Math.min(3, aPrev + 1);
+          appState.scores[currentRound.leftAnchor.id] = next;
+          if (aPrev < 3 && next >= 3) sess.graduatedIds.add(currentRound.leftAnchor.id);
         }
       }
       if (currentRound.rightAnchor && rightCorrectCount > 0) {
         const aPrev = appState.scores[currentRound.rightAnchor.id] ?? 0;
         if (aPrev < 3) {
-          appState.scores[currentRound.rightAnchor.id] = Math.min(3, aPrev + 1);
+          const next = Math.min(3, aPrev + 1);
+          appState.scores[currentRound.rightAnchor.id] = next;
+          if (aPrev < 3 && next >= 3) sess.graduatedIds.add(currentRound.rightAnchor.id);
         }
       }
 
       const allRight = correctCount === currentRound.items.length;
+      sess.rounds += 1;
+      if (allRight) sess.perfectRounds += 1;
 
       if (allRight) {
         appState.streak += 1;
@@ -3551,6 +2885,7 @@
         appState.streak = 0;
         playSound('wrong');
       }
+      sess.peakStreak = Math.max(sess.peakStreak, appState.streak);
 
       autoAdvanceGraduatedPacks(appState.domain);
       saveState();
@@ -3643,9 +2978,12 @@
       if (gameProgressBar) gameProgressBar.style.width = `${activeLearnedPct}%`;
       if (gameProgressLabel) gameProgressLabel.textContent = `${mCount + lCount}/${activeTotal} (${activeLearnedPct}%)`;
 
-      const streakText = `Streak: ${appState.streak} · Best: ${appState.bestStreak}`;
+      const streakText = sessionStats && sessionStats.rounds > 0
+        ? `Streak ${appState.streak} · Peak ${sessionStats.peakStreak} · Best ${appState.bestStreak}`
+        : `Streak ${appState.streak} · Best ${appState.bestStreak}`;
       document.getElementById('combo-badge').textContent = streakText;
-      document.getElementById('intro-streak-badge').textContent = streakText;
+      document.getElementById('intro-streak-badge').textContent =
+        `Streak ${appState.streak} · Best ${appState.bestStreak}`;
       document.getElementById('tier-summary-pill').textContent = `${mCount}/${lCount}/${nCount}`;
       document.getElementById('intro-pool-breakdown').textContent = lockedCompoundsCount > 0
         ? `${mCount}M · ${lCount}L · ${nCount} New (${lockedCompoundsCount} compounds gated)`
@@ -3705,6 +3043,7 @@
     document.getElementById('btn-start-game').addEventListener('click', () => {
       initAudio();
       if (appState.speechEnabled) warmPiperVoice();
+      resetSessionStats();
       if (needsBootstrapSprint(appState.domain)) {
         startBootstrapSprint();
       } else {
@@ -3715,6 +3054,7 @@
     document.getElementById('btn-bootstrap-intro').addEventListener('click', () => {
       initAudio();
       if (appState.speechEnabled) warmPiperVoice();
+      resetSessionStats();
       startBootstrapSprint();
     });
 
@@ -3732,12 +3072,25 @@
     });
 
     document.getElementById('btn-back-setup').addEventListener('click', () => {
-      showScreen('intro');
+      leavePlayToIntro({ showReport: true });
     });
 
     document.getElementById('btn-sprint-exit').addEventListener('click', () => {
       sprintState = null;
-      showScreen('intro');
+      leavePlayToIntro({ showReport: true });
+    });
+
+    document.getElementById('btn-close-session-report')?.addEventListener('click', () => {
+      closeSessionReport();
+    });
+    document.getElementById('btn-dismiss-session-report')?.addEventListener('click', () => {
+      closeSessionReport();
+    });
+    document.getElementById('btn-open-session-report')?.addEventListener('click', () => {
+      if (lastSessionReport) openSessionReport(lastSessionReport);
+    });
+    document.getElementById('session-report-modal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'session-report-modal') closeSessionReport();
     });
 
     document.getElementById('btn-sprint-skip-all').addEventListener('click', () => {
@@ -3754,8 +3107,16 @@
       document.getElementById(`domain-${dom}`).addEventListener('click', () => {
         if (appState.domain === dom) return;
         appState.domain = dom;
+        bankTraitFilter = 'all';
+        bankPackFilter = 'all';
+        bankOpenId = null;
         saveState();
         updateHeaderAndLegend();
+        if (elBankModal && !elBankModal.classList.contains('hidden')) {
+          syncBankPackOptions();
+          syncBankTraitFilterButtons();
+          renderWordBank();
+        }
       });
     });
 
@@ -3827,10 +3188,78 @@
     const elBankModal = document.getElementById('word-bank-modal');
     const elBankList = document.getElementById('word-bank-list');
     const elConfirmToast = document.getElementById('confirm-toast');
+    const elBankSearch = document.getElementById('bank-search');
+    const elBankPackFilter = document.getElementById('bank-pack-filter');
+    const elBankSort = document.getElementById('bank-sort');
+    const elBankTraitFilters = document.getElementById('bank-trait-filters');
+    const elBankCountLine = document.getElementById('bank-count-line');
+
+    function formatMissAge(ts) {
+      if (!ts) return '';
+      const mins = Math.round((Date.now() - ts) / 60000);
+      if (mins < 1) return 'just now';
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.round(mins / 60);
+      if (hrs < 48) return `${hrs}h ago`;
+      const days = Math.round(hrs / 24);
+      return `${days}d ago`;
+    }
+
+    function escapeBankHtml(s) {
+      return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function syncBankTraitFilterButtons() {
+      if (!elBankTraitFilters) return;
+      const traits = DOMAIN_CONFIG[appState.domain]?.traits || [];
+      if (!traits.includes(bankTraitFilter) && bankTraitFilter !== 'all') {
+        bankTraitFilter = 'all';
+      }
+      elBankTraitFilters.innerHTML = [
+        `<button type="button" data-bank-trait="all" class="bank-filter-btn${bankTraitFilter === 'all' ? ' is-on' : ''} px-2.5 py-1 rounded-lg">Any trait</button>`,
+        ...traits.map(t =>
+          `<button type="button" data-bank-trait="${t}" class="bank-filter-btn${bankTraitFilter === t ? ' is-on' : ''} px-2.5 py-1 rounded-lg">${t}</button>`
+        )
+      ].join('');
+      elBankTraitFilters.querySelectorAll('[data-bank-trait]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          bankTraitFilter = btn.dataset.bankTrait;
+          bankOpenId = null;
+          syncBankTraitFilterButtons();
+          renderWordBank();
+        });
+      });
+    }
+
+    function syncBankPackOptions() {
+      if (!elBankPackFilter) return;
+      const levels = LEVEL_DEFINITIONS[appState.domain] || [];
+      const prev = bankPackFilter;
+      elBankPackFilter.innerHTML =
+        `<option value="all">All packs</option>` +
+        levels.map(l => `<option value="${l.id}">${escapeBankHtml(l.title)}</option>`).join('');
+      const stillValid = prev === 'all' || levels.some(l => String(l.id) === String(prev));
+      bankPackFilter = stillValid ? prev : 'all';
+      elBankPackFilter.value = String(bankPackFilter);
+    }
 
     function openWordBank() {
+      bankOpenId = null;
+      syncBankPackOptions();
+      syncBankTraitFilterButtons();
+      if (elBankSearch) elBankSearch.value = bankQuery;
+      if (elBankSort) elBankSort.value = bankSort;
+      document.querySelectorAll('#bank-tier-filters [data-bank-filter]').forEach(b => {
+        const on = b.dataset.bankFilter === bankFilter;
+        b.className = `bank-filter-btn px-2.5 py-1 rounded-lg${on ? ' is-on' : ''}`;
+      });
       renderWordBank();
       elBankModal.classList.remove('hidden');
+      requestAnimationFrame(() => elBankSearch?.focus());
     }
 
     document.getElementById('btn-open-bank-intro').addEventListener('click', openWordBank);
@@ -3838,18 +3267,21 @@
 
     document.getElementById('btn-close-bank').addEventListener('click', () => {
       elBankModal.classList.add('hidden');
+      bankOpenId = null;
     });
 
     elBankModal.addEventListener('click', (e) => {
       if (e.target === elBankModal) {
         elBankModal.classList.add('hidden');
+        bankOpenId = null;
       }
     });
 
-    document.querySelectorAll('.bank-filter-btn').forEach(btn => {
+    document.querySelectorAll('#bank-tier-filters [data-bank-filter]').forEach(btn => {
       btn.addEventListener('click', () => {
         bankFilter = btn.dataset.bankFilter;
-        document.querySelectorAll('.bank-filter-btn').forEach(b => {
+        bankOpenId = null;
+        document.querySelectorAll('#bank-tier-filters [data-bank-filter]').forEach(b => {
           const on = b.dataset.bankFilter === bankFilter;
           b.className = `bank-filter-btn px-2.5 py-1 rounded-lg${on ? ' is-on' : ''}`;
         });
@@ -3857,14 +3289,78 @@
       });
     });
 
+    let bankSearchTimer = null;
+    elBankSearch?.addEventListener('input', () => {
+      clearTimeout(bankSearchTimer);
+      bankSearchTimer = setTimeout(() => {
+        bankQuery = elBankSearch.value.trim();
+        bankOpenId = null;
+        renderWordBank();
+      }, 120);
+    });
+
+    elBankPackFilter?.addEventListener('change', () => {
+      bankPackFilter = elBankPackFilter.value;
+      bankOpenId = null;
+      renderWordBank();
+    });
+
+    elBankSort?.addEventListener('change', () => {
+      bankSort = elBankSort.value;
+      renderWordBank();
+    });
+
     function renderWordBank() {
-      const items = VOCAB_DATA
-        .filter(w => w.domain === appState.domain)
+      const domainItems = VOCAB_DATA.filter(w => w.domain === appState.domain);
+      const q = bankQuery.toLowerCase();
+
+      const items = domainItems
         .filter(w => {
-          if (bankFilter === 'all') return true;
-          return getTier(appState.scores[w.id]) === bankFilter;
+          if (bankPackFilter !== 'all' && String(w.level) !== String(bankPackFilter)) return false;
+          if (bankTraitFilter !== 'all' && w.trait !== bankTraitFilter) return false;
+
+          const score = appState.scores[w.id] ?? 0;
+          const tier = getTier(score);
+          const taught = isIntroduced(w.id);
+          const missed = !!(appState.lastMissAt && appState.lastMissAt[w.id]);
+
+          if (bankFilter === 'learning' || bankFilter === 'learned' || bankFilter === 'mastered') {
+            if (tier !== bankFilter) return false;
+          } else if (bankFilter === 'missed') {
+            if (!missed) return false;
+          } else if (bankFilter === 'cold') {
+            if (taught) return false;
+          }
+
+          if (q) {
+            const hay = `${w.word} ${w.meaning || ''} ${w.trait} ${w.note || ''}`.toLowerCase();
+            if (!hay.includes(q)) return false;
+          }
+          return true;
         })
-        .sort((a, b) => a.level - b.level || (appState.scores[b.id] - appState.scores[a.id]));
+        .sort((a, b) => {
+          const sa = appState.scores[a.id] ?? 0;
+          const sb = appState.scores[b.id] ?? 0;
+          const ma = appState.lastMissAt?.[a.id] || 0;
+          const mb = appState.lastMissAt?.[b.id] || 0;
+          if (bankSort === 'score-asc') return sa - sb || a.word.localeCompare(b.word, 'de');
+          if (bankSort === 'score-desc') return sb - sa || a.word.localeCompare(b.word, 'de');
+          if (bankSort === 'alpha') return a.word.localeCompare(b.word, 'de');
+          if (bankSort === 'miss') return mb - ma || a.level - b.level || a.word.localeCompare(b.word, 'de');
+          return a.level - b.level || sb - sa || a.word.localeCompare(b.word, 'de');
+        });
+
+      if (elBankCountLine) {
+        elBankCountLine.textContent = `Showing ${items.length} of ${domainItems.length} · tap a row for gloss + example`;
+      }
+
+      if (items.length === 0) {
+        elBankList.innerHTML = `
+          <div class="rounded-xl border border-dashed p-4 text-center text-xs" style="border-color:var(--line);color:var(--muted)">
+            No words match these filters.
+          </div>`;
+        return;
+      }
 
       elBankList.innerHTML = items.map(w => {
         const score = appState.scores[w.id] ?? 0;
@@ -3872,6 +3368,12 @@
         const st = TRAIT_STYLES[w.trait];
         const unlocked = isCompoundUnlocked(w);
         const pct = Math.round((score / MAX_SCORE) * 100);
+        const taught = isIntroduced(w.id);
+        const missAt = appState.lastMissAt?.[w.id] || 0;
+        const open = bankOpenId === w.id;
+        const def = getDescriptiveDefinition(w);
+        const example = getExampleSentence(w);
+        const buildsHint = !w.compound ? formatBuildsHint(w, { includeGender: true }) : '';
 
         const tierBadge = tier === 'mastered'
           ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">Mastered</span>'
@@ -3879,35 +3381,115 @@
             ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-200 text-zinc-800">Learned</span>'
             : '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800">Learning</span>';
 
-        const buildsHint = !w.compound ? formatBuildsHint(w, { includeGender: true }) : '';
+        const statusChips = [
+          taught
+            ? '<span class="bank-chip-taught px-1.5 py-0.5 rounded text-[9px] font-bold">Taught</span>'
+            : '<span class="bank-chip-cold px-1.5 py-0.5 rounded text-[9px] font-bold">Not taught</span>',
+          missAt
+            ? `<span class="bank-chip-miss px-1.5 py-0.5 rounded text-[9px] font-bold">Miss ${escapeBankHtml(formatMissAge(missAt))}</span>`
+            : ''
+        ].filter(Boolean).join('');
+
         const compoundSub = w.compound
-          ? `<p class="text-[10px] font-mono ${unlocked ? 'text-amber-700' : 'text-zinc-400'} mt-0.5">${unlocked ? '' : '🔒 '}${w.compound.prefix} + ${w.compound.rootTrait} ${w.compound.rootWord}</p>`
+          ? `<p class="text-[10px] font-mono ${unlocked ? 'text-amber-700' : 'text-zinc-400'} mt-0.5">${unlocked ? '' : '🔒 '}${escapeBankHtml(w.compound.prefix)} + ${escapeBankHtml(w.compound.rootTrait)} ${escapeBankHtml(w.compound.rootWord)}</p>`
           : buildsHint
-            ? `<p class="text-[10px] font-mono text-amber-700 mt-0.5">${buildsHint}</p>`
+            ? `<p class="text-[10px] font-mono text-amber-700 mt-0.5">${escapeBankHtml(buildsHint)}</p>`
             : '';
 
+        const detail = open ? `
+          <div class="mt-2.5 pt-2.5 border-t space-y-1.5 text-left" style="border-color:var(--line)" data-bank-detail>
+            <p class="text-xs leading-snug" style="color:var(--ink)">${escapeBankHtml(def)}</p>
+            ${example ? `
+              <p class="text-[11px] leading-snug font-semibold" style="color:var(--ink)">${escapeBankHtml(example.de)}</p>
+              <p class="text-[10px] leading-snug" style="color:var(--muted)">${escapeBankHtml(example.en)}</p>
+            ` : ''}
+            ${w.note ? `<p class="text-[10px]" style="color:var(--muted)">${escapeBankHtml(w.note)}</p>` : ''}
+            <div class="flex items-center gap-2 pt-1 flex-wrap">
+              <button type="button" data-bank-practice="${escapeBankHtml(w.id)}" class="wm-btn-ok px-2.5 py-1 text-[10px] rounded-full">Practice this</button>
+              <button type="button" data-bank-speak="${escapeBankHtml(w.id)}" class="wm-chip px-2.5 py-1 text-[10px]">Hear word</button>
+              ${example ? `<button type="button" data-bank-speak-example="${escapeBankHtml(w.id)}" class="wm-chip px-2.5 py-1 text-[10px]">Hear example</button>` : ''}
+            </div>
+          </div>
+        ` : '';
+
         return `
-          <div class="p-2.5 rounded-xl border border-zinc-200/80 ${unlocked ? 'bg-zinc-50/60' : 'bg-zinc-100/80 opacity-65'} flex items-center justify-between gap-2.5">
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-1.5">
-                <span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold ${st.badgeBg}">${w.trait}</span>
-                <span class="font-bold text-sm text-zinc-900 truncate">${w.word}</span>
-                <span class="text-xs text-zinc-400 truncate">— ${w.meaning}</span>
-              </div>
-              ${compoundSub}
-              <div class="mt-1.5 flex items-center gap-2">
-                <div class="flex-1 h-1.5 bg-zinc-200 rounded-full overflow-hidden">
-                  <div class="h-full bg-zinc-800 rounded-full transition-all" style="width: ${pct}%"></div>
+          <div class="bank-row p-2.5 rounded-xl border border-zinc-200/80 ${open ? 'is-open' : ''} ${unlocked ? 'bg-zinc-50/60' : 'bg-zinc-100/80 opacity-80'} cursor-pointer"
+               data-bank-word-id="${escapeBankHtml(w.id)}" role="button" tabindex="0">
+            <div class="flex items-start justify-between gap-2.5">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold shrink-0 ${st.badgeBg}">${w.trait}</span>
+                  <span class="font-bold text-sm text-zinc-900 wm-word-scroll">${escapeBankHtml(w.word)}</span>
                 </div>
-                <span class="text-[11px] font-mono text-zinc-500">${score}/${MAX_SCORE} · Pack ${w.level}</span>
+                <p class="text-xs text-zinc-400 wm-word-scroll mt-0.5">— ${escapeBankHtml(w.meaning || '')}</p>
+                <div class="flex items-center gap-1 flex-wrap mt-1">${statusChips}</div>
+                ${compoundSub}
+                <div class="mt-1.5 flex items-center gap-2">
+                  <div class="flex-1 h-1.5 bg-zinc-200 rounded-full overflow-hidden">
+                    <div class="h-full bg-zinc-800 rounded-full transition-all" style="width: ${pct}%;background:var(--ink)"></div>
+                  </div>
+                  <span class="text-[11px] font-mono text-zinc-500 shrink-0">${score}/${MAX_SCORE} · Pack ${w.level}</span>
+                </div>
+              </div>
+              <div class="shrink-0 flex flex-col items-end gap-1">
+                ${tierBadge}
+                <span class="text-[10px]" style="color:var(--faint)">${open ? '▲' : '▼'}</span>
               </div>
             </div>
-            <div class="shrink-0">
-              ${tierBadge}
-            </div>
+            ${detail}
           </div>
         `;
       }).join('');
+
+      elBankList.querySelectorAll('[data-bank-word-id]').forEach(row => {
+        const id = row.dataset.bankWordId;
+        row.addEventListener('click', (e) => {
+          if (e.target.closest('[data-bank-speak], [data-bank-speak-example], [data-bank-practice]')) return;
+          bankOpenId = bankOpenId === id ? null : id;
+          renderWordBank();
+          if (bankOpenId) {
+            requestAnimationFrame(() => {
+              elBankList.querySelector(`[data-bank-word-id="${CSS.escape(bankOpenId)}"]`)
+                ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            });
+          }
+        });
+      });
+
+      elBankList.querySelectorAll('[data-bank-practice]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          practiceWordFromBank(btn.dataset.bankPractice);
+        });
+      });
+
+      elBankList.querySelectorAll('[data-bank-speak]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const wordObj = VOCAB_DATA.find(w => w.id === btn.dataset.bankSpeak);
+          if (!wordObj) return;
+          initAudio();
+          speakGermanWord(wordObj, true);
+        });
+      });
+
+      elBankList.querySelectorAll('[data-bank-speak-example]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const wordObj = VOCAB_DATA.find(w => w.id === btn.dataset.bankSpeakExample);
+          const example = getExampleSentence(wordObj);
+          if (!example?.de) return;
+          initAudio();
+          void (async () => {
+            try {
+              if (!isPiperReady()) await ensurePiperReady();
+              await speakGermanPiper(example.de);
+            } catch (err) {
+              speakText(example.de, null, 'de-DE');
+            }
+          })();
+        });
+      });
     }
 
     document.getElementById('btn-clear-combos').addEventListener('click', () => {
@@ -3927,6 +3509,7 @@
 
     document.getElementById('confirm-toast-yes').addEventListener('click', () => {
       appState.introduced = {};
+      appState.lastMissAt = {};
       VOCAB_DATA.forEach(item => {
         const seed = typeof item.initialScore === 'number' ? item.initialScore : 0;
         appState.scores[item.id] = seed;
@@ -3937,6 +3520,7 @@
       appState.selectedPacks = { nouns: [1], case: [1] };
       appState.seenCombinations = [];
       appState.streak = 0;
+      bankOpenId = null;
       saveState();
       elConfirmToast.classList.add('hidden');
       updateHeaderAndLegend();
@@ -3967,7 +3551,9 @@
       });
 
       loadState();
+      loadLastSessionReport();
       showScreen('intro');
+      refreshIntroSessionCard();
     });
   </script>
 </body>
