@@ -28,30 +28,12 @@
   <!-- Inline Web App Manifest for PWA installability -->
   <link rel="manifest" href="data:application/manifest+json,{&quot;name&quot;:&quot;WortMatch German Grammar Sort&quot;,&quot;short_name&quot;:&quot;WortMatch&quot;,&quot;start_url&quot;:&quot;.&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%23f4f6f8&quot;,&quot;theme_color&quot;:&quot;%232f6fed&quot;}" />
 
-  <!-- Tailwind CSS (layout utilities); paint comes from Schnapp tokens below -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Static Tailwind utilities (no CDN — Play CDN freezes Safari on this page). -->
+  <link rel="stylesheet" href="./css/wort2-tw.css?v=wort2-tw-1" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Sora:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
-
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Source Sans 3', 'system-ui', 'sans-serif'],
-            display: ['Sora', 'system-ui', 'sans-serif'],
-            mono: ['IBM Plex Mono', 'ui-monospace', 'monospace'],
-          },
-          boxShadow: {
-            'card': 'var(--shadow)',
-            'pill': 'var(--shadow)',
-          }
-        }
-      }
-    };
-  </script>
 
   <style>
     :root {
@@ -768,7 +750,7 @@
         <div class="wm-mark w-8 h-8 rounded-xl flex items-center justify-center text-sm shadow-xs">WM</div>
         <div>
           <h1 class="wm-display text-base font-semibold tracking-tight leading-none">WortMatch</h1>
-          <p class="text-[10px] font-medium mt-0.5" style="color:var(--muted)">German grammar sort</p>
+          <p class="text-[10px] font-medium mt-0.5" style="color:var(--muted)">German grammar sort · build 1124c</p>
         </div>
       </div>
       <div class="flex items-center gap-1.5">
@@ -1125,7 +1107,7 @@
       speakGermanPiper,
       stopPiperAudio,
       isPiperReady,
-    } from './js/piper-tts.js?v=wort2-piper-1';
+    } from './js/piper-tts.js?v=wort2-piper-2';
     import { buildWort2Vocab } from './js/wort2-vocab.js?v=wort2-content-2';
     import {
       getDescriptiveDefinition,
@@ -1622,41 +1604,45 @@
     }
 
     function initAudio() {
-      usePlaybackSession();
-      // On iOS a second AudioContext steals Piper's session — skip SFX ctx there.
-      if (!isIOSAudioDevice()) {
-        if (!audioCtx) {
-          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-          if (AudioContextClass) {
-            audioCtx = new AudioContextClass();
+      try {
+        usePlaybackSession();
+        // On iOS a second AudioContext steals Piper's session — skip SFX ctx there.
+        if (!isIOSAudioDevice()) {
+          if (!audioCtx) {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (AudioContextClass) {
+              audioCtx = new AudioContextClass();
+            }
+          }
+          if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume();
           }
         }
-        if (audioCtx && audioCtx.state === 'suspended') {
-          audioCtx.resume();
-        }
-      }
-      resolveVoices();
-      // Always settle the flag so capture unlock never hammers Safari again.
-      void unlockPiperAudio()
-        .then(() => {
-          audioUnlockedOnce = true;
-        })
-        .catch(() => {
-          audioUnlockedOnce = true;
-        });
+        resolveVoices();
+        void unlockPiperAudio()
+          .then(() => {
+            audioUnlockedOnce = true;
+          })
+          .catch(() => {
+            audioUnlockedOnce = true;
+          });
 
-      if (!speechUnlocked && 'speechSynthesis' in window) {
-        try {
-          const primer = new SpeechSynthesisUtterance(' ');
-          primer.volume = 0;
-          primer.rate = 10;
-          window.speechSynthesis.resume();
-          window.speechSynthesis.speak(primer);
-          speechUnlocked = true;
-          speakAfterCancel = false;
-        } catch {
-          /* Start / later speak can retry speech unlock */
+        if (!speechUnlocked && 'speechSynthesis' in window) {
+          try {
+            const primer = new SpeechSynthesisUtterance(' ');
+            primer.volume = 0;
+            primer.rate = 10;
+            window.speechSynthesis.resume();
+            window.speechSynthesis.speak(primer);
+            speechUnlocked = true;
+            speakAfterCancel = false;
+          } catch {
+            /* later speak can retry */
+          }
         }
+      } catch (err) {
+        console.warn('[wort2] initAudio failed', err);
+        audioUnlockedOnce = true;
       }
     }
 
@@ -1693,33 +1679,10 @@
         if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
         return audioCtx;
       });
-
-      // One gesture only. Re-running unlockPiperAudio on every pointerdown
-      // (AudioContext + MediaStream + keep-alive) freezes Safari when Piper
-      // never reports unlocked.
-      let unlockGestureUsed = false;
-      const removeUnlockListeners = () => {
-        document.removeEventListener('touchstart', onUnlock, true);
-        document.removeEventListener('touchend', onUnlock, true);
-        document.removeEventListener('pointerdown', onUnlock, true);
-        document.removeEventListener('keydown', onUnlock, true);
-      };
-      const onUnlock = () => {
-        if (unlockGestureUsed) return;
-        unlockGestureUsed = true;
-        removeUnlockListeners();
-        try {
-          initAudio();
-        } catch (err) {
-          console.warn('[wort2] audio unlock failed', err);
-          audioUnlockedOnce = true;
-        }
-      };
-      document.addEventListener('touchstart', onUnlock, { capture: true, passive: true });
-      document.addEventListener('touchend', onUnlock, { capture: true, passive: true });
-      document.addEventListener('pointerdown', onUnlock, true);
-      document.addEventListener('keydown', onUnlock, true);
-      // Piper warm is kicked from Start / first speak — not from idle scrolling.
+      // Do NOT unlock audio from capture-phase document listeners.
+      // On Safari, AudioContext / MediaStream work in capture can freeze the
+      // tab and swallow the originating tap before it reaches any button.
+      // Unlock only from Start / Sprint / speak (after UI has navigated).
     }
 
     function resolveVoices() {
@@ -3031,6 +2994,14 @@
       speakStepNow(0);
     }
 
+    function setScreenVisible(el, on) {
+      if (!el) return;
+      el.classList.toggle('hidden', !on);
+      // Inline display beats any Tailwind `hidden`+`flex` cascade quirks (Safari).
+      el.style.display = on ? 'flex' : 'none';
+      el.style.pointerEvents = on ? '' : 'none';
+    }
+
     function showScreen(screenName) {
       activeScreen = screenName;
       anchorIntroRunId++;
@@ -3039,17 +3010,17 @@
       clearRevealHighlights();
       stopSpeech();
       hideTranslationPopup();
-      elIntroScreen.classList.add('hidden');
-      elSprintScreen.classList.add('hidden');
-      elGameScreen.classList.add('hidden');
+      setScreenVisible(elIntroScreen, false);
+      setScreenVisible(elSprintScreen, false);
+      setScreenVisible(elGameScreen, false);
 
       if (screenName === 'intro') {
-        elIntroScreen.classList.remove('hidden');
+        setScreenVisible(elIntroScreen, true);
         updateHeaderAndLegend();
       } else if (screenName === 'sprint') {
-        elSprintScreen.classList.remove('hidden');
+        setScreenVisible(elSprintScreen, true);
       } else if (screenName === 'game') {
-        elGameScreen.classList.remove('hidden');
+        setScreenVisible(elGameScreen, true);
         startNewRound();
       }
     }
@@ -3823,22 +3794,42 @@
     elPrimaryBtn.addEventListener('click', handlePrimaryButtonClick);
 
     document.getElementById('btn-start-game').addEventListener('click', () => {
-      initAudio();
-      // Navigate first; warm Piper after a tick so iOS isn't jammed mid-tap.
+      // Navigate first — never let audio unlock block or freeze the tap on Safari.
       resetSessionStats();
-      if (needsBootstrapSprint(appState.domain)) {
-        startBootstrapSprint();
-      } else {
-        showScreen('game');
+      try {
+        if (needsBootstrapSprint(appState.domain)) {
+          startBootstrapSprint();
+        } else {
+          showScreen('game');
+        }
+      } catch (err) {
+        console.warn('[wort2] start navigation failed', err);
       }
-      if (appState.speechEnabled) setTimeout(() => warmPiperVoice(), 200);
+      setTimeout(() => {
+        try {
+          initAudio();
+          if (appState.speechEnabled) warmPiperVoice();
+        } catch (err) {
+          console.warn('[wort2] start audio failed', err);
+        }
+      }, 0);
     });
 
     document.getElementById('btn-bootstrap-intro').addEventListener('click', () => {
-      initAudio();
       resetSessionStats();
-      startBootstrapSprint();
-      if (appState.speechEnabled) setTimeout(() => warmPiperVoice(), 200);
+      try {
+        startBootstrapSprint();
+      } catch (err) {
+        console.warn('[wort2] sprint navigation failed', err);
+      }
+      setTimeout(() => {
+        try {
+          initAudio();
+          if (appState.speechEnabled) warmPiperVoice();
+        } catch (err) {
+          console.warn('[wort2] sprint audio failed', err);
+        }
+      }, 0);
     });
 
     document.getElementById('btn-packs-all').addEventListener('click', () => {
@@ -4339,6 +4330,7 @@
     // 8. BOOTSTRAP
     // =========================================================================
     function bootWortMatch() {
+      document.documentElement.dataset.wortBoot = '1124c';
       let themePref = 'system';
       try {
         themePref = localStorage.getItem('schnapp-theme') || 'system';
