@@ -180,24 +180,85 @@
     .wm-display { font-family: var(--font-display); }
     .wm-mono { font-family: var(--font-mono); }
 
-    /* Long German words: swipe/scroll horizontally instead of ellipsis */
+    /* Long German words: auto-marquee when they overflow (no scrollbar) */
     .wm-word-scroll {
       display: block;
       min-width: 0;
       max-width: 100%;
-      overflow-x: auto;
-      overflow-y: hidden;
+      overflow: hidden;
       white-space: nowrap;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: thin;
-      overscroll-behavior-x: contain;
     }
-    .wm-word-scroll::-webkit-scrollbar {
-      height: 3px;
+    .wm-word-scroll-inner {
+      display: inline-block;
+      white-space: nowrap;
+      will-change: transform;
     }
-    .wm-word-scroll::-webkit-scrollbar-thumb {
-      background: var(--faint);
-      border-radius: 999px;
+    .wm-word-scroll.is-overflowing .wm-word-scroll-inner {
+      animation: wm-marquee var(--wm-marquee-duration, 5s) ease-in-out infinite alternate;
+    }
+    @keyframes wm-marquee {
+      from { transform: translateX(0); }
+      to { transform: translateX(var(--wm-marquee-x, 0px)); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .wm-word-scroll.is-overflowing .wm-word-scroll-inner {
+        animation: none;
+      }
+    }
+
+    /* Learning / anchor cards: big pill on its own line, then word, then gloss */
+    .wm-anchor-card {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.35rem;
+    }
+    .wm-anchor-pill {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 0.45rem 0.75rem;
+      border-radius: 0.85rem;
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      line-height: 1.1;
+    }
+    .wm-anchor-word {
+      font-size: 1.15rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .wm-anchor-def {
+      font-size: 0.8rem;
+      line-height: 1.4;
+      /* ~5 lines so rich glosses aren't crushed under the bigger pill/word */
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 5;
+      overflow: hidden;
+      min-height: 4.2em;
+      flex: 1 1 auto;
+    }
+
+    /* Column learning footers stretch so left/right match height */
+    #col-left-header,
+    #col-right-header {
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      z-index: 1;
+    }
+    #col-left-header [data-anchor-card],
+    #col-right-header [data-anchor-card] {
+      flex: 0 1 auto;
+    }
+    /* Sorted chips must stay above learning headers for taps after the ready-slide */
+    #col-left-items,
+    #col-right-items {
+      position: relative;
+      z-index: 2;
     }
 
     .wm-surface {
@@ -405,6 +466,68 @@
     .wm-inv-die, .wm-inv-Dat { background: var(--fem); border-color: var(--fem); color: #fff; }
     .wm-inv-das { background: var(--neut); border-color: var(--neut); color: #fff; }
 
+    /* Wrong answers after Check: inverse wash, softer than full TTS invert */
+    .wm-miss-der, .wm-miss-Akk {
+      background: color-mix(in srgb, var(--masc) 68%, var(--surface));
+      border-color: var(--masc);
+      color: #fff;
+    }
+    .wm-miss-die, .wm-miss-Dat {
+      background: color-mix(in srgb, var(--fem) 68%, var(--surface));
+      border-color: var(--fem);
+      color: #fff;
+    }
+    .wm-miss-das {
+      background: color-mix(in srgb, var(--neut) 68%, var(--surface));
+      border-color: var(--neut);
+      color: #fff;
+    }
+
+    /* Red X on chips that were sorted into the wrong column */
+    .wm-miss-mark {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.25rem;
+      height: 1.25rem;
+      margin-left: 0.4rem;
+      border-radius: 999px;
+      background: var(--bad);
+      color: #fff;
+      line-height: 0;
+    }
+    .wm-miss-mark svg {
+      display: block;
+      width: 0.65rem;
+      height: 0.65rem;
+    }
+    .wm-reveal-quiet .wm-miss-mark {
+      opacity: 0.85;
+    }
+
+    @keyframes wmBoardExitUp {
+      0% { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-32%); }
+    }
+    @keyframes wmBoardEnter {
+      0% { opacity: 0; transform: translateY(18%); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    #columns-grid.wm-board-exit-up {
+      animation: wmBoardExitUp 0.42s cubic-bezier(0.4, 0, 1, 1) forwards;
+      pointer-events: none;
+    }
+    #columns-grid.wm-board-enter {
+      animation: wmBoardEnter 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #columns-grid.wm-board-exit-up,
+      #columns-grid.wm-board-enter {
+        animation-duration: 0.01ms;
+      }
+    }
+
     .wm-badge-inv { background: #fff; }
     .wm-badge-inv-der, .wm-badge-inv-Akk { color: var(--masc-ink); }
     .wm-badge-inv-die, .wm-badge-inv-Dat { color: var(--fem-ink); }
@@ -419,6 +542,7 @@
     #trans-compound { color: var(--amber) !important; }
     #trans-note { color: var(--muted) !important; }
     #trans-header-line { color: var(--ink) !important; }
+
 
     #word-bank-modal {
       background: rgba(18, 21, 26, 0.45) !important;
@@ -579,18 +703,15 @@
       animation: slideFromRightToLeft 0.46s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     }
 
-    /* Subtle lift when a column anchor is being introduced or re-announced */
+    /* Column intro tint only — no transform (avoids column jitter). */
     .col-intro-highlight {
-      transform: translateY(-1px);
+      /* paint via existing colTint; keep geometry stable */
     }
 
-    /* Individual word card lift during TTS readout */
+    /* TTS invert paint only — never scale/translate (sizing must stay put). */
     .word-announce-highlight {
-      transform: scale(1.025);
       z-index: 30;
-      /* Only scale — never transition background, or the previous card
-         still looks inverted while the next one lights up. */
-      transition: transform 0.15s ease !important;
+      transition: none !important;
     }
 
     /* During answer readout, mute every card that isn't the spoken one.
@@ -835,12 +956,12 @@
     <div id="columns-grid" class="grid grid-cols-2 gap-2 flex-1 min-h-0 mb-2 relative">
       <div id="col-left" class="wm-col rounded-2xl border-2 flex flex-col overflow-hidden transition-all duration-200">
         <div id="col-left-items" class="flex-1 p-1.5 space-y-1.5 overflow-y-auto thin-scroll flex flex-col min-h-0"></div>
-        <div id="col-left-header" class="p-2 border-t rounded-b-2xl shrink-0" style="border-color:var(--line)"></div>
+        <div id="col-left-header" class="p-2.5 border-t rounded-b-2xl shrink-0" style="border-color:var(--line)"></div>
       </div>
 
       <div id="col-right" class="wm-col rounded-2xl border-2 flex flex-col overflow-hidden transition-all duration-200">
         <div id="col-right-items" class="flex-1 p-1.5 space-y-1.5 overflow-y-auto thin-scroll flex flex-col min-h-0"></div>
-        <div id="col-right-header" class="p-2 border-t rounded-b-2xl shrink-0" style="border-color:var(--line)"></div>
+        <div id="col-right-header" class="p-2.5 border-t rounded-b-2xl shrink-0" style="border-color:var(--line)"></div>
       </div>
     </div>
 
@@ -853,21 +974,21 @@
   </section>
 
   <!-- ===================================================================== -->
-  <!-- TRANSLATION POPOVER (SHOWN ON TAP WITHOUT DRAG)                       -->
+  <!-- TRANSLATION POPOVER (LONG-PRESS WORD; HOLDS UNTIL TAP TO DISMISS)     -->
   <!-- ===================================================================== -->
   <div id="translation-popover" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4" style="background:rgba(18,21,26,0.28)">
     <div id="translation-card" class="wm-surface rounded-2xl px-4 py-3.5 shadow-2xl border max-w-[300px] w-full text-center transition-all duration-200 scale-95 opacity-0" style="border-color:var(--line-strong)">
-      <div class="flex items-center justify-center gap-1.5 flex-wrap">
-        <span id="trans-pill" class="px-1.5 py-0.5 rounded text-[10px] font-extrabold tracking-wide wm-badge">der</span>
-        <span id="trans-header-line" class="wm-display text-base font-semibold tracking-tight wm-word-scroll min-w-0 flex-1">Lehrer</span>
+      <div class="wm-anchor-card text-left">
+        <span id="trans-pill" class="wm-anchor-pill wm-badge hidden">der</span>
+        <span id="trans-header-line" class="wm-display wm-anchor-word tracking-tight wm-word-scroll">Lehrer</span>
       </div>
-      <div id="trans-definition-box" class="mt-2 pt-2 border-t" style="border-color:var(--line)">
-        <p id="trans-definition" class="text-xs leading-relaxed"></p>
+      <div id="trans-definition-box" class="mt-2.5 pt-2.5 border-t" style="border-color:var(--line)">
+        <p id="trans-definition" class="text-base leading-relaxed"></p>
       </div>
-      <p id="trans-compound" class="text-[10px] wm-mono mt-1.5 hidden"></p>
-      <p id="trans-example" class="text-[11px] leading-snug mt-1.5 hidden" style="color:var(--ink)"></p>
-      <p id="trans-example-en" class="text-[10px] leading-snug mt-0.5 hidden" style="color:var(--muted)"></p>
-      <p id="trans-note" class="text-[10px] mt-1 hidden"></p>
+      <p id="trans-compound" class="text-sm wm-mono mt-2 hidden"></p>
+      <p id="trans-example" class="text-sm leading-snug mt-2 hidden" style="color:var(--ink)"></p>
+      <p id="trans-example-en" class="text-[13px] leading-snug mt-1 hidden" style="color:var(--muted)"></p>
+      <p id="trans-note" class="text-xs mt-1.5 hidden"></p>
     </div>
   </div>
 
@@ -980,7 +1101,6 @@
       getDescriptiveDefinition,
       getExampleSentence
     } from './js/wort2-definitions.js?v=wort2-content-2';
-
     const { VOCAB_DATA, LEVEL_DEFINITIONS } = buildWort2Vocab();
 
     // =========================================================================
@@ -996,6 +1116,7 @@
         subLabel: 'Masculine',
         cardRevealBg: 'wm-card-der border-2',
         cardInvertedBg: 'wm-inv-der border-2',
+        cardMissBg: 'wm-miss-der border-2',
         badgeInvertedBg: 'wm-badge-inv wm-badge-inv-der'
       },
       'die': {
@@ -1006,6 +1127,7 @@
         subLabel: 'Feminine',
         cardRevealBg: 'wm-card-die border-2',
         cardInvertedBg: 'wm-inv-die border-2',
+        cardMissBg: 'wm-miss-die border-2',
         badgeInvertedBg: 'wm-badge-inv wm-badge-inv-die'
       },
       'das': {
@@ -1016,6 +1138,7 @@
         subLabel: 'Neuter',
         cardRevealBg: 'wm-card-das border-2',
         cardInvertedBg: 'wm-inv-das border-2',
+        cardMissBg: 'wm-miss-das border-2',
         badgeInvertedBg: 'wm-badge-inv wm-badge-inv-das'
       },
       'Akk': {
@@ -1026,6 +1149,7 @@
         subLabel: 'Accusative',
         cardRevealBg: 'wm-card-Akk border-2',
         cardInvertedBg: 'wm-inv-Akk border-2',
+        cardMissBg: 'wm-miss-Akk border-2',
         badgeInvertedBg: 'wm-badge-inv wm-badge-inv-Akk'
       },
       'Dat': {
@@ -1036,6 +1160,7 @@
         subLabel: 'Dative',
         cardRevealBg: 'wm-card-Dat border-2',
         cardInvertedBg: 'wm-inv-Dat border-2',
+        cardMissBg: 'wm-miss-Dat border-2',
         badgeInvertedBg: 'wm-badge-inv wm-badge-inv-Dat'
       }
     };
@@ -1051,6 +1176,8 @@
     const STORAGE_KEY = 'wortmatch_sort_pwa_v6';
     const MAX_SCORE = 8;
     const GRADUATION_RATIO = 0.75; // 75% Learned (score >= 3) marks a pack complete
+    /** Hard cap so column chips + learning anchors still fit on one screen. */
+    const MAX_ROUND_SORTABLES = 5;
 
     let appState = {
       domain: 'nouns',          // 'nouns' | 'case'
@@ -1060,7 +1187,7 @@
       },
       learningCount: 2,         // 0..3 sortable Learning words per round
       learnedCount: 2,          // 0..3
-      masteredCount: 1,         // 0..3
+      masteredCount: 1,         // 0..3 (sum capped at MAX_ROUND_SORTABLES)
       soundEnabled: true,
       speechEnabled: true,
       streak: 0,
@@ -1073,6 +1200,9 @@
 
     let currentRound = null;
     let isChecked = false;
+    /** Answer mode: learning anchors have been moved to the top of each column. */
+    let answerLayoutActive = false;
+    let nextRoundTransitioning = false;
     let bankFilter = 'all';       // tier / status filter
     let bankTraitFilter = 'all';  // grammatical trait
     let bankPackFilter = 'all';   // pack id or 'all'
@@ -1269,6 +1399,20 @@
 
       if (typeof appState.learningCount !== 'number') {
         appState.learningCount = 2;
+      }
+      if (typeof appState.learnedCount !== 'number') appState.learnedCount = 2;
+      if (typeof appState.masteredCount !== 'number') appState.masteredCount = 1;
+      appState.learningCount = Math.max(0, Math.min(3, appState.learningCount));
+      appState.learnedCount = Math.max(0, Math.min(3, appState.learnedCount));
+      appState.masteredCount = Math.max(0, Math.min(3, appState.masteredCount));
+      // Prefer trimming Mastered → Learned → Learning if a save exceeds the fit cap.
+      while (
+        appState.learningCount + appState.learnedCount + appState.masteredCount > MAX_ROUND_SORTABLES
+      ) {
+        if (appState.masteredCount > 0) appState.masteredCount--;
+        else if (appState.learnedCount > 0) appState.learnedCount--;
+        else if (appState.learningCount > 0) appState.learningCount--;
+        else break;
       }
 
       if (!appState.introduced || typeof appState.introduced !== 'object') {
@@ -1807,8 +1951,10 @@
 
       const traits = DOMAIN_CONFIG[appState.domain].traits;
       const seenSet = new Set(appState.seenCombinations);
-      const totalNeeded =
-        appState.learningCount + appState.learnedCount + appState.masteredCount;
+      const totalNeeded = Math.min(
+        MAX_ROUND_SORTABLES,
+        appState.learningCount + appState.learnedCount + appState.masteredCount
+      );
 
       const getExactBucket = (tier, trait) =>
         domainItems.filter(w => w.trait === trait && getTier(appState.scores[w.id] ?? 0) === tier);
@@ -2180,6 +2326,34 @@
 
     const BUILDS_EXAMPLE_LIMIT = 3;
 
+    /** Auto-marquee overflowing `.wm-word-scroll` nodes (no scrollbar). */
+    function refreshWordScroll(scope = document) {
+      const roots = scope.querySelectorAll
+        ? scope.querySelectorAll('.wm-word-scroll')
+        : [];
+      const list = roots.length ? [...roots] : (scope?.classList?.contains('wm-word-scroll') ? [scope] : []);
+      list.forEach((el) => {
+        let inner = el.querySelector(':scope > .wm-word-scroll-inner');
+        if (!inner) {
+          inner = document.createElement('span');
+          inner.className = 'wm-word-scroll-inner';
+          while (el.firstChild) inner.appendChild(el.firstChild);
+          el.appendChild(inner);
+        }
+        el.classList.remove('is-overflowing');
+        el.style.removeProperty('--wm-marquee-x');
+        el.style.removeProperty('--wm-marquee-duration');
+        // Force layout after class clear
+        void inner.offsetWidth;
+        const overflow = inner.scrollWidth - el.clientWidth;
+        if (overflow > 6) {
+          el.classList.add('is-overflowing');
+          el.style.setProperty('--wm-marquee-x', `${-overflow}px`);
+          el.style.setProperty('--wm-marquee-duration', `${Math.max(3.5, overflow / 18)}s`);
+        }
+      });
+    }
+
     function formatBuildsHint(wordObj, { includeGender = false } = {}) {
       const builds = wordObj && wordObj.buildsCompounds;
       if (!builds || !builds.length) return '';
@@ -2201,6 +2375,50 @@
       return formatBuildsHint(wordObj, { includeGender: revealAnswer });
     }
 
+    /** Learning-tier (or round Learning slot) — may see dictionary clues during play. */
+    function isLearningWord(wordObj) {
+      if (!wordObj) return false;
+      if (wordObj.displayTier === 'learning') return true;
+      return getTier(appState.scores[wordObj.id] ?? 0) === 'learning';
+    }
+
+    /**
+     * Richer English gloss / Builds during play for Learning words.
+     * Gender article (pill, TTS, notes, examples) stays answer-mode only —
+     * sortable words must never leak der/die/das until checked.
+     */
+    function shouldShowDictionaryClues(wordObj, revealAnswer = false) {
+      return !!revealAnswer || isLearningWord(wordObj);
+    }
+
+    /** Drop gender / article spoilers from gloss text shown before answer mode. */
+    function stripGenderSpoilers(text) {
+      let s = String(text || '');
+      // "Kitten — neuter because of -chen."
+      s = s.replace(/\s*[—–-]\s*[^.]*\b(neuter|masculine|feminine|gender)\b[^.]*\.?/gi, '');
+      s = s.replace(/\b(neuter|masculine|feminine)\b[^.]*\.?/gi, '');
+      // Parenthetical DE examples that include articles: (ohne die Tasche)
+      s = s.replace(
+        /\((?:[^)]*\b(?:der|die|das|dem|den|des|ein|eine|einen|einem|einer|beim)\b[^)]*)\)/gi,
+        '',
+      );
+      return s.replace(/\s{2,}/g, ' ').replace(/\s+([.,;:])/g, '$1').trim();
+    }
+
+    function popupDefinitionText(wordObj, showClues, revealAnswer = false) {
+      if (!wordObj) return '';
+      if (!showClues) {
+        // Bare gloss only — no sense notes / false-friend asides that spoil the sort.
+        return wordObj.meaning || '';
+      }
+      const rich = getDescriptiveDefinition(wordObj);
+      if (revealAnswer) return rich;
+      // Learning help OK; still strip article/gender spoilers until answer mode.
+      return stripGenderSpoilers(rich) || wordObj.meaning || '';
+    }
+
+    let transDismissCallback = null;
+
     function showTranslationPopup(wordObj, revealAnswer = false, options = {}) {
       if (!wordObj) return;
       const {
@@ -2208,7 +2426,9 @@
         pauseAfterMs = 250,
         readDefinitionAloud = false,
         onComplete = null,
-        cancelAnchorIntro = true
+        cancelAnchorIntro = true,
+        /** Stay open until the user taps the overlay (default). */
+        holdUntilDismiss = true
       } = options;
 
       if (cancelAnchorIntro) {
@@ -2220,6 +2440,7 @@
         clearTimeout(transHideTimer);
         transHideTimer = null;
       }
+      transDismissCallback = onComplete;
 
       const st = TRAIT_STYLES[wordObj.trait];
       const pillEl = document.getElementById('trans-pill');
@@ -2229,13 +2450,23 @@
       const compEl = document.getElementById('trans-compound');
       const exampleEl = document.getElementById('trans-example');
       const exampleEnEl = document.getElementById('trans-example-en');
-      const definitionText = getDescriptiveDefinition(wordObj);
-      const example = getExampleSentence(wordObj);
+      const showClues = shouldShowDictionaryClues(wordObj, revealAnswer);
+      // Articles / gender trait: answer mode only (never while still sorting).
+      const showArticle = !!revealAnswer;
+      const definitionText = popupDefinitionText(wordObj, showClues, revealAnswer);
+      // Examples almost always include der/die/das — never show while sorting.
+      const example = revealAnswer ? getExampleSentence(wordObj) : null;
 
       headerLineEl.textContent = wordObj.word;
       defEl.textContent = definitionText;
 
-      const compoundHint = formatCompoundHint(wordObj, revealAnswer);
+      // Compound breakdown includes root gender — answer mode only.
+      // Builds (no gender line) OK for Learning words during play.
+      const compoundHint = revealAnswer
+        ? formatCompoundHint(wordObj, true)
+        : (showClues && !wordObj.compound
+          ? formatBuildsHint(wordObj, { includeGender: false })
+          : '');
       if (compoundHint) {
         compEl.textContent = compoundHint;
         compEl.classList.remove('hidden');
@@ -2253,19 +2484,20 @@
         exampleEnEl.classList.add('hidden');
       }
 
-      if (revealAnswer) {
+      // Gender pill: answer mode only.
+      if (showArticle) {
         pillEl.textContent = wordObj.trait;
-        pillEl.className = `px-1.5 py-0.5 rounded text-[10px] font-extrabold tracking-wide ${st.badgeBg}`;
+        pillEl.className = `wm-anchor-pill ${st.badgeBg}`;
         pillEl.classList.remove('hidden');
-
-        if (wordObj.note) {
-          noteEl.textContent = wordObj.note;
-          noteEl.classList.remove('hidden');
-        } else {
-          noteEl.classList.add('hidden');
-        }
       } else {
         pillEl.classList.add('hidden');
+      }
+
+      // Extra grammar note still answer-mode only (often an explicit gender rule).
+      if (revealAnswer && wordObj.note) {
+        noteEl.textContent = wordObj.note;
+        noteEl.classList.remove('hidden');
+      } else {
         noteEl.classList.add('hidden');
       }
 
@@ -2273,6 +2505,7 @@
       requestAnimationFrame(() => {
         elTransCard.classList.remove('scale-95', 'opacity-0');
         elTransCard.classList.add('scale-100', 'opacity-100');
+        refreshWordScroll(elTransCard);
       });
 
       transOpenedAt = Date.now();
@@ -2280,19 +2513,17 @@
       const popupRunId = anchorIntroRunId;
 
       const scheduleFadeOutAfterMinRead = () => {
+        if (holdUntilDismiss) return;
         if (popupRunId !== anchorIntroRunId) return;
         const elapsed = Date.now() - transOpenedAt;
         const remaining = Math.max(pauseAfterMs, minReadMs - elapsed);
         transHideTimer = setTimeout(() => {
           if (popupRunId !== anchorIntroRunId) return;
           hideTranslationPopup();
-          if (onComplete) {
-            setTimeout(onComplete, 220);
-          }
         }, remaining);
       };
 
-      speakGermanWord(wordObj, revealAnswer, () => {
+      speakGermanWord(wordObj, showArticle, () => {
         if (popupRunId !== anchorIntroRunId) return;
         if (readDefinitionAloud && definitionText) {
           setTimeout(() => {
@@ -2392,10 +2623,13 @@
         clearTimeout(transHideTimer);
         transHideTimer = null;
       }
+      const cb = transDismissCallback;
+      transDismissCallback = null;
       elTransCard.classList.remove('scale-100', 'opacity-100');
       elTransCard.classList.add('scale-95', 'opacity-0');
       setTimeout(() => {
         elTransPopover.classList.add('hidden');
+        if (cb) cb();
       }, 180);
     }
 
@@ -2406,6 +2640,103 @@
       stopSpeech();
       hideTranslationPopup();
     });
+
+    const LONG_PRESS_MS = 480;
+
+    /**
+     * Short vs long press (pointer events).
+     * Long-press cancels short; movement cancels the pending long-press.
+     */
+    function bindShortLongPress(el, { onShort = null, onLong = null } = {}) {
+      if (!el) return;
+      let timer = null;
+      let longFired = false;
+      let startX = 0;
+      let startY = 0;
+      let activePointer = null;
+
+      const clearTimer = () => {
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+      };
+
+      el.addEventListener('contextmenu', (e) => e.preventDefault());
+
+      el.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        activePointer = e.pointerId;
+        longFired = false;
+        startX = e.clientX;
+        startY = e.clientY;
+        clearTimer();
+        if (onLong) {
+          timer = setTimeout(() => {
+            timer = null;
+            longFired = true;
+            onLong(e);
+          }, LONG_PRESS_MS);
+        }
+      });
+
+      el.addEventListener('pointermove', (e) => {
+        if (activePointer !== e.pointerId || !timer) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        if (dx * dx + dy * dy > 36) clearTimer();
+      });
+
+      const endPress = (e) => {
+        if (activePointer !== e.pointerId) return;
+        const releasedEarly = !!timer;
+        const wasLong = longFired;
+        clearTimer();
+        activePointer = null;
+        longFired = false;
+        // Long-press already handled — don't let a bubbled short hit the column.
+        if (wasLong) {
+          e.stopPropagation();
+          return;
+        }
+        if (onShort && (releasedEarly || !onLong)) {
+          onShort(e);
+        }
+      };
+
+      el.addEventListener('pointerup', endPress);
+      el.addEventListener('pointercancel', (e) => {
+        if (activePointer !== e.pointerId) return;
+        clearTimer();
+        activePointer = null;
+        longFired = false;
+      });
+    }
+
+    function handleColumnShortPress(side) {
+      if (!currentRound) return;
+      if (isChecked) {
+        revealSequenceRunId++;
+        clearRevealHighlights();
+        announceColumnAnchor(side);
+        return;
+      }
+      const pending = currentUnsortedWord();
+      if (pending) assignWord(pending.id, side);
+    }
+
+    function bindColumnSurfacePress(colEl, side) {
+      if (!colEl || colEl.dataset.pressBound === '1') return;
+      colEl.dataset.pressBound = '1';
+      colEl.style.touchAction = 'manipulation';
+      bindShortLongPress(colEl, {
+        onShort: () => handleColumnShortPress(side)
+      });
+    }
+
+    // Short-press anywhere on a column sorts the pending word into it.
+    bindColumnSurfacePress(elColLeft, 'left');
+    bindColumnSurfacePress(elColRight, 'right');
 
     /** Apply className without background transitions bleeding between words. */
     function snapClassName(el, className) {
@@ -2449,6 +2780,7 @@
         snapClassName(defEl, defEl.dataset.normalClass);
         defEl.style.color = 'var(--muted)';
       }
+      requestAnimationFrame(() => refreshWordScroll(el));
     }
 
     function stripAllInvertedRevealPaint() {
@@ -2497,6 +2829,31 @@
       });
     }
 
+    /** Swap fill/text colors in place — keep border width, padding, radius intact. */
+    function paintInvertedHighlight(el, invBgToken) {
+      if (!el) return;
+      el.style.transition = 'none';
+      const inv = String(invBgToken || '')
+        .split(/\s+/)
+        .find((c) => c.startsWith('wm-inv-'));
+      [...el.classList].forEach((c) => {
+        if (
+          c === 'wm-surface' ||
+          c.startsWith('wm-card-') ||
+          c.startsWith('wm-miss-') ||
+          c.startsWith('wm-inv-') ||
+          c === 'word-announce-highlight' ||
+          c === 'wm-reveal-quiet'
+        ) {
+          el.classList.remove(c);
+        }
+      });
+      if (inv) el.classList.add(inv);
+      el.classList.add('word-announce-highlight');
+      void el.offsetWidth;
+      el.style.transition = '';
+    }
+
     function highlightRevealWord(side, wordId) {
       clearRevealHighlights();
       highlightedWordId = wordId;
@@ -2517,25 +2874,25 @@
               .trim();
           }
           highlightedRootEl = anchorCard;
-          snapClassName(
-            anchorCard,
-            `${st.cardInvertedBg} rounded-xl px-2 py-1.5 border shadow-sm word-announce-highlight`
-          );
+          paintInvertedHighlight(anchorCard, st.cardInvertedBg);
           const badgeEl = anchorCard.querySelector('[data-anchor-badge]');
           if (badgeEl) {
-            snapClassName(
-              badgeEl,
-              `px-2.5 py-1 rounded-lg text-sm font-extrabold tracking-wide shrink-0 ${st.badgeInvertedBg}`
-            );
+            if (!badgeEl.dataset.normalClass) {
+              badgeEl.dataset.normalClass = badgeEl.className;
+            }
+            snapClassName(badgeEl, `wm-anchor-pill ${st.badgeInvertedBg}`);
           }
           const wordEl = anchorCard.querySelector('[data-anchor-word]');
-          if (wordEl) snapClassName(wordEl, 'text-base font-extrabold text-white wm-word-scroll flex-1');
+          if (wordEl) {
+            if (!wordEl.dataset.normalClass) wordEl.dataset.normalClass = wordEl.className;
+            wordEl.classList.add('text-white');
+          }
           const defEl = anchorCard.querySelector('[data-anchor-def]');
           if (defEl) {
-            snapClassName(defEl, 'text-[10px] leading-[1.35] mt-1.5 line-clamp-3 h-[41px]');
             defEl.style.color = 'rgba(255,255,255,0.92)';
           }
           quietOtherRevealCards(anchorCard);
+          requestAnimationFrame(() => refreshWordScroll(anchorCard));
         }
         return;
       }
@@ -2545,7 +2902,6 @@
       const itemObj = currentRound?.items.find(i => i.id === wordId);
       if (itemEl && itemObj) {
         const st = TRAIT_STYLES[itemObj.trait];
-        const borderThickness = itemObj.isCorrect ? 'border' : 'border-2';
         if (!itemEl.dataset.normalClass) {
           itemEl.dataset.normalClass = itemEl.className
             .replace(/\bword-announce-highlight\b/g, '')
@@ -2556,11 +2912,9 @@
             .trim();
         }
         highlightedRootEl = itemEl;
-        snapClassName(
-          itemEl,
-          `cursor-pointer ${borderThickness} rounded-xl px-2.5 py-1.5 flex items-center min-w-0 ${st.cardInvertedBg} word-announce-highlight`
-        );
+        paintInvertedHighlight(itemEl, st.cardInvertedBg);
         quietOtherRevealCards(itemEl);
+        requestAnimationFrame(() => refreshWordScroll(itemEl));
         itemEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       }
     }
@@ -2652,6 +3006,8 @@
 
     function startNewRound() {
       isChecked = false;
+      nextRoundTransitioning = false;
+      resetAnswerModeLayout();
       anchorIntroRunId++;
       revealSequenceRunId++;
       setColumnHighlight(null);
@@ -2668,9 +3024,47 @@
       playNewRoundAnchorIntro();
     }
 
+    /** Match left/right learning footers to the taller of the two. */
+    function equalizeColumnAnchorFooters() {
+      const left = elColLeftHeader;
+      const right = elColRightHeader;
+      if (!left || !right) return;
+
+      left.style.minHeight = '';
+      right.style.minHeight = '';
+      const leftDef = left.querySelector('[data-anchor-def]');
+      const rightDef = right.querySelector('[data-anchor-def]');
+      if (leftDef) leftDef.style.minHeight = '';
+      if (rightDef) rightDef.style.minHeight = '';
+
+      // Force layout, then pad defs and footers to the max of either side.
+      void left.offsetHeight;
+      const defH = Math.max(leftDef?.offsetHeight || 0, rightDef?.offsetHeight || 0);
+      if (leftDef && rightDef && defH > 0) {
+        leftDef.style.minHeight = `${defH}px`;
+        rightDef.style.minHeight = `${defH}px`;
+      }
+
+      const footerH = Math.max(left.offsetHeight, right.offsetHeight);
+      if (footerH > 0) {
+        left.style.minHeight = `${footerH}px`;
+        right.style.minHeight = `${footerH}px`;
+      }
+    }
+
+    function finalizeColumnHeaders() {
+      // Double rAF: marquee wrap mutates DOM; equalize after that layout settles.
+      requestAnimationFrame(() => {
+        refreshWordScroll(elColLeftHeader);
+        refreshWordScroll(elColRightHeader);
+        requestAnimationFrame(() => equalizeColumnAnchorFooters());
+      });
+    }
+
     function renderBoard() {
       renderColumnHeader(elColLeftHeader, currentRound.leftTrait, currentRound.leftAnchor, 'left');
       renderColumnHeader(elColRightHeader, currentRound.rightTrait, currentRound.rightAnchor, 'right');
+      finalizeColumnHeaders();
 
       setColumnHighlight(null);
 
@@ -2688,7 +3082,8 @@
     function renderColumnHeader(containerEl, trait, anchorWord, side) {
       const st = TRAIT_STYLES[trait];
       const placing = !!currentUnsortedWord();
-      containerEl.className = `p-2 border-t rounded-b-2xl shrink-0 cursor-pointer select-none transition-colors flex flex-col ${st.headerBg}`;
+      const edgeClass = answerLayoutActive ? 'border-b rounded-t-2xl' : 'border-t rounded-b-2xl';
+      containerEl.className = `p-2.5 ${edgeClass} shrink-0 cursor-pointer select-none transition-colors flex flex-col ${st.headerBg}`;
       containerEl.setAttribute('role', 'button');
       containerEl.setAttribute(
         'aria-label',
@@ -2696,46 +3091,110 @@
       );
 
       const defText = anchorWord ? getDescriptiveDefinition(anchorWord) : '';
-      const normalCardClass = 'wm-surface rounded-xl px-2 py-1.5 active:scale-[0.98] flex flex-col';
-      const normalBadgeClass = `px-2.5 py-1 rounded-lg text-sm tracking-wide shrink-0 ${st.badgeBg}`;
-      const normalWordClass = 'wm-display text-base font-semibold wm-word-scroll flex-1';
-      const normalDefClass = 'text-[10px] leading-[1.35] mt-1.5 line-clamp-3 h-[41px]';
+      const normalCardClass = 'wm-surface wm-anchor-card rounded-xl px-2.5 py-2.5 active:scale-[0.98]';
+      const normalBadgeClass = `wm-anchor-pill ${st.badgeBg}`;
+      const normalWordClass = 'wm-display wm-anchor-word wm-word-scroll';
+      const normalDefClass = 'wm-anchor-def';
       const normalLabelClass = `text-[11px] font-bold tracking-tight ${st.titleText} mt-1.5`;
-      // muted gloss color via inline on def below
 
-      // Pill + word + gloss on top; gender/case label pinned under the card
+      // Bigger learning card: pill alone, then word, then gloss
+      containerEl.style.minHeight = '';
       containerEl.innerHTML = `
         ${anchorWord ? `
           <div data-anchor-card="true" data-normal-class="${normalCardClass}" class="${normalCardClass}">
-            <div class="flex items-center gap-2">
-              <span data-anchor-badge="true" data-normal-class="${normalBadgeClass}" class="${normalBadgeClass}">${trait}</span>
-              <span data-anchor-word="true" data-normal-class="${normalWordClass}" class="${normalWordClass}">${anchorWord.word}</span>
-            </div>
+            <span data-anchor-badge="true" data-normal-class="${normalBadgeClass}" class="${normalBadgeClass}">${trait}</span>
+            <span data-anchor-word="true" data-normal-class="${normalWordClass}" class="${normalWordClass}">${anchorWord.word}</span>
             <p data-anchor-def="true" data-normal-class="${normalDefClass}" class="${normalDefClass}" style="color:var(--muted)">${defText}</p>
           </div>
         ` : ''}
         <span class="${normalLabelClass}">${st.subLabel}</span>
       `;
 
-      containerEl.onclick = () => {
-        if (isChecked) {
-          revealSequenceRunId++;
-          clearRevealHighlights();
-          announceColumnAnchor(side);
-          return;
-        }
-        const pending = currentUnsortedWord();
-        if (pending) {
-          assignWord(pending.id, side);
-          return;
-        }
-        revealSequenceRunId++;
-        clearRevealHighlights();
-        announceColumnAnchor(side);
-      };
+      // Short-press bubbles to column (sort). Long-press on learning card → dictionary.
+      containerEl.onclick = null;
+      const anchorCard = containerEl.querySelector('[data-anchor-card]');
+      if (anchorCard && anchorWord) {
+        anchorCard.style.touchAction = 'manipulation';
+        bindShortLongPress(anchorCard, {
+          onLong: (e) => {
+            e.stopPropagation();
+            revealSequenceRunId++;
+            clearRevealHighlights();
+            showTranslationPopup(anchorWord, true);
+          }
+        });
+      }
     }
 
-    function renderColumnItems(containerEl, side) {
+    function bindColumnItemClick(el, itemObj) {
+      el.style.touchAction = 'manipulation';
+      el.style.userSelect = 'none';
+      el.style.webkitUserSelect = 'none';
+      el.style.position = 'relative';
+      el.style.zIndex = '3';
+
+      // Keep column-level sort from seeing presses on chips (bubble steal).
+      el.addEventListener('pointerdown', (e) => e.stopPropagation());
+      el.addEventListener('pointerup', (e) => e.stopPropagation());
+      el.addEventListener('pointercancel', (e) => e.stopPropagation());
+
+      let suppressClick = false;
+      bindShortLongPress(el, {
+        onShort: (e) => {
+          e.stopPropagation();
+          suppressClick = true;
+          if (isChecked) {
+            revealSequenceRunId++;
+            setColumnHighlight(null);
+            clearRevealHighlights();
+            showTranslationPopup(itemObj, true);
+            return;
+          }
+          unassignWord(itemObj.id);
+        },
+        onLong: (e) => {
+          e.stopPropagation();
+          suppressClick = true;
+          revealSequenceRunId++;
+          setColumnHighlight(null);
+          clearRevealHighlights();
+          showTranslationPopup(itemObj, !!isChecked);
+        }
+      });
+
+      // Click fallback — recovers unassign if pointer short-press was canceled mid-gesture.
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (suppressClick) {
+          suppressClick = false;
+          return;
+        }
+        if (isChecked) {
+          revealSequenceRunId++;
+          setColumnHighlight(null);
+          clearRevealHighlights();
+          showTranslationPopup(itemObj, true);
+          return;
+        }
+        unassignWord(itemObj.id);
+      });
+    }
+
+    /** Append one placed chip without rebuilding sibling chips (avoids blink). */
+    function appendPlacedColumnItem(containerEl, item, side, { animate = false } = {}) {
+      const el = document.createElement('div');
+      el.dataset.colItemId = item.id;
+      el.dataset.colSide = side;
+      el.className = `word-row-spring cursor-pointer wm-surface rounded-xl px-2.5 py-1.5 flex items-center justify-between gap-1.5 min-w-0${animate ? ' slot-enter' : ''}`;
+      el.title = '';
+      el.innerHTML = `<span class="text-sm font-bold wm-word-scroll flex-1">${item.word}</span>`;
+      bindColumnItemClick(el, item);
+      containerEl.appendChild(el);
+      requestAnimationFrame(() => refreshWordScroll(el));
+      return el;
+    }
+
+    function renderColumnItems(containerEl, side, { enterId = null } = {}) {
       const assigned = currentRound.items.filter(item => item.assignedSide === side);
 
       if (assigned.length === 0) {
@@ -2745,24 +3204,31 @@
 
       containerEl.innerHTML = assigned.map(item => {
         if (!isChecked) {
+          const enterClass = enterId && item.id === enterId ? ' slot-enter' : '';
           return `
-            <div data-col-item-id="${item.id}" data-col-side="${side}" class="word-row-spring cursor-pointer wm-surface rounded-xl px-2.5 py-1.5 flex items-center justify-between gap-1.5 slot-enter min-w-0" title="Tap to return">
+            <div data-col-item-id="${item.id}" data-col-side="${side}" class="word-row-spring cursor-pointer wm-surface rounded-xl px-2.5 py-1.5 flex items-center justify-between gap-1.5 min-w-0${enterClass}">
               <span class="text-sm font-bold wm-word-scroll flex-1">${item.word}</span>
             </div>
           `;
         } else {
           const trueStyle = TRAIT_STYLES[item.trait];
+          const wasWrong = !!item.movedFromSide;
           const borderThickness = item.isCorrect ? 'border' : 'border-2';
 
-          const animClass = item.movedFromSide
-            ? (side === 'right' ? 'animate-fix-to-right' : 'animate-fix-to-left')
+          const animClass = wasWrong
+            ? (side === 'right' ? 'animate-slide-to-right' : 'animate-slide-to-left')
             : '';
 
-          const normalRevealClass = `cursor-pointer ${borderThickness} rounded-xl px-2.5 py-1.5 flex items-center min-w-0 ${trueStyle.cardRevealBg}`;
+          const toneClass = wasWrong ? trueStyle.cardMissBg : trueStyle.cardRevealBg;
+          const normalRevealClass = `cursor-pointer ${borderThickness} rounded-xl px-2.5 py-1.5 flex items-center min-w-0 ${toneClass}`;
+          const missMark = wasWrong
+            ? '<span class="wm-miss-mark" aria-label="Incorrect"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3l6 6M9 3L3 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>'
+            : '';
 
           return `
-            <div data-col-item-id="${item.id}" data-col-side="${side}" data-normal-class="${normalRevealClass}" class="${normalRevealClass} ${animClass}">
+            <div data-col-item-id="${item.id}" data-col-side="${side}" data-was-wrong="${wasWrong ? '1' : '0'}" data-normal-class="${normalRevealClass}" class="${normalRevealClass} ${animClass}">
               <span class="text-sm font-extrabold wm-word-scroll flex-1">${item.word}</span>
+              ${missMark}
             </div>
           `;
         }
@@ -2771,20 +3237,9 @@
       containerEl.querySelectorAll('[data-col-item-id]').forEach(el => {
         const itemId = el.dataset.colItemId;
         const itemObj = currentRound.items.find(i => i.id === itemId);
-
-        if (isChecked) {
-          el.addEventListener('click', () => {
-            revealSequenceRunId++;
-            setColumnHighlight(null);
-            clearRevealHighlights();
-            showTranslationPopup(itemObj, true);
-          });
-        } else {
-          el.addEventListener('click', () => {
-            unassignWord(itemObj.id);
-          });
-        }
+        bindColumnItemClick(el, itemObj);
       });
+      requestAnimationFrame(() => refreshWordScroll(containerEl));
     }
 
     function renderUnsortedQueue() {
@@ -2800,12 +3255,8 @@
       elUnsortedSection.classList.remove('hidden');
 
       if (unsorted.length === 0) {
-        document.getElementById('unsorted-label').textContent = 'All placed';
-        elUnsortedQueue.innerHTML = `
-          <div class="rounded-2xl px-3 py-2.5 text-center" style="border:1px dashed var(--line-strong);background:var(--surface-2)">
-            <p class="text-xs font-semibold" style="color:var(--muted)">Tap Check Answers below</p>
-          </div>
-        `;
+        elUnsortedSection.classList.add('hidden');
+        elUnsortedQueue.innerHTML = '';
         refreshColumnHeaderChrome();
         return;
       }
@@ -2814,27 +3265,40 @@
       const currentItem = unsorted[0];
 
       elUnsortedQueue.innerHTML = `
-        <div data-word-id="${currentItem.id}" class="wm-word-card rounded-2xl px-3 py-3 text-center cursor-pointer">
-          <p class="wm-section-label mb-1">Place in a column</p>
+        <div data-word-id="${currentItem.id}" class="wm-word-card rounded-2xl px-3 py-3 text-center select-none" style="touch-action:manipulation;-webkit-user-select:none;user-select:none">
           <p class="text-xl font-semibold wm-word-scroll">${currentItem.word}</p>
         </div>
       `;
 
       const cardEl = elUnsortedQueue.querySelector('[data-word-id]');
       if (cardEl) {
-        cardEl.addEventListener('click', () => {
-          showTranslationPopup(currentItem, false);
+        bindShortLongPress(cardEl, {
+          onLong: () => {
+            showTranslationPopup(currentItem, false);
+          }
         });
       }
+      requestAnimationFrame(() => refreshWordScroll(elUnsortedQueue));
 
       refreshColumnHeaderChrome();
     }
 
-    /** Re-render bottom headers so Tap affordance matches whether a word is pending. */
+    /** Update place-vs-tap aria only — avoid rebuilding learning footers (blinks). */
     function refreshColumnHeaderChrome() {
       if (!currentRound) return;
-      renderColumnHeader(elColLeftHeader, currentRound.leftTrait, currentRound.leftAnchor, 'left');
-      renderColumnHeader(elColRightHeader, currentRound.rightTrait, currentRound.rightAnchor, 'right');
+      const placing = !!currentUnsortedWord();
+      const pairs = [
+        [elColLeftHeader, currentRound.leftTrait],
+        [elColRightHeader, currentRound.rightTrait]
+      ];
+      pairs.forEach(([el, trait]) => {
+        if (!el || !trait) return;
+        const st = TRAIT_STYLES[trait];
+        el.setAttribute(
+          'aria-label',
+          placing ? `Place word in ${st.subLabel} column` : `${st.subLabel} column anchor`
+        );
+      });
     }
 
     function assignWord(wordId, side) {
@@ -2849,10 +3313,11 @@
       item.assignedSide = side;
       playSound('sort');
 
-      renderColumnItems(elColLeftItems, 'left');
-      renderColumnItems(elColRightItems, 'right');
+      const containerEl = side === 'left' ? elColLeftItems : elColRightItems;
+      appendPlacedColumnItem(containerEl, item, side, { animate: true });
       renderUnsortedQueue();
       updatePrimaryButtonState();
+      syncReadyLayout();
     }
 
     function unassignWord(wordId) {
@@ -2863,10 +3328,11 @@
       item.assignedSide = null;
       playSound('sort');
 
-      renderColumnItems(elColLeftItems, 'left');
-      renderColumnItems(elColRightItems, 'right');
+      const el = document.querySelector(`[data-col-item-id="${CSS.escape(wordId)}"]`);
+      if (el) el.remove();
       renderUnsortedQueue();
       updatePrimaryButtonState();
+      syncReadyLayout();
     }
 
     function updatePrimaryButtonState() {
@@ -2896,11 +3362,190 @@
     // =========================================================================
     // 6. CHECK ANSWERS, ANCHOR PROMOTION, AUTO-MOVE & SYMMETRIC SCORING
     // =========================================================================
+
+    function columnLayoutParts() {
+      return [
+        { col: elColLeft, items: elColLeftItems, header: elColLeftHeader },
+        { col: elColRight, items: elColRightItems, header: elColRightHeader }
+      ];
+    }
+
+    /** FLIP learning anchors from column footers up to the top (still visible). */
+    function enterAnswerModeLayout() {
+      if (answerLayoutActive) return;
+      answerLayoutActive = true;
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const parts = columnLayoutParts();
+
+      // Only FLIP the header — transforming the items container desyncs chip hit-targets.
+      const snapshots = parts.map(({ header }) => ({
+        header,
+        headerTop: header.getBoundingClientRect().top
+      }));
+
+      parts.forEach(({ col, items, header }) => {
+        col.insertBefore(header, items);
+        header.classList.remove('border-t', 'rounded-b-2xl');
+        header.classList.add('border-b', 'rounded-t-2xl');
+        items.style.transform = '';
+        items.style.transition = '';
+      });
+
+      if (reduceMotion) {
+        requestAnimationFrame(() => equalizeColumnAnchorFooters());
+        return;
+      }
+
+      snapshots.forEach(({ header, headerTop }) => {
+        const headerDy = headerTop - header.getBoundingClientRect().top;
+        header.style.transition = 'none';
+        header.style.transform = `translateY(${headerDy}px)`;
+      });
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          snapshots.forEach(({ header }) => {
+            header.style.transition = 'transform 0.5s cubic-bezier(0.22, 1, 0.36, 1)';
+            header.style.transform = '';
+          });
+          setTimeout(() => {
+            snapshots.forEach(({ header }) => {
+              header.style.transition = '';
+              header.style.transform = '';
+            });
+            equalizeColumnAnchorFooters();
+          }, 520);
+        });
+      });
+    }
+
+    /** Instant restore (new round / exit animation cleanup). */
+    function resetAnswerModeLayout() {
+      columnLayoutParts().forEach(({ col, items, header }) => {
+        if (header.parentElement === col) col.appendChild(header);
+        header.classList.remove('border-b', 'rounded-t-2xl');
+        header.classList.add('border-t', 'rounded-b-2xl');
+        header.style.transform = '';
+        header.style.transition = '';
+        items.style.transform = '';
+        items.style.transition = '';
+      });
+      answerLayoutActive = false;
+    }
+
+    /** FLIP learning anchors back down when a word returns to the pile. */
+    function exitReadyModeLayout() {
+      if (!answerLayoutActive || isChecked) return;
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const parts = columnLayoutParts();
+
+      const snapshots = parts.map(({ header }) => ({
+        header,
+        headerTop: header.getBoundingClientRect().top
+      }));
+
+      parts.forEach(({ col, items, header }) => {
+        col.appendChild(header);
+        header.classList.remove('border-b', 'rounded-t-2xl');
+        header.classList.add('border-t', 'rounded-b-2xl');
+        items.style.transform = '';
+        items.style.transition = '';
+      });
+      answerLayoutActive = false;
+
+      if (reduceMotion) {
+        requestAnimationFrame(() => equalizeColumnAnchorFooters());
+        return;
+      }
+
+      snapshots.forEach(({ header, headerTop }) => {
+        const headerDy = headerTop - header.getBoundingClientRect().top;
+        header.style.transition = 'none';
+        header.style.transform = `translateY(${headerDy}px)`;
+      });
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          snapshots.forEach(({ header }) => {
+            header.style.transition = 'transform 0.5s cubic-bezier(0.22, 1, 0.36, 1)';
+            header.style.transform = '';
+          });
+          setTimeout(() => {
+            snapshots.forEach(({ header }) => {
+              header.style.transition = '';
+              header.style.transform = '';
+            });
+            equalizeColumnAnchorFooters();
+          }, 520);
+        });
+      });
+    }
+
+    /** Slide learning words up when Check Answers appears; down if a chip returns. */
+    function syncReadyLayout() {
+      if (isChecked) return;
+      if (!currentRound) return;
+      const allPlaced = !currentUnsortedWord();
+      if (allPlaced) enterAnswerModeLayout();
+      else exitReadyModeLayout();
+    }
+
+    function beginNextRoundTransition() {
+      if (nextRoundTransitioning) return;
+      nextRoundTransitioning = true;
+      revealSequenceRunId++;
+      stopSpeech();
+      setColumnHighlight(null);
+      clearRevealHighlights();
+      hideTranslationPopup();
+      if (elPrimaryBtn) elPrimaryBtn.disabled = true;
+
+      const grid = document.getElementById('columns-grid');
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        nextRoundTransitioning = false;
+        if (grid) {
+          grid.classList.remove('wm-board-exit-up');
+          grid.removeEventListener('animationend', onEnd);
+        }
+        resetAnswerModeLayout();
+        startNewRound();
+        if (grid) {
+          grid.classList.remove('wm-board-enter');
+          void grid.offsetWidth;
+          grid.classList.add('wm-board-enter');
+          const clearEnter = (ev) => {
+            if (ev && ev.target !== grid) return;
+            grid.classList.remove('wm-board-enter');
+            grid.removeEventListener('animationend', clearEnter);
+          };
+          grid.addEventListener('animationend', clearEnter);
+          setTimeout(() => clearEnter({ target: grid }), 500);
+        }
+      };
+
+      const onEnd = (ev) => {
+        if (ev.target !== grid) return;
+        finish();
+      };
+
+      if (!grid || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        finish();
+        return;
+      }
+
+      grid.classList.add('wm-board-exit-up');
+      grid.addEventListener('animationend', onEnd);
+      setTimeout(finish, 480);
+    }
+
     function handlePrimaryButtonClick() {
       initAudio();
 
       if (isChecked) {
-        startNewRound();
+        beginNextRoundTransition();
         return;
       }
 
@@ -3218,7 +3863,7 @@
       }
     });
     document.getElementById('btn-learning-inc').addEventListener('click', () => {
-      if (appState.learningCount < 3) {
+      if (appState.learningCount < 3 && getTotalRoundWords() < MAX_ROUND_SORTABLES) {
         appState.learningCount++;
         saveState();
         updateHeaderAndLegend();
@@ -3232,7 +3877,7 @@
       }
     });
     document.getElementById('btn-learned-inc').addEventListener('click', () => {
-      if (appState.learnedCount < 3) {
+      if (appState.learnedCount < 3 && getTotalRoundWords() < MAX_ROUND_SORTABLES) {
         appState.learnedCount++;
         saveState();
         updateHeaderAndLegend();
@@ -3246,7 +3891,7 @@
       }
     });
     document.getElementById('btn-mastered-inc').addEventListener('click', () => {
-      if (appState.masteredCount < 3) {
+      if (appState.masteredCount < 3 && getTotalRoundWords() < MAX_ROUND_SORTABLES) {
         appState.masteredCount++;
         saveState();
         updateHeaderAndLegend();
