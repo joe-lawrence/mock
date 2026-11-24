@@ -156,23 +156,31 @@
     }
 
     /*
-     * Overlays use Tailwind `hidden` + `flex` together. In Safari the `flex`
-     * utility can win the cascade, leaving a full-screen layer that eats every tap.
-     * Force closed/open display here so `hidden` always actually hides.
+     * Tailwind `hidden` + `flex` race: `.flex { display:flex }` often wins the
+     * cascade over `.hidden { display:none }`. That left sprint/game (and then
+     * intro after showScreen) still laid out — Sort looked dead on Safari.
+     * Force display from `.hidden` for every screen / overlay that uses both.
      */
-    #translation-popover,
-    #session-report-modal,
-    #word-bank-modal {
-      display: none !important;
-    }
-    #translation-popover:not(.hidden),
-    #session-report-modal:not(.hidden),
-    #word-bank-modal:not(.hidden) {
-      display: flex !important;
-    }
+    #intro-screen.hidden,
+    #sprint-screen.hidden,
+    #game-screen.hidden,
+    #btn-primary-action.hidden,
+    #translation-popover.hidden,
+    #session-report-modal.hidden,
+    #word-bank-modal.hidden,
     #confirm-toast.hidden {
       display: none !important;
+      pointer-events: none !important;
     }
+    #intro-screen:not(.hidden),
+    #sprint-screen:not(.hidden),
+    #game-screen:not(.hidden) {
+      display: flex !important;
+    }
+    #btn-primary-action:not(.hidden),
+    #translation-popover:not(.hidden),
+    #session-report-modal:not(.hidden),
+    #word-bank-modal:not(.hidden),
     #confirm-toast:not(.hidden) {
       display: flex !important;
     }
@@ -1628,9 +1636,14 @@
         }
       }
       resolveVoices();
-      void unlockPiperAudio().then((ok) => {
-        if (ok) audioUnlockedOnce = true;
-      });
+      // Always settle the flag so capture unlock never hammers Safari again.
+      void unlockPiperAudio()
+        .then(() => {
+          audioUnlockedOnce = true;
+        })
+        .catch(() => {
+          audioUnlockedOnce = true;
+        });
 
       if (!speechUnlocked && 'speechSynthesis' in window) {
         try {
@@ -1642,7 +1655,7 @@
           speechUnlocked = true;
           speakAfterCancel = false;
         } catch {
-          /* next gesture retries */
+          /* Start / later speak can retry speech unlock */
         }
       }
     }
@@ -1681,16 +1694,26 @@
         return audioCtx;
       });
 
-      // Unlock once on gesture — do NOT re-run on every scroll touch (freezes iOS).
+      // One gesture only. Re-running unlockPiperAudio on every pointerdown
+      // (AudioContext + MediaStream + keep-alive) freezes Safari when Piper
+      // never reports unlocked.
+      let unlockGestureUsed = false;
+      const removeUnlockListeners = () => {
+        document.removeEventListener('touchstart', onUnlock, true);
+        document.removeEventListener('touchend', onUnlock, true);
+        document.removeEventListener('pointerdown', onUnlock, true);
+        document.removeEventListener('keydown', onUnlock, true);
+      };
       const onUnlock = () => {
-        if (audioUnlockedOnce) {
-          document.removeEventListener('touchstart', onUnlock, true);
-          document.removeEventListener('touchend', onUnlock, true);
-          document.removeEventListener('pointerdown', onUnlock, true);
-          document.removeEventListener('keydown', onUnlock, true);
-          return;
+        if (unlockGestureUsed) return;
+        unlockGestureUsed = true;
+        removeUnlockListeners();
+        try {
+          initAudio();
+        } catch (err) {
+          console.warn('[wort2] audio unlock failed', err);
+          audioUnlockedOnce = true;
         }
-        initAudio();
       };
       document.addEventListener('touchstart', onUnlock, { capture: true, passive: true });
       document.addEventListener('touchend', onUnlock, { capture: true, passive: true });
