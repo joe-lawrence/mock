@@ -155,6 +155,28 @@
       -webkit-overflow-scrolling: touch;
     }
 
+    /*
+     * Overlays use Tailwind `hidden` + `flex` together. In Safari the `flex`
+     * utility can win the cascade, leaving a full-screen layer that eats every tap.
+     * Force closed/open display here so `hidden` always actually hides.
+     */
+    #translation-popover,
+    #session-report-modal,
+    #word-bank-modal {
+      display: none !important;
+    }
+    #translation-popover:not(.hidden),
+    #session-report-modal:not(.hidden),
+    #word-bank-modal:not(.hidden) {
+      display: flex !important;
+    }
+    #confirm-toast.hidden {
+      display: none !important;
+    }
+    #confirm-toast:not(.hidden) {
+      display: flex !important;
+    }
+
     #voice-status {
       pointer-events: none;
       position: fixed;
@@ -1102,6 +1124,11 @@
       getExampleSentence
     } from './js/wort2-definitions.js?v=wort2-content-2';
     const { VOCAB_DATA, LEVEL_DEFINITIONS } = buildWort2Vocab();
+
+    // Immediately clear stuck overlays (Safari can leave `hidden`+`flex` visible).
+    ['translation-popover', 'session-report-modal', 'word-bank-modal', 'confirm-toast'].forEach((id) => {
+      document.getElementById(id)?.classList.add('hidden');
+    });
 
     // =========================================================================
     // 1. CURRICULUM VOCABULARY DATASET (nouns-gender.md & case.md)
@@ -4288,7 +4315,7 @@
     // =========================================================================
     // 8. BOOTSTRAP
     // =========================================================================
-    window.addEventListener('DOMContentLoaded', () => {
+    function bootWortMatch() {
       let themePref = 'system';
       try {
         themePref = localStorage.getItem('schnapp-theme') || 'system';
@@ -4305,11 +4332,22 @@
         if (pref === 'system') applyWortTheme('system');
       });
 
+      // Clear any stuck overlay that might have been left without `.hidden`.
+      ['translation-popover', 'session-report-modal', 'word-bank-modal', 'confirm-toast'].forEach((id) => {
+        document.getElementById(id)?.classList.add('hidden');
+      });
+
       loadState();
       loadLastSessionReport();
       showScreen('intro');
       refreshIntroSessionCard();
-    });
+    }
+
+    if (document.readyState === 'loading') {
+      window.addEventListener('DOMContentLoaded', bootWortMatch, { once: true });
+    } else {
+      bootWortMatch();
+    }
   </script>
 </body>
 </html>
