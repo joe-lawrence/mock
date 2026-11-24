@@ -124,6 +124,7 @@
     /* Prevent pull-to-refresh and accidental text selection during touch swipes */
     html {
       font-size: 106.25%; /* ~17px — mild bump; Tailwind rem utilities follow */
+      height: 100%;
     }
 
     html, body {
@@ -136,12 +137,44 @@
 
     body.wm-app {
       margin: 0;
+      height: 100%;
+      max-height: 100dvh;
       font-family: var(--font-body);
       color: var(--ink);
       background:
         radial-gradient(ellipse 80% 50% at 10% 0%, var(--bg-spot-1), transparent 55%),
         radial-gradient(ellipse 70% 45% at 90% 10%, var(--bg-spot-2), transparent 50%),
         var(--wash);
+    }
+
+    /* iOS Safari: nested scroll needs min-height 0 in flex columns */
+    #intro-screen,
+    #sprint-screen,
+    #game-screen {
+      min-height: 0;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #voice-status {
+      pointer-events: none;
+      position: fixed;
+      left: 50%;
+      bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+      transform: translateX(-50%);
+      z-index: 60;
+      max-width: min(92vw, 320px);
+      padding: 0.55rem 0.9rem;
+      border-radius: 999px;
+      background: var(--ink);
+      color: var(--on-ink);
+      font-size: 0.75rem;
+      font-weight: 650;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    #voice-status.is-on {
+      opacity: 0.92;
     }
 
     .wm-display { font-family: var(--font-display); }
@@ -573,11 +606,12 @@
   </style>
 </head>
 <body class="wm-app h-[100dvh] w-screen overflow-hidden flex flex-col items-center justify-between">
+  <div id="voice-status" role="status" aria-live="polite"></div>
 
   <!-- ===================================================================== -->
   <!-- SCREEN 1: INTRO / SETUP — Schnapp hub style (E/F)                     -->
   <!-- ===================================================================== -->
-  <section id="intro-screen" class="w-full max-w-md h-full flex flex-col justify-between px-4 py-3 overflow-y-auto thin-scroll">
+  <section id="intro-screen" class="w-full max-w-md h-full min-h-0 flex flex-col justify-between px-4 py-3 overflow-y-auto thin-scroll">
     <div class="flex items-center justify-between pt-0.5 shrink-0">
       <div class="flex items-center gap-2">
         <div class="wm-mark w-8 h-8 rounded-xl flex items-center justify-center text-sm shadow-xs">WM</div>
@@ -718,7 +752,7 @@
   <!-- ===================================================================== -->
   <!-- SCREEN 1B: BOOTSTRAP SPRINT (RAPID ONE-BY-ONE COLD-START CALIBRATION) -->
   <!-- ===================================================================== -->
-  <section id="sprint-screen" class="hidden w-full max-w-md h-full flex flex-col justify-between px-3.5 py-3 overflow-hidden">
+  <section id="sprint-screen" class="hidden w-full max-w-md h-full min-h-0 flex flex-col justify-between px-3.5 py-3 overflow-hidden">
     <header class="flex items-center justify-between shrink-0">
       <button id="btn-sprint-exit" type="button" class="wm-btn-ghost px-2.5 py-1 text-xs flex items-center gap-1 active:scale-95 transition">
         <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
@@ -762,7 +796,7 @@
   <!-- ===================================================================== -->
   <!-- SCREEN 2: DISTRACTION-FREE TWO-COLUMN SORTING GAME (iPhone SE tuned)  -->
   <!-- ===================================================================== -->
-  <section id="game-screen" class="hidden w-full max-w-md h-full flex flex-col justify-between px-3 py-2.5 overflow-hidden">
+  <section id="game-screen" class="hidden w-full max-w-md h-full min-h-0 flex flex-col justify-between px-3 py-2.5 overflow-hidden">
 
     <header class="shrink-0 space-y-1.5">
       <div class="flex items-center justify-between gap-2">
@@ -821,8 +855,8 @@
   <!-- ===================================================================== -->
   <!-- TRANSLATION POPOVER (SHOWN ON TAP WITHOUT DRAG)                       -->
   <!-- ===================================================================== -->
-  <div id="translation-popover" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 pointer-events-none">
-    <div id="translation-card" class="wm-surface rounded-2xl px-4 py-3.5 shadow-2xl border max-w-[300px] w-full text-center pointer-events-auto transition-all duration-200 scale-95 opacity-0" style="border-color:var(--line-strong)">
+  <div id="translation-popover" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4" style="background:rgba(18,21,26,0.28)">
+    <div id="translation-card" class="wm-surface rounded-2xl px-4 py-3.5 shadow-2xl border max-w-[300px] w-full text-center transition-all duration-200 scale-95 opacity-0" style="border-color:var(--line-strong)">
       <div class="flex items-center justify-center gap-1.5 flex-wrap">
         <span id="trans-pill" class="px-1.5 py-0.5 rounded text-[10px] font-extrabold tracking-wide wm-badge">der</span>
         <span id="trans-header-line" class="wm-display text-base font-semibold tracking-tight wm-word-scroll min-w-0 flex-1">Lehrer</span>
@@ -1045,6 +1079,8 @@
     let bankSort = 'pack';
     let bankQuery = '';
     let bankOpenId = null;        // expanded row in word bank
+    let bankRenderLimit = 40;     // paginate — full list freezes iPhone Safari
+    const BANK_PAGE_SIZE = 40;
     /** One-shot Bank → practice: force these into the next generateRound(). */
     let practiceFocus = null;     // { focusId, relatedIds: string[] } | null
     let activeScreen = 'intro'; // 'intro' | 'sprint' | 'game'
@@ -1383,6 +1419,29 @@
       }
     }
 
+    let audioUnlockedOnce = false;
+    let voiceStatusTimer = null;
+
+    function setVoiceStatus(msg) {
+      const el = document.getElementById('voice-status');
+      if (!el) return;
+      if (voiceStatusTimer) {
+        clearTimeout(voiceStatusTimer);
+        voiceStatusTimer = null;
+      }
+      if (!msg) {
+        el.textContent = '';
+        el.classList.remove('is-on');
+        return;
+      }
+      el.textContent = msg;
+      el.classList.add('is-on');
+      voiceStatusTimer = setTimeout(() => {
+        el.classList.remove('is-on');
+        voiceStatusTimer = null;
+      }, 4200);
+    }
+
     function initAudio() {
       usePlaybackSession();
       // On iOS a second AudioContext steals Piper's session — skip SFX ctx there.
@@ -1398,7 +1457,9 @@
         }
       }
       resolveVoices();
-      void unlockPiperAudio();
+      void unlockPiperAudio().then((ok) => {
+        if (ok) audioUnlockedOnce = true;
+      });
 
       if (!speechUnlocked && 'speechSynthesis' in window) {
         try {
@@ -1416,12 +1477,26 @@
     }
 
     function warmPiperVoice() {
+      if (!appState.speechEnabled) return;
       if (piperWarmStarted) return;
+      if (isPiperReady()) return;
       piperWarmStarted = true;
-      void ensurePiperReady().catch((err) => {
-        console.warn('[wort2] Piper warm failed', err);
-        piperWarmStarted = false;
-      });
+      setVoiceStatus('Loading voice…');
+      // Yield so the tap can paint / navigate before WASM work.
+      const start = () => {
+        void ensurePiperReady()
+          .then(() => setVoiceStatus('Voice ready'))
+          .catch((err) => {
+            console.warn('[wort2] Piper warm failed', err);
+            piperWarmStarted = false;
+            setVoiceStatus('Using device voice');
+          });
+      };
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(start, { timeout: 600 });
+      } else {
+        setTimeout(start, 120);
+      }
     }
 
     function initSchnappTts() {
@@ -1435,22 +1510,22 @@
         return audioCtx;
       });
 
+      // Unlock once on gesture — do NOT re-run on every scroll touch (freezes iOS).
       const onUnlock = () => {
+        if (audioUnlockedOnce) {
+          document.removeEventListener('touchstart', onUnlock, true);
+          document.removeEventListener('touchend', onUnlock, true);
+          document.removeEventListener('pointerdown', onUnlock, true);
+          document.removeEventListener('keydown', onUnlock, true);
+          return;
+        }
         initAudio();
       };
       document.addEventListener('touchstart', onUnlock, { capture: true, passive: true });
       document.addEventListener('touchend', onUnlock, { capture: true, passive: true });
       document.addEventListener('pointerdown', onUnlock, true);
       document.addEventListener('keydown', onUnlock, true);
-
-      const warmOnce = () => {
-        document.removeEventListener('pointerdown', warmOnce, true);
-        document.removeEventListener('touchstart', warmOnce, true);
-        initAudio();
-        warmPiperVoice();
-      };
-      document.addEventListener('touchstart', warmOnce, { capture: true, passive: true });
-      document.addEventListener('pointerdown', warmOnce, true);
+      // Piper warm is kicked from Start / first speak — not from idle scrolling.
     }
 
     function resolveVoices() {
@@ -1623,8 +1698,20 @@
 
       const run = async () => {
         try {
+          // Never block the UI for a long Piper/WASM load on iPhone Safari.
+          // If the voice is not ready quickly, fall back to device TTS and
+          // keep warming Piper in the background.
           if (!isPiperReady()) {
-            await ensurePiperReady();
+            warmPiperVoice();
+            const ready = await Promise.race([
+              ensurePiperReady().then(() => true).catch(() => false),
+              new Promise((resolve) => setTimeout(() => resolve(false), isIOSAudioDevice() ? 450 : 1800))
+            ]);
+            if (gen !== piperSpeakGen) return;
+            if (!ready) {
+              speakText(phrase, finish, 'de-DE');
+              return;
+            }
           }
           if (gen !== piperSpeakGen) return;
           await speakGermanPiper(phrase, {
@@ -1632,13 +1719,13 @@
             onError: (err) => {
               console.warn('[wort2] Piper speak error, falling back', err);
               if (gen !== piperSpeakGen) return;
-              speakText(phrase, onDone, 'de-DE');
+              speakText(phrase, finish, 'de-DE');
             },
           });
         } catch (err) {
           console.warn('[wort2] Piper unavailable, falling back', err);
           if (gen !== piperSpeakGen) return;
-          speakText(phrase, onDone, 'de-DE');
+          speakText(phrase, finish, 'de-DE');
         }
       };
 
@@ -3042,20 +3129,21 @@
 
     document.getElementById('btn-start-game').addEventListener('click', () => {
       initAudio();
-      if (appState.speechEnabled) warmPiperVoice();
+      // Navigate first; warm Piper after a tick so iOS isn't jammed mid-tap.
       resetSessionStats();
       if (needsBootstrapSprint(appState.domain)) {
         startBootstrapSprint();
       } else {
         showScreen('game');
       }
+      if (appState.speechEnabled) setTimeout(() => warmPiperVoice(), 200);
     });
 
     document.getElementById('btn-bootstrap-intro').addEventListener('click', () => {
       initAudio();
-      if (appState.speechEnabled) warmPiperVoice();
       resetSessionStats();
       startBootstrapSprint();
+      if (appState.speechEnabled) setTimeout(() => warmPiperVoice(), 200);
     });
 
     document.getElementById('btn-packs-all').addEventListener('click', () => {
@@ -3229,6 +3317,7 @@
         btn.addEventListener('click', () => {
           bankTraitFilter = btn.dataset.bankTrait;
           bankOpenId = null;
+          bankRenderLimit = BANK_PAGE_SIZE;
           syncBankTraitFilterButtons();
           renderWordBank();
         });
@@ -3249,6 +3338,7 @@
 
     function openWordBank() {
       bankOpenId = null;
+      bankRenderLimit = BANK_PAGE_SIZE;
       syncBankPackOptions();
       syncBankTraitFilterButtons();
       if (elBankSearch) elBankSearch.value = bankQuery;
@@ -3259,7 +3349,10 @@
       });
       renderWordBank();
       elBankModal.classList.remove('hidden');
-      requestAnimationFrame(() => elBankSearch?.focus());
+      // Don't autofocus search on iOS — opens keyboard and can steal the first tap.
+      if (!isIOSAudioDevice()) {
+        requestAnimationFrame(() => elBankSearch?.focus());
+      }
     }
 
     document.getElementById('btn-open-bank-intro').addEventListener('click', openWordBank);
@@ -3285,6 +3378,7 @@
           const on = b.dataset.bankFilter === bankFilter;
           b.className = `bank-filter-btn px-2.5 py-1 rounded-lg${on ? ' is-on' : ''}`;
         });
+        bankRenderLimit = BANK_PAGE_SIZE;
         renderWordBank();
       });
     });
@@ -3295,6 +3389,7 @@
       bankSearchTimer = setTimeout(() => {
         bankQuery = elBankSearch.value.trim();
         bankOpenId = null;
+        bankRenderLimit = BANK_PAGE_SIZE;
         renderWordBank();
       }, 120);
     });
@@ -3302,11 +3397,13 @@
     elBankPackFilter?.addEventListener('change', () => {
       bankPackFilter = elBankPackFilter.value;
       bankOpenId = null;
+      bankRenderLimit = BANK_PAGE_SIZE;
       renderWordBank();
     });
 
     elBankSort?.addEventListener('change', () => {
       bankSort = elBankSort.value;
+      bankRenderLimit = BANK_PAGE_SIZE;
       renderWordBank();
     });
 
@@ -3350,8 +3447,13 @@
           return a.level - b.level || sb - sa || a.word.localeCompare(b.word, 'de');
         });
 
+      const visible = items.slice(0, bankRenderLimit);
+      const remaining = Math.max(0, items.length - visible.length);
+
       if (elBankCountLine) {
-        elBankCountLine.textContent = `Showing ${items.length} of ${domainItems.length} · tap a row for gloss + example`;
+        elBankCountLine.textContent = remaining
+          ? `Showing ${visible.length} of ${items.length} matches · tap a row for gloss + example`
+          : `Showing ${items.length} of ${domainItems.length} · tap a row for gloss + example`;
       }
 
       if (items.length === 0) {
@@ -3362,7 +3464,7 @@
         return;
       }
 
-      elBankList.innerHTML = items.map(w => {
+      elBankList.innerHTML = visible.map(w => {
         const score = appState.scores[w.id] ?? 0;
         const tier = getTier(score);
         const st = TRAIT_STYLES[w.trait];
@@ -3439,7 +3541,15 @@
             ${detail}
           </div>
         `;
-      }).join('');
+      }).join('') + (remaining
+        ? `<button type="button" id="bank-show-more" class="w-full py-2.5 rounded-xl text-xs font-bold wm-chip">Show ${Math.min(BANK_PAGE_SIZE, remaining)} more (${remaining} left)</button>`
+        : '');
+
+      document.getElementById('bank-show-more')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        bankRenderLimit += BANK_PAGE_SIZE;
+        renderWordBank();
+      });
 
       elBankList.querySelectorAll('[data-bank-word-id]').forEach(row => {
         const id = row.dataset.bankWordId;
