@@ -750,7 +750,7 @@
         <div class="wm-mark w-8 h-8 rounded-xl flex items-center justify-center text-sm shadow-xs">WM</div>
         <div>
           <h1 class="wm-display text-base font-semibold tracking-tight leading-none">WortMatch</h1>
-          <p class="text-[10px] font-medium mt-0.5" style="color:var(--muted)">German grammar sort · build 1124c</p>
+          <p id="intro-build-line" class="text-[10px] font-medium mt-0.5" style="color:var(--muted)">German grammar sort</p>
         </div>
       </div>
       <div class="flex items-center gap-1.5">
@@ -978,7 +978,7 @@
     </div>
 
     <footer class="shrink-0">
-      <button id="btn-primary-action" type="button" class="hidden w-full py-3.5 px-4 wm-btn-ok active:scale-[0.99] text-sm transition flex items-center justify-center gap-1.5 whitespace-nowrap">
+      <button id="btn-primary-action" type="button" class="hidden w-full py-3.5 px-4 wm-btn-ok active:scale-[0.99] text-sm transition items-center justify-center gap-1.5 whitespace-nowrap">
         <span id="btn-primary-label">Check Answers</span>
       </button>
     </footer>
@@ -988,7 +988,7 @@
   <!-- ===================================================================== -->
   <!-- TRANSLATION POPOVER (LONG-PRESS WORD; HOLDS UNTIL TAP TO DISMISS)     -->
   <!-- ===================================================================== -->
-  <div id="translation-popover" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4" style="background:rgba(18,21,26,0.28)">
+  <div id="translation-popover" class="fixed inset-0 z-50 hidden items-center justify-center p-4" style="background:rgba(18,21,26,0.28)">
     <div id="translation-card" class="wm-surface rounded-2xl px-4 py-3.5 shadow-2xl border max-w-[300px] w-full text-center transition-all duration-200 scale-95 opacity-0" style="border-color:var(--line-strong)">
       <div class="wm-anchor-card text-left">
         <span id="trans-pill" class="wm-anchor-pill wm-badge hidden">der</span>
@@ -1005,7 +1005,7 @@
   </div>
 
   <!-- Session report (shown when leaving a play session) -->
-  <div id="session-report-modal" class="fixed inset-0 z-50 bg-zinc-950/50 backdrop-blur-xs hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+  <div id="session-report-modal" class="fixed inset-0 z-50 bg-zinc-950/50 backdrop-blur-xs hidden items-end sm:items-center justify-center p-0 sm:p-4">
     <div class="wm-surface w-full max-w-md rounded-t-3xl sm:rounded-3xl max-h-[85dvh] flex flex-col overflow-hidden border" style="border-color:var(--line-strong)">
       <div class="px-4 py-3.5 border-b flex items-center justify-between" style="border-color:var(--line)">
         <div>
@@ -1024,7 +1024,7 @@
   <!-- ===================================================================== -->
   <!-- WORD BANK & MASTERY DRAWER MODAL                                      -->
   <!-- ===================================================================== -->
-  <div id="word-bank-modal" class="fixed inset-0 z-50 bg-zinc-950/50 backdrop-blur-xs hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+  <div id="word-bank-modal" class="fixed inset-0 z-50 bg-zinc-950/50 backdrop-blur-xs hidden items-end sm:items-center justify-center p-0 sm:p-4">
     <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl border border-zinc-200 max-h-[85dvh] flex flex-col overflow-hidden">
       <!-- Modal Header -->
       <div class="px-4 py-3.5 border-b border-zinc-100 flex items-center justify-between gap-2">
@@ -1090,7 +1090,7 @@
   </div>
 
   <!-- Custom Non-Blocking Confirm Toast -->
-  <div id="confirm-toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 hidden bg-zinc-900 text-white px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 text-xs max-w-xs w-[92%]">
+  <div id="confirm-toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 hidden bg-zinc-900 text-white px-4 py-3 rounded-2xl shadow-xl items-center gap-3 text-xs max-w-xs w-[92%]">
     <span class="flex-1 font-medium">Reset all word mastery scores to default?</span>
     <button id="confirm-toast-no" type="button" class="px-2.5 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 font-semibold">Cancel</button>
     <button id="confirm-toast-yes" type="button" class="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 font-semibold">Reset</button>
@@ -1099,6 +1099,14 @@
   <!-- ===================================================================== -->
   <!-- APPLICATION LOGIC                                                     -->
   <!-- ===================================================================== -->
+  <script>
+    // Non-module watchdog: if the ES module never boots, surface that clearly.
+    setTimeout(function () {
+      if (document.documentElement.dataset.wortBoot) return;
+      var line = document.getElementById('intro-build-line');
+      if (line) line.textContent = 'German grammar sort · JS failed to load';
+    }, 2500);
+  </script>
   <script type="module">
     import {
       setPiperAudioContextProvider,
@@ -1107,7 +1115,7 @@
       speakGermanPiper,
       stopPiperAudio,
       isPiperReady,
-    } from './js/piper-tts.js?v=wort2-piper-2';
+    } from './js/piper-tts.js?v=wort2-piper-3';
     import { buildWort2Vocab } from './js/wort2-vocab.js?v=wort2-content-2';
     import {
       getDescriptiveDefinition,
@@ -1570,6 +1578,13 @@
       return navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1;
     }
 
+    /** Desktop + mobile Safari/WebKit — Piper WASM/MediaStream freezes these. */
+    function isSafariWebKit() {
+      const ua = navigator.userAgent || '';
+      if (/Chrome|Chromium|CriOS|Edg\/|Firefox|FxiOS|Android/i.test(ua)) return false;
+      return /Safari/i.test(ua) || /Apple/i.test(navigator.vendor || '');
+    }
+
     /** Safari: route to speaker like Music app (silent switch otherwise mutes). */
     function usePlaybackSession() {
       try {
@@ -1606,26 +1621,31 @@
     function initAudio() {
       try {
         usePlaybackSession();
-        // On iOS a second AudioContext steals Piper's session — skip SFX ctx there.
-        if (!isIOSAudioDevice()) {
-          if (!audioCtx) {
-            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-            if (AudioContextClass) {
-              audioCtx = new AudioContextClass();
+        resolveVoices();
+
+        // Safari: only prime speechSynthesis — skip Piper/AudioContext/MediaStream.
+        if (!isSafariWebKit()) {
+          if (!isIOSAudioDevice()) {
+            if (!audioCtx) {
+              const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+              if (AudioContextClass) {
+                audioCtx = new AudioContextClass();
+              }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+              audioCtx.resume();
             }
           }
-          if (audioCtx && audioCtx.state === 'suspended') {
-            audioCtx.resume();
-          }
+          void unlockPiperAudio()
+            .then(() => {
+              audioUnlockedOnce = true;
+            })
+            .catch(() => {
+              audioUnlockedOnce = true;
+            });
+        } else {
+          audioUnlockedOnce = true;
         }
-        resolveVoices();
-        void unlockPiperAudio()
-          .then(() => {
-            audioUnlockedOnce = true;
-          })
-          .catch(() => {
-            audioUnlockedOnce = true;
-          });
 
         if (!speechUnlocked && 'speechSynthesis' in window) {
           try {
@@ -1648,6 +1668,7 @@
 
     function warmPiperVoice() {
       if (!appState.speechEnabled) return;
+      if (isSafariWebKit()) return; // Piper freezes Safari — skip entirely
       if (piperWarmStarted) return;
       if (isPiperReady()) return;
       piperWarmStarted = true;
@@ -1844,20 +1865,27 @@
       }
 
       const gen = ++piperSpeakGen;
-      // Unlock synchronously while still inside the tap gesture.
-      void unlockPiperAudio();
-      initAudio();
-
       const finish = () => {
         if (gen !== piperSpeakGen) return;
         if (onDone) onDone();
       };
 
+      // Safari: never touch Piper/WASM/MediaStream — device TTS only.
+      if (isSafariWebKit()) {
+        try { initAudio(); } catch (_) { /* ignore */ }
+        speakText(phrase, finish, 'de-DE');
+        return;
+      }
+
+      try {
+        void unlockPiperAudio();
+        initAudio();
+      } catch (_) { /* ignore */ }
+
       const run = async () => {
         try {
-          // Never block the UI for a long Piper/WASM load on iPhone Safari.
-          // If the voice is not ready quickly, fall back to device TTS and
-          // keep warming Piper in the background.
+          // Never block the UI for a long Piper/WASM load.
+          // If the voice is not ready quickly, fall back to device TTS.
           if (!isPiperReady()) {
             warmPiperVoice();
             const ready = await Promise.race([
@@ -2229,7 +2257,14 @@
       document.getElementById('sprint-level-tag').textContent = `Pack ${wordObj.level}`;
       document.getElementById('sprint-word').textContent = wordObj.word;
 
-      speakGermanWord(wordObj, false);
+      // Speak after paint so Safari isn't wedged mid-navigation.
+      const spoken = wordObj;
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (!sprintState || sprintState.queue[sprintState.index] !== spoken) return;
+          speakGermanWord(spoken, false);
+        }, 0);
+      });
 
       const fb = document.getElementById('sprint-feedback-line');
       fb.textContent = '—';
@@ -3042,7 +3077,13 @@
       if (currentRound?.rightAnchor) markIntroduced(currentRound.rightAnchor.id);
       saveState();
       updateHeaderAndLegend();
-      playNewRoundAnchorIntro();
+      // Defer TTS until the game screen has painted (Safari freezes on sync unlock).
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (activeScreen !== 'game' || isChecked) return;
+          playNewRoundAnchorIntro();
+        }, 0);
+      });
     }
 
     /** Match left/right learning footers to the taller of the two. */
@@ -3794,7 +3835,7 @@
     elPrimaryBtn.addEventListener('click', handlePrimaryButtonClick);
 
     document.getElementById('btn-start-game').addEventListener('click', () => {
-      // Navigate first — never let audio unlock block or freeze the tap on Safari.
+      // Navigate first; then light audio prime while still in the tap gesture.
       resetSessionStats();
       try {
         if (needsBootstrapSprint(appState.domain)) {
@@ -3805,14 +3846,15 @@
       } catch (err) {
         console.warn('[wort2] start navigation failed', err);
       }
-      setTimeout(() => {
-        try {
-          initAudio();
-          if (appState.speechEnabled) warmPiperVoice();
-        } catch (err) {
-          console.warn('[wort2] start audio failed', err);
-        }
-      }, 0);
+      try {
+        initAudio();
+      } catch (err) {
+        console.warn('[wort2] start audio failed', err);
+      }
+      // Piper warm is a no-op on Safari; elsewhere defer so paint wins.
+      if (appState.speechEnabled && !isSafariWebKit()) {
+        setTimeout(() => warmPiperVoice(), 300);
+      }
     });
 
     document.getElementById('btn-bootstrap-intro').addEventListener('click', () => {
@@ -3822,14 +3864,14 @@
       } catch (err) {
         console.warn('[wort2] sprint navigation failed', err);
       }
-      setTimeout(() => {
-        try {
-          initAudio();
-          if (appState.speechEnabled) warmPiperVoice();
-        } catch (err) {
-          console.warn('[wort2] sprint audio failed', err);
-        }
-      }, 0);
+      try {
+        initAudio();
+      } catch (err) {
+        console.warn('[wort2] sprint audio failed', err);
+      }
+      if (appState.speechEnabled && !isSafariWebKit()) {
+        setTimeout(() => warmPiperVoice(), 300);
+      }
     });
 
     document.getElementById('btn-packs-all').addEventListener('click', () => {
@@ -4330,7 +4372,9 @@
     // 8. BOOTSTRAP
     // =========================================================================
     function bootWortMatch() {
-      document.documentElement.dataset.wortBoot = '1124c';
+      document.documentElement.dataset.wortBoot = '1125b';
+      const buildLine = document.getElementById('intro-build-line');
+      if (buildLine) buildLine.textContent = 'German grammar sort · js ok 1125b';
       let themePref = 'system';
       try {
         themePref = localStorage.getItem('schnapp-theme') || 'system';
