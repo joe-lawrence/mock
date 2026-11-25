@@ -136,6 +136,15 @@ function isIOSAudio() {
   return platform === "MacIntel" && navigator.maxTouchPoints > 1;
 }
 
+/** Any Apple Safari / WebKit browser (iOS + desktop). */
+function isSafariWebKit() {
+  const ua = navigator.userAgent || "";
+  if (/Chrome|Chromium|CriOS|Edg\/|Firefox|FxiOS|Android/i.test(ua)) {
+    return false;
+  }
+  return /Safari/i.test(ua) || /Apple/i.test(navigator.vendor || "");
+}
+
 /**
  * Safari's default audio session is silenced by the ring/silent switch.
  * "playback" routes to the speaker the way the Music app does.
@@ -577,68 +586,77 @@ export function unlockPiperAudio() {
 
   // Resume and, on Linux, start the media element in this click. Speech
   // arrives later (after the voice loads) and must not need a second play().
-  usePlaybackSession();
-  const ctx = ensurePiperAudioCtx();
-  // Safari reports "running" and still stays silent until resume() runs inside the tap.
-  if (ctx) void ctx.resume();
-  if (ctx && isIOSAudio()) kickAudioContext(ctx);
-  // iOS Safari plays a media element. A MediaStream element stays silent there
-  // and can take the audio session away from the context.
-  if (ctx && !isIOSAudio()) armStreamOutput(ctx);
-  // A second AudioContext steals the only iOS audio session.
-  if (!isIOSAudio()) {
-    try {
-      audioCtxProvider?.();
-    } catch {
-      /* ignore */
+  try {
+    usePlaybackSession();
+    const ctx = ensurePiperAudioCtx();
+    // Safari reports "running" and still stays silent until resume() runs inside the tap.
+    if (ctx) void ctx.resume();
+    if (ctx && isIOSAudio()) kickAudioContext(ctx);
+    // MediaStream destination freezes / silences Safari (iOS and desktop).
+    // Only arm it on non-Safari browsers (Linux Chromium needs it).
+    if (ctx && !isIOSAudio() && !isSafariWebKit()) armStreamOutput(ctx);
+    // A second AudioContext steals the only iOS audio session.
+    if (!isIOSAudio()) {
+      try {
+        audioCtxProvider?.();
+      } catch {
+        /* ignore */
+      }
     }
+    try {
+      ensurePlayAudioEl();
+    } catch (err) {
+      console.warn("[piper] play element unavailable", err);
+    }
+
+    const armCtx = () => {
+      if (!ctx) return false;
+      startKeepAlive(ctx);
+      audioCtxUnlocked = ctx.state === "running";
+      console.info(
+        "[piper] unlock ctx=",
+        ctx.state,
+        "ios=",
+        isIOSAudio(),
+        "linux=",
+        isLinuxChromium(),
+        "stream=",
+        streamOutputLive(),
+        "platform=",
+        navigator.userAgentData?.platform || navigator.platform || ""
+      );
+      return audioCtxUnlocked;
+    };
+
+    // Silent-WAV unlock sets el.src and detaches the gesture-started stream.
+    // On iOS that element also steals the session from WebAudio, which is the
+    // path that already produced sound on this phone.
+    const htmlPrime =
+      isIOSAudio() || streamDest || isLinuxChromium() || !(prefersHtmlPlayback() || !ctx)
+        ? Promise.resolve(htmlMediaUnlocked)
+        : unlockHtmlMedia();
+
+    const ctxPrime = !ctx
+      ? Promise.resolve(false)
+      : ctx.state === "suspended"
+        ? ctx.resume().then(
+            () => armCtx(),
+            () => false
+          )
+        : Promise.resolve(armCtx());
+
+    // Start keep-alive immediately even before resume resolves (best effort).
+    if (ctx && ctx.state === "running") armCtx();
+
+    return Promise.all([htmlPrime, ctxPrime]).then(([h, c]) => {
+      const ok = !!(h || c || audioCtxUnlocked || htmlMediaUnlocked);
+      if (ok) flushPending();
+      return ok;
+    });
+  } catch (err) {
+    console.warn("[piper] unlockPiperAudio failed", err);
+    return Promise.resolve(false);
   }
-  ensurePlayAudioEl();
-
-  const armCtx = () => {
-    if (!ctx) return false;
-    startKeepAlive(ctx);
-    audioCtxUnlocked = ctx.state === "running";
-    console.info(
-      "[piper] unlock ctx=",
-      ctx.state,
-      "ios=",
-      isIOSAudio(),
-      "linux=",
-      isLinuxChromium(),
-      "stream=",
-      streamOutputLive(),
-      "platform=",
-      navigator.userAgentData?.platform || navigator.platform || ""
-    );
-    return audioCtxUnlocked;
-  };
-
-  // Silent-WAV unlock sets el.src and detaches the gesture-started stream.
-  // On iOS that element also steals the session from WebAudio, which is the
-  // path that already produced sound on this phone.
-  const htmlPrime =
-    isIOSAudio() || streamDest || isLinuxChromium() || !(prefersHtmlPlayback() || !ctx)
-      ? Promise.resolve(htmlMediaUnlocked)
-      : unlockHtmlMedia();
-
-  const ctxPrime = !ctx
-    ? Promise.resolve(false)
-    : ctx.state === "suspended"
-      ? ctx.resume().then(
-          () => armCtx(),
-          () => false
-        )
-      : Promise.resolve(armCtx());
-
-  // Start keep-alive immediately even before resume resolves (best effort).
-  if (ctx && ctx.state === "running") armCtx();
-
-  return Promise.all([htmlPrime, ctxPrime]).then(([h, c]) => {
-    const ok = !!(h || c || audioCtxUnlocked || htmlMediaUnlocked);
-    if (ok) flushPending();
-    return ok;
-  });
 }
 
 function flushPending() {
