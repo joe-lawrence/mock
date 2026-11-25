@@ -458,6 +458,8 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
     // =========================================================================
     let audioCtx = null;
     let cachedEnglishVoice = null;
+    let cachedGermanVoice = null;
+    const APP_STATUS_OK = 'German grammar sort · js ok 1125e';
     let speechUnlocked = false;
     let speakAfterCancel = false;
     let piperSpeakGen = 0;
@@ -512,34 +514,63 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       }, 4200);
     }
 
+    /** Top-left brand subtitle + floating pill (download / ready / speaking). */
+    function setAppStatus(msg, { sticky = false } = {}) {
+      const bootLine = document.getElementById('intro-build-line');
+      if (bootLine) {
+        bootLine.textContent = msg || APP_STATUS_OK;
+      }
+      const gameLine = document.getElementById('game-status-line');
+      if (gameLine) {
+        gameLine.textContent = msg || '';
+      }
+      if (msg) setVoiceStatus(msg);
+      else if (!sticky) setVoiceStatus('');
+    }
+
+    function piperProgressLabel(info) {
+      const url = String(info?.url || '');
+      if (url.startsWith('piper://runtime')) {
+        const n = info?.loaded ?? 0;
+        if (n <= 0) return 'Loading TTS engine…';
+        if (n === 1) return 'Loading phonemizer…';
+        return 'TTS engine ready…';
+      }
+      if (url.includes('piper://voice')) {
+        const n = info?.loaded ?? 0;
+        if (n <= 0) return 'Downloading German voice…';
+        if (n === 1) return 'Loading voice model…';
+        return 'Voice ready';
+      }
+      return 'Loading voice…';
+    }
+
     function initAudio() {
       try {
         usePlaybackSession();
         resolveVoices();
 
-        // Safari: only prime speechSynthesis — skip Piper/AudioContext/MediaStream.
-        if (!isSafariWebKit()) {
-          if (!isIOSAudioDevice()) {
-            if (!audioCtx) {
-              const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-              if (AudioContextClass) {
-                audioCtx = new AudioContextClass();
-              }
-            }
-            if (audioCtx && audioCtx.state === 'suspended') {
-              audioCtx.resume();
+        // SFX AudioContext — skip on iOS (steals Piper's only session).
+        if (!isIOSAudioDevice()) {
+          if (!audioCtx) {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (AudioContextClass) {
+              audioCtx = new AudioContextClass();
             }
           }
-          void unlockPiperAudio()
-            .then(() => {
-              audioUnlockedOnce = true;
-            })
-            .catch(() => {
-              audioUnlockedOnce = true;
-            });
-        } else {
-          audioUnlockedOnce = true;
+          if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume();
+          }
         }
+
+        // Unlock Piper in-gesture (MediaStream is skipped inside piper on Safari).
+        void unlockPiperAudio()
+          .then(() => {
+            audioUnlockedOnce = true;
+          })
+          .catch(() => {
+            audioUnlockedOnce = true;
+          });
 
         if (!speechUnlocked && 'speechSynthesis' in window) {
           try {
@@ -562,25 +593,28 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
 
     function warmPiperVoice() {
       if (!appState.speechEnabled) return;
-      if (isSafariWebKit()) return; // Piper freezes Safari — skip entirely
       if (piperWarmStarted) return;
-      if (isPiperReady()) return;
+      if (isPiperReady()) {
+        setAppStatus('Voice ready');
+        return;
+      }
       piperWarmStarted = true;
-      setVoiceStatus('Loading voice…');
+      setAppStatus('Loading German voice…');
       // Yield so the tap can paint / navigate before WASM work.
       const start = () => {
-        void ensurePiperReady()
-          .then(() => setVoiceStatus('Voice ready'))
+        void ensurePiperReady((info) => setAppStatus(piperProgressLabel(info)))
+          .then(() => setAppStatus('Voice ready'))
           .catch((err) => {
             console.warn('[wort2] Piper warm failed', err);
             piperWarmStarted = false;
-            setVoiceStatus('Using device voice');
+            const de = cachedGermanVoice ? cachedGermanVoice.name : 'device';
+            setAppStatus(`Using ${de} voice`);
           });
       };
       if (typeof requestIdleCallback === 'function') {
-        requestIdleCallback(start, { timeout: 600 });
+        requestIdleCallback(start, { timeout: 800 });
       } else {
-        setTimeout(start, 120);
+        setTimeout(start, 180);
       }
     }
 
@@ -612,6 +646,13 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         enVoices.find(v => v.lang === 'en-GB') ||
         enVoices[0] ||
         cachedEnglishVoice;
+
+      const deVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('de'));
+      cachedGermanVoice =
+        deVoices.find(v => /anna|petra|helena|markus|yannick|google|enhanced/i.test(v.name)) ||
+        deVoices.find(v => /^de-DE/i.test(v.lang)) ||
+        deVoices[0] ||
+        cachedGermanVoice;
     }
 
     if ('speechSynthesis' in window) {
@@ -708,7 +749,8 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
           utterance.lang = cachedEnglishVoice?.lang || 'en-US';
           utterance.rate = 1.02;
         } else {
-          utterance.lang = 'de-DE';
+          if (cachedGermanVoice) utterance.voice = cachedGermanVoice;
+          utterance.lang = cachedGermanVoice?.lang || 'de-DE';
           utterance.rate = 0.96;
         }
 
@@ -764,13 +806,6 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         if (onDone) onDone();
       };
 
-      // Safari: never touch Piper/WASM/MediaStream — device TTS only.
-      if (isSafariWebKit()) {
-        try { initAudio(); } catch (_) { /* ignore */ }
-        speakText(phrase, finish, 'de-DE');
-        return;
-      }
-
       try {
         void unlockPiperAudio();
         initAudio();
@@ -778,19 +813,24 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
 
       const run = async () => {
         try {
-          // Never block the UI for a long Piper/WASM load.
-          // If the voice is not ready quickly, fall back to device TTS.
+          // Prefer Piper (best German on Safari). Wait longer on first load;
+          // status line shows download progress. Fall back to device TTS.
           if (!isPiperReady()) {
             warmPiperVoice();
+            const waitMs = isSafariWebKit() || isIOSAudioDevice() ? 12000 : 1800;
             const ready = await Promise.race([
-              ensurePiperReady().then(() => true).catch(() => false),
-              new Promise((resolve) => setTimeout(() => resolve(false), isIOSAudioDevice() ? 450 : 1800))
+              ensurePiperReady((info) => setAppStatus(piperProgressLabel(info)))
+                .then(() => true)
+                .catch(() => false),
+              new Promise((resolve) => setTimeout(() => resolve(false), waitMs))
             ]);
             if (gen !== piperSpeakGen) return;
             if (!ready) {
+              setAppStatus(cachedGermanVoice ? 'Device German voice' : 'No German voice yet');
               speakText(phrase, finish, 'de-DE');
               return;
             }
+            setAppStatus('Voice ready');
           }
           if (gen !== piperSpeakGen) return;
           await speakGermanPiper(phrase, {
@@ -798,12 +838,14 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
             onError: (err) => {
               console.warn('[wort2] Piper speak error, falling back', err);
               if (gen !== piperSpeakGen) return;
+              setAppStatus('Piper failed · device voice');
               speakText(phrase, finish, 'de-DE');
             },
           });
         } catch (err) {
           console.warn('[wort2] Piper unavailable, falling back', err);
           if (gen !== piperSpeakGen) return;
+          setAppStatus('Using device voice');
           speakText(phrase, finish, 'de-DE');
         }
       };
@@ -2739,13 +2781,12 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         console.warn('[wort2] start navigation failed', err);
       }
       try {
-        initAudio();
+        initAudio(); // in-gesture unlock for Safari / iOS
       } catch (err) {
         console.warn('[wort2] start audio failed', err);
       }
-      // Piper warm is a no-op on Safari; elsewhere defer so paint wins.
-      if (appState.speechEnabled && !isSafariWebKit()) {
-        setTimeout(() => warmPiperVoice(), 300);
+      if (appState.speechEnabled) {
+        setTimeout(() => warmPiperVoice(), 280);
       }
     });
 
@@ -2761,8 +2802,8 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       } catch (err) {
         console.warn('[wort2] sprint audio failed', err);
       }
-      if (appState.speechEnabled && !isSafariWebKit()) {
-        setTimeout(() => warmPiperVoice(), 300);
+      if (appState.speechEnabled) {
+        setTimeout(() => warmPiperVoice(), 280);
       }
     });
 
@@ -3264,9 +3305,8 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
     // 8. BOOTSTRAP
     // =========================================================================
     function bootWortMatch() {
-      document.documentElement.dataset.wortBoot = '1125d';
-      const buildLine = document.getElementById('intro-build-line');
-      if (buildLine) buildLine.textContent = 'German grammar sort · js ok 1125d';
+      document.documentElement.dataset.wortBoot = '1125e';
+      setAppStatus(APP_STATUS_OK);
       let themePref = 'system';
       try {
         themePref = localStorage.getItem('schnapp-theme') || 'system';
