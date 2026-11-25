@@ -28,8 +28,25 @@
   <!-- Inline Web App Manifest for PWA installability -->
   <link rel="manifest" href="data:application/manifest+json,{&quot;name&quot;:&quot;WortMatch German Grammar Sort&quot;,&quot;short_name&quot;:&quot;WortMatch&quot;,&quot;start_url&quot;:&quot;.&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%23f4f6f8&quot;,&quot;theme_color&quot;:&quot;%232f6fed&quot;}" />
 
-  <!-- Static Tailwind utilities (no CDN — Play CDN freezes Safari on this page). -->
-  <link rel="stylesheet" href="./css/wort2-tw.css?v=wort2-tw-1" />
+  <!-- Tailwind CDN for layout utilities (structural screen layout is inline below). -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Source Sans 3', 'system-ui', 'sans-serif'],
+            display: ['Sora', 'system-ui', 'sans-serif'],
+            mono: ['IBM Plex Mono', 'ui-monospace', 'monospace'],
+          },
+          boxShadow: {
+            'card': 'var(--shadow)',
+            'pill': 'var(--shadow)',
+          }
+        }
+      }
+    };
+  </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -121,6 +138,12 @@
       margin: 0;
       height: 100%;
       max-height: 100dvh;
+      width: 100%;
+      overflow: hidden;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: space-between;
       font-family: var(--font-body);
       color: var(--ink);
       background:
@@ -129,23 +152,23 @@
         var(--wash);
     }
 
-    /* iOS Safari: nested scroll needs min-height 0 in flex columns */
-    #intro-screen,
-    #sprint-screen,
-    #game-screen {
+    /*
+     * Screens: never rely on Tailwind hidden/flex for show/hide — that race
+     * produced a 3-column layout (intro|sprint|game) when utilities failed.
+     */
+    .wm-screen {
+      display: none !important;
+      width: 100%;
+      max-width: 28rem;
+      height: 100%;
       min-height: 0;
+      flex-direction: column !important;
       -webkit-overflow-scrolling: touch;
     }
+    .wm-screen.is-active {
+      display: flex !important;
+    }
 
-    /*
-     * Tailwind `hidden` + `flex` race: `.flex { display:flex }` often wins the
-     * cascade over `.hidden { display:none }`. That left sprint/game (and then
-     * intro after showScreen) still laid out — Sort looked dead on Safari.
-     * Force display from `.hidden` for every screen / overlay that uses both.
-     */
-    #intro-screen.hidden,
-    #sprint-screen.hidden,
-    #game-screen.hidden,
     #btn-primary-action.hidden,
     #translation-popover.hidden,
     #session-report-modal.hidden,
@@ -153,11 +176,6 @@
     #confirm-toast.hidden {
       display: none !important;
       pointer-events: none !important;
-    }
-    #intro-screen:not(.hidden),
-    #sprint-screen:not(.hidden),
-    #game-screen:not(.hidden) {
-      display: flex !important;
     }
     #btn-primary-action:not(.hidden),
     #translation-popover:not(.hidden),
@@ -738,13 +756,13 @@
     }
   </style>
 </head>
-<body class="wm-app h-[100dvh] w-screen overflow-hidden flex flex-col items-center justify-between">
+<body class="wm-app h-[100dvh] w-screen overflow-hidden">
   <div id="voice-status" role="status" aria-live="polite"></div>
 
   <!-- ===================================================================== -->
   <!-- SCREEN 1: INTRO / SETUP — Schnapp hub style (E/F)                     -->
   <!-- ===================================================================== -->
-  <section id="intro-screen" class="w-full max-w-md h-full min-h-0 flex flex-col justify-between px-4 py-3 overflow-y-auto thin-scroll">
+  <section id="intro-screen" class="wm-screen is-active justify-between px-4 py-3 overflow-y-auto thin-scroll">
     <div class="flex items-center justify-between pt-0.5 shrink-0">
       <div class="flex items-center gap-2">
         <div class="wm-mark w-8 h-8 rounded-xl flex items-center justify-center text-sm shadow-xs">WM</div>
@@ -885,7 +903,7 @@
   <!-- ===================================================================== -->
   <!-- SCREEN 1B: BOOTSTRAP SPRINT (RAPID ONE-BY-ONE COLD-START CALIBRATION) -->
   <!-- ===================================================================== -->
-  <section id="sprint-screen" class="hidden w-full max-w-md h-full min-h-0 flex flex-col justify-between px-3.5 py-3 overflow-hidden">
+  <section id="sprint-screen" class="wm-screen justify-between px-3.5 py-3 overflow-hidden">
     <header class="flex items-center justify-between shrink-0">
       <button id="btn-sprint-exit" type="button" class="wm-btn-ghost px-2.5 py-1 text-xs flex items-center gap-1 active:scale-95 transition">
         <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
@@ -929,7 +947,7 @@
   <!-- ===================================================================== -->
   <!-- SCREEN 2: DISTRACTION-FREE TWO-COLUMN SORTING GAME (iPhone SE tuned)  -->
   <!-- ===================================================================== -->
-  <section id="game-screen" class="hidden w-full max-w-md h-full min-h-0 flex flex-col justify-between px-3 py-2.5 overflow-hidden">
+  <section id="game-screen" class="wm-screen justify-between px-3 py-2.5 overflow-hidden">
 
     <header class="shrink-0 space-y-1.5">
       <div class="flex items-center justify-between gap-2">
@@ -3031,10 +3049,8 @@
 
     function setScreenVisible(el, on) {
       if (!el) return;
-      el.classList.toggle('hidden', !on);
-      // Inline display beats any Tailwind `hidden`+`flex` cascade quirks (Safari).
-      el.style.display = on ? 'flex' : 'none';
-      el.style.pointerEvents = on ? '' : 'none';
+      el.classList.toggle('is-active', !!on);
+      el.classList.toggle('hidden', !on); // keep for any legacy selectors
     }
 
     function showScreen(screenName) {
@@ -4372,9 +4388,9 @@
     // 8. BOOTSTRAP
     // =========================================================================
     function bootWortMatch() {
-      document.documentElement.dataset.wortBoot = '1125b';
+      document.documentElement.dataset.wortBoot = '1125c';
       const buildLine = document.getElementById('intro-build-line');
-      if (buildLine) buildLine.textContent = 'German grammar sort · js ok 1125b';
+      if (buildLine) buildLine.textContent = 'German grammar sort · js ok 1125c';
       let themePref = 'system';
       try {
         themePref = localStorage.getItem('schnapp-theme') || 'system';
