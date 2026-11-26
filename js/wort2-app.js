@@ -863,22 +863,28 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       return null;
     }
 
-    /** Plurals: ending on Learning words during play; on every chip after Check. */
-    function shouldShowPluralEnding(wordObj) {
-      if (!wordObj || wordObj.domain !== 'plurals') return false;
-      return !!isChecked || isLearningWord(wordObj);
-    }
-
     function formatDisplayWord(wordObj) {
       if (!wordObj) return '';
       const art = nominativeArticle(wordObj);
       return art ? `${art} ${wordObj.word}` : wordObj.word;
     }
 
-    function pluralEndingHtml(wordObj, { force = false } = {}) {
-      if (!wordObj || wordObj.domain !== 'plurals') return '';
-      if (!force && !shouldShowPluralEnding(wordObj)) return '';
-      return `<span class="wm-plural-ending shrink-0">${wordObj.trait}</span>`;
+    /**
+     * Plurals ending as colored inline text (not a pill).
+     * Only for learning anchors + answer-mode chips — never on the sort card.
+     */
+    function pluralEndingTextHtml(wordObj) {
+      if (!wordObj || wordObj.domain !== 'plurals' || !wordObj.trait) return '';
+      const st = TRAIT_STYLES[wordObj.trait];
+      const colorClass = st?.titleText || '';
+      return `<span class="wm-plural-ending-text ${colorClass}">${wordObj.trait}</span>`;
+    }
+
+    function formatDisplayWordHtml(wordObj, { showEnding = false } = {}) {
+      const base = formatDisplayWord(wordObj);
+      if (!showEnding) return base;
+      const ending = pluralEndingTextHtml(wordObj);
+      return ending ? `${base}${ending}` : base;
     }
 
     function categorySpokenLabel(wordObj) {
@@ -2243,14 +2249,20 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       const normalWordClass = 'wm-display wm-anchor-word wm-word-scroll';
       const normalDefClass = 'wm-anchor-def';
       const normalLabelClass = `text-[11px] font-bold tracking-tight ${st.titleText} mt-1.5`;
+      const pluralsDomain = appState.domain === 'plurals';
+      // Plurals: ending is color-coded on the word (no trait pill). Other domains keep the pill.
+      const badgeHtml = pluralsDomain
+        ? ''
+        : `<span data-anchor-badge="true" data-normal-class="${normalBadgeClass}" class="${normalBadgeClass}">${trait}</span>`;
+      const anchorWordHtml = formatDisplayWordHtml(anchorWord, { showEnding: pluralsDomain });
 
       // Bigger learning card: pill alone, then word, then gloss
       containerEl.style.minHeight = '';
       containerEl.innerHTML = `
         ${anchorWord ? `
           <div data-anchor-card="true" data-normal-class="${normalCardClass}" class="${normalCardClass}">
-            <span data-anchor-badge="true" data-normal-class="${normalBadgeClass}" class="${normalBadgeClass}">${trait}</span>
-            <span data-anchor-word="true" data-normal-class="${normalWordClass}" class="${normalWordClass}">${formatDisplayWord(anchorWord)}</span>
+            ${badgeHtml}
+            <span data-anchor-word="true" data-normal-class="${normalWordClass}" class="${normalWordClass}">${anchorWordHtml}</span>
             <p data-anchor-def="true" data-normal-class="${normalDefClass}" class="${normalDefClass}" style="color:var(--muted)">${defText}</p>
           </div>
         ` : ''}
@@ -2334,7 +2346,8 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       el.dataset.colSide = side;
       el.className = `word-row-spring cursor-pointer wm-surface rounded-xl px-2.5 py-1.5 flex items-center justify-between gap-1.5 min-w-0${animate ? ' slot-enter' : ''}`;
       el.title = '';
-      el.innerHTML = `<span class="text-sm font-bold wm-word-scroll flex-1">${formatDisplayWord(item)}</span>${pluralEndingHtml(item)}`;
+      // Never show plural endings on placed chips before Check (would spoil the sort).
+      el.innerHTML = `<span class="text-sm font-bold wm-word-scroll flex-1">${formatDisplayWord(item)}</span>`;
       bindColumnItemClick(el, item);
       containerEl.appendChild(el);
       requestAnimationFrame(() => refreshWordScroll(el));
@@ -2354,7 +2367,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
           const enterClass = enterId && item.id === enterId ? ' slot-enter' : '';
           return `
             <div data-col-item-id="${item.id}" data-col-side="${side}" class="word-row-spring cursor-pointer wm-surface rounded-xl px-2.5 py-1.5 flex items-center justify-between gap-1.5 min-w-0${enterClass}">
-              <span class="text-sm font-bold wm-word-scroll flex-1">${formatDisplayWord(item)}</span>${pluralEndingHtml(item)}
+              <span class="text-sm font-bold wm-word-scroll flex-1">${formatDisplayWord(item)}</span>
             </div>
           `;
         } else {
@@ -2374,7 +2387,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
 
           return `
             <div data-col-item-id="${item.id}" data-col-side="${side}" data-was-wrong="${wasWrong ? '1' : '0'}" data-normal-class="${normalRevealClass}" class="${normalRevealClass} ${animClass}">
-              <span class="text-sm font-extrabold wm-word-scroll flex-1">${formatDisplayWord(item)}</span>${pluralEndingHtml(item, { force: true })}${missMark}
+              <span class="text-sm font-extrabold wm-word-scroll flex-1">${formatDisplayWordHtml(item, { showEnding: true })}</span>${missMark}
             </div>
           `;
         }
@@ -2410,11 +2423,10 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       document.getElementById('unsorted-label').textContent = `Remaining: ${unsorted.length}`;
       const currentItem = unsorted[0];
 
-      const endingBadge = pluralEndingHtml(currentItem);
+      // Sort card: article + singular only — never the ending (that is the answer).
       elUnsortedQueue.innerHTML = `
         <div data-word-id="${currentItem.id}" class="wm-word-card rounded-2xl px-3 py-3 text-center select-none" style="touch-action:manipulation;-webkit-user-select:none;user-select:none">
           <p class="text-xl font-semibold wm-word-scroll">${formatDisplayWord(currentItem)}</p>
-          ${endingBadge ? `<p class="mt-1.5 flex justify-center">${endingBadge}</p>` : ''}
         </div>
       `;
 

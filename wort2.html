@@ -571,20 +571,13 @@
     }
 
     /* Red X on chips that were sorted into the wrong column */
-    .wm-plural-ending {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0.1rem 0.4rem;
-      border-radius: 0.4rem;
+    /* Plurals ending suffix on anchors / answer chips — inline, color via wm-title-* */
+    .wm-plural-ending-text {
       font-family: var(--font-mono);
-      font-size: 0.7rem;
       font-weight: 700;
       letter-spacing: -0.02em;
-      color: var(--ink);
-      background: var(--surface-2);
-      border: 1px solid var(--line-strong);
-      line-height: 1.2;
+      margin-left: 0.35em;
+      white-space: nowrap;
     }
 
     .wm-miss-mark {
@@ -640,11 +633,10 @@
     .wm-badge-inv-pl-s { color: #2f6fed !important; }
     .wm-badge-inv-pl-zero { color: #92400e !important; }
 
-    /* Ending chips on inverted answer rows stay readable on colored wash */
-    .word-announce-highlight .wm-plural-ending {
-      background: #fff !important;
-      color: #1c2430 !important;
-      border-color: rgba(255, 255, 255, 0.55) !important;
+    /* Ending suffix on inverted TTS rows: keep contrast on colored wash */
+    .word-announce-highlight .wm-plural-ending-text {
+      color: #fff !important;
+      opacity: 0.95;
     }
 
     #translation-card {
@@ -1267,7 +1259,7 @@
     })();
   </script>
   <script type="module">
-    import('./js/wort2-app.js?v=1126c').catch((err) => {
+    import('./js/wort2-app.js?v=1126d').catch((err) => {
       const msg = (err && (err.message || String(err))) || 'import failed';
       if (typeof window.__wortShowBootError === 'function') {
         window.__wortShowBootError(msg.slice(0, 100));
