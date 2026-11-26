@@ -172,6 +172,7 @@ export const VOCAB_CORE = [
       { id: 'vocab.case.warten-auf', domain: 'case', pos: 'verb+prep', word: 'warten auf', trait: 'Akk', meaning: 'to wait for', note: 'auf + Accusative', initialScore: 0 },
       { id: 'vocab.case.um', domain: 'case', pos: 'prep', word: 'um', trait: 'Akk', meaning: 'around / for', note: 'Accusative preposition', initialScore: 0 },
       { id: 'vocab.case.durch', domain: 'case', pos: 'prep', word: 'durch', trait: 'Akk', meaning: 'through', note: 'Accusative preposition', initialScore: 3 },
+      { id: 'vocab.case.entlang', domain: 'case', pos: 'prep', word: 'entlang', trait: 'Akk', meaning: 'along', note: 'Accusative preposition (often after the noun: den Weg entlang)', initialScore: 0 },
       { id: 'vocab.case.gegen', domain: 'case', pos: 'prep', word: 'gegen', trait: 'Akk', meaning: 'against', note: 'Accusative preposition', initialScore: 0 },
 
       // --- CASE GOVERNANCE: DATIVE (Dat) ---
@@ -633,7 +634,7 @@ export function buildWort2Vocab() {
     ]);
     const CASE_PACK_2 = new Set([
       'kaufen', 'essen', 'trinken', 'lesen', 'machen', 'geben', 'zeigen', 'besuchen', 'fragen',
-      'nehmen', 'finden', 'antworten', 'gehören', 'passen', 'durch', 'seit'
+      'nehmen', 'finden', 'antworten', 'gehören', 'passen', 'durch', 'entlang', 'seit'
     ]);
     LEVEL_DEFINITIONS.case = [
       { id: 1, title: 'Pack 1 · Core' },

@@ -587,7 +587,6 @@
       color: var(--ink) !important;
     }
     #word-bank-modal h2,
-    #word-bank-modal .font-bold,
     #word-bank-modal .text-zinc-900 {
       color: var(--ink) !important;
     }
@@ -616,6 +615,46 @@
     #word-bank-modal .bank-row.is-open {
       border-color: var(--signal) !important;
       box-shadow: 0 0 0 1px var(--signal-soft);
+    }
+    /* Tier pills: do NOT inherit modal ink color (was light-on-light in dark mode). */
+    .bank-tier-pill {
+      display: inline-block;
+      padding: 0.125rem 0.5rem;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.25;
+      border: 1px solid transparent;
+    }
+    .bank-tier-learning {
+      background: rgba(14, 165, 233, 0.16);
+      color: #0369a1;
+      border-color: rgba(14, 165, 233, 0.35);
+    }
+    .bank-tier-learned {
+      background: var(--surface-2);
+      color: var(--ink);
+      border-color: var(--line-strong);
+    }
+    .bank-tier-mastered {
+      background: rgba(180, 83, 9, 0.16);
+      color: #92400e;
+      border-color: rgba(180, 83, 9, 0.35);
+    }
+    html[data-theme="dark"] .bank-tier-learning {
+      background: rgba(56, 189, 248, 0.18);
+      color: #7dd3fc;
+      border-color: rgba(56, 189, 248, 0.4);
+    }
+    html[data-theme="dark"] .bank-tier-learned {
+      background: rgba(232, 236, 241, 0.1);
+      color: #e8ecf1;
+      border-color: rgba(232, 236, 241, 0.22);
+    }
+    html[data-theme="dark"] .bank-tier-mastered {
+      background: rgba(230, 195, 92, 0.18);
+      color: #e6c35c;
+      border-color: rgba(230, 195, 92, 0.4);
     }
     #word-bank-modal .bank-chip-miss {
       background: var(--bad) !important;
@@ -1136,14 +1175,14 @@
       }
       setTimeout(function () {
         var s = document.documentElement.dataset.wortBoot;
-        if (s === '1125e' || s === '1125d') return;
+        if (s === '1125f' || s === '1125e' || s === '1125d') return;
         if (s === 'loading') show('JS still loading…');
         else show('JS failed to load');
       }, 6000);
     })();
   </script>
   <script type="module">
-    import('./js/wort2-app.js?v=1125e').catch((err) => {
+    import('./js/wort2-app.js?v=1125f').catch((err) => {
       const msg = (err && (err.message || String(err))) || 'import failed';
       if (typeof window.__wortShowBootError === 'function') {
         window.__wortShowBootError(msg.slice(0, 100));

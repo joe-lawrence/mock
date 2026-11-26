@@ -6,11 +6,11 @@ import {
       stopPiperAudio,
       isPiperReady,
     } from './piper-tts.js?v=wort2-piper-4';
-    import { buildWort2Vocab } from './wort2-vocab.js?v=wort2-content-2';
+    import { buildWort2Vocab } from './wort2-vocab.js?v=wort2-content-3';
     import {
       getDescriptiveDefinition,
       getExampleSentence
-    } from './wort2-definitions.js?v=wort2-content-2';
+    } from './wort2-definitions.js?v=wort2-content-3';
     const { VOCAB_DATA, LEVEL_DEFINITIONS } = buildWort2Vocab();
 
 document.documentElement.dataset.wortBoot = 'loading';
@@ -459,7 +459,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
     let audioCtx = null;
     let cachedEnglishVoice = null;
     let cachedGermanVoice = null;
-    const APP_STATUS_OK = 'German grammar sort · js ok 1125e';
+    const APP_STATUS_OK = 'German grammar sort · js ok 1125f';
     let speechUnlocked = false;
     let speakAfterCancel = false;
     let piperSpeakGen = 0;
@@ -3139,10 +3139,10 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         const buildsHint = !w.compound ? formatBuildsHint(w, { includeGender: true }) : '';
 
         const tierBadge = tier === 'mastered'
-          ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">Mastered</span>'
+          ? '<span class="bank-tier-pill bank-tier-mastered">Mastered</span>'
           : tier === 'learned'
-            ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-200 text-zinc-800">Learned</span>'
-            : '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800">Learning</span>';
+            ? '<span class="bank-tier-pill bank-tier-learned">Learned</span>'
+            : '<span class="bank-tier-pill bank-tier-learning">Learning</span>';
 
         const statusChips = [
           taught
@@ -3305,7 +3305,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
     // 8. BOOTSTRAP
     // =========================================================================
     function bootWortMatch() {
-      document.documentElement.dataset.wortBoot = '1125e';
+      document.documentElement.dataset.wortBoot = '1125f';
       setAppStatus(APP_STATUS_OK);
       let themePref = 'system';
       try {
