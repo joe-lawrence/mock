@@ -427,23 +427,43 @@
       background: #1a2230 !important;
     }
     html[data-theme="dark"] .wm-col-die,
-    html[data-theme="dark"] .wm-col-Dat {
+    html[data-theme="dark"] .wm-col-Dat,
+    html[data-theme="dark"] .wm-col-pl-en {
       background: #241c24 !important;
     }
-    html[data-theme="dark"] .wm-col-das {
+    html[data-theme="dark"] .wm-col-das,
+    html[data-theme="dark"] .wm-col-pl-er {
       background: #182420 !important;
+    }
+    html[data-theme="dark"] .wm-col-pl-e {
+      background: #1a2438 !important;
+    }
+    html[data-theme="dark"] .wm-col-pl-s {
+      background: #1a2436 !important;
+    }
+    html[data-theme="dark"] .wm-col-pl-zero {
+      background: #2a2418 !important;
     }
 
     html[data-theme="dark"] .wm-header-der,
-    html[data-theme="dark"] .wm-header-Akk {
+    html[data-theme="dark"] .wm-header-Akk,
+    html[data-theme="dark"] .wm-header-pl-e {
       background: #1e2a3c;
     }
     html[data-theme="dark"] .wm-header-die,
-    html[data-theme="dark"] .wm-header-Dat {
+    html[data-theme="dark"] .wm-header-Dat,
+    html[data-theme="dark"] .wm-header-pl-en {
       background: #2a1f2a;
     }
-    html[data-theme="dark"] .wm-header-das {
+    html[data-theme="dark"] .wm-header-das,
+    html[data-theme="dark"] .wm-header-pl-er {
       background: #1c2c26;
+    }
+    html[data-theme="dark"] .wm-header-pl-s {
+      background: #1e2a3c;
+    }
+    html[data-theme="dark"] .wm-header-pl-zero {
+      background: #2a2418;
     }
 
     .wm-word-card {
@@ -461,63 +481,112 @@
 
     /* Trait paints (light/dark via CSS vars) */
     .wm-badge { color: #fff; font-weight: 800; }
-    .wm-badge-der, .wm-badge-Akk { background: var(--masc); }
-    .wm-badge-die, .wm-badge-Dat { background: var(--fem); }
-    .wm-badge-das { background: var(--neut); }
+    .wm-badge-der, .wm-badge-Akk, .wm-badge-pl-e { background: var(--masc); }
+    .wm-badge-die, .wm-badge-Dat, .wm-badge-pl-en { background: var(--fem); }
+    .wm-badge-das, .wm-badge-pl-er { background: var(--neut); }
+    .wm-badge-pl-s { background: var(--signal); }
+    .wm-badge-pl-zero { background: var(--amber); }
 
-    .wm-header-der, .wm-header-Akk { background: var(--masc-soft); border-color: var(--masc); }
-    .wm-header-die, .wm-header-Dat { background: var(--fem-soft); border-color: var(--fem); }
-    .wm-header-das { background: var(--neut-soft); border-color: var(--neut); }
+    .wm-header-der, .wm-header-Akk, .wm-header-pl-e { background: var(--masc-soft); border-color: var(--masc); }
+    .wm-header-die, .wm-header-Dat, .wm-header-pl-en { background: var(--fem-soft); border-color: var(--fem); }
+    .wm-header-das, .wm-header-pl-er { background: var(--neut-soft); border-color: var(--neut); }
+    .wm-header-pl-s { background: var(--signal-soft); border-color: var(--signal); }
+    .wm-header-pl-zero { background: var(--amber-soft); border-color: var(--amber); }
 
-    .wm-col-der, .wm-col-Akk {
+    .wm-col-der, .wm-col-Akk, .wm-col-pl-e {
       background: var(--masc-soft) !important;
       border-color: color-mix(in srgb, var(--masc) 55%, var(--line-strong)) !important;
     }
-    .wm-col-die, .wm-col-Dat {
+    .wm-col-die, .wm-col-Dat, .wm-col-pl-en {
       background: var(--fem-soft) !important;
       border-color: color-mix(in srgb, var(--fem) 55%, var(--line-strong)) !important;
     }
-    .wm-col-das {
+    .wm-col-das, .wm-col-pl-er {
       background: var(--neut-soft) !important;
       border-color: color-mix(in srgb, var(--neut) 55%, var(--line-strong)) !important;
     }
+    .wm-col-pl-s {
+      background: var(--signal-soft) !important;
+      border-color: color-mix(in srgb, var(--signal) 55%, var(--line-strong)) !important;
+    }
+    .wm-col-pl-zero {
+      background: var(--amber-soft) !important;
+      border-color: color-mix(in srgb, var(--amber) 55%, var(--line-strong)) !important;
+    }
 
     .wm-col.col-intro-highlight.wm-col-der,
-    .wm-col.col-intro-highlight.wm-col-Akk { border-color: var(--masc) !important; }
+    .wm-col.col-intro-highlight.wm-col-Akk,
+    .wm-col.col-intro-highlight.wm-col-pl-e { border-color: var(--masc) !important; }
     .wm-col.col-intro-highlight.wm-col-die,
-    .wm-col.col-intro-highlight.wm-col-Dat { border-color: var(--fem) !important; }
-    .wm-col.col-intro-highlight.wm-col-das { border-color: var(--neut) !important; }
+    .wm-col.col-intro-highlight.wm-col-Dat,
+    .wm-col.col-intro-highlight.wm-col-pl-en { border-color: var(--fem) !important; }
+    .wm-col.col-intro-highlight.wm-col-das,
+    .wm-col.col-intro-highlight.wm-col-pl-er { border-color: var(--neut) !important; }
+    .wm-col.col-intro-highlight.wm-col-pl-s { border-color: var(--signal) !important; }
+    .wm-col.col-intro-highlight.wm-col-pl-zero { border-color: var(--amber) !important; }
 
-    .wm-title-der, .wm-title-Akk { color: var(--masc-ink); }
-    .wm-title-die, .wm-title-Dat { color: var(--fem-ink); }
-    .wm-title-das { color: var(--neut-ink); }
+    .wm-title-der, .wm-title-Akk, .wm-title-pl-e { color: var(--masc-ink); }
+    .wm-title-die, .wm-title-Dat, .wm-title-pl-en { color: var(--fem-ink); }
+    .wm-title-das, .wm-title-pl-er { color: var(--neut-ink); }
+    .wm-title-pl-s { color: var(--signal); }
+    .wm-title-pl-zero { color: var(--amber); }
 
-    .wm-card-der, .wm-card-Akk { background: var(--masc-soft); border-color: var(--masc); color: var(--masc-ink); }
-    .wm-card-die, .wm-card-Dat { background: var(--fem-soft); border-color: var(--fem); color: var(--fem-ink); }
-    .wm-card-das { background: var(--neut-soft); border-color: var(--neut); color: var(--neut-ink); }
+    .wm-card-der, .wm-card-Akk, .wm-card-pl-e { background: var(--masc-soft); border-color: var(--masc); color: var(--masc-ink); }
+    .wm-card-die, .wm-card-Dat, .wm-card-pl-en { background: var(--fem-soft); border-color: var(--fem); color: var(--fem-ink); }
+    .wm-card-das, .wm-card-pl-er { background: var(--neut-soft); border-color: var(--neut); color: var(--neut-ink); }
+    .wm-card-pl-s { background: var(--signal-soft); border-color: var(--signal); color: var(--signal); }
+    .wm-card-pl-zero { background: var(--amber-soft); border-color: var(--amber); color: var(--amber); }
 
-    .wm-inv-der, .wm-inv-Akk { background: var(--masc); border-color: var(--masc); color: #fff; }
-    .wm-inv-die, .wm-inv-Dat { background: var(--fem); border-color: var(--fem); color: #fff; }
-    .wm-inv-das { background: var(--neut); border-color: var(--neut); color: #fff; }
+    .wm-inv-der, .wm-inv-Akk, .wm-inv-pl-e { background: var(--masc); border-color: var(--masc); color: #fff; }
+    .wm-inv-die, .wm-inv-Dat, .wm-inv-pl-en { background: var(--fem); border-color: var(--fem); color: #fff; }
+    .wm-inv-das, .wm-inv-pl-er { background: var(--neut); border-color: var(--neut); color: #fff; }
+    .wm-inv-pl-s { background: var(--signal); border-color: var(--signal); color: #fff; }
+    .wm-inv-pl-zero { background: var(--amber); border-color: var(--amber); color: #fff; }
 
     /* Wrong answers after Check: inverse wash, softer than full TTS invert */
-    .wm-miss-der, .wm-miss-Akk {
+    .wm-miss-der, .wm-miss-Akk, .wm-miss-pl-e {
       background: color-mix(in srgb, var(--masc) 68%, var(--surface));
       border-color: var(--masc);
       color: #fff;
     }
-    .wm-miss-die, .wm-miss-Dat {
+    .wm-miss-die, .wm-miss-Dat, .wm-miss-pl-en {
       background: color-mix(in srgb, var(--fem) 68%, var(--surface));
       border-color: var(--fem);
       color: #fff;
     }
-    .wm-miss-das {
+    .wm-miss-das, .wm-miss-pl-er {
       background: color-mix(in srgb, var(--neut) 68%, var(--surface));
       border-color: var(--neut);
       color: #fff;
     }
+    .wm-miss-pl-s {
+      background: color-mix(in srgb, var(--signal) 68%, var(--surface));
+      border-color: var(--signal);
+      color: #fff;
+    }
+    .wm-miss-pl-zero {
+      background: color-mix(in srgb, var(--amber) 68%, var(--surface));
+      border-color: var(--amber);
+      color: #fff;
+    }
 
     /* Red X on chips that were sorted into the wrong column */
+    .wm-plural-ending {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.1rem 0.4rem;
+      border-radius: 0.4rem;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      background: var(--surface-2);
+      border: 1px solid var(--line-strong);
+      line-height: 1.2;
+    }
+
     .wm-miss-mark {
       flex-shrink: 0;
       display: inline-flex;
@@ -562,10 +631,21 @@
       }
     }
 
-    .wm-badge-inv { background: #fff; }
-    .wm-badge-inv-der, .wm-badge-inv-Akk { color: var(--masc-ink); }
-    .wm-badge-inv-die, .wm-badge-inv-Dat { color: var(--fem-ink); }
-    .wm-badge-inv-das { color: var(--neut-ink); }
+    /* Inverted TTS pills sit on a white chip — use fixed dark inks (never theme
+       --*-ink, which go light in dark mode and vanish on white). */
+    .wm-badge-inv { background: #fff !important; }
+    .wm-badge-inv-der, .wm-badge-inv-Akk, .wm-badge-inv-pl-e { color: #3a6ae0 !important; }
+    .wm-badge-inv-die, .wm-badge-inv-Dat, .wm-badge-inv-pl-en { color: #b34472 !important; }
+    .wm-badge-inv-das, .wm-badge-inv-pl-er { color: #1a5a3d !important; }
+    .wm-badge-inv-pl-s { color: #2f6fed !important; }
+    .wm-badge-inv-pl-zero { color: #92400e !important; }
+
+    /* Ending chips on inverted answer rows stay readable on colored wash */
+    .word-announce-highlight .wm-plural-ending {
+      background: #fff !important;
+      color: #1c2430 !important;
+      border-color: rgba(255, 255, 255, 0.55) !important;
+    }
 
     #translation-card {
       background: var(--surface) !important;
@@ -845,14 +925,18 @@
 
       <div class="space-y-1.5">
         <label class="wm-section-label block">Domain</label>
-        <div class="grid grid-cols-2 gap-1.5" role="group" aria-label="Grammatical Domain">
-          <button id="domain-nouns" type="button" class="domain-btn py-2 px-2.5 rounded-xl border text-left transition flex flex-col justify-between">
-            <span class="text-xs font-bold">Noun Gender</span>
+        <div class="grid grid-cols-3 gap-1.5" role="group" aria-label="Grammatical Domain">
+          <button id="domain-nouns" type="button" class="domain-btn py-2 px-2 rounded-xl border text-left transition flex flex-col justify-between">
+            <span class="text-xs font-bold">Gender</span>
             <span class="text-[10px] opacity-75 mt-0.5">der · die · das</span>
           </button>
-          <button id="domain-case" type="button" class="domain-btn py-2 px-2.5 rounded-xl border text-left transition flex flex-col justify-between">
-            <span class="text-xs font-bold">Case Governance</span>
-            <span class="text-[10px] opacity-75 mt-0.5">Akkusativ · Dativ</span>
+          <button id="domain-case" type="button" class="domain-btn py-2 px-2 rounded-xl border text-left transition flex flex-col justify-between">
+            <span class="text-xs font-bold">Case</span>
+            <span class="text-[10px] opacity-75 mt-0.5">Akk · Dat</span>
+          </button>
+          <button id="domain-plurals" type="button" class="domain-btn py-2 px-2 rounded-xl border text-left transition flex flex-col justify-between">
+            <span class="text-xs font-bold">Plurals</span>
+            <span class="text-[10px] opacity-75 mt-0.5">+en · +e · +er · +s · —</span>
           </button>
         </div>
       </div>
@@ -1060,6 +1144,7 @@
         <p id="trans-definition" class="text-base leading-relaxed"></p>
       </div>
       <p id="trans-compound" class="text-sm wm-mono mt-2 hidden"></p>
+      <p id="trans-plural" class="text-sm font-semibold mt-2 hidden" style="color:var(--ink)"></p>
       <p id="trans-example" class="text-sm leading-snug mt-2 hidden" style="color:var(--ink)"></p>
       <p id="trans-example-en" class="text-[13px] leading-snug mt-1 hidden" style="color:var(--muted)"></p>
       <p id="trans-note" class="text-xs mt-1.5 hidden"></p>
@@ -1182,7 +1267,7 @@
     })();
   </script>
   <script type="module">
-    import('./js/wort2-app.js?v=1125f').catch((err) => {
+    import('./js/wort2-app.js?v=1126c').catch((err) => {
       const msg = (err && (err.message || String(err))) || 'import failed';
       if (typeof window.__wortShowBootError === 'function') {
         window.__wortShowBootError(msg.slice(0, 100));

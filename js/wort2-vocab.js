@@ -2,6 +2,50 @@
  * WortMatch vocab corpus + pack/compound enrichment.
  * Edit here instead of wort2.html.
  */
+import { ARTICLES, LEXICON } from '../engine/nouns/index.js';
+
+/** Map lexicon plural.ending → sort trait (n merges into +en). */
+export function pluralEndingTrait(ending) {
+  if (ending === 'n' || ending === 'en') return '+en';
+  if (ending === 'e') return '+e';
+  if (ending === 'er') return '+er';
+  if (ending === 's') return '+s';
+  if (ending === '—' || ending === '-') return '—';
+  return null;
+}
+
+function lemmaSlug(lemma) {
+  return String(lemma)
+    .toLowerCase()
+    .replace(/ä/g, 'ae')
+    .replace(/ö/g, 'oe')
+    .replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '-');
+}
+
+function pluralHasUmlaut(lemma, plural) {
+  const stem = String(plural?.stem || '');
+  const base = String(lemma || '');
+  if (!stem || !base) return false;
+  const strip = (s) =>
+    s.replace(/[äöüÄÖÜ]/g, (ch) => ({ ä: 'a', ö: 'o', ü: 'u', Ä: 'A', Ö: 'O', Ü: 'U' }[ch]));
+  // Umlaut plural when the recorded stem matches the singular modulo ä/ö/ü (Buch→Büch).
+  return strip(stem) === strip(base.slice(0, stem.length)) && stem !== base.slice(0, stem.length);
+}
+
+function pluralNote(lemma, plural) {
+  const trait = pluralEndingTrait(plural?.ending);
+  const umlaut = pluralHasUmlaut(lemma, plural);
+  const umlautBit = umlaut ? ' (+ umlaut)' : '';
+  if (trait === '+en') return `Plural ends in -(e)n${umlautBit}`;
+  if (trait === '+e') return `Plural ends in -e${umlautBit}`;
+  if (trait === '+er') return `Plural ends in -er${umlautBit}`;
+  if (trait === '+s') return 'Plural ends in -s (often loanwords)';
+  if (trait === '—') return 'Plural same as singular (no ending)';
+  return 'Lexical plural';
+}
+
 export const VOCAB_CORE = [
       // --- NOUN GENDER: FEMININE (die) ---
       { id: 'vocab.nouns.zeitung', domain: 'nouns', pos: 'noun', word: 'Zeitung', trait: 'die', meaning: 'newspaper', note: '-ung suffix → feminine', initialScore: 0 },
@@ -618,13 +662,14 @@ export const COMPOUND_BREAKDOWNS = {
 
 /**
  * Mutates a fresh vocab array: assigns packs, compounds, buildsCompounds.
- * @returns { VOCAB_DATA: object[], LEVEL_DEFINITIONS: { nouns: object[], case: object[] } }
+ * @returns { VOCAB_DATA: object[], LEVEL_DEFINITIONS: { nouns: object[], case: object[], plurals: object[] } }
  */
 export function buildWort2Vocab() {
   const VOCAB_DATA = VOCAB_CORE.map((w) => ({ ...w }));
   const LEVEL_DEFINITIONS = {
     nouns: [],
-    case: []
+    case: [],
+    plurals: []
   };
 
 
@@ -777,7 +822,73 @@ export function buildWort2Vocab() {
         }
       }
     });
-    
+
+    // Attach lexicon plurals onto gender nouns for dictionary display in other modes.
+    VOCAB_DATA.forEach((w) => {
+      if (w.domain !== 'nouns' || w.pos !== 'noun') return;
+      const lex = LEXICON[w.word];
+      if (!lex?.plural?.form) return;
+      w.pluralForm = lex.plural.form;
+      w.pluralEnding = lex.plural.ending;
+      w.pluralTrait = pluralEndingTrait(lex.plural.ending);
+    });
+
+    // —— Plurals domain: one sortable item per lexicon lemma with a recorded plural ——
+    const PLURAL_TRAITS = ['+en', '+e', '+er', '+s', '—'];
+    const pluralPools = Object.fromEntries(PLURAL_TRAITS.map((t) => [t, []]));
+    for (const [lemma, entry] of Object.entries(LEXICON)) {
+      if (!entry?.plural?.form) continue;
+      const trait = pluralEndingTrait(entry.plural.ending);
+      if (!trait || !pluralPools[trait]) continue;
+      const genderArticle = entry.gender ? ARTICLES[entry.gender] : null;
+      pluralPools[trait].push({
+        id: `vocab.plurals.${lemmaSlug(lemma)}`,
+        domain: 'plurals',
+        pos: 'noun',
+        word: lemma,
+        trait,
+        meaning: entry.gloss || lemma,
+        note: pluralNote(lemma, entry.plural),
+        initialScore: 0,
+        pluralForm: entry.plural.form,
+        pluralEnding: entry.plural.ending,
+        pluralStem: entry.plural.stem,
+        genderArticle,
+        hasUmlaut: pluralHasUmlaut(lemma, entry.plural)
+      });
+    }
+
+    // Stable order within each ending class (umlaut exemplars earlier for +e/+er).
+    for (const t of PLURAL_TRAITS) {
+      pluralPools[t].sort((a, b) => {
+        if (!!b.hasUmlaut !== !!a.hasUmlaut) return a.hasUmlaut ? -1 : 1;
+        return a.word.localeCompare(b.word, 'de');
+      });
+    }
+
+    const PER_PLURAL_TRAIT = 4; // 4 × 5 endings ≈ 20 words per pack
+    const pluralPackCount = Math.max(
+      1,
+      ...PLURAL_TRAITS.map((t) => Math.ceil(pluralPools[t].length / PER_PLURAL_TRAIT))
+    );
+    for (let p = 0; p < pluralPackCount; p++) {
+      const packId = p + 1;
+      const sliceStart = p * PER_PLURAL_TRAIT;
+      const sliceEnd = sliceStart + PER_PLURAL_TRAIT;
+      for (const t of PLURAL_TRAITS) {
+        pluralPools[t].slice(sliceStart, sliceEnd).forEach((w, i) => {
+          w.level = packId;
+          // Seed a few anchors in pack 1 so Sort can start without a huge sprint.
+          if (packId === 1 && i === 0) w.initialScore = 6;
+          else if (packId === 1 && i === 1) w.initialScore = 3;
+          VOCAB_DATA.push(w);
+        });
+      }
+      LEVEL_DEFINITIONS.plurals.push({
+        id: packId,
+        title: `Pack ${packId}`
+      });
+    }
 
   return { VOCAB_DATA, LEVEL_DEFINITIONS };
 }

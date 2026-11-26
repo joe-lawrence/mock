@@ -6,11 +6,11 @@ import {
       stopPiperAudio,
       isPiperReady,
     } from './piper-tts.js?v=wort2-piper-4';
-    import { buildWort2Vocab } from './wort2-vocab.js?v=wort2-content-3';
+    import { buildWort2Vocab } from './wort2-vocab.js?v=wort2-content-4';
     import {
       getDescriptiveDefinition,
       getExampleSentence
-    } from './wort2-definitions.js?v=wort2-content-3';
+    } from './wort2-definitions.js?v=wort2-content-4';
     const { VOCAB_DATA, LEVEL_DEFINITIONS } = buildWort2Vocab();
 
 document.documentElement.dataset.wortBoot = 'loading';
@@ -81,13 +81,74 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         cardInvertedBg: 'wm-inv-Dat border-2',
         cardMissBg: 'wm-miss-Dat border-2',
         badgeInvertedBg: 'wm-badge-inv wm-badge-inv-Dat'
+      },
+      '+en': {
+        badgeBg: 'wm-badge wm-badge-pl-en',
+        headerBg: 'wm-header-pl-en border',
+        colTint: 'wm-col-pl-en',
+        titleText: 'wm-title-pl-en',
+        subLabel: 'en ending',
+        cardRevealBg: 'wm-card-pl-en border-2',
+        cardInvertedBg: 'wm-inv-pl-en border-2',
+        cardMissBg: 'wm-miss-pl-en border-2',
+        badgeInvertedBg: 'wm-badge-inv wm-badge-inv-pl-en'
+      },
+      '+e': {
+        badgeBg: 'wm-badge wm-badge-pl-e',
+        headerBg: 'wm-header-pl-e border',
+        colTint: 'wm-col-pl-e',
+        titleText: 'wm-title-pl-e',
+        subLabel: 'e ending',
+        cardRevealBg: 'wm-card-pl-e border-2',
+        cardInvertedBg: 'wm-inv-pl-e border-2',
+        cardMissBg: 'wm-miss-pl-e border-2',
+        badgeInvertedBg: 'wm-badge-inv wm-badge-inv-pl-e'
+      },
+      '+er': {
+        badgeBg: 'wm-badge wm-badge-pl-er',
+        headerBg: 'wm-header-pl-er border',
+        colTint: 'wm-col-pl-er',
+        titleText: 'wm-title-pl-er',
+        subLabel: 'er ending',
+        cardRevealBg: 'wm-card-pl-er border-2',
+        cardInvertedBg: 'wm-inv-pl-er border-2',
+        cardMissBg: 'wm-miss-pl-er border-2',
+        badgeInvertedBg: 'wm-badge-inv wm-badge-inv-pl-er'
+      },
+      '+s': {
+        badgeBg: 'wm-badge wm-badge-pl-s',
+        headerBg: 'wm-header-pl-s border',
+        colTint: 'wm-col-pl-s',
+        titleText: 'wm-title-pl-s',
+        subLabel: 's ending',
+        cardRevealBg: 'wm-card-pl-s border-2',
+        cardInvertedBg: 'wm-inv-pl-s border-2',
+        cardMissBg: 'wm-miss-pl-s border-2',
+        badgeInvertedBg: 'wm-badge-inv wm-badge-inv-pl-s'
+      },
+      '—': {
+        badgeBg: 'wm-badge wm-badge-pl-zero',
+        headerBg: 'wm-header-pl-zero border',
+        colTint: 'wm-col-pl-zero',
+        titleText: 'wm-title-pl-zero',
+        subLabel: 'no ending',
+        cardRevealBg: 'wm-card-pl-zero border-2',
+        cardInvertedBg: 'wm-inv-pl-zero border-2',
+        cardMissBg: 'wm-miss-pl-zero border-2',
+        badgeInvertedBg: 'wm-badge-inv wm-badge-inv-pl-zero'
       }
     };
 
     const DOMAIN_CONFIG = {
       nouns: { label: 'Gender', traits: ['der', 'die', 'das'] },
-      case: { label: 'Case', traits: ['Akk', 'Dat'] }
+      case: { label: 'Case', traits: ['Akk', 'Dat'] },
+      plurals: { label: 'Plurals', traits: ['+en', '+e', '+er', '+s', '—'] }
     };
+
+    /** Domains that speak the category label once (anchors / Learning), not on every word. */
+    function isCategoryLabelDomain(domain) {
+      return domain === 'case' || domain === 'plurals';
+    }
 
     // =========================================================================
     // 2. PERSISTENT STATE, MULTI-PACK SELECTION & COMPOUND GATING ENGINE
@@ -99,10 +160,11 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
     const MAX_ROUND_SORTABLES = 5;
 
     let appState = {
-      domain: 'nouns',          // 'nouns' | 'case'
+      domain: 'nouns',          // 'nouns' | 'case' | 'plurals'
       selectedPacks: {
         nouns: [1],
-        case: [1]
+        case: [1],
+        plurals: [1]
       },
       learningCount: 2,         // 0..3 sortable Learning words per round
       learnedCount: 2,          // 0..3
@@ -218,7 +280,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         : 0;
       const mistakeLines = report.mistakes.length
         ? report.mistakes.map(m =>
-            `<li class="flex items-center gap-2 py-0.5"><span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold shrink-0" style="background:var(--surface-2)">${m.trait}</span><span class="wm-word-scroll font-semibold">${m.word}</span></li>`
+            `<li class="flex items-center gap-2 py-0.5"><span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold shrink-0" style="background:var(--surface-2)">${m.trait}</span><span class="wm-word-scroll font-semibold">${m.genderArticle ? `${m.genderArticle} ${m.word}` : m.word}</span></li>`
           ).join('')
         : '<li style="color:var(--muted)">No misses this session</li>';
 
@@ -341,7 +403,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         appState.lastMissAt = {};
       }
 
-      ['nouns', 'case'].forEach(dom => {
+      ['nouns', 'case', 'plurals'].forEach(dom => {
         if (!Array.isArray(appState.selectedPacks[dom]) || appState.selectedPacks[dom].length === 0) {
           appState.selectedPacks[dom] = [1];
         }
@@ -783,38 +845,60 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
     }
 
     function formatSpokenPhrase(wordObj, includeArticle) {
+      if (!wordObj) return '';
+      // Plurals mode: always speak nominative gender article with the singular noun.
+      if (wordObj.domain === 'plurals' && wordObj.genderArticle) {
+        return `${wordObj.genderArticle} ${wordObj.word}`;
+      }
       if (includeArticle && wordObj.pos === 'noun' && ['der', 'die', 'das'].includes(wordObj.trait)) {
         return `${wordObj.trait} ${wordObj.word}`;
       }
-      if (includeArticle && wordObj.domain === 'case') {
-        const caseLabel = TRAIT_STYLES[wordObj.trait]?.subLabel || wordObj.trait;
-        return `${caseLabel}: ${wordObj.word}`;
-      }
+      // Case labels are spoken separately (with a pause) — never glue "Accusative: für".
       return wordObj.word;
     }
 
-    function speakGermanWord(wordObj, includeArticle = false, onDone = null) {
-      const phrase = formatSpokenPhrase(wordObj, includeArticle);
-      if (!appState.speechEnabled || !phrase) {
+    function nominativeArticle(wordObj) {
+      if (!wordObj) return null;
+      if (wordObj.domain === 'plurals') return wordObj.genderArticle || null;
+      return null;
+    }
+
+    /** Plurals: ending on Learning words during play; on every chip after Check. */
+    function shouldShowPluralEnding(wordObj) {
+      if (!wordObj || wordObj.domain !== 'plurals') return false;
+      return !!isChecked || isLearningWord(wordObj);
+    }
+
+    function formatDisplayWord(wordObj) {
+      if (!wordObj) return '';
+      const art = nominativeArticle(wordObj);
+      return art ? `${art} ${wordObj.word}` : wordObj.word;
+    }
+
+    function pluralEndingHtml(wordObj, { force = false } = {}) {
+      if (!wordObj || wordObj.domain !== 'plurals') return '';
+      if (!force && !shouldShowPluralEnding(wordObj)) return '';
+      return `<span class="wm-plural-ending shrink-0">${wordObj.trait}</span>`;
+    }
+
+    function categorySpokenLabel(wordObj) {
+      if (!wordObj || !isCategoryLabelDomain(wordObj.domain)) return null;
+      return TRAIT_STYLES[wordObj.trait]?.subLabel || wordObj.trait || null;
+    }
+
+    /** Speak one German string via Piper (or device fallback). */
+    function speakGermanUtterance(phrase, gen, onDone) {
+      if (!phrase) {
         if (onDone) onDone();
         return;
       }
-
-      const gen = ++piperSpeakGen;
       const finish = () => {
         if (gen !== piperSpeakGen) return;
         if (onDone) onDone();
       };
 
-      try {
-        void unlockPiperAudio();
-        initAudio();
-      } catch (_) { /* ignore */ }
-
       const run = async () => {
         try {
-          // Prefer Piper (best German on Safari). Wait longer on first load;
-          // status line shows download progress. Fall back to device TTS.
           if (!isPiperReady()) {
             warmPiperVoice();
             const waitMs = isSafariWebKit() || isIOSAudioDevice() ? 12000 : 1800;
@@ -851,6 +935,45 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       };
 
       void run();
+    }
+
+    function speakGermanWord(wordObj, includeArticle = false, onDone = null) {
+      if (!appState.speechEnabled || !wordObj) {
+        if (onDone) onDone();
+        return;
+      }
+
+      const gen = ++piperSpeakGen;
+      const finish = () => {
+        if (gen !== piperSpeakGen) return;
+        if (onDone) onDone();
+      };
+
+      try {
+        void unlockPiperAudio();
+        initAudio();
+      } catch (_) { /* ignore */ }
+
+      // Case / plurals: category label …pause… word (never one glued phrase).
+      if (includeArticle && isCategoryLabelDomain(wordObj.domain)) {
+        const label = categorySpokenLabel(wordObj);
+        const word = formatSpokenPhrase(wordObj, true);
+        if (!label) {
+          speakGermanUtterance(word, gen, finish);
+          return;
+        }
+        speakGermanUtterance(label, gen, () => {
+          if (gen !== piperSpeakGen) return;
+          setTimeout(() => {
+            if (gen !== piperSpeakGen) return;
+            speakGermanUtterance(word, gen, finish);
+          }, 420);
+        });
+        return;
+      }
+
+      const phrase = formatSpokenPhrase(wordObj, includeArticle);
+      speakGermanUtterance(phrase, gen, finish);
     }
 
     function speakEnglishDefinition(text, onDone = null) {
@@ -1191,7 +1314,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
 
       document.getElementById('sprint-counter').textContent = `${sprintState.index + 1} / ${sprintState.queue.length}`;
       document.getElementById('sprint-level-tag').textContent = `Pack ${wordObj.level}`;
-      document.getElementById('sprint-word').textContent = wordObj.word;
+      document.getElementById('sprint-word').textContent = formatDisplayWord(wordObj);
 
       // Speak after paint so Safari isn't wedged mid-navigation.
       const spoken = wordObj;
@@ -1209,7 +1332,12 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
 
       const traits = DOMAIN_CONFIG[appState.domain].traits;
       const btnContainer = document.getElementById('sprint-buttons');
-      btnContainer.className = traits.length === 2 ? 'grid grid-cols-2 gap-2.5' : 'grid grid-cols-3 gap-2';
+      btnContainer.className =
+        traits.length <= 2
+          ? 'grid grid-cols-2 gap-2.5'
+          : traits.length === 3
+            ? 'grid grid-cols-3 gap-2'
+            : 'grid grid-cols-3 gap-2';
 
       btnContainer.innerHTML = traits.map(trait => {
         const st = TRAIT_STYLES[trait];
@@ -1245,21 +1373,21 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         playSound('correct');
         cardEl.className = `w-full max-w-[320px] rounded-3xl border-2 ${st.cardRevealBg} p-6 text-center space-y-2 transition-all`;
         cardEl.style.borderColor = '';
-        fb.textContent = `✓ ${wordObj.trait} ${wordObj.word} → Learned`;
+        fb.textContent = `✓ ${wordObj.trait} ${formatDisplayWord(wordObj)} → Learned`;
         fb.className = `h-5 text-xs font-extrabold ${st.titleText}`;
       } else if (isDontKnow) {
         appState.scores[wordObj.id] = 0;
         playSound('sort');
         cardEl.className = `w-full max-w-[320px] rounded-3xl border-2 ${st.cardRevealBg} p-6 text-center space-y-2 transition-all`;
         cardEl.style.borderColor = '';
-        fb.textContent = `${wordObj.trait} ${wordObj.word} → Learning`;
+        fb.textContent = `${wordObj.trait} ${formatDisplayWord(wordObj)} → Learning`;
         fb.className = `h-5 text-xs font-extrabold ${st.titleText}`;
       } else {
         appState.scores[wordObj.id] = 0;
         playSound('wrong');
         cardEl.className = `w-full max-w-[320px] rounded-3xl border-2 ${st.cardRevealBg} p-6 text-center space-y-2 transition-all`;
         cardEl.style.borderColor = '';
-        fb.textContent = `✗ ${wordObj.trait} ${wordObj.word} → Anchor`;
+        fb.textContent = `✗ ${wordObj.trait} ${formatDisplayWord(wordObj)} → Anchor`;
         fb.className = 'h-5 text-xs font-extrabold';
         fb.style.color = 'var(--bad)';
       }
@@ -1432,6 +1560,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       const defEl = document.getElementById('trans-definition');
       const noteEl = document.getElementById('trans-note');
       const compEl = document.getElementById('trans-compound');
+      const pluralEl = document.getElementById('trans-plural');
       const exampleEl = document.getElementById('trans-example');
       const exampleEnEl = document.getElementById('trans-example-en');
       const showClues = shouldShowDictionaryClues(wordObj, revealAnswer);
@@ -1440,8 +1569,13 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       const definitionText = popupDefinitionText(wordObj, showClues, revealAnswer);
       // Examples almost always include der/die/das — never show while sorting.
       const example = revealAnswer ? getExampleSentence(wordObj) : null;
+      // Plural form: fine in gender/case dictionary. In plurals mode it names the
+      // ending class — only after Check (never while still sorting, even Learning).
+      const showPluralForm =
+        !!wordObj.pluralForm &&
+        (wordObj.domain !== 'plurals' || !!revealAnswer);
 
-      headerLineEl.textContent = wordObj.word;
+      headerLineEl.textContent = formatDisplayWord(wordObj);
       defEl.textContent = definitionText;
 
       // Compound breakdown includes root gender — answer mode only.
@@ -1468,8 +1602,17 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         exampleEnEl.classList.add('hidden');
       }
 
-      // Gender pill: answer mode only.
-      if (showArticle) {
+      if (pluralEl) {
+        if (showPluralForm) {
+          pluralEl.textContent = `Plural: die ${wordObj.pluralForm}`;
+          pluralEl.classList.remove('hidden');
+        } else {
+          pluralEl.classList.add('hidden');
+        }
+      }
+
+      // Gender / trait pill: answer mode only.
+      if (showArticle && st) {
         pillEl.textContent = wordObj.trait;
         pillEl.className = `wm-anchor-pill ${st.badgeBg}`;
         pillEl.classList.remove('hidden');
@@ -1477,7 +1620,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         pillEl.classList.add('hidden');
       }
 
-      // Extra grammar note still answer-mode only (often an explicit gender rule).
+      // Grammar note answer-mode only (gender rules / plural ending notes spoil sorts).
       if (revealAnswer && wordObj.note) {
         noteEl.textContent = wordObj.note;
         noteEl.classList.remove('hidden');
@@ -1959,7 +2102,15 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
           }, pauseMs);
         };
 
-        speakGermanWord(wordObj, true, advance);
+        // Case / plurals: category label only for anchors + Learning words; later words bare.
+        // Noun gender: keep article on every answer-mode readout.
+        const speakCategory =
+          isCategoryLabelDomain(wordObj.domain)
+            ? (wordObj === currentRound.leftAnchor
+              || wordObj === currentRound.rightAnchor
+              || isLearningWord(wordObj))
+            : true;
+        speakGermanWord(wordObj, speakCategory, advance);
       };
 
       speakStepNow(0);
@@ -2099,7 +2250,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         ${anchorWord ? `
           <div data-anchor-card="true" data-normal-class="${normalCardClass}" class="${normalCardClass}">
             <span data-anchor-badge="true" data-normal-class="${normalBadgeClass}" class="${normalBadgeClass}">${trait}</span>
-            <span data-anchor-word="true" data-normal-class="${normalWordClass}" class="${normalWordClass}">${anchorWord.word}</span>
+            <span data-anchor-word="true" data-normal-class="${normalWordClass}" class="${normalWordClass}">${formatDisplayWord(anchorWord)}</span>
             <p data-anchor-def="true" data-normal-class="${normalDefClass}" class="${normalDefClass}" style="color:var(--muted)">${defText}</p>
           </div>
         ` : ''}
@@ -2183,7 +2334,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       el.dataset.colSide = side;
       el.className = `word-row-spring cursor-pointer wm-surface rounded-xl px-2.5 py-1.5 flex items-center justify-between gap-1.5 min-w-0${animate ? ' slot-enter' : ''}`;
       el.title = '';
-      el.innerHTML = `<span class="text-sm font-bold wm-word-scroll flex-1">${item.word}</span>`;
+      el.innerHTML = `<span class="text-sm font-bold wm-word-scroll flex-1">${formatDisplayWord(item)}</span>${pluralEndingHtml(item)}`;
       bindColumnItemClick(el, item);
       containerEl.appendChild(el);
       requestAnimationFrame(() => refreshWordScroll(el));
@@ -2203,7 +2354,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
           const enterClass = enterId && item.id === enterId ? ' slot-enter' : '';
           return `
             <div data-col-item-id="${item.id}" data-col-side="${side}" class="word-row-spring cursor-pointer wm-surface rounded-xl px-2.5 py-1.5 flex items-center justify-between gap-1.5 min-w-0${enterClass}">
-              <span class="text-sm font-bold wm-word-scroll flex-1">${item.word}</span>
+              <span class="text-sm font-bold wm-word-scroll flex-1">${formatDisplayWord(item)}</span>${pluralEndingHtml(item)}
             </div>
           `;
         } else {
@@ -2216,15 +2367,14 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
             : '';
 
           const toneClass = wasWrong ? trueStyle.cardMissBg : trueStyle.cardRevealBg;
-          const normalRevealClass = `cursor-pointer ${borderThickness} rounded-xl px-2.5 py-1.5 flex items-center min-w-0 ${toneClass}`;
+          const normalRevealClass = `cursor-pointer ${borderThickness} rounded-xl px-2.5 py-1.5 flex items-center gap-1.5 min-w-0 ${toneClass}`;
           const missMark = wasWrong
             ? '<span class="wm-miss-mark" aria-label="Incorrect"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3l6 6M9 3L3 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>'
             : '';
 
           return `
             <div data-col-item-id="${item.id}" data-col-side="${side}" data-was-wrong="${wasWrong ? '1' : '0'}" data-normal-class="${normalRevealClass}" class="${normalRevealClass} ${animClass}">
-              <span class="text-sm font-extrabold wm-word-scroll flex-1">${item.word}</span>
-              ${missMark}
+              <span class="text-sm font-extrabold wm-word-scroll flex-1">${formatDisplayWord(item)}</span>${pluralEndingHtml(item, { force: true })}${missMark}
             </div>
           `;
         }
@@ -2260,9 +2410,11 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       document.getElementById('unsorted-label').textContent = `Remaining: ${unsorted.length}`;
       const currentItem = unsorted[0];
 
+      const endingBadge = pluralEndingHtml(currentItem);
       elUnsortedQueue.innerHTML = `
         <div data-word-id="${currentItem.id}" class="wm-word-card rounded-2xl px-3 py-3 text-center select-none" style="touch-action:manipulation;-webkit-user-select:none;user-select:none">
-          <p class="text-xl font-semibold wm-word-scroll">${currentItem.word}</p>
+          <p class="text-xl font-semibold wm-word-scroll">${formatDisplayWord(currentItem)}</p>
+          ${endingBadge ? `<p class="mt-1.5 flex justify-center">${endingBadge}</p>` : ''}
         </div>
       `;
 
@@ -2578,7 +2730,12 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
           if (prevScore >= 3 && next < 3) sess.demotedIds.add(item.id);
           appState.lastMissAt[item.id] = Date.now();
           if (!sess.mistakes.some(m => m.id === item.id)) {
-            sess.mistakes.push({ id: item.id, word: item.word, trait: item.trait });
+            sess.mistakes.push({
+              id: item.id,
+              word: item.word,
+              trait: item.trait,
+              genderArticle: item.genderArticle || null
+            });
           }
         }
       });
@@ -2727,8 +2884,9 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       document.getElementById('val-mastered').textContent = appState.masteredCount;
       document.getElementById('total-words-badge').textContent = `${appState.learningCount + appState.learnedCount + appState.masteredCount} words`;
 
-      ['nouns', 'case'].forEach(dom => {
+      ['nouns', 'case', 'plurals'].forEach(dom => {
         const btn = document.getElementById(`domain-${dom}`);
+        if (!btn) return;
         btn.className = `domain-btn py-2 px-2.5 rounded-xl border text-left transition flex flex-col justify-between${
           appState.domain === dom ? ' is-on' : ''
         }`;
@@ -2852,8 +3010,8 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       handleSprintChoice(null);
     });
 
-    ['nouns', 'case'].forEach(dom => {
-      document.getElementById(`domain-${dom}`).addEventListener('click', () => {
+    ['nouns', 'case', 'plurals'].forEach(dom => {
+      document.getElementById(`domain-${dom}`)?.addEventListener('click', () => {
         if (appState.domain === dom) return;
         appState.domain = dom;
         bankTraitFilter = 'all';
@@ -3159,9 +3317,14 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
             ? `<p class="text-[10px] font-mono text-amber-700 mt-0.5">${escapeBankHtml(buildsHint)}</p>`
             : '';
 
+        const pluralLine = w.pluralForm
+          ? `<p class="text-[11px] font-semibold" style="color:var(--ink)">Plural: die ${escapeBankHtml(w.pluralForm)}</p>`
+          : '';
+
         const detail = open ? `
           <div class="mt-2.5 pt-2.5 border-t space-y-1.5 text-left" style="border-color:var(--line)" data-bank-detail>
             <p class="text-xs leading-snug" style="color:var(--ink)">${escapeBankHtml(def)}</p>
+            ${pluralLine}
             ${example ? `
               <p class="text-[11px] leading-snug font-semibold" style="color:var(--ink)">${escapeBankHtml(example.de)}</p>
               <p class="text-[10px] leading-snug" style="color:var(--muted)">${escapeBankHtml(example.en)}</p>
@@ -3182,7 +3345,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-1.5 min-w-0">
                   <span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold shrink-0 ${st.badgeBg}">${w.trait}</span>
-                  <span class="font-bold text-sm text-zinc-900 wm-word-scroll">${escapeBankHtml(w.word)}</span>
+                  <span class="font-bold text-sm text-zinc-900 wm-word-scroll">${escapeBankHtml(formatDisplayWord(w))}</span>
                 </div>
                 <p class="text-xs text-zinc-400 wm-word-scroll mt-0.5">— ${escapeBankHtml(w.meaning || '')}</p>
                 <div class="flex items-center gap-1 flex-wrap mt-1">${statusChips}</div>
@@ -3288,7 +3451,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
           appState.introduced[item.id] = true;
         }
       });
-      appState.selectedPacks = { nouns: [1], case: [1] };
+      appState.selectedPacks = { nouns: [1], case: [1], plurals: [1] };
       appState.seenCombinations = [];
       appState.streak = 0;
       bankOpenId = null;

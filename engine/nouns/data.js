@@ -3,7 +3,7 @@
  * Lexical gender/plural are authoritative; patterns are predictive only.
  */
 
-export const DATA_VERSION = "0.5.5";
+export const DATA_VERSION = "0.5.6";
 
 export const ARTICLES = Object.freeze({
   masculine: "der",
@@ -652,10 +652,26 @@ export const LEXICON = Object.freeze({
   Zinn: Object.freeze({ gender: "neuter", gloss: "tin (metal)" }),
 
   // —— Venues / establishments (n) ——
-  Hotel: Object.freeze({ gender: "neuter", gloss: "hotel" }),
-  Café: Object.freeze({ gender: "neuter", gloss: "café" }),
-  Restaurant: Object.freeze({ gender: "neuter", gloss: "restaurant" }),
-  Kino: Object.freeze({ gender: "neuter", gloss: "cinema" }),
+  Hotel: Object.freeze({
+    gender: "neuter",
+    gloss: "hotel",
+    plural: Object.freeze({ form: "Hotels", stem: "Hotel", ending: "s" }),
+  }),
+  Café: Object.freeze({
+    gender: "neuter",
+    gloss: "café",
+    plural: Object.freeze({ form: "Cafés", stem: "Café", ending: "s" }),
+  }),
+  Restaurant: Object.freeze({
+    gender: "neuter",
+    gloss: "restaurant",
+    plural: Object.freeze({ form: "Restaurants", stem: "Restaurant", ending: "s" }),
+  }),
+  Kino: Object.freeze({
+    gender: "neuter",
+    gloss: "cinema",
+    plural: Object.freeze({ form: "Kinos", stem: "Kino", ending: "s" }),
+  }),
   Museum: Object.freeze({ gender: "neuter", gloss: "museum" }),
   Theater: Object.freeze({
     gender: "neuter",
@@ -678,11 +694,31 @@ export const LEXICON = Object.freeze({
   }),
 
   // —— Occupations unmarked (m) ——
-  Arzt: Object.freeze({ gender: "masculine", gloss: "doctor" }),
-  Lehrer: Object.freeze({ gender: "masculine", gloss: "teacher" }),
-  Schüler: Object.freeze({ gender: "masculine", gloss: "student / pupil" }),
-  Gärtner: Object.freeze({ gender: "masculine", gloss: "gardener" }),
-  Koch: Object.freeze({ gender: "masculine", gloss: "cook / chef" }),
+  Arzt: Object.freeze({
+    gender: "masculine",
+    gloss: "doctor",
+    plural: Object.freeze({ form: "Ärzte", stem: "Ärzt", ending: "e" }),
+  }),
+  Lehrer: Object.freeze({
+    gender: "masculine",
+    gloss: "teacher",
+    plural: Object.freeze({ form: "Lehrer", stem: "Lehrer", ending: "—" }),
+  }),
+  Schüler: Object.freeze({
+    gender: "masculine",
+    gloss: "student / pupil",
+    plural: Object.freeze({ form: "Schüler", stem: "Schüler", ending: "—" }),
+  }),
+  Gärtner: Object.freeze({
+    gender: "masculine",
+    gloss: "gardener",
+    plural: Object.freeze({ form: "Gärtner", stem: "Gärtner", ending: "—" }),
+  }),
+  Koch: Object.freeze({
+    gender: "masculine",
+    gloss: "cook / chef",
+    plural: Object.freeze({ form: "Köche", stem: "Köch", ending: "e" }),
+  }),
   Partner: Object.freeze({
     gender: "masculine",
     gloss: "partner",
@@ -736,8 +772,12 @@ export const LEXICON = Object.freeze({
     plural: Object.freeze({ form: "Autos", stem: "Auto", ending: "s" }),
   }),
 
-  // —— Case lesson nouns (Appendix H). Plurals only where a later unit needs the form. ——
-  Mann: Object.freeze({ gender: "masculine", gloss: "man" }),
+  // —— Case lesson nouns (Appendix H) + shared plurals coverage ——
+  Mann: Object.freeze({
+    gender: "masculine",
+    gloss: "man",
+    plural: Object.freeze({ form: "Männer", stem: "Männ", ending: "er" }),
+  }),
   Frau: Object.freeze({
     gender: "feminine",
     gloss: "woman",
@@ -753,29 +793,296 @@ export const LEXICON = Object.freeze({
     gloss: "child",
     plural: Object.freeze({ form: "Kinder", stem: "Kind", ending: "er" }),
   }),
-  Bus: Object.freeze({ gender: "masculine", gloss: "bus" }),
-  Zug: Object.freeze({ gender: "masculine", gloss: "train" }),
-  Stadt: Object.freeze({ gender: "feminine", gloss: "city" }),
-  Stift: Object.freeze({ gender: "masculine", gloss: "pen" }),
-  Ball: Object.freeze({ gender: "masculine", gloss: "ball" }),
-  Schlüssel: Object.freeze({ gender: "masculine", gloss: "key" }),
-  Geschenk: Object.freeze({ gender: "neuter", gloss: "gift" }),
-  Katze: Object.freeze({ gender: "feminine", gloss: "cat" }),
-  Tasche: Object.freeze({ gender: "feminine", gloss: "bag" }),
-  Ticket: Object.freeze({ gender: "neuter", gloss: "ticket" }),
-  Haus: Object.freeze({ gender: "neuter", gloss: "house" }),
-  Hemd: Object.freeze({ gender: "neuter", gloss: "shirt" }),
-  Jacke: Object.freeze({ gender: "feminine", gloss: "jacket" }),
-  Farbe: Object.freeze({ gender: "feminine", gloss: "color" }),
-  Kleid: Object.freeze({ gender: "neuter", gloss: "dress" }),
+  Bus: Object.freeze({
+    gender: "masculine",
+    gloss: "bus",
+    plural: Object.freeze({ form: "Busse", stem: "Buss", ending: "e" }),
+  }),
+  Zug: Object.freeze({
+    gender: "masculine",
+    gloss: "train",
+    plural: Object.freeze({ form: "Züge", stem: "Züg", ending: "e" }),
+  }),
+  Stadt: Object.freeze({
+    gender: "feminine",
+    gloss: "city",
+    plural: Object.freeze({ form: "Städte", stem: "Städt", ending: "e" }),
+  }),
+  Stift: Object.freeze({
+    gender: "masculine",
+    gloss: "pen",
+    plural: Object.freeze({ form: "Stifte", stem: "Stift", ending: "e" }),
+  }),
+  Ball: Object.freeze({
+    gender: "masculine",
+    gloss: "ball",
+    plural: Object.freeze({ form: "Bälle", stem: "Bäll", ending: "e" }),
+  }),
+  Schlüssel: Object.freeze({
+    gender: "masculine",
+    gloss: "key",
+    plural: Object.freeze({ form: "Schlüssel", stem: "Schlüssel", ending: "—" }),
+  }),
+  Geschenk: Object.freeze({
+    gender: "neuter",
+    gloss: "gift",
+    plural: Object.freeze({ form: "Geschenke", stem: "Geschenk", ending: "e" }),
+  }),
+  Katze: Object.freeze({
+    gender: "feminine",
+    gloss: "cat",
+    plural: Object.freeze({ form: "Katzen", stem: "Katze", ending: "n" }),
+  }),
+  Tasche: Object.freeze({
+    gender: "feminine",
+    gloss: "bag",
+    plural: Object.freeze({ form: "Taschen", stem: "Tasche", ending: "n" }),
+  }),
+  Ticket: Object.freeze({
+    gender: "neuter",
+    gloss: "ticket",
+    plural: Object.freeze({ form: "Tickets", stem: "Ticket", ending: "s" }),
+  }),
+  Haus: Object.freeze({
+    gender: "neuter",
+    gloss: "house",
+    plural: Object.freeze({ form: "Häuser", stem: "Häus", ending: "er" }),
+  }),
+  Hemd: Object.freeze({
+    gender: "neuter",
+    gloss: "shirt",
+    plural: Object.freeze({ form: "Hemden", stem: "Hemd", ending: "en" }),
+  }),
+  Jacke: Object.freeze({
+    gender: "feminine",
+    gloss: "jacket",
+    plural: Object.freeze({ form: "Jacken", stem: "Jacke", ending: "n" }),
+  }),
+  Farbe: Object.freeze({
+    gender: "feminine",
+    gloss: "color",
+    plural: Object.freeze({ form: "Farben", stem: "Farbe", ending: "n" }),
+  }),
+  Kleid: Object.freeze({
+    gender: "neuter",
+    gloss: "dress",
+    plural: Object.freeze({ form: "Kleider", stem: "Kleid", ending: "er" }),
+  }),
   Hilfe: Object.freeze({ gender: "feminine", gloss: "help" }),
-  Park: Object.freeze({ gender: "masculine", gloss: "park" }),
+  Park: Object.freeze({
+    gender: "masculine",
+    gloss: "park",
+    plural: Object.freeze({ form: "Parks", stem: "Park", ending: "s" }),
+  }),
   Husten: Object.freeze({ gender: "masculine", gloss: "cough" }),
   Schmerz: Object.freeze({
     gender: "masculine",
     gloss: "pain",
     plural: Object.freeze({ form: "Schmerzen", stem: "Schmerz", ending: "en" }),
   }),
+
+  // —— Plurals mode balance (-er / -e+umlaut / -s loanwords) ——
+  Wald: Object.freeze({
+    gender: "masculine",
+    gloss: "forest",
+    plural: Object.freeze({ form: "Wälder", stem: "Wäld", ending: "er" }),
+  }),
+  Dorf: Object.freeze({
+    gender: "neuter",
+    gloss: "village",
+    plural: Object.freeze({ form: "Dörfer", stem: "Dörf", ending: "er" }),
+  }),
+  Land: Object.freeze({
+    gender: "neuter",
+    gloss: "land / country",
+    plural: Object.freeze({ form: "Länder", stem: "Länd", ending: "er" }),
+  }),
+  Blatt: Object.freeze({
+    gender: "neuter",
+    gloss: "leaf / sheet",
+    plural: Object.freeze({ form: "Blätter", stem: "Blätt", ending: "er" }),
+  }),
+  Glas: Object.freeze({
+    gender: "neuter",
+    gloss: "glass",
+    plural: Object.freeze({ form: "Gläser", stem: "Gläs", ending: "er" }),
+  }),
+  Wort: Object.freeze({
+    gender: "neuter",
+    gloss: "word",
+    plural: Object.freeze({ form: "Wörter", stem: "Wört", ending: "er" }),
+  }),
+  Dach: Object.freeze({
+    gender: "neuter",
+    gloss: "roof",
+    plural: Object.freeze({ form: "Dächer", stem: "Däch", ending: "er" }),
+  }),
+  Fach: Object.freeze({
+    gender: "neuter",
+    gloss: "subject / compartment",
+    plural: Object.freeze({ form: "Fächer", stem: "Fäch", ending: "er" }),
+  }),
+  Amt: Object.freeze({
+    gender: "neuter",
+    gloss: "office / authority",
+    plural: Object.freeze({ form: "Ämter", stem: "Ämt", ending: "er" }),
+  }),
+  Rad: Object.freeze({
+    gender: "neuter",
+    gloss: "wheel / bike",
+    plural: Object.freeze({ form: "Räder", stem: "Räd", ending: "er" }),
+  }),
+  Loch: Object.freeze({
+    gender: "neuter",
+    gloss: "hole",
+    plural: Object.freeze({ form: "Löcher", stem: "Löch", ending: "er" }),
+  }),
+  Volk: Object.freeze({
+    gender: "neuter",
+    gloss: "people / folk",
+    plural: Object.freeze({ form: "Völker", stem: "Völk", ending: "er" }),
+  }),
+  Gott: Object.freeze({
+    gender: "masculine",
+    gloss: "god",
+    plural: Object.freeze({ form: "Götter", stem: "Gött", ending: "er" }),
+  }),
+  Lied: Object.freeze({
+    gender: "neuter",
+    gloss: "song",
+    plural: Object.freeze({ form: "Lieder", stem: "Lied", ending: "er" }),
+  }),
+  Nest: Object.freeze({
+    gender: "neuter",
+    gloss: "nest",
+    plural: Object.freeze({ form: "Nester", stem: "Nest", ending: "er" }),
+  }),
+  Feld: Object.freeze({
+    gender: "neuter",
+    gloss: "field",
+    plural: Object.freeze({ form: "Felder", stem: "Feld", ending: "er" }),
+  }),
+  Gast: Object.freeze({
+    gender: "masculine",
+    gloss: "guest",
+    plural: Object.freeze({ form: "Gäste", stem: "Gäst", ending: "e" }),
+  }),
+  Hand: Object.freeze({
+    gender: "feminine",
+    gloss: "hand",
+    plural: Object.freeze({ form: "Hände", stem: "Händ", ending: "e" }),
+  }),
+  Nacht: Object.freeze({
+    gender: "feminine",
+    gloss: "night",
+    plural: Object.freeze({ form: "Nächte", stem: "Nächt", ending: "e" }),
+  }),
+  Fuß: Object.freeze({
+    gender: "masculine",
+    gloss: "foot",
+    plural: Object.freeze({ form: "Füße", stem: "Füß", ending: "e" }),
+  }),
+  Zahn: Object.freeze({
+    gender: "masculine",
+    gloss: "tooth",
+    plural: Object.freeze({ form: "Zähne", stem: "Zähn", ending: "e" }),
+  }),
+  Sohn: Object.freeze({
+    gender: "masculine",
+    gloss: "son",
+    plural: Object.freeze({ form: "Söhne", stem: "Söhn", ending: "e" }),
+  }),
+  Stuhl: Object.freeze({
+    gender: "masculine",
+    gloss: "chair",
+    plural: Object.freeze({ form: "Stühle", stem: "Stühl", ending: "e" }),
+  }),
+  Kopf: Object.freeze({
+    gender: "masculine",
+    gloss: "head",
+    plural: Object.freeze({ form: "Köpfe", stem: "Köpf", ending: "e" }),
+  }),
+  Wand: Object.freeze({
+    gender: "feminine",
+    gloss: "wall",
+    plural: Object.freeze({ form: "Wände", stem: "Wänd", ending: "e" }),
+  }),
+  Kunst: Object.freeze({
+    gender: "feminine",
+    gloss: "art",
+    plural: Object.freeze({ form: "Künste", stem: "Künst", ending: "e" }),
+  }),
+  Taxi: Object.freeze({
+    gender: "neuter",
+    gloss: "taxi",
+    plural: Object.freeze({ form: "Taxis", stem: "Taxi", ending: "s" }),
+  }),
+  Sofa: Object.freeze({
+    gender: "neuter",
+    gloss: "sofa",
+    plural: Object.freeze({ form: "Sofas", stem: "Sofa", ending: "s" }),
+  }),
+  Handy: Object.freeze({
+    gender: "neuter",
+    gloss: "mobile phone",
+    plural: Object.freeze({ form: "Handys", stem: "Handy", ending: "s" }),
+  }),
+  Radio: Object.freeze({
+    gender: "neuter",
+    gloss: "radio",
+    plural: Object.freeze({ form: "Radios", stem: "Radio", ending: "s" }),
+  }),
+  Team: Object.freeze({
+    gender: "neuter",
+    gloss: "team",
+    plural: Object.freeze({ form: "Teams", stem: "Team", ending: "s" }),
+  }),
+  Foto: Object.freeze({
+    gender: "neuter",
+    gloss: "photo",
+    plural: Object.freeze({ form: "Fotos", stem: "Foto", ending: "s" }),
+  }),
+  Baby: Object.freeze({
+    gender: "neuter",
+    gloss: "baby",
+    plural: Object.freeze({ form: "Babys", stem: "Baby", ending: "s" }),
+  }),
+  Chef: Object.freeze({
+    gender: "masculine",
+    gloss: "boss / chef",
+    plural: Object.freeze({ form: "Chefs", stem: "Chef", ending: "s" }),
+  }),
+  Laptop: Object.freeze({
+    gender: "masculine",
+    gloss: "laptop",
+    plural: Object.freeze({ form: "Laptops", stem: "Laptop", ending: "s" }),
+  }),
+  Hobby: Object.freeze({
+    gender: "neuter",
+    gloss: "hobby",
+    plural: Object.freeze({ form: "Hobbys", stem: "Hobby", ending: "s" }),
+  }),
+  Klima: Object.freeze({
+    gender: "neuter",
+    gloss: "climate",
+    plural: Object.freeze({ form: "Klimas", stem: "Klima", ending: "s" }),
+  }),
+  Tempo: Object.freeze({
+    gender: "neuter",
+    gloss: "tempo / speed",
+    plural: Object.freeze({ form: "Tempos", stem: "Tempo", ending: "s" }),
+  }),
+  Detail: Object.freeze({
+    gender: "neuter",
+    gloss: "detail",
+    plural: Object.freeze({ form: "Details", stem: "Detail", ending: "s" }),
+  }),
+  Meeting: Object.freeze({
+    gender: "neuter",
+    gloss: "meeting",
+    plural: Object.freeze({ form: "Meetings", stem: "Meeting", ending: "s" }),
+  }),
+
 });
 
 /**

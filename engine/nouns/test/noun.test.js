@@ -194,7 +194,7 @@ describe("exercises + attempts", () => {
     assert.equal(nounArticle("Kind"), "das");
     assert.equal(LEXICON.Hund.plural.form, "Hunde");
     assert.equal(LEXICON.Kind.plural.form, "Kinder");
-    assert.equal(LEXICON.Mann.plural, undefined);
+    assert.equal(LEXICON.Mann.plural.form, "Männer");
     assert.equal(nounAnalysis("Hund").pattern, null);
   });
 
