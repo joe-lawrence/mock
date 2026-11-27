@@ -6,7 +6,7 @@ import {
       stopPiperAudio,
       isPiperReady,
     } from './piper-tts.js?v=wort2-piper-4';
-    import { buildWort2Vocab } from './wort2-vocab.js?v=wort2-plurals-gender1';
+    import { buildWort2Vocab } from './wort2-vocab.js?v=wort2-drop-plnotes';
     import {
       getExampleSentence
     } from './wort2-definitions.js?v=wort2-content-5';
@@ -918,11 +918,82 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       return { base: wordObj.word || '', suffix: '' };
     }
 
+    /** Escape text for HTML plural chips (lemmas are trusted, but keep markup safe). */
+    function escapePluralHtml(text) {
+      return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    /**
+     * Bold umlaut vowels in the plural stem that mutated from a/o/u (or au→äu)
+     * in the singular. Used in answer/reveal mode across all ending classes.
+     */
+    function highlightUmlautMutations(singular, pluralBase) {
+      const s = String(singular || '');
+      const p = String(pluralBase || '');
+      if (!p) return '';
+      if (!s || s === p) return escapePluralHtml(p);
+
+      const sLow = s.toLowerCase();
+      const pLow = p.toLowerCase();
+      const mark = new Array(p.length).fill(false);
+      let i = 0;
+      let j = 0;
+
+      while (i < s.length && j < p.length) {
+        const sAu = sLow.slice(i, i + 2) === 'au';
+        const pAeu = pLow[j] === 'ä' && pLow[j + 1] === 'u';
+        if (sAu && pAeu) {
+          mark[j] = true; // ä in äu
+          i += 2;
+          j += 2;
+          continue;
+        }
+
+        const sc = sLow[i];
+        const pc = pLow[j];
+        if (
+          (sc === 'a' && pc === 'ä') ||
+          (sc === 'o' && pc === 'ö') ||
+          (sc === 'u' && pc === 'ü')
+        ) {
+          mark[j] = true;
+          i += 1;
+          j += 1;
+          continue;
+        }
+
+        if (sc === pc) {
+          i += 1;
+          j += 1;
+          continue;
+        }
+
+        // Divergent length (rare) — advance the longer side's cursor carefully.
+        i += 1;
+        j += 1;
+      }
+
+      let html = '';
+      for (let k = 0; k < p.length; k++) {
+        const ch = escapePluralHtml(p[k]);
+        html += mark[k] ? `<span class="wm-plural-umlaut">${ch}</span>` : ch;
+      }
+      return html;
+    }
+
     /**
      * Plural with colored ending. `endingTrait` overrides the ending/color
      * (used while sorting so chips follow the column the user chose).
+     * `highlightUmlaut` — answer/reveal only: bold mutated ä/ö/ü in the stem.
      */
-    function formatPluralAnswerHtml(wordObj, { endingTrait = null } = {}) {
+    function formatPluralAnswerHtml(
+      wordObj,
+      { endingTrait = null, highlightUmlaut = false } = {}
+    ) {
       if (!wordObj) return '';
       const trait = endingTrait || wordObj.trait;
       const st = TRAIT_STYLES[trait];
@@ -932,21 +1003,27 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       // (Abgabe + n, Bücher + er) — never force trait label "en" onto an -e stem.
       if (!endingTrait || endingTrait === wordObj.trait) {
         const { base, suffix } = lexicalPluralParts(wordObj);
-        if (!suffix) return base;
-        return `${base}<span class="wm-plural-ending-text ${colorClass}">${suffix}</span>`;
+        const baseHtml = highlightUmlaut
+          ? highlightUmlautMutations(wordObj.word, base)
+          : escapePluralHtml(base);
+        if (!suffix) return baseHtml;
+        return `${baseHtml}<span class="wm-plural-ending-text ${colorClass}">${escapePluralHtml(suffix)}</span>`;
       }
 
       // Wrong column while sorting: synthesize from singular + trait ending.
       const stem = wordObj.word || '';
       const suffix = syntheticPluralSuffix(stem, trait);
-      if (suffix == null || suffix === '') return stem;
-      return `${stem}<span class="wm-plural-ending-text ${colorClass}">${suffix}</span>`;
+      if (suffix == null || suffix === '') return escapePluralHtml(stem);
+      return `${escapePluralHtml(stem)}<span class="wm-plural-ending-text ${colorClass}">${escapePluralHtml(suffix)}</span>`;
     }
 
-    function formatDisplayWordHtml(wordObj, { showEnding = false, showArticle = false } = {}) {
+    function formatDisplayWordHtml(
+      wordObj,
+      { showEnding = false, showArticle = false, highlightUmlaut = false } = {}
+    ) {
       if (!wordObj) return '';
       if (wordObj.domain === 'plurals' && showEnding) {
-        return formatPluralAnswerHtml(wordObj);
+        return formatPluralAnswerHtml(wordObj, { highlightUmlaut });
       }
       if (showArticle && wordObj.domain === 'nouns') {
         return formatGenderArticleHtml(wordObj) || formatDisplayWord(wordObj);
@@ -1193,8 +1270,8 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       };
 
       /**
-       * Sortable pools never include unintroduced Learning words.
-       * Fill phases: learned (falls through to mastered) → mastered → introduced learning only.
+       * Sortable pools never include unintroduced Learning words (except emergency fill).
+       * Fill phases: learned (falls through to mastered) → mastered → introduced learning.
        */
       const getSortablePool = (tier, trait) => {
         if (tier === 'learning') {
@@ -1206,6 +1283,23 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
           return getExactBucket('mastered', trait);
         }
         return getExactBucket('mastered', trait);
+      };
+
+      /** How many non-anchor sortables a trait can still supply (preferred tiers). */
+      const sortableSupply = (trait, excludeIds = new Set()) => {
+        const pools = [
+          ...getExactBucket('learned', trait),
+          ...getExactBucket('mastered', trait),
+          ...getIntroducedLearning(trait),
+        ];
+        const seen = new Set();
+        let n = 0;
+        for (const w of pools) {
+          if (!w || excludeIds.has(w.id) || seen.has(w.id)) continue;
+          seen.add(w.id);
+          n += 1;
+        }
+        return n;
       };
 
       const pushSortable = (sortableWords, usedIds, w) => {
@@ -1220,6 +1314,24 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         });
       };
 
+      /**
+       * Last resort so rounds never ship with an empty sort queue (common early in
+       * Plurals when almost everything is still cold Learning).
+       */
+      const emergencyFillSortables = (sortableWords, usedIds, pairTraits) => {
+        const [leftTrait, rightTrait] = pairTraits;
+        const cold = domainItems.filter(
+          (w) =>
+            w &&
+            (w.trait === leftTrait || w.trait === rightTrait) &&
+            !usedIds.has(w.id)
+        );
+        for (const w of shuffleArray(cold)) {
+          if (sortableWords.length >= totalNeeded) break;
+          pushSortable(sortableWords, usedIds, w);
+        }
+      };
+
       let bestRound = null;
       let isUnique = false;
 
@@ -1227,33 +1339,60 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       for (let attempt = 0; attempt < 25; attempt++) {
         let pairTraits;
         if (focusWord && traits.includes(focusWord.trait)) {
-          const other =
-            pickRandom(
-              traits.filter(t => t !== focusWord.trait).map(t => ({ id: t, val: t }))
-            )?.val || traits.find(t => t !== focusWord.trait);
+          // Prefer a partner trait that can still supply sortables.
+          const others = shuffleArray(traits.filter((t) => t !== focusWord.trait));
+          const withSupply = others.find((t) => sortableSupply(t) > 0);
+          const other = withSupply || others[0] || traits.find((t) => t !== focusWord.trait);
           pairTraits = shuffleArray([focusWord.trait, other]);
         } else {
-          // Prefer traits that still have unintroduced Learning words so new items get taught as anchors.
-          const traitsWithFresh = traits.filter(t => getUnintroducedLearning(t).length > 0);
-          const traitsWithLearning = traits.filter(t => getExactBucket('learning', t).length > 0);
-          if (traitsWithFresh.length >= 2) {
-            pairTraits = shuffleArray(traitsWithFresh).slice(0, 2);
-          } else if (traitsWithFresh.length === 1) {
-            const other =
-              pickRandom(
-                traits.filter(t => t !== traitsWithFresh[0]).map(t => ({ id: t, val: t }))
-              )?.val || traits.find(t => t !== traitsWithFresh[0]);
-            pairTraits = shuffleArray([traitsWithFresh[0], other]);
-          } else if (traitsWithLearning.length >= 2) {
-            pairTraits = shuffleArray(traitsWithLearning).slice(0, 2);
-          } else if (traitsWithLearning.length === 1) {
-            const otherTrait =
-              pickRandom(
-                traits.filter(t => t !== traitsWithLearning[0]).map(t => ({ id: t, val: t }))
-              )?.val || traits.find(t => t !== traitsWithLearning[0]);
-            pairTraits = shuffleArray([traitsWithLearning[0], otherTrait]);
+          // Prefer traits that still have unintroduced Learning (anchors), but
+          // require the *pair* to have some sortable supply after teaching.
+          const traitsWithFresh = traits.filter((t) => getUnintroducedLearning(t).length > 0);
+          const traitsWithLearning = traits.filter((t) => getExactBucket('learning', t).length > 0);
+          const traitsWithSortables = traits.filter((t) => sortableSupply(t) > 0);
+
+          const pickPair = (preferred) => {
+            const pool = preferred.length ? preferred : traits;
+            const ranked = shuffleArray(pool).sort(
+              (a, b) => sortableSupply(b) - sortableSupply(a)
+            );
+            if (ranked.length >= 2) {
+              // Keep at least one preferred/fresh trait when possible; pair with supply.
+              const first = ranked[0];
+              const partner =
+                ranked.slice(1).find((t) => sortableSupply(t) > 0) ||
+                shuffleArray(traits.filter((t) => t !== first)).sort(
+                  (a, b) => sortableSupply(b) - sortableSupply(a)
+                )[0] ||
+                ranked[1];
+              return shuffleArray([first, partner]);
+            }
+            if (ranked.length === 1) {
+              const other =
+                shuffleArray(traits.filter((t) => t !== ranked[0])).sort(
+                  (a, b) => sortableSupply(b) - sortableSupply(a)
+                )[0] || traits.find((t) => t !== ranked[0]);
+              return shuffleArray([ranked[0], other]);
+            }
+            return shuffleArray(traits).slice(0, 2);
+          };
+
+          if (traitsWithFresh.length >= 1 && traitsWithSortables.length >= 1) {
+            // Bias toward fresh anchors, but ensure sortable supply in the pair.
+            const fresh = shuffleArray(traitsWithFresh);
+            const first = fresh[0];
+            const partner =
+              shuffleArray(
+                traitsWithSortables.filter((t) => t !== first)
+              )[0] ||
+              shuffleArray(traits.filter((t) => t !== first))[0];
+            pairTraits = shuffleArray([first, partner]);
+          } else if (traitsWithSortables.length >= 2) {
+            pairTraits = pickPair(traitsWithSortables);
+          } else if (traitsWithLearning.length >= 1) {
+            pairTraits = pickPair(traitsWithLearning);
           } else {
-            pairTraits = shuffleArray(traits).slice(0, 2);
+            pairTraits = pickPair(traits);
           }
         }
 
@@ -1277,9 +1416,9 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         if (focusWord && traitOk(focusWord)) {
           pushSortable(sortableWords, usedIds, focusWord);
         }
-        relatedIds.forEach(rid => {
+        relatedIds.forEach((rid) => {
           if (sortableWords.length >= totalNeeded) return;
-          const rel = domainItems.find(w => w.id === rid);
+          const rel = domainItems.find((w) => w.id === rid);
           if (traitOk(rel)) pushSortable(sortableWords, usedIds, rel);
         });
 
@@ -1287,7 +1426,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         const fillOrder = [
           ...Array(totalNeeded).fill('learned'),
           ...Array(totalNeeded).fill('mastered'),
-          ...Array(totalNeeded).fill('learning')
+          ...Array(totalNeeded).fill('learning'),
         ];
         for (const tier of fillOrder) {
           if (sortableWords.length >= totalNeeded) break;
@@ -1300,32 +1439,62 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
           pushSortable(sortableWords, usedIds, w);
         }
 
-        const allIds = [leftAnchor?.id, rightAnchor?.id, ...sortableWords.map(w => w.id)].filter(Boolean).sort();
+        // Never deal a round with nothing to sort (early Plurals / thin Learned).
+        if (sortableWords.length === 0) {
+          emergencyFillSortables(sortableWords, usedIds, pairTraits);
+        }
+
+        // Prefer attempts that actually have sortables; keep searching if empty.
+        if (sortableWords.length === 0 && !focusWord) {
+          continue;
+        }
+
+        const allIds = [leftAnchor?.id, rightAnchor?.id, ...sortableWords.map((w) => w.id)]
+          .filter(Boolean)
+          .sort();
         const comboKey = allIds.join('|');
 
         // Keep practice focus near the front of the unsorted queue.
         const orderedItems = focusWord
           ? [
-              ...sortableWords.filter(w => w.id === focusWord.id),
-              ...shuffleArray(sortableWords.filter(w => w.id !== focusWord.id))
+              ...sortableWords.filter((w) => w.id === focusWord.id),
+              ...shuffleArray(sortableWords.filter((w) => w.id !== focusWord.id)),
             ]
           : shuffleArray(sortableWords);
 
-        bestRound = {
+        const candidate = {
           leftTrait,
           rightTrait,
           leftAnchor,
           rightAnchor,
           items: orderedItems,
           comboKey,
-          practiceFocusId: focusWord?.id || null
+          practiceFocusId: focusWord?.id || null,
         };
 
+        // Prefer non-empty rounds over empty unique ones.
+        if (
+          !bestRound ||
+          (orderedItems.length > 0 && bestRound.items.length === 0) ||
+          (orderedItems.length > 0 && !seenSet.has(comboKey) && seenSet.has(bestRound.comboKey))
+        ) {
+          bestRound = candidate;
+        }
+
         // Practice rounds always accept the first build (forced set).
-        if (focusWord || !seenSet.has(comboKey)) {
+        if (focusWord) {
+          bestRound = candidate;
           isUnique = !seenSet.has(comboKey);
           break;
         }
+
+        if (orderedItems.length > 0 && !seenSet.has(comboKey)) {
+          bestRound = candidate;
+          isUnique = true;
+          break;
+        }
+
+        if (!bestRound) bestRound = candidate;
       }
 
       if (bestRound && !seenSet.has(bestRound.comboKey)) {
@@ -2488,7 +2657,11 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       const badgeHtml = pluralsDomain
         ? ''
         : `<span data-anchor-badge="true" data-normal-class="${normalBadgeClass}" class="${normalBadgeClass}">${trait}</span>`;
-      const anchorWordHtml = formatDisplayWordHtml(anchorWord, { showEnding: pluralsDomain });
+      const anchorWordHtml = formatDisplayWordHtml(anchorWord, {
+        showEnding: pluralsDomain,
+        // Reveal umlaut mutations once answers are shown (and on post-Check anchors).
+        highlightUmlaut: pluralsDomain && isChecked,
+      });
 
       // Bigger learning card: pill alone, then word, then gloss
       containerEl.style.minHeight = '';
@@ -2643,7 +2816,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
 
           return `
             <div data-col-item-id="${item.id}" data-col-side="${side}" data-was-wrong="${wasWrong ? '1' : '0'}" data-normal-class="${normalRevealClass}" class="${normalRevealClass} ${animClass}">
-              <span class="text-sm font-extrabold wm-word-scroll flex-1">${formatDisplayWordHtml(item, { showEnding: true, showArticle: true })}</span>${missMark}
+              <span class="text-sm font-extrabold wm-word-scroll flex-1">${formatDisplayWordHtml(item, { showEnding: true, showArticle: true, highlightUmlaut: true })}</span>${missMark}
             </div>
           `;
         }

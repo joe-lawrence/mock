@@ -76,19 +76,21 @@ function pluralHasUmlaut(lemma, plural) {
   return countUmlauts(plural?.stem) > countUmlauts(lemma);
 }
 
+/**
+ * Optional grammar note for Plurals cards.
+ * Skip generic “ends in -e / no ending” lines — the ending column + citation
+ * already show that. Keep only notes that teach something extra.
+ */
 function pluralNote(lemma, plural) {
   const trait = pluralEndingTrait(plural?.ending);
-  const umlaut = pluralHasUmlaut(lemma, plural);
-  const umlautBit = umlaut ? ' (+ umlaut)' : '';
-  if (trait === '+en') {
-    if (String(lemma).endsWith('in')) return 'Feminine -in doubles n → -innen';
-    return `Plural ends in -(e)n${umlautBit}`;
+  if (trait === '+en' && String(lemma).endsWith('in')) {
+    return 'Feminine -in doubles n → -innen';
   }
-  if (trait === '+e') return `Plural ends in -e${umlautBit}`;
-  if (trait === '+er') return `Plural ends in -er${umlautBit}`;
-  if (trait === '+s') return 'Plural ends in -s (often loanwords)';
-  if (trait === '—') return 'Plural same as singular (no ending)';
-  return 'Lexical plural';
+  // Zero ending but vowel change — “—” alone looks like “unchanged”.
+  if (trait === '—' && pluralHasUmlaut(lemma, plural)) {
+    return 'Plural takes umlaut (no ending)';
+  }
+  return '';
 }
 
 export const VOCAB_CORE = [

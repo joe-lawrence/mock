@@ -594,6 +594,15 @@
       white-space: nowrap;
     }
 
+    /* Answer/reveal: mutated umlaut vowel in the plural stem (a→ä, o→ö, u→ü, au→äu) */
+    .wm-plural-umlaut {
+      font-weight: 800;
+      text-decoration: underline;
+      text-decoration-thickness: 2px;
+      text-underline-offset: 0.12em;
+      text-decoration-color: color-mix(in srgb, var(--ink) 55%, transparent);
+    }
+
     .wm-miss-mark {
       flex-shrink: 0;
       display: inline-flex;
@@ -1282,7 +1291,7 @@
     })();
   </script>
   <script type="module">
-    import('./js/wort2-app.js?v=1127plurals-gender1').catch((err) => {
+    import('./js/wort2-app.js?v=1127drop-plnotes').catch((err) => {
       const msg = (err && (err.message || String(err))) || 'import failed';
       if (typeof window.__wortShowBootError === 'function') {
         window.__wortShowBootError(msg.slice(0, 100));
