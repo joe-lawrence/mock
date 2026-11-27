@@ -11,6 +11,11 @@ import {
       getExampleSentence
     } from './wort2-definitions.js?v=wort2-content-5';
     import { buildDictionaryCard } from './wort2-dictionary.js?v=dict1';
+    import {
+      playKaraokeFlow,
+      clearKaraokeTimers,
+    } from './karaoke-flow.js?v=20261127-karaoke';
+    import { karaokeSyllablesForPhrase } from './german-syllables.js?v=20261127-karaoke';
     const { VOCAB_DATA, LEVEL_DEFINITIONS } = buildWort2Vocab();
 
 document.documentElement.dataset.wortBoot = 'loading';
@@ -157,7 +162,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
     const MAX_SCORE = 8;
     const GRADUATION_RATIO = 0.75; // 75% Learned (score >= 3) marks a pack complete
     /** Hard cap so column chips + learning anchors still fit on one screen. */
-    const MAX_ROUND_SORTABLES = 5;
+    const MAX_ROUND_SORTABLES = 6;
 
     let appState = {
       domain: 'nouns',          // 'nouns' | 'case' | 'plurals'
@@ -166,9 +171,6 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         case: [1],
         plurals: [1]
       },
-      learningCount: 2,         // 0..3 sortable Learning words per round
-      learnedCount: 2,          // 0..3
-      masteredCount: 1,         // 0..3 (sum capped at MAX_ROUND_SORTABLES)
       soundEnabled: true,
       speechEnabled: true,
       streak: 0,
@@ -378,23 +380,10 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         appState.domain = 'nouns';
       }
 
-      if (typeof appState.learningCount !== 'number') {
-        appState.learningCount = 2;
-      }
-      if (typeof appState.learnedCount !== 'number') appState.learnedCount = 2;
-      if (typeof appState.masteredCount !== 'number') appState.masteredCount = 1;
-      appState.learningCount = Math.max(0, Math.min(3, appState.learningCount));
-      appState.learnedCount = Math.max(0, Math.min(3, appState.learnedCount));
-      appState.masteredCount = Math.max(0, Math.min(3, appState.masteredCount));
-      // Prefer trimming Mastered → Learned → Learning if a save exceeds the fit cap.
-      while (
-        appState.learningCount + appState.learnedCount + appState.masteredCount > MAX_ROUND_SORTABLES
-      ) {
-        if (appState.masteredCount > 0) appState.masteredCount--;
-        else if (appState.learnedCount > 0) appState.learnedCount--;
-        else if (appState.learningCount > 0) appState.learningCount--;
-        else break;
-      }
+      // Drop legacy Words-per-round mix fields from older saves.
+      delete appState.learningCount;
+      delete appState.learnedCount;
+      delete appState.masteredCount;
 
       if (!appState.introduced || typeof appState.introduced !== 'object') {
         appState.introduced = {};
@@ -530,6 +519,10 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
     let speakAfterCancel = false;
     let piperSpeakGen = 0;
     let piperWarmStarted = false;
+    /** Dictionary karaoke highlight timers (Schnapp playKaraokeFlow bag). */
+    const dictKaraokeTimers = [];
+    /** Refined from prior karaoke onEnd — feeds estimateUtteranceMs. */
+    let ttsMsPerChar = null;
 
     function isIOSAudioDevice() {
       const ua = navigator.userAgent || '';
@@ -777,6 +770,10 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
 
     function stopSpeech() {
       piperSpeakGen += 1;
+      clearKaraokeTimers(dictKaraokeTimers);
+      document.querySelectorAll('#trans-karaoke .wm-syl.is-active').forEach((el) => {
+        el.classList.remove('is-active');
+      });
       try {
         stopPiperAudio();
       } catch {
@@ -795,7 +792,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
     }
 
     /** English (and German fallback) via device speechSynthesis. */
-    function speakText(text, onDone, langCode = 'en-US') {
+    function speakText(text, onDone, langCode = 'en-US', hooks = null) {
       if (!appState.speechEnabled || !('speechSynthesis' in window) || !text) {
         if (onDone) onDone();
         return;
@@ -828,6 +825,9 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
           if (onDone) onDone();
         };
 
+        utterance.onstart = () => {
+          hooks?.onStart?.();
+        };
         utterance.onend = finishOnce;
         utterance.onerror = finishOnce;
         const fallbackTimer = setTimeout(finishOnce, Math.max(1800, text.length * 85));
@@ -969,14 +969,18 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       return TRAIT_STYLES[wordObj.trait]?.subLabel || wordObj.trait || null;
     }
 
-    /** Speak one German string via Piper (or device fallback). */
-    function speakGermanUtterance(phrase, gen, onDone) {
+    /**
+     * Speak one German string via Piper (or device fallback).
+     * Optional `hooks` mirror Schnapp withGermanUtterance (onStart may get durationMs).
+     */
+    function speakGermanUtterance(phrase, gen, onDone, hooks = null) {
       if (!phrase) {
         if (onDone) onDone();
         return;
       }
       const finish = () => {
         if (gen !== piperSpeakGen) return;
+        hooks?.onEnd?.();
         if (onDone) onDone();
       };
 
@@ -994,26 +998,37 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
             if (gen !== piperSpeakGen) return;
             if (!ready) {
               setAppStatus(cachedGermanVoice ? 'Device German voice' : 'No German voice yet');
-              speakText(phrase, finish, 'de-DE');
+              speakText(phrase, finish, 'de-DE', {
+                onStart: () => hooks?.onStart?.(),
+              });
               return;
             }
             setAppStatus('Voice ready');
           }
           if (gen !== piperSpeakGen) return;
           await speakGermanPiper(phrase, {
+            rate: hooks?.rate || 1,
+            onStart: (info) => {
+              if (gen !== piperSpeakGen) return;
+              hooks?.onStart?.(info);
+            },
             onEnd: finish,
             onError: (err) => {
               console.warn('[wort2] Piper speak error, falling back', err);
               if (gen !== piperSpeakGen) return;
               setAppStatus('Piper failed · device voice');
-              speakText(phrase, finish, 'de-DE');
+              speakText(phrase, finish, 'de-DE', {
+                onStart: () => hooks?.onStart?.(),
+              });
             },
           });
         } catch (err) {
           console.warn('[wort2] Piper unavailable, falling back', err);
           if (gen !== piperSpeakGen) return;
           setAppStatus('Using device voice');
-          speakText(phrase, finish, 'de-DE');
+          speakText(phrase, finish, 'de-DE', {
+            onStart: () => hooks?.onStart?.(),
+          });
         }
       };
 
@@ -1134,10 +1149,8 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
 
       const traits = DOMAIN_CONFIG[appState.domain].traits;
       const seenSet = new Set(appState.seenCombinations);
-      const totalNeeded = Math.min(
-        MAX_ROUND_SORTABLES,
-        appState.learningCount + appState.learnedCount + appState.masteredCount
-      );
+      /** Fixed round size — Learned → Mastered → introduced Learning (scarcity only). */
+      const totalNeeded = MAX_ROUND_SORTABLES;
 
       const getExactBucket = (tier, trait) =>
         domainItems.filter(w => w.trait === trait && getTier(appState.scores[w.id] ?? 0) === tier);
@@ -1165,15 +1178,11 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
 
       /**
        * Sortable pools never include unintroduced Learning words.
-       * Learning slots → introduced Learning only; else Learned; else Mastered.
+       * Fill phases: learned (falls through to mastered) → mastered → introduced learning only.
        */
       const getSortablePool = (tier, trait) => {
         if (tier === 'learning') {
-          const intro = getIntroducedLearning(trait);
-          if (intro.length > 0) return intro;
-          const learned = getExactBucket('learned', trait);
-          if (learned.length > 0) return learned;
-          return getExactBucket('mastered', trait);
+          return getIntroducedLearning(trait);
         }
         if (tier === 'learned') {
           const learned = getExactBucket('learned', trait);
@@ -1258,10 +1267,11 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
           if (traitOk(rel)) pushSortable(sortableWords, usedIds, rel);
         });
 
+        // Prefer Learned, then Mastered; dip into introduced Learning only if still short.
         const fillOrder = [
-          ...Array(appState.learningCount).fill('learning'),
-          ...Array(appState.learnedCount).fill('learned'),
-          ...Array(appState.masteredCount).fill('mastered')
+          ...Array(totalNeeded).fill('learned'),
+          ...Array(totalNeeded).fill('mastered'),
+          ...Array(totalNeeded).fill('learning')
         ];
         for (const tier of fillOrder) {
           if (sortableWords.length >= totalNeeded) break;
@@ -1588,6 +1598,80 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
 
     let transDismissCallback = null;
 
+    function clearDictKaraoke() {
+      clearKaraokeTimers(dictKaraokeTimers);
+      const row = document.getElementById('trans-karaoke');
+      if (!row) return;
+      row.querySelectorAll('.wm-syl.is-active').forEach((el) => {
+        el.classList.remove('is-active');
+      });
+      row.replaceChildren();
+      row.classList.add('hidden');
+    }
+
+    /**
+     * Mount compact orthographic karaoke chips (SYL·a·bel).
+     * @returns {HTMLElement[]}
+     */
+    function mountDictKaraoke(syllables) {
+      const row = document.getElementById('trans-karaoke');
+      if (!row) return [];
+      row.replaceChildren();
+      if (!syllables?.length) {
+        row.classList.add('hidden');
+        return [];
+      }
+      syllables.forEach((s, i) => {
+        if (i > 0) {
+          const sep = document.createElement('span');
+          sep.className = 'wm-syl-sep';
+          sep.textContent = '·';
+          sep.setAttribute('aria-hidden', 'true');
+          row.appendChild(sep);
+        }
+        const chip = document.createElement('span');
+        chip.className = 'wm-syl' + (s.stress ? ' has-stress' : '');
+        if (s.article) chip.classList.add('wm-syl-article');
+        chip.textContent = s.text;
+        row.appendChild(chip);
+      });
+      row.classList.remove('hidden');
+      return [...row.querySelectorAll('.wm-syl')];
+    }
+
+    /**
+     * Speak phrase with Schnapp-style duration-weighted syllable highlight.
+     */
+    function speakGermanWithKaraoke(phrase, wordObj, gen, onDone) {
+      const syllables = karaokeSyllablesForPhrase(phrase, {
+        compound: wordObj?.compound || null,
+      });
+      const nodes = mountDictKaraoke(syllables);
+      if (!nodes.length) {
+        speakGermanUtterance(phrase, gen, onDone);
+        return;
+      }
+
+      playKaraokeFlow(phrase, syllables, nodes, {
+        timers: dictKaraokeTimers,
+        getMsPerChar: () => ttsMsPerChar,
+        setMsPerChar: (v) => {
+          ttsMsPerChar = v;
+        },
+        speak: (text, speakOpts) => {
+          speakGermanUtterance(text, gen, null, speakOpts);
+        },
+        onEnd: () => {
+          if (gen !== piperSpeakGen) return;
+          if (onDone) onDone();
+        },
+        onError: () => {
+          if (gen !== piperSpeakGen) return;
+          if (onDone) onDone();
+        },
+      });
+    }
+
     function showTranslationPopup(wordObj, revealAnswer = false, options = {}) {
       if (!wordObj) return;
       const {
@@ -1605,6 +1689,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       }
 
       initAudio();
+      clearDictKaraoke();
       if (transHideTimer) {
         clearTimeout(transHideTimer);
         transHideTimer = null;
@@ -1726,7 +1811,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         }, remaining);
       };
 
-      speakGermanWord(wordObj, showTrait, () => {
+      speakDictionaryCard(wordObj, showTrait, () => {
         if (popupRunId !== anchorIntroRunId) return;
         if (readDefinitionAloud && definitionText) {
           setTimeout(() => {
@@ -1741,6 +1826,47 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
           scheduleFadeOutAfterMinRead();
         }
       });
+    }
+
+    /** Dictionary popup TTS — lemma karaoke (Schnapp timing) after optional trait label. */
+    function speakDictionaryCard(wordObj, includeArticle, onDone = null) {
+      if (!appState.speechEnabled || !wordObj) {
+        if (onDone) onDone();
+        return;
+      }
+
+      const gen = ++piperSpeakGen;
+      clearKaraokeTimers(dictKaraokeTimers);
+
+      try {
+        void unlockPiperAudio();
+        initAudio();
+      } catch (_) { /* ignore */ }
+
+      const finish = () => {
+        if (gen !== piperSpeakGen) return;
+        if (onDone) onDone();
+      };
+
+      if (includeArticle && isCategoryLabelDomain(wordObj.domain)) {
+        const label = categorySpokenLabel(wordObj);
+        const word = formatSpokenPhrase(wordObj, true);
+        if (!label) {
+          speakGermanWithKaraoke(word, wordObj, gen, finish);
+          return;
+        }
+        speakGermanUtterance(label, gen, () => {
+          if (gen !== piperSpeakGen) return;
+          setTimeout(() => {
+            if (gen !== piperSpeakGen) return;
+            speakGermanWithKaraoke(word, wordObj, gen, finish);
+          }, 420);
+        });
+        return;
+      }
+
+      const phrase = formatSpokenPhrase(wordObj, includeArticle);
+      speakGermanWithKaraoke(phrase, wordObj, gen, finish);
     }
 
     function setColumnHighlight(side) {
@@ -1826,6 +1952,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         clearTimeout(transHideTimer);
         transHideTimer = null;
       }
+      clearDictKaraoke();
       const cb = transDismissCallback;
       transDismissCallback = null;
       elTransCard.classList.remove('scale-100', 'opacity-100');
@@ -3004,11 +3131,6 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         ? 'Sprint → Sort'
         : 'Start Game';
 
-      document.getElementById('val-learning').textContent = appState.learningCount;
-      document.getElementById('val-learned').textContent = appState.learnedCount;
-      document.getElementById('val-mastered').textContent = appState.masteredCount;
-      document.getElementById('total-words-badge').textContent = `${appState.learningCount + appState.learnedCount + appState.masteredCount} words`;
-
       ['nouns', 'case', 'plurals'].forEach(dom => {
         const btn = document.getElementById(`domain-${dom}`);
         if (!btn) return;
@@ -3151,51 +3273,6 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
           renderWordBank();
         }
       });
-    });
-
-    const getTotalRoundWords = () => appState.learningCount + appState.learnedCount + appState.masteredCount;
-
-    document.getElementById('btn-learning-dec').addEventListener('click', () => {
-      if (appState.learningCount > 0 && getTotalRoundWords() > 2) {
-        appState.learningCount--;
-        saveState();
-        updateHeaderAndLegend();
-      }
-    });
-    document.getElementById('btn-learning-inc').addEventListener('click', () => {
-      if (appState.learningCount < 3 && getTotalRoundWords() < MAX_ROUND_SORTABLES) {
-        appState.learningCount++;
-        saveState();
-        updateHeaderAndLegend();
-      }
-    });
-    document.getElementById('btn-learned-dec').addEventListener('click', () => {
-      if (appState.learnedCount > 0 && getTotalRoundWords() > 2) {
-        appState.learnedCount--;
-        saveState();
-        updateHeaderAndLegend();
-      }
-    });
-    document.getElementById('btn-learned-inc').addEventListener('click', () => {
-      if (appState.learnedCount < 3 && getTotalRoundWords() < MAX_ROUND_SORTABLES) {
-        appState.learnedCount++;
-        saveState();
-        updateHeaderAndLegend();
-      }
-    });
-    document.getElementById('btn-mastered-dec').addEventListener('click', () => {
-      if (appState.masteredCount > 0 && getTotalRoundWords() > 2) {
-        appState.masteredCount--;
-        saveState();
-        updateHeaderAndLegend();
-      }
-    });
-    document.getElementById('btn-mastered-inc').addEventListener('click', () => {
-      if (appState.masteredCount < 3 && getTotalRoundWords() < MAX_ROUND_SORTABLES) {
-        appState.masteredCount++;
-        saveState();
-        updateHeaderAndLegend();
-      }
     });
 
     document.getElementById('toggle-sound').addEventListener('click', () => {

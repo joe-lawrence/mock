@@ -143,6 +143,7 @@ import {
   orderPluralTrayLabels,
   pluralizeProductiveBeats,
 } from "./wug-plural-karaoke.js?v=20261027-nowug";
+import { playKaraokeFlow as playKaraokeFlowShared } from "./karaoke-flow.js?v=20261127-karaoke";
 import {
   DIRECTION,
   isReverse,
@@ -21165,17 +21166,6 @@ function scheduleSoundsAdvance(delayMs = 1400) {
   }, delayMs);
 }
 
-/** Estimate utterance length; refine from prior onend measurements when available. */
-function estimateUtteranceMs(text, rate) {
-  const measured = state.ttsMsPerChar;
-  if (measured && measured > 25 && measured < 180) {
-    return Math.max(480, measured * text.length);
-  }
-  // ~11 German graphemes/sec at rate 1 for common browser voices (rough)
-  const charsPerSec = 11 * rate;
-  return Math.max(520, (text.length / charsPerSec) * 1000 + 140);
-}
-
 /** Map legacy discriminate → listen; unknown → karaoke. */
 function normalizeSoundsMode(mode) {
   if (mode === "discriminate" || mode === "listen") return "listen";
@@ -22440,78 +22430,19 @@ function playKaraoke(item) {
 /** Full-word TTS with flowing syllable highlight (chart examples + quiz Play word). */
 function playKaraokeFlow(tts, syllables, nodes, opts = {}) {
   const { keepAdvance = false, onEnd, onError } = opts;
+  // Stop first, then own a fresh timer bag (stopSpeech clears state.karaokeTimers).
   stopSpeech({ keepAdvance });
-  if (!nodes.length || !tts) {
-    onError?.();
-    return;
-  }
-
-  const rate = 1;
-  const weights = syllables.map((s) =>
-    Math.max(2, (s.text || "").length + (s.stress ? 1 : 0))
-  );
-  const totalW = weights.reduce((a, b) => a + b, 0);
-  const estimated = estimateUtteranceMs(tts, rate);
   const timers = [];
   state.karaokeTimers = timers;
-
-  const clearActive = () => {
-    nodes.forEach((n) => n.classList.remove("is-active"));
-  };
-
-  const schedule = (totalMs) => {
-    timers.forEach(clearTimeout);
-    timers.length = 0;
-    clearActive();
-    let t = 60;
-    const usable = Math.max(320, totalMs - 100);
-    syllables.forEach((_, i) => {
-      const slice = (weights[i] / totalW) * usable;
-      const at = t;
-      timers.push(
-        setTimeout(() => {
-          clearActive();
-          nodes[i]?.classList.add("is-active");
-        }, at)
-      );
-      t += slice;
-    });
-  };
-
-  let startedAt = 0;
-  let finished = false;
-  const finish = (fn) => {
-    if (finished) return;
-    finished = true;
-    fn?.();
-  };
-
-  withGermanUtterance(tts, {
-    rate,
-    onStart: (info) => {
-      startedAt = performance.now();
-      const durationMs =
-        info && typeof info.durationMs === "number" && info.durationMs > 0
-          ? info.durationMs
-          : estimated;
-      schedule(durationMs);
+  playKaraokeFlowShared(tts, syllables, nodes, {
+    speak: (text, speakOpts) => withGermanUtterance(text, speakOpts),
+    timers,
+    getMsPerChar: () => state.ttsMsPerChar,
+    setMsPerChar: (v) => {
+      state.ttsMsPerChar = v;
     },
-    onEnd: () => {
-      const actual = Math.max(300, performance.now() - startedAt);
-      state.ttsMsPerChar = actual / Math.max(1, tts.length);
-      clearActive();
-      nodes[nodes.length - 1]?.classList.add("is-active");
-      timers.push(
-        setTimeout(() => {
-          clearActive();
-          finish(onEnd);
-        }, 320)
-      );
-    },
-    onError: () => {
-      clearActive();
-      finish(onError || onEnd);
-    },
+    onEnd,
+    onError,
   });
 }
 
