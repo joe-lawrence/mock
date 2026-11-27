@@ -2,7 +2,11 @@
  * WortMatch vocab corpus + pack/compound enrichment.
  * Edit here instead of wort2.html.
  */
-import { ARTICLES, LEXICON } from '../engine/nouns/index.js';
+import { LEXICON, productivePluralSpec } from '../engine/nouns/index.js';
+import {
+  AUTHORED_PLURALS,
+  AUTHORED_PLURAL_SKIP,
+} from './wort2-authored-plurals.js';
 
 /** Map lexicon plural.ending → sort trait (n merges into +en). */
 export function pluralEndingTrait(ending) {
@@ -11,6 +15,49 @@ export function pluralEndingTrait(ending) {
   if (ending === 'er') return '+er';
   if (ending === 's') return '+s';
   if (ending === '—' || ending === '-') return '—';
+  return null;
+}
+
+/**
+ * Resolve plural for a gender lemma: engine lexicon → authored TSV → productive rule.
+ * @returns {{ form: string, stem: string, ending: string, source: string } | null}
+ */
+export function resolvePluralForLemma(lemma) {
+  const word = String(lemma || '').trim();
+  if (!word) return null;
+  if (AUTHORED_PLURAL_SKIP.has(word)) return null;
+
+  const lex = LEXICON[word];
+  if (lex?.plural?.form) {
+    return {
+      form: lex.plural.form,
+      stem: lex.plural.stem || word,
+      ending: lex.plural.ending,
+      source: 'lexicon',
+    };
+  }
+  // Explicit mass / no-count in the engine lexicon.
+  if (lex && lex.plural === null) return null;
+
+  const authored = AUTHORED_PLURALS[word];
+  if (authored?.form) {
+    return {
+      form: authored.form,
+      stem: authored.stem || word,
+      ending: authored.ending,
+      source: 'authored',
+    };
+  }
+
+  const prod = productivePluralSpec(word);
+  if (prod?.form) {
+    return {
+      form: prod.form,
+      stem: prod.stem || word,
+      ending: prod.ending,
+      source: 'productive',
+    };
+  }
   return null;
 }
 
@@ -933,39 +980,49 @@ export function buildWort2Vocab() {
     }
   });
 
-  // Attach lexicon plurals onto gender nouns for dictionary display in other modes.
+  // Attach resolved plurals onto gender nouns for dictionary display.
   VOCAB_DATA.forEach((w) => {
     if (w.domain !== 'nouns' || w.pos !== 'noun') return;
-    const lex = LEXICON[w.word];
-    if (!lex?.plural?.form) return;
-    w.pluralForm = lex.plural.form;
-    w.pluralEnding = lex.plural.ending;
-    w.pluralTrait = pluralEndingTrait(lex.plural.ending);
-    w.hasUmlaut = pluralHasUmlaut(w.word, lex.plural);
+    const plural = resolvePluralForLemma(w.word);
+    if (!plural) return;
+    w.pluralForm = plural.form;
+    w.pluralEnding = plural.ending;
+    w.pluralStem = plural.stem;
+    w.pluralTrait = pluralEndingTrait(plural.ending);
+    w.hasUmlaut = pluralHasUmlaut(w.word, plural);
   });
 
-  // —— Plurals domain: one sortable item per lexicon lemma with a recorded plural ——
+  // —— Plurals domain: one item per gender sortable with a resolved plural ——
   const PLURAL_TRAITS = ['+en', '+e', '+er', '+s', '—'];
   const pluralPools = Object.fromEntries(PLURAL_TRAITS.map((t) => [t, []]));
-  for (const [lemma, entry] of Object.entries(LEXICON)) {
-    if (!entry?.plural?.form) continue;
-    const trait = pluralEndingTrait(entry.plural.ending);
+  const seenPluralLemmas = new Set();
+  const genderSortables = VOCAB_DATA.filter(
+    (w) => w.domain === 'nouns' && !w.rootOnly && w.level != null
+  );
+
+  for (const w of genderSortables) {
+    if (seenPluralLemmas.has(w.word)) continue;
+    const plural = resolvePluralForLemma(w.word);
+    if (!plural) continue;
+    const trait = pluralEndingTrait(plural.ending);
     if (!trait || !pluralPools[trait]) continue;
-    const genderArticle = entry.gender ? ARTICLES[entry.gender] : null;
+    seenPluralLemmas.add(w.word);
     pluralPools[trait].push({
-      id: `vocab.plurals.${lemmaSlug(lemma)}`,
+      id: `vocab.plurals.${lemmaSlug(w.word)}`,
       domain: 'plurals',
       pos: 'noun',
-      word: lemma,
+      word: w.word,
       trait,
-      meaning: entry.gloss || lemma,
-      note: pluralNote(lemma, entry.plural),
+      meaning: w.meaning || w.word,
+      note: pluralNote(w.word, plural),
       initialScore: 0,
-      pluralForm: entry.plural.form,
-      pluralEnding: entry.plural.ending,
-      pluralStem: entry.plural.stem,
-      genderArticle,
-      hasUmlaut: pluralHasUmlaut(lemma, entry.plural)
+      pluralForm: plural.form,
+      pluralEnding: plural.ending,
+      pluralStem: plural.stem,
+      genderArticle: ['der', 'die', 'das'].includes(w.trait) ? w.trait : null,
+      genderSourceId: w.id,
+      pluralSource: plural.source,
+      hasUmlaut: pluralHasUmlaut(w.word, plural),
     });
   }
 
@@ -977,28 +1034,30 @@ export function buildWort2Vocab() {
     });
   }
 
-  const PER_PLURAL_TRAIT = 4; // 4 × 5 endings ≈ 20 words per pack
-  const pluralPackCount = Math.max(
-    1,
-    ...PLURAL_TRAITS.map((t) => Math.ceil(pluralPools[t].length / PER_PLURAL_TRAIT))
-  );
-  for (let p = 0; p < pluralPackCount; p++) {
-    const packId = p + 1;
-    const sliceStart = p * PER_PLURAL_TRAIT;
-    const sliceEnd = sliceStart + PER_PLURAL_TRAIT;
-    for (const t of PLURAL_TRAITS) {
-      pluralPools[t].slice(sliceStart, sliceEnd).forEach((w, i) => {
-        w.level = packId;
-        // Seed a few anchors in pack 1 so Sort can start without a huge sprint.
-        if (packId === 1 && i === 0) w.initialScore = 6;
-        else if (packId === 1 && i === 1) w.initialScore = 3;
-        VOCAB_DATA.push(w);
-      });
-    }
-    LEVEL_DEFINITIONS.plurals.push({
-      id: packId,
-      title: `Pack ${packId}`
+  // ~20 words/pack; round-robin each ending class so packs stay mixed (not +en-only tails).
+  const TARGET_PER_PACK = 20;
+  const pluralTotal = PLURAL_TRAITS.reduce((n, t) => n + pluralPools[t].length, 0);
+  const pluralPackCount = Math.max(1, Math.ceil(pluralTotal / TARGET_PER_PACK));
+
+  for (const t of PLURAL_TRAITS) {
+    pluralPools[t].forEach((w, i) => {
+      w.level = (i % pluralPackCount) + 1;
     });
+  }
+
+  // Seed a few pack-1 anchors so Sort can start without a huge sprint.
+  const pack1 = PLURAL_TRAITS.flatMap((t) =>
+    pluralPools[t].filter((w) => w.level === 1)
+  ).sort((a, b) => a.word.localeCompare(b.word, 'de'));
+  pack1.slice(0, 2).forEach((w, i) => {
+    w.initialScore = i === 0 ? 6 : 3;
+  });
+
+  for (let p = 1; p <= pluralPackCount; p++) {
+    LEVEL_DEFINITIONS.plurals.push({ id: p, title: `Pack ${p}` });
+  }
+  for (const t of PLURAL_TRAITS) {
+    VOCAB_DATA.push(...pluralPools[t]);
   }
 
   return { VOCAB_DATA, LEVEL_DEFINITIONS };

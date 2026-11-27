@@ -6,7 +6,7 @@ import {
       stopPiperAudio,
       isPiperReady,
     } from './piper-tts.js?v=wort2-piper-4';
-    import { buildWort2Vocab } from './wort2-vocab.js?v=wort2-content-5';
+    import { buildWort2Vocab } from './wort2-vocab.js?v=wort2-plurals-gender1';
     import {
       getExampleSentence
     } from './wort2-definitions.js?v=wort2-content-5';
