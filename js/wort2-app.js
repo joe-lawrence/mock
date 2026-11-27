@@ -6,11 +6,11 @@ import {
       stopPiperAudio,
       isPiperReady,
     } from './piper-tts.js?v=wort2-piper-4';
-    import { buildWort2Vocab } from './wort2-vocab.js?v=wort2-content-4';
+    import { buildWort2Vocab } from './wort2-vocab.js?v=wort2-content-5';
     import {
-      getDescriptiveDefinition,
       getExampleSentence
-    } from './wort2-definitions.js?v=wort2-content-4';
+    } from './wort2-definitions.js?v=wort2-content-5';
+    import { buildDictionaryCard } from './wort2-dictionary.js?v=dict1';
     const { VOCAB_DATA, LEVEL_DEFINITIONS } = buildWort2Vocab();
 
 document.documentElement.dataset.wortBoot = 'loading';
@@ -280,7 +280,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         : 0;
       const mistakeLines = report.mistakes.length
         ? report.mistakes.map(m =>
-            `<li class="flex items-center gap-2 py-0.5"><span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold shrink-0" style="background:var(--surface-2)">${m.trait}</span><span class="wm-word-scroll font-semibold">${m.genderArticle ? `${m.genderArticle} ${m.word}` : m.word}</span></li>`
+            `<li class="flex items-center gap-2 py-0.5"><span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold shrink-0" style="background:var(--surface-2)">${m.trait}</span><span class="wm-word-scroll font-semibold">${m.pluralForm || m.word}</span></li>`
           ).join('')
         : '<li style="color:var(--muted)">No misses this session</li>';
 
@@ -459,6 +459,9 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
 
     function isCompoundUnlocked(wordObj) {
       if (!wordObj || !wordObj.compound || !wordObj.compound.rootId) return true;
+      const rootObj = VOCAB_DATA.find(w => w.id === wordObj.compound.rootId);
+      // rootOnly bases exist for breakdown hints only — never gate compounds on them.
+      if (rootObj?.rootOnly) return true;
       const rootScore = appState.scores[wordObj.compound.rootId] ?? 0;
       return rootScore >= 3; // Root must reach Learned tier first
     }
@@ -484,6 +487,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       const packSet = getSelectedPackSet(domain);
       return VOCAB_DATA.filter(w => {
         if (w.domain !== domain) return false;
+        if (w.rootOnly) return false;
         if (!packSet.has(w.level)) return false;
         return isCompoundUnlocked(w);
       });
@@ -857,34 +861,107 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       return wordObj.word;
     }
 
-    function nominativeArticle(wordObj) {
-      if (!wordObj) return null;
-      if (wordObj.domain === 'plurals') return wordObj.genderArticle || null;
-      return null;
-    }
-
     function formatDisplayWord(wordObj) {
       if (!wordObj) return '';
-      const art = nominativeArticle(wordObj);
-      return art ? `${art} ${wordObj.word}` : wordObj.word;
+      // Bare lemma on chips / sort card — no gender article (plurals or otherwise).
+      return wordObj.word;
+    }
+
+    function formatGenderArticleHtml(wordObj, { articleTrait = null } = {}) {
+      if (!wordObj || wordObj.domain !== 'nouns') return '';
+      const art = articleTrait || wordObj.trait;
+      if (!['der', 'die', 'das'].includes(art)) return '';
+      const st = TRAIT_STYLES[art];
+      const colorClass = st?.titleText || '';
+      return `<span class="wm-gender-article-text ${colorClass}">${art}</span>\u00a0${wordObj.word}`;
     }
 
     /**
-     * Plurals ending as colored inline text (not a pill).
-     * Only for learning anchors + answer-mode chips — never on the sort card.
+     * Plural with colored ending. `endingTrait` overrides the ending/color
+     * (used while sorting so chips follow the column the user chose).
      */
-    function pluralEndingTextHtml(wordObj) {
-      if (!wordObj || wordObj.domain !== 'plurals' || !wordObj.trait) return '';
-      const st = TRAIT_STYLES[wordObj.trait];
+    function formatPluralAnswerHtml(wordObj, { endingTrait = null } = {}) {
+      if (!wordObj) return '';
+      const trait = endingTrait || wordObj.trait;
+      const st = TRAIT_STYLES[trait];
       const colorClass = st?.titleText || '';
-      return `<span class="wm-plural-ending-text ${colorClass}">${wordObj.trait}</span>`;
+      const endingFromTrait = (t) => {
+        if (t === '+en') return 'en';
+        if (t === '+e') return 'e';
+        if (t === '+er') return 'er';
+        if (t === '+s') return 's';
+        if (t === '—') return '';
+        return null;
+      };
+
+      // Answer mode / true form: stem + real lexicon ending.
+      if (!endingTrait) {
+        const form = wordObj.pluralForm || '';
+        const stem = wordObj.pluralStem || '';
+        const ending = wordObj.pluralEnding;
+        if (!ending || ending === '—' || ending === '-') {
+          return form || wordObj.word || '';
+        }
+        let base = stem;
+        let suffix = ending;
+        if (form && stem && form.startsWith(stem) && form.slice(stem.length) === ending) {
+          base = stem;
+          suffix = ending;
+        } else if (form && ending && form.endsWith(ending)) {
+          base = form.slice(0, form.length - ending.length);
+          suffix = ending;
+        } else if (form) {
+          return form;
+        } else {
+          return wordObj.word || '';
+        }
+        return `${base}<span class="wm-plural-ending-text ${colorClass}">${suffix}</span>`;
+      }
+
+      // While sorting: reflect the column the user picked (may be wrong).
+      const suffix = endingFromTrait(trait);
+      const stem = wordObj.pluralStem || wordObj.word || '';
+      if (suffix == null || suffix === '') {
+        return stem;
+      }
+      return `${stem}<span class="wm-plural-ending-text ${colorClass}">${suffix}</span>`;
     }
 
-    function formatDisplayWordHtml(wordObj, { showEnding = false } = {}) {
-      const base = formatDisplayWord(wordObj);
-      if (!showEnding) return base;
-      const ending = pluralEndingTextHtml(wordObj);
-      return ending ? `${base}${ending}` : base;
+    function formatDisplayWordHtml(wordObj, { showEnding = false, showArticle = false } = {}) {
+      if (!wordObj) return '';
+      if (wordObj.domain === 'plurals' && showEnding) {
+        return formatPluralAnswerHtml(wordObj);
+      }
+      if (showArticle && wordObj.domain === 'nouns') {
+        return formatGenderArticleHtml(wordObj) || formatDisplayWord(wordObj);
+      }
+      return formatDisplayWord(wordObj);
+    }
+
+    /**
+     * Placed chips before Check: article/ending follow the column the user
+     * chose (not the true answer — that would spoil).
+     */
+    function formatSortingWordHtml(wordObj, { columnTrait = null } = {}) {
+      if (!wordObj) return '';
+      if (wordObj.domain === 'plurals') {
+        return formatPluralAnswerHtml(wordObj, {
+          endingTrait: columnTrait || wordObj.trait,
+        });
+      }
+      if (wordObj.domain === 'nouns') {
+        return (
+          formatGenderArticleHtml(wordObj, {
+            articleTrait: columnTrait || wordObj.trait,
+          }) || formatDisplayWord(wordObj)
+        );
+      }
+      return formatDisplayWord(wordObj);
+    }
+
+    function columnTraitForSide(side) {
+      if (!currentRound) return null;
+      return side === 'left' ? currentRound.leftTrait : currentRound.rightTrait;
     }
 
     function categorySpokenLabel(wordObj) {
@@ -1472,16 +1549,12 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       });
     }
 
-    function formatBuildsHint(wordObj, { includeGender = false } = {}) {
+    function formatBuildsHint(wordObj) {
       const builds = wordObj && wordObj.buildsCompounds;
       if (!builds || !builds.length) return '';
       const shown = builds.slice(0, BUILDS_EXAMPLE_LIMIT);
       const more = builds.length > BUILDS_EXAMPLE_LIMIT ? '…' : '';
-      let line = `Builds: ${shown.join(', ')}${more}`;
-      if (includeGender && wordObj.trait) {
-        line += ` · last noun = ${wordObj.trait}`;
-      }
-      return line;
+      return `Builds: ${shown.join(', ')}${more}`;
     }
 
     function formatCompoundHint(wordObj, revealAnswer = false) {
@@ -1490,7 +1563,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         if (!revealAnswer) return '';
         return `${wordObj.compound.prefix} + ${wordObj.compound.rootTrait} ${wordObj.compound.rootWord}`;
       }
-      return formatBuildsHint(wordObj, { includeGender: revealAnswer });
+      return formatBuildsHint(wordObj);
     }
 
     /** Learning-tier (or round Learning slot) — may see dictionary clues during play. */
@@ -1501,38 +1574,16 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
     }
 
     /**
-     * Richer English gloss / Builds during play for Learning words.
-     * Gender article (pill, TTS, notes, examples) stays answer-mode only —
-     * sortable words must never leak der/die/das until checked.
+     * Full dictionary card: Learning words anytime, or any word after Check.
+     * Sorting non-learning: lemma + definition only.
      */
-    function shouldShowDictionaryClues(wordObj, revealAnswer = false) {
+    function isFullDictionary(wordObj, revealAnswer = false) {
       return !!revealAnswer || isLearningWord(wordObj);
     }
 
-    /** Drop gender / article spoilers from gloss text shown before answer mode. */
-    function stripGenderSpoilers(text) {
-      let s = String(text || '');
-      // "Kitten — neuter because of -chen."
-      s = s.replace(/\s*[—–-]\s*[^.]*\b(neuter|masculine|feminine|gender)\b[^.]*\.?/gi, '');
-      s = s.replace(/\b(neuter|masculine|feminine)\b[^.]*\.?/gi, '');
-      // Parenthetical DE examples that include articles: (ohne die Tasche)
-      s = s.replace(
-        /\((?:[^)]*\b(?:der|die|das|dem|den|des|ein|eine|einen|einem|einer|beim)\b[^)]*)\)/gi,
-        '',
-      );
-      return s.replace(/\s{2,}/g, ' ').replace(/\s+([.,;:])/g, '$1').trim();
-    }
-
-    function popupDefinitionText(wordObj, showClues, revealAnswer = false) {
-      if (!wordObj) return '';
-      if (!showClues) {
-        // Bare gloss only — no sense notes / false-friend asides that spoil the sort.
-        return wordObj.meaning || '';
-      }
-      const rich = getDescriptiveDefinition(wordObj);
-      if (revealAnswer) return rich;
-      // Learning help OK; still strip article/gender spoilers until answer mode.
-      return stripGenderSpoilers(rich) || wordObj.meaning || '';
+    /** Single clean gloss — grammar lives on the citation / note lines. */
+    function dictionaryDefinition(wordObj) {
+      return (wordObj && wordObj.meaning) || '';
     }
 
     let transDismissCallback = null;
@@ -1567,38 +1618,66 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       const noteEl = document.getElementById('trans-note');
       const compEl = document.getElementById('trans-compound');
       const pluralEl = document.getElementById('trans-plural');
+      const bulletsEl = document.getElementById('trans-dict-bullets');
       const exampleEl = document.getElementById('trans-example');
       const exampleEnEl = document.getElementById('trans-example-en');
-      const showClues = shouldShowDictionaryClues(wordObj, revealAnswer);
-      // Articles / gender trait: answer mode only (never while still sorting).
-      const showArticle = !!revealAnswer;
-      const definitionText = popupDefinitionText(wordObj, showClues, revealAnswer);
-      // Examples almost always include der/die/das — never show while sorting.
-      const example = revealAnswer ? getExampleSentence(wordObj) : null;
-      // Plural form: fine in gender/case dictionary. In plurals mode it names the
-      // ending class — only after Check (never while still sorting, even Learning).
-      const showPluralForm =
-        !!wordObj.pluralForm &&
-        (wordObj.domain !== 'plurals' || !!revealAnswer);
+      const hrExample = document.getElementById('trans-hr-example');
+      const hrBuilds = document.getElementById('trans-hr-builds');
 
-      headerLineEl.textContent = formatDisplayWord(wordObj);
+      const full = isFullDictionary(wordObj, revealAnswer);
+      // Trait TTS cue — answer mode only (would spoil the sort).
+      const showTrait = !!revealAnswer;
+      const card = buildDictionaryCard(wordObj, { full, revealAnswer });
+      const definitionText = card.gloss || dictionaryDefinition(wordObj);
+      // Examples carry articles / case / plural forms — answer mode only.
+      const example = revealAnswer ? getExampleSentence(wordObj) : null;
+
+      headerLineEl.textContent = card.citation;
       defEl.textContent = definitionText;
 
-      // Compound breakdown includes root gender — answer mode only.
-      // Builds (no gender line) OK for Learning words during play.
-      const compoundHint = revealAnswer
-        ? formatCompoundHint(wordObj, true)
-        : (showClues && !wordObj.compound
-          ? formatBuildsHint(wordObj, { includeGender: false })
-          : '');
-      if (compoundHint) {
-        compEl.textContent = compoundHint;
-        compEl.classList.remove('hidden');
-      } else {
-        compEl.classList.add('hidden');
+      if (bulletsEl) {
+        if (card.bullets?.length) {
+          bulletsEl.replaceChildren();
+          for (const b of card.bullets) {
+            const li = document.createElement('li');
+            li.textContent = `• ${b}`;
+            bulletsEl.appendChild(li);
+          }
+          bulletsEl.classList.remove('hidden');
+        } else {
+          bulletsEl.replaceChildren();
+          bulletsEl.classList.add('hidden');
+        }
       }
 
-      if (example && exampleEl && exampleEnEl) {
+      if (pluralEl) {
+        if (card.showPluralLine) {
+          pluralEl.textContent = `Plural: die ${wordObj.pluralForm}`;
+          pluralEl.classList.remove('hidden');
+        } else {
+          pluralEl.classList.add('hidden');
+        }
+      }
+
+      // Trait pill only when citation doesn't already carry gender / case / ending.
+      if (card.showTraitPill && st) {
+        pillEl.textContent = wordObj.trait;
+        pillEl.className = `wm-anchor-pill ${st.badgeBg}`;
+        pillEl.classList.remove('hidden');
+      } else {
+        pillEl.classList.add('hidden');
+      }
+
+      // Grammar note (suffix rules, etc.): answer mode only.
+      if (revealAnswer && wordObj.note) {
+        noteEl.textContent = wordObj.note;
+        noteEl.classList.remove('hidden');
+      } else {
+        noteEl.classList.add('hidden');
+      }
+
+      const showExample = !!(example && exampleEl && exampleEnEl);
+      if (showExample) {
         exampleEl.textContent = example.de;
         exampleEl.classList.remove('hidden');
         exampleEnEl.textContent = example.en;
@@ -1607,32 +1686,23 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         exampleEl.classList.add('hidden');
         exampleEnEl.classList.add('hidden');
       }
+      hrExample?.classList.toggle('hidden', !showExample);
 
-      if (pluralEl) {
-        if (showPluralForm) {
-          pluralEl.textContent = `Plural: die ${wordObj.pluralForm}`;
-          pluralEl.classList.remove('hidden');
-        } else {
-          pluralEl.classList.add('hidden');
-        }
+      // Compounds: full breakdown after Check; Builds on Learning while sorting.
+      let compoundHint = '';
+      if (revealAnswer) {
+        compoundHint = formatCompoundHint(wordObj, true) || '';
+      } else if (full && !wordObj.compound) {
+        compoundHint = formatBuildsHint(wordObj) || '';
       }
-
-      // Gender / trait pill: answer mode only.
-      if (showArticle && st) {
-        pillEl.textContent = wordObj.trait;
-        pillEl.className = `wm-anchor-pill ${st.badgeBg}`;
-        pillEl.classList.remove('hidden');
+      if (compoundHint) {
+        compEl.textContent = compoundHint;
+        compEl.classList.remove('hidden');
       } else {
-        pillEl.classList.add('hidden');
+        compEl.classList.add('hidden');
       }
-
-      // Grammar note answer-mode only (gender rules / plural ending notes spoil sorts).
-      if (revealAnswer && wordObj.note) {
-        noteEl.textContent = wordObj.note;
-        noteEl.classList.remove('hidden');
-      } else {
-        noteEl.classList.add('hidden');
-      }
+      // Divider before Builds only when example (or prior block) is above it.
+      hrBuilds?.classList.toggle('hidden', !compoundHint);
 
       elTransPopover.classList.remove('hidden');
       requestAnimationFrame(() => {
@@ -1656,7 +1726,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         }, remaining);
       };
 
-      speakGermanWord(wordObj, showArticle, () => {
+      speakGermanWord(wordObj, showTrait, () => {
         if (popupRunId !== anchorIntroRunId) return;
         if (readDefinitionAloud && definitionText) {
           setTimeout(() => {
@@ -1766,7 +1836,16 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       }, 180);
     }
 
+    /** True when the user has highlighted text (don't treat release as a dismiss tap). */
+    function hasTextSelection() {
+      const sel = window.getSelection?.();
+      if (!sel || sel.isCollapsed) return false;
+      return String(sel.toString() || '').trim().length > 0;
+    }
+
     elTransPopover.addEventListener('click', () => {
+      // Selecting/copying dictionary text ends with a click — keep the card open.
+      if (hasTextSelection()) return;
       anchorIntroRunId++;
       revealSequenceRunId++;
       clearRevealHighlights();
@@ -1858,16 +1937,28 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       if (pending) assignWord(pending.id, side);
     }
 
+    /**
+     * Tap anywhere on a column (except an already-sorted chip) to place the
+     * current unsorted word. Chips stopPropagation and unassign themselves.
+     * Use click (not pointer short-press) so empty scroll areas + headers work.
+     */
     function bindColumnSurfacePress(colEl, side) {
       if (!colEl || colEl.dataset.pressBound === '1') return;
       colEl.dataset.pressBound = '1';
       colEl.style.touchAction = 'manipulation';
-      bindShortLongPress(colEl, {
-        onShort: () => handleColumnShortPress(side)
+      colEl.style.cursor = 'pointer';
+      colEl.addEventListener('click', (e) => {
+        if (e.target.closest('[data-col-item-id]')) return;
+        // Long-press on learning card sets this so we don't also place.
+        if (colEl.dataset.suppressPlace === '1') {
+          delete colEl.dataset.suppressPlace;
+          return;
+        }
+        handleColumnShortPress(side);
       });
     }
 
-    // Short-press anywhere on a column sorts the pending word into it.
+    // Tap anywhere on a column (not a sorted chip) sorts the pending word into it.
     bindColumnSurfacePress(elColLeft, 'left');
     bindColumnSurfacePress(elColRight, 'right');
 
@@ -2243,7 +2334,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         placing ? `Place word in ${st.subLabel} column` : `${st.subLabel} column anchor`
       );
 
-      const defText = anchorWord ? getDescriptiveDefinition(anchorWord) : '';
+      const defText = anchorWord ? dictionaryDefinition(anchorWord) : '';
       const normalCardClass = 'wm-surface wm-anchor-card rounded-xl px-2.5 py-2.5 active:scale-[0.98]';
       const normalBadgeClass = `wm-anchor-pill ${st.badgeBg}`;
       const normalWordClass = 'wm-display wm-anchor-word wm-word-scroll';
@@ -2269,20 +2360,39 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         <span class="${normalLabelClass}">${st.subLabel}</span>
       `;
 
-      // Short-press bubbles to column (sort). Long-press on learning card → dictionary.
+      // Short-press on the learning card / header places the pending word (column click).
+      // Long-press → dictionary (and suppress the following click so we don't also place).
       containerEl.onclick = null;
       const anchorCard = containerEl.querySelector('[data-anchor-card]');
       if (anchorCard && anchorWord) {
         anchorCard.style.touchAction = 'manipulation';
+        const colEl = side === 'left' ? elColLeft : elColRight;
         bindShortLongPress(anchorCard, {
           onLong: (e) => {
             e.stopPropagation();
+            if (colEl) {
+              colEl.dataset.suppressPlace = '1';
+              setTimeout(() => {
+                if (colEl.dataset.suppressPlace === '1') delete colEl.dataset.suppressPlace;
+              }, 600);
+            }
             revealSequenceRunId++;
             clearRevealHighlights();
             showTranslationPopup(anchorWord, true);
           }
         });
       }
+    }
+
+    function suppressColumnPlaceFromChip(chipEl) {
+      const colEl = chipEl?.closest?.('.wm-col');
+      if (!colEl) return;
+      // Chip removal on pointerup lets the following click hit the column and
+      // re-place the word — block that one place.
+      colEl.dataset.suppressPlace = '1';
+      setTimeout(() => {
+        if (colEl.dataset.suppressPlace === '1') delete colEl.dataset.suppressPlace;
+      }, 450);
     }
 
     function bindColumnItemClick(el, itemObj) {
@@ -2309,11 +2419,13 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
             showTranslationPopup(itemObj, true);
             return;
           }
+          suppressColumnPlaceFromChip(el);
           unassignWord(itemObj.id);
         },
         onLong: (e) => {
           e.stopPropagation();
           suppressClick = true;
+          suppressColumnPlaceFromChip(el);
           revealSequenceRunId++;
           setColumnHighlight(null);
           clearRevealHighlights();
@@ -2335,6 +2447,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
           showTranslationPopup(itemObj, true);
           return;
         }
+        suppressColumnPlaceFromChip(el);
         unassignWord(itemObj.id);
       });
     }
@@ -2346,8 +2459,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       el.dataset.colSide = side;
       el.className = `word-row-spring cursor-pointer wm-surface rounded-xl px-2.5 py-1.5 flex items-center justify-between gap-1.5 min-w-0${animate ? ' slot-enter' : ''}`;
       el.title = '';
-      // Never show plural endings on placed chips before Check (would spoil the sort).
-      el.innerHTML = `<span class="text-sm font-bold wm-word-scroll flex-1">${formatDisplayWord(item)}</span>`;
+      el.innerHTML = `<span class="text-sm font-bold wm-word-scroll flex-1">${formatSortingWordHtml(item, { columnTrait: columnTraitForSide(side) })}</span>`;
       bindColumnItemClick(el, item);
       containerEl.appendChild(el);
       requestAnimationFrame(() => refreshWordScroll(el));
@@ -2365,9 +2477,10 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       containerEl.innerHTML = assigned.map(item => {
         if (!isChecked) {
           const enterClass = enterId && item.id === enterId ? ' slot-enter' : '';
+          const colTrait = columnTraitForSide(side);
           return `
             <div data-col-item-id="${item.id}" data-col-side="${side}" class="word-row-spring cursor-pointer wm-surface rounded-xl px-2.5 py-1.5 flex items-center justify-between gap-1.5 min-w-0${enterClass}">
-              <span class="text-sm font-bold wm-word-scroll flex-1">${formatDisplayWord(item)}</span>
+              <span class="text-sm font-bold wm-word-scroll flex-1">${formatSortingWordHtml(item, { columnTrait: colTrait })}</span>
             </div>
           `;
         } else {
@@ -2387,7 +2500,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
 
           return `
             <div data-col-item-id="${item.id}" data-col-side="${side}" data-was-wrong="${wasWrong ? '1' : '0'}" data-normal-class="${normalRevealClass}" class="${normalRevealClass} ${animClass}">
-              <span class="text-sm font-extrabold wm-word-scroll flex-1">${formatDisplayWordHtml(item, { showEnding: true })}</span>${missMark}
+              <span class="text-sm font-extrabold wm-word-scroll flex-1">${formatDisplayWordHtml(item, { showEnding: true, showArticle: true })}</span>${missMark}
             </div>
           `;
         }
@@ -2423,7 +2536,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       document.getElementById('unsorted-label').textContent = `Remaining: ${unsorted.length}`;
       const currentItem = unsorted[0];
 
-      // Sort card: article + singular only — never the ending (that is the answer).
+      // Sort card: bare lemma only — article / plural ending appear after placing.
       elUnsortedQueue.innerHTML = `
         <div data-word-id="${currentItem.id}" class="wm-word-card rounded-2xl px-3 py-3 text-center select-none" style="touch-action:manipulation;-webkit-user-select:none;user-select:none">
           <p class="text-xl font-semibold wm-word-scroll">${formatDisplayWord(currentItem)}</p>
@@ -3009,6 +3122,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       if (lastSessionReport) openSessionReport(lastSessionReport);
     });
     document.getElementById('session-report-modal')?.addEventListener('click', (e) => {
+      if (hasTextSelection()) return;
       if (e.target.id === 'session-report-modal') closeSessionReport();
     });
 
@@ -3195,6 +3309,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
     });
 
     elBankModal.addEventListener('click', (e) => {
+      if (hasTextSelection()) return;
       if (e.target === elBankModal) {
         elBankModal.classList.add('hidden');
         bankOpenId = null;
@@ -3239,7 +3354,9 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
     });
 
     function renderWordBank() {
-      const domainItems = VOCAB_DATA.filter(w => w.domain === appState.domain);
+      const domainItems = VOCAB_DATA.filter(
+        w => w.domain === appState.domain && !w.rootOnly
+      );
       const q = bankQuery.toLowerCase();
 
       const items = domainItems
@@ -3304,9 +3421,9 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         const taught = isIntroduced(w.id);
         const missAt = appState.lastMissAt?.[w.id] || 0;
         const open = bankOpenId === w.id;
-        const def = getDescriptiveDefinition(w);
+        const def = dictionaryDefinition(w);
         const example = getExampleSentence(w);
-        const buildsHint = !w.compound ? formatBuildsHint(w, { includeGender: true }) : '';
+        const buildsHint = !w.compound ? formatBuildsHint(w) : '';
 
         const tierBadge = tier === 'mastered'
           ? '<span class="bank-tier-pill bank-tier-mastered">Mastered</span>'
@@ -3329,13 +3446,18 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
             ? `<p class="text-[10px] font-mono text-amber-700 mt-0.5">${escapeBankHtml(buildsHint)}</p>`
             : '';
 
-        const pluralLine = w.pluralForm
+        const dictCard = buildDictionaryCard(w, { full: true, revealAnswer: true });
+        const pluralLine = dictCard.showPluralLine
           ? `<p class="text-[11px] font-semibold" style="color:var(--ink)">Plural: die ${escapeBankHtml(w.pluralForm)}</p>`
+          : '';
+        const bulletLines = dictCard.bullets?.length
+          ? `<ul class="text-[12px] leading-snug space-y-0.5" style="color:var(--muted)">${dictCard.bullets.map((b) => `<li>• ${escapeBankHtml(b)}</li>`).join('')}</ul>`
           : '';
 
         const detail = open ? `
           <div class="mt-2.5 pt-2.5 border-t space-y-1.5 text-left" style="border-color:var(--line)" data-bank-detail>
             <p class="text-xs leading-snug" style="color:var(--ink)">${escapeBankHtml(def)}</p>
+            ${bulletLines}
             ${pluralLine}
             ${example ? `
               <p class="text-[11px] leading-snug font-semibold" style="color:var(--ink)">${escapeBankHtml(example.de)}</p>
@@ -3356,8 +3478,8 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
             <div class="flex items-start justify-between gap-2.5">
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-1.5 min-w-0">
-                  <span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold shrink-0 ${st.badgeBg}">${w.trait}</span>
-                  <span class="font-bold text-sm text-zinc-900 wm-word-scroll">${escapeBankHtml(formatDisplayWord(w))}</span>
+                  ${dictCard.showTraitPill ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold shrink-0 ${st.badgeBg}">${w.trait}</span>` : ''}
+                  <span class="font-bold text-sm text-zinc-900 wm-word-scroll">${escapeBankHtml(dictCard.citation)}</span>
                 </div>
                 <p class="text-xs text-zinc-400 wm-word-scroll mt-0.5">— ${escapeBankHtml(w.meaning || '')}</p>
                 <div class="flex items-center gap-1 flex-wrap mt-1">${statusChips}</div>
@@ -3391,6 +3513,7 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
         const id = row.dataset.bankWordId;
         row.addEventListener('click', (e) => {
           if (e.target.closest('[data-bank-speak], [data-bank-speak-example], [data-bank-practice]')) return;
+          if (hasTextSelection()) return;
           bankOpenId = bankOpenId === id ? null : id;
           renderWordBank();
           if (bankOpenId) {

@@ -129,9 +129,23 @@
     html, body {
       overscroll-behavior: none;
       -webkit-tap-highlight-color: transparent;
+      /* Game chrome stays non-selectable; opt in via .wm-selectable for copyable text. */
       user-select: none;
       -webkit-user-select: none;
       touch-action: manipulation;
+    }
+
+    .wm-selectable,
+    .wm-selectable * {
+      user-select: text;
+      -webkit-user-select: text;
+    }
+    .wm-selectable button,
+    .wm-selectable [role="button"],
+    .wm-selectable input,
+    .wm-selectable select {
+      user-select: none;
+      -webkit-user-select: none;
     }
 
     body.wm-app {
@@ -571,12 +585,12 @@
     }
 
     /* Red X on chips that were sorted into the wrong column */
-    /* Plurals ending suffix on anchors / answer chips — inline, color via wm-title-* */
-    .wm-plural-ending-text {
-      font-family: var(--font-mono);
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      margin-left: 0.35em;
+    /* Plurals ending / gender article — same typeface, trait color only */
+    .wm-plural-ending-text,
+    .wm-gender-article-text {
+      font-weight: inherit;
+      letter-spacing: inherit;
+      margin-left: 0;
       white-space: nowrap;
     }
 
@@ -911,7 +925,7 @@
     <div class="wm-surface rounded-2xl p-3.5 my-2 space-y-3 shrink-0">
       <div class="wm-howto rounded-xl p-2.5">
         <p class="text-xs leading-snug">
-          Tap a bottom <strong style="color:var(--ink)">anchor</strong> to place the word above into that column.
+          Tap a <strong style="color:var(--ink)">column</strong> (or its bottom anchor) to place the word above. Tap a sorted chip to undo.
         </p>
       </div>
 
@@ -1126,20 +1140,23 @@
   <!-- ===================================================================== -->
   <!-- TRANSLATION POPOVER (LONG-PRESS WORD; HOLDS UNTIL TAP TO DISMISS)     -->
   <!-- ===================================================================== -->
-  <div id="translation-popover" class="fixed inset-0 z-50 hidden items-center justify-center p-4" style="background:rgba(18,21,26,0.28)">
-    <div id="translation-card" class="wm-surface rounded-2xl px-4 py-3.5 shadow-2xl border max-w-[300px] w-full text-center transition-all duration-200 scale-95 opacity-0" style="border-color:var(--line-strong)">
+  <div id="translation-popover" class="fixed inset-0 z-50 hidden items-center justify-center p-4" style="background:rgba(18,21,26,0.55);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)">
+    <div id="translation-card" class="wm-surface wm-selectable rounded-2xl px-4 py-3.5 shadow-2xl border max-w-[340px] w-full text-center transition-all duration-200 scale-95 opacity-0" style="border-color:var(--line-strong)">
       <div class="wm-anchor-card text-left">
         <span id="trans-pill" class="wm-anchor-pill wm-badge hidden">der</span>
-        <span id="trans-header-line" class="wm-display wm-anchor-word tracking-tight wm-word-scroll">Lehrer</span>
+        <span id="trans-header-line" class="wm-display wm-anchor-word tracking-tight wm-word-scroll" style="font-size:1.15rem;line-height:1.35">Lehrer</span>
       </div>
       <div id="trans-definition-box" class="mt-2.5 pt-2.5 border-t" style="border-color:var(--line)">
         <p id="trans-definition" class="text-base leading-relaxed"></p>
       </div>
-      <p id="trans-compound" class="text-sm wm-mono mt-2 hidden"></p>
+      <ul id="trans-dict-bullets" class="hidden text-left text-[13px] leading-snug mt-2 space-y-1 pl-0 list-none" style="color:var(--muted)"></ul>
       <p id="trans-plural" class="text-sm font-semibold mt-2 hidden" style="color:var(--ink)"></p>
-      <p id="trans-example" class="text-sm leading-snug mt-2 hidden" style="color:var(--ink)"></p>
-      <p id="trans-example-en" class="text-[13px] leading-snug mt-1 hidden" style="color:var(--muted)"></p>
       <p id="trans-note" class="text-xs mt-1.5 hidden"></p>
+      <hr id="trans-hr-example" class="hidden my-2.5 border-0 border-t" style="border-color:var(--line)">
+      <p id="trans-example" class="text-sm leading-snug hidden" style="color:var(--ink)"></p>
+      <p id="trans-example-en" class="text-[13px] leading-snug mt-1 hidden" style="color:var(--muted)"></p>
+      <hr id="trans-hr-builds" class="hidden my-2.5 border-0 border-t" style="border-color:var(--line)">
+      <p id="trans-compound" class="text-sm wm-mono hidden" style="color:var(--ink)"></p>
     </div>
   </div>
 
@@ -1153,7 +1170,7 @@
         </div>
         <button id="btn-close-session-report" type="button" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style="background:var(--surface-2);color:var(--ink)" aria-label="Close">✕</button>
       </div>
-      <div id="session-report-body" class="p-4 overflow-y-auto thin-scroll space-y-3 text-sm"></div>
+      <div id="session-report-body" class="wm-selectable p-4 overflow-y-auto thin-scroll space-y-3 text-sm"></div>
       <div class="px-4 py-3 border-t" style="border-color:var(--line)">
         <button id="btn-dismiss-session-report" type="button" class="w-full py-3 px-4 wm-btn-primary text-sm">Back to setup</button>
       </div>
@@ -1212,7 +1229,7 @@
       </div>
 
       <!-- Word List -->
-      <div id="word-bank-list" class="p-3 overflow-y-auto thin-scroll space-y-1.5 flex-1">
+      <div id="word-bank-list" class="wm-selectable p-3 overflow-y-auto thin-scroll space-y-1.5 flex-1">
         <!-- Populated dynamically -->
       </div>
 
@@ -1259,7 +1276,7 @@
     })();
   </script>
   <script type="module">
-    import('./js/wort2-app.js?v=1126d').catch((err) => {
+    import('./js/wort2-app.js?v=1127select1').catch((err) => {
       const msg = (err && (err.message || String(err))) || 'import failed';
       if (typeof window.__wortShowBootError === 'function') {
         window.__wortShowBootError(msg.slice(0, 100));
