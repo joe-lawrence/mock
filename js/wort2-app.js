@@ -877,6 +877,48 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
     }
 
     /**
+     * Map a sort trait to a written plural suffix.
+     * +en → "n" when the stem already ends in -e (Abgabe → Abgaben, not Abgabeen).
+     */
+    function syntheticPluralSuffix(stem, trait) {
+      if (trait === '—') return '';
+      if (trait === '+e') return 'e';
+      if (trait === '+er') return 'er';
+      if (trait === '+s') return 's';
+      if (trait === '+en') {
+        const s = String(stem || '');
+        // Weak -e stems take -n; otherwise -en (Zeitung → Zeitungen).
+        if (/e$/i.test(s)) return 'n';
+        return 'en';
+      }
+      return null;
+    }
+
+    /**
+     * Split a lexical plural into base + colored suffix for display.
+     * Prefers lexicon stem/ending (n vs en) over naive trait labels.
+     */
+    function lexicalPluralParts(wordObj) {
+      const form = wordObj.pluralForm || '';
+      const stem = wordObj.pluralStem || '';
+      const ending = wordObj.pluralEnding;
+      if (!ending || ending === '—' || ending === '-') {
+        return { base: form || wordObj.word || '', suffix: '' };
+      }
+      if (form && stem && form.startsWith(stem) && form.slice(stem.length) === ending) {
+        return { base: stem, suffix: ending };
+      }
+      if (form && form.endsWith(ending)) {
+        return {
+          base: form.slice(0, form.length - ending.length),
+          suffix: ending,
+        };
+      }
+      if (form) return { base: form, suffix: '' };
+      return { base: wordObj.word || '', suffix: '' };
+    }
+
+    /**
      * Plural with colored ending. `endingTrait` overrides the ending/color
      * (used while sorting so chips follow the column the user chose).
      */
@@ -885,45 +927,19 @@ if (__wortBootLine) __wortBootLine.textContent = 'German grammar sort · loading
       const trait = endingTrait || wordObj.trait;
       const st = TRAIT_STYLES[trait];
       const colorClass = st?.titleText || '';
-      const endingFromTrait = (t) => {
-        if (t === '+en') return 'en';
-        if (t === '+e') return 'e';
-        if (t === '+er') return 'er';
-        if (t === '+s') return 's';
-        if (t === '—') return '';
-        return null;
-      };
 
-      // Answer mode / true form: stem + real lexicon ending.
-      if (!endingTrait) {
-        const form = wordObj.pluralForm || '';
-        const stem = wordObj.pluralStem || '';
-        const ending = wordObj.pluralEnding;
-        if (!ending || ending === '—' || ending === '-') {
-          return form || wordObj.word || '';
-        }
-        let base = stem;
-        let suffix = ending;
-        if (form && stem && form.startsWith(stem) && form.slice(stem.length) === ending) {
-          base = stem;
-          suffix = ending;
-        } else if (form && ending && form.endsWith(ending)) {
-          base = form.slice(0, form.length - ending.length);
-          suffix = ending;
-        } else if (form) {
-          return form;
-        } else {
-          return wordObj.word || '';
-        }
+      // Answer mode, or correctly placed in its ending column: lexical form
+      // (Abgabe + n, Bücher + er) — never force trait label "en" onto an -e stem.
+      if (!endingTrait || endingTrait === wordObj.trait) {
+        const { base, suffix } = lexicalPluralParts(wordObj);
+        if (!suffix) return base;
         return `${base}<span class="wm-plural-ending-text ${colorClass}">${suffix}</span>`;
       }
 
-      // While sorting: reflect the column the user picked (may be wrong).
-      const suffix = endingFromTrait(trait);
-      const stem = wordObj.pluralStem || wordObj.word || '';
-      if (suffix == null || suffix === '') {
-        return stem;
-      }
+      // Wrong column while sorting: synthesize from singular + trait ending.
+      const stem = wordObj.word || '';
+      const suffix = syntheticPluralSuffix(stem, trait);
+      if (suffix == null || suffix === '') return stem;
       return `${stem}<span class="wm-plural-ending-text ${colorClass}">${suffix}</span>`;
     }
 
